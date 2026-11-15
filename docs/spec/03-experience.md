@@ -286,7 +286,7 @@ Design Read: *Reading this as: a coding practice tool for beginners arriving fro
 - Text on amber is near-black, never white. Measured ratios: `#0E0E10` on amber 8.12 to 1 (`DESIGN.md` section 4.3); white on amber 2.38 to 1 (E-19), which fails.
 - The measured pairs for every token in use are in `DESIGN.md` section 4.3.
 - Pass and fail have their own colors, each at AA contrast on every surface it appears on. Warning has no hue of its own. All three are paired with an icon and a word (`DESIGN.md` section 4.2).
-- Syntax highlighting uses a small palette built around the amber accent, defined as tokens (`DESIGN.md` section 4.4), each color AA on the editor background. A stock editor theme is not used.
+- Syntax highlighting uses a small palette that does not use amber; keywords are set apart by weight. It is defined as tokens (`DESIGN.md` section 4.4), each color AA on the editor background. A stock editor theme is not used.
 
 ### 10.4 Tokens
 
