@@ -254,7 +254,7 @@ Controls and their tests are specified in `06-security-privacy.md`.
 | ID | Requirement | Verified by |
 |---|---|---|
 | NFR-COST-01 | No server-side cost per code execution. | Architecture; no route executes learner code |
-| NFR-COST-02 | Spend alerts are configured at every paid vendor before launch. | Launch checklist |
+| NFR-COST-02 | Every vendor runs on its free tier except the domain (ADR-0029). Usage notifications are on wherever a vendor offers them, and every free-tier limit has a trigger in ADR-0029, all before launch. | Launch checklist |
 
 ## 5. Explicitly out of scope
 

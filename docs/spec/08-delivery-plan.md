@@ -14,7 +14,7 @@ Eight days from an empty repository to a live site. Thirty work packages, each e
 | 4 | The admin dashboard: courses, lessons, test cases, validation, publishing | Publish a first lesson; start writing |
 | 5 | A guest can learn a lesson end to end on a phone | Time yourself writing a lesson; keep writing |
 | 6 | Accounts keep progress across devices, with XP and streak | Approve the privacy and terms text; keep writing |
-| 7 | Security, accessibility, performance, and operations checked and recorded | Do one rollback and one restore; test on phones; move the database to Pro |
+| 7 | Security, accessibility, performance, and operations checked and recorded | Do one rollback and one restore; test on phones; make the backup key |
 | 8 | Launch lessons checked, the site live on the domain | Read every launch lesson on a phone; say go |
 
 Time boxes are estimates of Claude Code's working time. They were not measured. Each review by the owner adds about fifteen minutes.
@@ -71,7 +71,7 @@ Each package lists: its time box, what it depends on, the requirements and threa
 - Covers: NFR-SEC-02, NFR-SEC-04, NFR-SEC-05, NFR-MAINT-06, NFR-MAINT-08, NFR-OBS-01, NFR-REL-04, FR-SYS-04; T-12, T-13, T-15.
 - Builds: the `static`, `unit`, and `build` jobs with pinned actions, least-privilege permissions, and timeouts; the deploy workflow of `07-operations.md` section 3; `proxy.ts` with the nonce policy of `06-security-privacy.md` section 5.2, enforced; the other response headers; `/api/health`; `/api/csp-report`; request IDs; `pnpm infra:verify`; the runbooks for infrastructure setup and for deploy and roll back.
 - Done when: one real page is live at the production address through a pull request with every check green; a pull request with a failing check cannot merge; a pull request with AI attribution in a commit or in its description fails `static`; the attribution check run once over the whole history of `main` finds nothing; `pnpm infra:verify` shows every header and a policy with a nonce and no `unsafe-inline` or `unsafe-eval` for scripts; the page runs its scripts with no policy violation in Chromium, Firefox, and WebKit; the result of trying the policy without the inline style attribute line is recorded; pipeline duration is recorded.
-- Owner: create the Vercel project and the two Supabase projects; turn on branch protection with the required checks; put secrets where the runbook says; point the domain; start the email sender's domain verification and create the Google sign-in client, because both can take hours.
+- Owner: make the repository public (ADR-0029); create the Vercel Hobby project and the two Supabase Free projects; turn on branch protection with the required checks; put secrets where the runbook says; point the domain; start the email sender's domain verification and create the Google sign-in client, because both can take hours.
 
 **WP-1.4 Design tokens, primitives, and the shell**
 - Time box: 3 hours. Depends on: WP-1.1 signed, WP-1.2. Can run beside: WP-1.3.
@@ -221,7 +221,7 @@ Day 6 is done when: a learner signs in, keeps progress across two devices, sees 
 **WP-7.1 Security pass**
 - Time box: 3.5 hours. Can run beside: WP-7.2.
 - Covers: NFR-SEC-01 to NFR-SEC-07, NFR-PRIV-01, FR-ADM-14, FR-AUTH-06; every threat in `06-security-privacy.md` section 4, with T-14 and T-21 built here.
-- Builds: the canary test of T-21; the firewall rate limit rule, or the fallback of `07-operations.md` section 7; the auth provider settings check (redirect allow-list, code lifetime, limits, bot challenge on); the dependency audit and a secret scan over the whole history; the database provider's security advisor run against production; a whole-application review by `security-reviewer`; the fixes.
+- Builds: the canary test of T-21; the firewall rate limit rule and the Postgres counters of `07-operations.md` section 7; the auth provider settings check (redirect allow-list, code lifetime, limits, bot challenge on); the dependency audit and a secret scan over the whole history; the database provider's security advisor run against production; a whole-application review by `security-reviewer`; the fixes.
 - Done when: every row of the threat table names a passing test or a recorded check; `pnpm infra:verify` passes against production; no blocker from the review is open.
 
 **WP-7.2 Accessibility and performance pass**
@@ -233,9 +233,9 @@ Day 6 is done when: a learner signs in, keeps progress across two devices, sees 
 **WP-7.3 Operations**
 - Time box: 2.5 hours. Can run beside: WP-7.4.
 - Covers: NFR-OBS-01, NFR-OBS-02, NFR-OBS-04, NFR-REL-04, NFR-REL-05, NFR-PRIV-02, NFR-PRIV-03, NFR-COST-02; T-16.
-- Builds: `/api/client-error` and the client reporter; tests on the logger's allowlist; analytics turned on; the runbooks for restore, rotating a secret, a spend spike, and a deletion request by email; the verification script for the restore drill.
-- Done when: the owner has done one rollback and one restore from the runbooks, and the time each took is recorded; the uptime check and the spend alerts exist; the production database is on the Pro plan.
-- Owner: move production to Pro; create the uptime check and the spend alerts; do the two drills.
+- Builds: `/api/client-error` and the client reporter; tests on the logger's allowlist; analytics turned on; the nightly encrypted backup workflow of ADR-0030, with a test that no plaintext file is uploaded; the runbooks for restore (including where the backup key lives and how to rotate it), rotating a secret, a usage spike or a free-tier limit reached, and a deletion request by email; the verification script for the restore drill.
+- Done when: the owner has done one rollback and one restore from the runbooks, the restore from a decrypted nightly backup, and the time each took is recorded; the backup workflow has run green on `main` at least once; the uptime check exists; usage notifications are on wherever a vendor offers them.
+- Owner: create an `age` key pair, keep the private key offline, and give the public key; create the uptime check; turn on usage notifications; do the two drills.
 
 **WP-7.4 Every journey on three engines**
 - Time box: 2.5 hours.
@@ -293,6 +293,7 @@ Reviewed in every day check.
 | RISK-10 | A framework or vendor behaves differently from this plan, because versions moved. | Every fact is dated in `09-evidence.md`. The implementer checks current documentation before first use and reports any difference. |
 | RISK-11 | AI attribution reaches the repository anyway, for example from a session that ignores project settings. | Three layers: settings, hooks, and the pipeline check on every commit and pull request text. |
 | RISK-12 | The privacy and terms text is wrong for the audience's law. | Plain text from the real data inventory, approved by the owner. A qualified review before any paid feature. |
+| RISK-13 | A free-tier limit is reached after a video spreads, and the site or sign-in stops: Vercel Hobby waits up to 30 days, Supabase Free pauses, Resend stops at 100 emails a day. Vercel may also disable a Hobby project under its terms. | The triggers of ADR-0029, read in the morning review and in every day check. The owner accepted this risk on 2026-11-15. |
 
 ## 4. Launch checklist
 
@@ -316,10 +317,10 @@ The owner ticks each line. A line with no evidence is not ticked.
 
 ### 4.3 Operations
 
-- [ ] The production database is on the Pro plan and a backup exists.
+- [ ] The nightly encrypted backup ran green on `main`, and one of its backups was restored.
 - [ ] One rollback and one restore have been done from the runbooks.
 - [ ] The uptime check emails the owner when the health endpoint fails. It was tested once.
-- [ ] Spend alerts are set at every paid vendor.
+- [ ] Usage notifications are on wherever a vendor offers them, and every free-tier figure is below its ADR-0029 trigger.
 - [ ] The firewall rate limit is on.
 
 ### 4.4 Lessons

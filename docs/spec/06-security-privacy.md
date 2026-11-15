@@ -65,7 +65,7 @@ Each row has a test. A control without a test is a hope. IDs match the archived 
 | T-11 | Sign-in abuse: open redirect, cross-site request forgery, code guessing, email flooding, account enumeration. | Return path allowlist. PKCE. The framework's same-origin check on server actions plus `SameSite` cookies. Provider rate limits. Bot challenge on code requests. Identical responses whether or not an email is registered. | Dedicated tests for each; provider settings checked in WP-7.1. |
 | T-12 | Secrets exposed in the repository, the client bundle, logs, or CI output. | One environment schema separates public and server variables. A build check searches client bundles for server variable names and values. Secret scanner on commits and in CI. Log redaction. | Build check and scanner are required checks. |
 | T-13 | Supply chain: a compromised package, action, or runtime file. | Frozen lockfile. Install scripts denied unless allowlisted. CI actions pinned by commit. Runtime files come from the locked package, served by us. Dependency audit on every pull request. | Required checks. |
-| T-14 | Abuse and cost: request floods, oversized payloads. | A rate limit at the host's firewall on every write path, by network address. Size limits in schemas and database constraints. Provider limits on sign-in. Spend alerts. | Limit tests; firewall rule verified in WP-7.1. |
+| T-14 | Abuse and cost: request floods, oversized payloads. | A rate limit at the host's firewall on every write path, by network address, plus per-action counters in Postgres (ADR-0029). Size limits in schemas and database constraints. Provider limits on sign-in. Usage notifications and the free-tier triggers of ADR-0029. | Limit tests; firewall rule verified in WP-7.1. |
 | T-15 | Clickjacking. | `frame-ancestors 'none'` on every page. | Header test. |
 | T-16 | Personal data or learner code in logs or analytics. | The logger takes an allowlist of fields. Analytics counts page views only and carries no email, name, code, or free text. | Unit tests on the logger; review in WP-7.3. |
 | T-17 | Deletion leaves data behind. | Cascading deletes from the auth user. The deletion test inspects every table. Backup retention is stated in the privacy policy. | J-10 with database assertions. |
@@ -75,6 +75,7 @@ Each row has a test. A control without a test is a hope. IDs match the archived 
 | T-21 | Solutions, wrong answers, or unpublished lessons reach a learner. | Solutions and wrong answers live in a separate admin-only table. Public pages are built only from queries in `src/content`, which use a client with no session. Lint forbids importing admin queries outside the admin feature. | Canary test: a fixture solution and a fixture draft each contain a unique token; the test searches every response a guest and a learner can get, and the client bundles, and must not find it. |
 | T-22 | A broken lesson goes live by mistake: the solution fails, or the starter already passes. | Validation rules in the dashboard. A database rule: published means validated since the last change. Preview before publishing. | J-13; trigger tests. |
 | T-23 | Code inside an imported lesson runs in the owner's browser with the owner's session. | Import creates a draft and runs nothing. Code runs only when the owner presses Validate, inside the same locked-down worker learners use. Only an admin can import. | Import test asserts that no run starts. Runtime tests for the lock-down. |
+| T-24 | A database backup leaks learner data. The repository is public, so workflow artifacts may be downloadable by anyone. | Dumps are encrypted with `age` to the owner's public key on the runner before upload, and only ciphertext is stored. The private key never enters the repository, CI, or the development machine. The database password lives in a protected environment usable only by the scheduled workflow on `main`. Artifacts are kept 7 days (ADR-0030). | The backup workflow test asserts that no plaintext file is uploaded; the restore drill in WP-7.3. |
 
 ## 5. Baseline controls
 
@@ -157,6 +158,8 @@ Accepted knowingly. Each is recorded in an ADR and revisited at the trigger.
 | Guest progress can be lost if the browser clears storage, which some in-app browsers do. | Storing guest data on the server would create rows for every visitor. | Field data shows meaningful guest loss. |
 | No per-user rate limit, only per network address. | Every write is bounded by a key or a size check. | Abuse that the firewall does not stop. |
 | The privacy policy and terms are approved by the owner, not yet by a lawyer. | Eight days. | Before any paid feature, or at the first formal request about data. |
+| Production runs on Vercel Hobby, whose terms allow only personal or non-commercial use, and Vercel may disable a Hobby project without notice. | The owner chose zero cost (ADR-0029). The site sells nothing. | Any trigger in ADR-0029. |
+| The specification, the security design, and the code are public. | Security rests on the controls, which are tested. Zero cost needs a public repository (ADR-0029). | A control that depends on secrecy is proposed. |
 
 ## 7. Privacy
 
@@ -191,5 +194,5 @@ A qualified person reviews these before any paid feature. The questions for that
 2. Where data is stored and whether cross-border transfer rules are met by the chosen database region and vendors.
 3. Minimum age and what consent is needed for learners under 18.
 4. Whether analytics as configured needs consent or a notice.
-5. Retention periods, including backups.
+5. Retention periods, including the 7-day encrypted backups (ADR-0030).
 6. What must happen, and how fast, if personal data is exposed.

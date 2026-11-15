@@ -10,7 +10,7 @@ How the product is built, shipped, watched, recovered, and paid for. One person 
 | Preview | One deployment per pull request | Staging project | Seeded test accounts and sample lessons | Review by the owner |
 | Production | Live site | Production project | Real | Learners and the owner's lessons |
 
-- Two Supabase projects, staging and production. The free plan allows two active projects (E-11). Production moves to the Pro plan before launch.
+- Two Supabase projects, staging and production, both on the free plan, which allows two active projects (E-11, E-24). Production stays on Free until a trigger in ADR-0029 fires.
 - Preview deployments sign in against staging. Their addresses must be covered by the auth provider's redirect allow-list; configure a pattern for the preview domain, not individual addresses.
 - Lessons are data, so they are per environment. The owner writes real lessons in production only. Staging has seeded sample lessons.
 - Configuration is validated at build and at start (`02-architecture.md` section 13). `.env.example` is the list of record.
@@ -99,7 +99,7 @@ This release sets no formal objectives. It has three numbers the owner looks at 
 
 ## 6. Backup and recovery
 
-- The provider's daily backups on the Pro plan, kept 7 days (E-11). This is the reason production must be on Pro before real learners arrive: free projects have no backups the owner can download.
+- A nightly workflow dumps production through the session pooler, encrypts the dump with `age` to the owner's public key, and keeps the ciphertext as a workflow artifact for 7 days (ADR-0030). Free projects have no provider backups (E-24), and the repository is public, so nothing unencrypted is uploaded.
 - When FR-ADM-12 is built, a course export is a second copy of the lessons that the owner keeps himself.
 - Schema, policies, and configuration are in Git.
 - Recovery point 24 hours. Recovery time 4 hours.
@@ -112,12 +112,12 @@ Starting values. Every write is also bounded by a database key or a size check, 
 | What | Limit | Where |
 |---|---|---|
 | Email code requests | The provider's limits (one resend per 60 seconds per address, a project-wide hourly cap sized for launch day) and a bot challenge | Auth provider |
-| Any `POST` to the app: server actions and report endpoints | 120 per minute per network address | The host's firewall |
+| Any `POST` to the app: server actions and report endpoints | 120 per minute per network address | The host's firewall: the one rate-limit rule of a Hobby project (E-23) |
 | Report endpoints | Body at most 8 kB | Handler |
 
-The host's rate limiting is billed by usage on the Pro plan (E-22). WP-7.1 creates the rule and checks its cost on the usage page. If it is not available or not affordable, the fallback is a small counter table in Postgres, used by the action wrapper.
+A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests a month included (E-23). One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule for every `POST`, and a small counter table in Postgres used by the action wrapper for per-action limits.
 
-Provider settings to configure in WP-2.2: a custom email sender (the built-in one is limited to 2 emails per hour, E-11), sign-in rate limits, the bot challenge, code lifetime, and the email template that shows a code.
+Provider settings to configure in WP-2.2: Resend free as the custom email sender (the built-in one is limited to 2 emails per hour, E-11; Resend free allows 100 a day, E-26), the custom-sender hourly limit raised from its default of 30 to fit the daily cap (E-24), sign-in rate limits, the bot challenge, code lifetime, and the email template that shows a code.
 
 ## 8. Incidents
 
@@ -143,37 +143,39 @@ Each is a numbered procedure in `docs/runbooks/`, written in the work package th
 | A published lesson is wrong | WP-4.3 |
 | Restore from backup | WP-7.3 |
 | Rotate a secret | WP-7.3 |
-| Spend or usage spike | WP-7.3 |
+| Usage spike or a free-tier limit reached | WP-7.3 |
 | A learner asks by email to delete their data | WP-7.3 |
 
 ## 9. Cost and vendor limits
 
-Facts checked on 2026-11-13 and 2026-11-15 (see `09-evidence.md`). Prices and limits change; the owner confirms them before paying.
+Facts checked on 2026-11-13 and 2026-11-15 (see `09-evidence.md`). Limits change; the day check compares usage with them.
 
-| Vendor | Plan needed | Why | Watch |
+| Vendor | Plan | Limit that matters | Watch |
 |---|---|---|---|
-| GitHub | A paid personal plan | Branch protection on a private repository is not available on the free plan (E-14). | CI minutes included in the plan |
-| Vercel | Pro, 20 US dollars per month per developer seat | The free plan is limited to non-commercial use (E-13). | Function usage, data transfer, firewall rate limiting |
-| Supabase | Free for staging; Pro at 25 US dollars per month for production before launch | Free projects pause after a week of low activity and have no downloadable backups (E-11). | Monthly active users, database size, egress |
-| Email provider | A plan whose daily cap exceeds the expected launch-day email sign-ins | Required for sign-in codes. | Daily and monthly send caps, deliverability |
+| GitHub | Free, public repository (ADR-0029) | Branch protection is available on public repositories (E-14). Actions minutes are free for public repositories; artifact storage is 500 MB (E-25). | Artifact storage used by backups |
+| Vercel | Hobby (ADR-0029) | Personal or non-commercial use only; the terms do not define commercial use. Per month: 100 GB fast data transfer, 1,000,000 function invocations, 4 active CPU-hours. Past a limit the feature waits up to 30 days; nothing is billed (E-23). | All three monthly figures |
+| Supabase | Free for staging and production (ADR-0029) | 500 MB database, 5 GB egress, 50,000 monthly active users. Paused after one week of inactivity. No provider backups (E-24). | Database size, egress, any pause |
+| Resend | Free (ADR-0029) | 100 emails a day, 3,000 a month (E-26). | Daily sends |
 | Bot challenge, uptime check | Free tiers | | |
-| Domain | | Needed on Day 1 for email sending and Google sign-in. | Renewal |
+| Domain | The only paid item | Needed on Day 1 for email sending and Google sign-in. | Renewal |
 
 ### 9.1 The costs that scale with success
 
 - **Runtime transfer.** The Python runtime is about 5.5 MB per new learner with Brotli (E-02). It is cached permanently after the first visit. Ten thousand new learners in a month is about 55 GB of transfer.
 - **Page rendering.** Every page view runs a function, because pages are rendered per request (ADR-0028). Lesson content comes from the data cache, so a view costs rendering time and usually no database query.
 
-Both show on the host's usage page. That page is the number to watch after a video does well.
+Both show on the host's usage page. That page is the number to watch after a video does well: on Hobby, a limit reached takes the feature offline for up to 30 days instead of raising a bill.
 
 ### 9.2 Scale triggers
 
+The triggers that move a vendor to its paid plan are in ADR-0029. Within the free tiers:
+
 | When | Do |
 |---|---|
-| Runtime transfer passes half of the plan's comfortable allowance | Point `RUNTIME_ASSET_BASE_URL` at an object store with no egress fees behind a CDN. No code change. |
-| Function usage passes half of the plan's included amount, or page response time gets slow | Move public pages to static rendering with a hash-based script policy. ADR-0028 describes the route. |
-| Monthly active users pass 40,000, or the database passes 400 MB | Move to the next database plan. |
-| Email sends pass 80 percent of the daily cap | Raise the plan before the next campaign. |
+| Runtime transfer passes 50 GB in a month | Point `RUNTIME_ASSET_BASE_URL` at an object store with no egress fees behind a CDN. No code change. |
+| Function invocations or active CPU pass half of the Hobby amount | Move public pages to static rendering with a hash-based script policy (ADR-0028 describes the route), or move to Vercel Pro (ADR-0029). |
+| Monthly active users pass 40,000, the database passes 400 MB, or production pauses | Move production to Supabase Pro (ADR-0029). |
+| Email sends pass 80 in a day | Move to a paid email plan before the next campaign. |
 
 ## 10. Launch readiness for a traffic spike
 
@@ -183,5 +185,5 @@ Heap's traffic arrives in bursts when a video spreads. Before launch:
 - The request proxy does no network work without a session cookie, and fails open if the auth service is slow.
 - Runtime files are served with immutable caching from the host's CDN.
 - The firewall rate limit is on.
-- Spend alerts are set at every paid vendor (NFR-COST-02).
+- Usage notifications are on at every vendor that offers them, and the free-tier figures are in the morning review (NFR-COST-02).
 - The owner has rolled back once and restored once, each from the runbook.
