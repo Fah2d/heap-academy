@@ -1,0 +1,20 @@
+# Secrets. Real environment files never enter the repository.
+.env
+.env.*
+!.env.example
+
+# Personal Claude Code settings
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Dependencies and build output
+node_modules/
+.next/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# Operating system
+.DS_Store
+Thumbs.db
