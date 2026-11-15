@@ -49,7 +49,7 @@ Navigation shows only destinations that exist: Courses, and either Sign in or th
 
 ## 4. Global shell
 
-- Header: Heap mark and wordmark (from `/brand`) linking home, Courses, then the account control. A skip link is the first focusable element.
+- Header: the text wordmark "Heap Academy" linking home, Courses, then the account control. A skip link is the first focusable element.
 - In the workspace the header shrinks to one compact bar: back to course, lesson title, account control.
 - Landmarks on every page: `header`, `nav`, `main`, `footer`. One `h1` per page. Document `lang` and `dir` set from configuration.
 - Footer: privacy and terms links.
@@ -266,29 +266,27 @@ Copy is written with `antislop-copywriting` loaded and lives in `src/messages` (
 
 ## 10. Design brief for `DESIGN.md`
 
-Everything in this section is a **proposal for the owner to accept, edit, or reject** during the direction interview in WP-1.1. The owner is the author of `DESIGN.md`; the implementer transcribes the answers. Values marked (brand) are what is known of the Heap identity and must be checked against the brand book in `/brand`, which wins wherever it differs.
+This section was the brief for the direction interview in WP-1.1. The owner answered it on 2026-11-15, and `DESIGN.md` holds the result. `DESIGN.md` wins wherever it differs from this section. There is no brand kit (ADR-0031).
 
 ### 10.1 Identity
 
-- Heap is named after the heap data structure. (brand)
-- Visual language: a CRT phosphor monitor. Amber on CRT black. (brand)
-- Mark: a binary heap of seven blocks. Wordmark set in Handjet. (brand)
-- Mascot: a pixel-art character with a dark cube CRT head and white chevron eyes; the body and outfit vary, the head does not. (brand)
-- Known colors: amber `#D4A017`; warm off-white text `#FFEBD1`; a deep burgundy `#520423` used as a background in Heap videos. (brand, confirm)
+- Heap is named after the heap data structure.
+- The wordmark is the live text "Heap Academy" in IBM Plex Sans. There is no logo, mark, or mascot.
+- Amber `#D4A017` is kept from Heap's videos as the single accent. The CRT style and burgundy are not used.
 
 ### 10.2 Character
 
-A focused instrument. Closer to a well-made terminal than to a marketing site. The CRT reference shows up in structure and restraint (phosphor amber as the single accent, the console as a real terminal, pixel-grid precision in spacing), not in overlays: no scanlines, no screen curvature, no flicker.
+Formal, clean, and professional. A focused tool, closer to a well-made terminal than to a marketing site.
 
-Proposed Design Read: *Reading this as: a coding practice tool for beginners arriving from short videos, in a CRT phosphor instrument style, dial ENERGY 2 / RHYTHM 2 / MOTION 1.*
+Design Read: *Reading this as: a coding practice tool for beginners arriving from short videos, in a formal, clean, professional style, dial ENERGY 1 / RHYTHM 1 / MOTION 1.*
 
 ### 10.3 Color
 
 - One accent: amber. Used for the primary action, focus, progress, and the current item. Never for decoration.
 - Text on amber is near-black, never white. Measured ratios (E-19): near-black on amber 8.28 to 1; white on amber 2.38 to 1, which fails.
-- Cream text on near-black measures 16.92 to 1; amber on near-black 8.28 to 1; cream on burgundy 12.89 to 1; amber on burgundy 6.31 to 1.
-- Semantic colors for pass, fail, and warning are chosen in WP-1.1, each at AA contrast on every surface it appears on, and each paired with an icon or word.
-- Syntax highlighting uses a small palette derived from the brand colors, defined as tokens, each color AA on the editor background. A stock editor theme is not used.
+- The measured pairs for every token in use are in `DESIGN.md` section 4.3.
+- Pass and fail have their own colors, each at AA contrast on every surface it appears on. Warning has no hue of its own. All three are paired with an icon and a word (`DESIGN.md` section 4.2).
+- Syntax highlighting uses a small palette built around the amber accent, defined as tokens (`DESIGN.md` section 4.4), each color AA on the editor background. A stock editor theme is not used.
 
 ### 10.4 Tokens
 
@@ -302,14 +300,13 @@ A lint rule forbids raw color, spacing, or radius values in component code. This
 
 ### 10.5 Type
 
-- Handjet for the wordmark and a few display numerals (XP, streak) only. (brand)
-- One sans family for interface and lesson prose and one monospace for code, chosen in WP-1.1 from the brand book. If the brand book names none, the proposal is the IBM Plex family: Plex Sans for text, Plex Mono for code. Reason: it comes from terminal-era computing, which fits the CRT identity; it has an Arabic companion so a future Arabic interface keeps one type voice; and it is openly licensed for self-hosting.
+- IBM Plex Sans for the interface, lesson prose, the wordmark, and the XP and streak numerals. IBM Plex Mono for code. Handjet is not used. Reason: it comes from terminal-era computing, which fits a coding tool; it has an Arabic companion so a future Arabic interface keeps one type voice; and it is openly licensed for self-hosting.
 - Lesson prose: at least 16 px, line height about 1.6, measure 60 to 75 characters. Code: at least 14 px desktop, 16 px on phones to avoid zoom on focus.
 - Fonts are self-hosted, subset, and preloaded for the first view only.
 
-### 10.6 Signature element (proposal)
+### 10.6 Signature element
 
-The seven-block heap mark as the progress glyph. A course's chapters map to blocks; a block fills with amber when its chapter is complete; completing a lesson pulses the current chapter's block once. It is the identity motif: specific to Heap, repeated on the course list, the course page, and the completion moment. It needs the owner's approval and, for a course that does not have seven chapters, a rule the owner agrees to.
+The seven-block progress glyph is dropped (ADR-0031). The identity motif is typographic: IBM Plex Mono for structural labels, and a 2 px amber bar on the current item (`DESIGN.md` section 2).
 
 ### 10.7 Shape, depth, motion
 
@@ -319,8 +316,8 @@ The seven-block heap mark as the progress glyph. A course's chapters map to bloc
 
 ### 10.8 Icons and illustration
 
-- Icons: few, each naming a real action or state. The set is chosen in WP-1.1 for fit with the pixel-grid identity, not for a familiar library look. The owner decides between a set drawn on the brand's pixel grid and an existing openly licensed pixel-grid set.
-- Illustration: only the mascot, only from brand assets, only where it adds meaning: empty states, the completion moment, not-found. Never generated by the implementer.
+- Icons: IBM Carbon icons, few, each naming a real action or state (`DESIGN.md` section 8).
+- Illustration: none anywhere in the product. Empty states, the completion moment, and the not-found page are text and actions.
 
 ### 10.9 Never
 

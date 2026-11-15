@@ -20,7 +20,7 @@ While building:
 - Behavior comes from React Aria Components. Do not hand-write focus management, menus, dialogs, or tabs.
 - Every state in section 8 exists and is reachable in a test. No placeholder, no "coming soon", no fake data.
 - Focus is always visible. Touch targets are at least 44 by 44 px. Text and syntax colors meet AA contrast. Motion stops under reduced motion.
-- The only illustration is the mascot from `/brand`. Never generate, draw, or trace a brand asset.
+- No illustration anywhere (ADR-0031). Never generate, draw, or trace a brand asset.
 - Nothing from the "Never" list in section 10.9 of the experience spec.
 - Copy goes in `src/messages`, written with the antislop copywriting skill loaded.
 - The dashboard uses the same tokens and primitives, denser, built for 1024 px and wider.
