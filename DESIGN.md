@@ -19,11 +19,11 @@ Formal, clean, and professional. A tool that respects the learner's time. Hierar
 
 - Every screen has one focal point. On the workspace it is the editor. On every other page it is the one primary action.
 - Layouts are uniform and predictable (RHYTHM 1). Screens of the same kind share one structure.
-- Identity motif: a typographic voice. IBM Plex Mono carries every structural label: lesson numbers (`1.3`), test case names in the tests panel, and console prompts. Plex Sans carries everything else. The current item, such as the current lesson in a list, is marked by a 2 px amber bar on its inline-start edge.
+- Identity motif: a typographic voice. IBM Plex Mono carries every structural label: lesson numbers (`1.3`), test case names in the tests panel, and console prompts. Plex Sans carries everything else. The current item, such as the current lesson in a list, is marked by a 2 px amber `border-inline-start`, weight 600 text, and `aria-current`. A border, not a pseudo-element background, so it still shows in forced-colors mode. Reason: it marks real state with a cue that is not color alone.
 
 ## 3. Theme
 
-Dark only (ADR-0015). Components use semantic tokens only, so a second theme stays a token file.
+Dark only (ADR-0015). Reason: this is a coding tool whose focal point is the editor, and one theme is verified thoroughly. Components use semantic tokens only, so a second theme stays a token file.
 
 ## 4. Color
 
@@ -36,15 +36,23 @@ Raw values. Never used in components.
 | `--gray-950` | `#0E0E10` |
 | `--gray-925` | `#121215` |
 | `--gray-900` | `#16161A` |
+| `--gray-875` | `#1A1A1F` |
 | `--gray-850` | `#1E1E23` |
+| `--gray-800` | `#26262C` |
 | `--gray-700` | `#2E2E36` |
 | `--gray-500` | `#74747F` |
+| `--gray-400` | `#8A877F` |
 | `--gray-300` | `#A9A59D` |
 | `--gray-50` | `#F2F0EC` |
 | `--amber-500` | `#D4A017` |
 | `--amber-400` | `#E3B53A` |
+| `--amber-600` | `#B8890F` |
 | `--green-400` | `#6FD08C` |
 | `--red-400` | `#FF7A7A` |
+| `--pink-300` | `#E3A8C4` |
+| `--teal-300` | `#9FD4C7` |
+
+Gray temperature, on purpose: the surfaces are cool neutral grays, and the two text grays are warm, so long reading feels less clinical.
 
 ### 4.2 Semantic
 
@@ -59,17 +67,42 @@ Raw values. Never used in components.
 | `--color-border` | `--gray-700` | Hairline dividers between regions. Decorative only. |
 | `--color-border-control` | `--gray-500` | The boundary of text fields and other controls |
 | `--color-action` | `--amber-500` | Primary button fill, links, progress, the current-item bar |
-| `--color-action-hover` | `--amber-400` | Primary button fill on hover and press |
+| `--color-action-hover` | `--amber-400` | Primary button fill on hover |
+| `--color-action-press` | `--amber-600` | Primary button fill while pressed |
 | `--color-on-action` | `--gray-950` | Text and icons on amber. Never white. |
 | `--color-focus` | `--amber-500` | The focus ring |
 | `--color-pass` | `--green-400` | A passing test case, a completion |
-| `--color-fail` | `--red-400` | A failing test case, an error |
+| `--color-fail` | `--red-400` | A failing test case, an error, an invalid field's border, destructive actions |
+| `--color-text-placeholder` | `--gray-400` | Placeholder text in fields. Never the only label. |
+| `--color-surface-hover` | `--gray-700` | A hovered item inside a raised surface (menu items), the progress track |
+| `--color-selection` | `--gray-800` | Text selection, in the editor and in `::selection` |
+| `--color-backdrop` | `rgb(0 0 0 / 0.6)` | Behind a dialog |
 
 Amber is the single accent. It marks the primary action, focus, progress, and the current item, and it is never decoration.
 
 Warning has no hue of its own. Amber owns the warm range, so a second warm hue would read as the accent. A warning is a notice in `--color-text` with the Carbon warning icon and a sentence that says what happened.
 
 Pass, fail, and warning always carry an icon and a word. Color is never the only signal.
+
+Links in running text are always underlined (`text-underline-offset: 0.15em`), because amber on the text color measures only 2.09 to 1 against the surrounding text. On hover the underline thickens from 1 px to 2 px. Visited links look the same as unvisited ones. Navigation links in the header are not underlined. They are set apart by their position, and the current one carries the current-item marker.
+
+### 4.5 Component states
+
+| Component | Rest | Hover | Press | Disabled | Other |
+|---|---|---|---|---|---|
+| Primary button | `--color-action` fill, `--color-on-action` text | `--color-action-hover` | `--color-action-press` and a 1 px downward shift | Fill `--color-surface-raised`, text `--color-text-muted`, no hover, `cursor: not-allowed` | One per screen. In the workspace it is Check. |
+| Secondary button | `--color-surface` fill, `--color-border-control` border, `--color-text` text | Fill `--color-surface-raised` | Fill `--color-surface-hover` and a 1 px downward shift | As primary | Run, Stop, Reset code, Show a hint, Retry, Fill from solution |
+| Destructive button | Transparent fill, `--color-fail` border and text | Fill `--color-surface-raised` | Fill `--color-surface-hover` and a 1 px downward shift | As primary | Delete my account, Delete test case, Archive. Never a red fill. |
+| Text field | Fill `--color-bg`, border `--color-border-control`, height 44 px | Border `--color-text-muted` | | Fill `--color-surface`, text `--color-text-muted` | Invalid: border `--color-fail` plus an error sentence below. Read-only: no border, fill `--color-surface`. |
+| Tabs | Text `--color-text-muted` | Text `--color-text` | | | Selected: text `--color-text`, weight 600, and a 2 px `--color-action` bar on the block-end edge |
+| Dialog | Fill `--color-surface-raised`, 1 px `--color-border`, `--radius-dialog`, `--shadow-float`, `--color-backdrop` behind | | | | |
+| Menu item | Fill `--color-surface-raised` | Fill `--color-surface-hover` | | Text `--color-text-muted` | |
+| Progress | Track `--color-surface-hover`, fill `--color-action` | | | | Always with a text value |
+| Notice | Fill `--color-surface`, 1 px `--color-border-control` border, icon and sentence | | | | Kind shown by icon and words, not by fill |
+| Disclosure | Carbon `ChevronRight`, which turns to point down when open | Text `--color-text` | | | `aria-expanded` |
+| Test case state | Pass: `--color-pass`, Carbon `CheckmarkFilled`, "Passed". Fail: `--color-fail`, `ErrorFilled`, "Failed". | | | | Not run: `--color-text-muted`, Carbon `CircleDash`, "Not run" |
+
+Focus: the 2 px ring of section 6 appears on every state above. Inside an overflow container (the console, the tests panel, the editor), the ring is inset (`outline-offset: -2px`) so it is not clipped.
 
 ### 4.3 Measured contrast
 
@@ -90,24 +123,39 @@ Every text pair passes AA for normal text (4.5). The control border passes the 3
 
 ### 4.4 Syntax highlighting
 
-A small palette on `--color-surface-editor` (`#121215`). It is not a stock editor theme. Measured with the same checker.
+A small palette on `--color-surface-editor` (`#121215`). It is not a stock editor theme. Amber is not used in the editor, so the accent stays for action and focus, and no syntax color sits in amber's warm range. Keywords are set apart by weight, not hue. Comments are not italic, because Plex Mono italic is not shipped.
 
-| Token | Value | Ratio | Applies to |
-|---|---|---|---|
-| `--syntax-text` | `#F2F0EC` | 16.43 | Names, operators, punctuation |
-| `--syntax-keyword` | `#D4A017` | 7.87 | `def`, `if`, `for`, `return`, `import` |
-| `--syntax-string` | `#C9D6A3` | 12.14 | Strings |
-| `--syntax-number` | `#F0B98D` | 10.71 | Numbers, `True`, `False`, `None` |
-| `--syntax-function` | `#9CC5E6` | 10.28 | Function names in definitions and calls |
-| `--syntax-builtin` | `#E6C79A` | 11.58 | Built-ins such as `print`, `input`, `len` |
-| `--syntax-comment` | `#949088` | 5.88 | Comments |
-| `--syntax-error` | `#FF7A7A` | 7.41 | The error underline and gutter marker |
+| Token | Value | On editor `#121215` | On active line `#1A1A1F` | On selection `#26262C` | Applies to |
+|---|---|---|---|---|---|
+| `--syntax-text` | `#F2F0EC` | 16.43 | 15.23 | 13.22 | Names, operators, punctuation |
+| `--syntax-keyword` | `#F2F0EC`, weight 600 | 16.43 | 15.23 | 13.22 | `def`, `if`, `for`, `return`, `import` |
+| `--syntax-string` | `#C9D6A3` | 12.14 | 11.25 | 9.76 | Strings |
+| `--syntax-number` | `#E3A8C4` | 9.50 | 8.80 | 7.64 | Numbers, `True`, `False`, `None` |
+| `--syntax-function` | `#9CC5E6` | 10.28 | 9.53 | 8.27 | Function names in definitions and calls |
+| `--syntax-builtin` | `#9FD4C7` | 11.32 | 10.50 | 9.11 | Built-ins such as `print`, `input`, `len` |
+| `--syntax-comment` | `#949088` | 5.88 | 5.45 | 4.73 | Comments |
+| `--syntax-error` | `#FF7A7A` | 7.41 | 6.87 | 5.96 | The error underline and gutter marker |
+
+Editor chrome:
+
+| Token | Value | Use |
+|---|---|---|
+| `--editor-selection` | `--color-selection` `#26262C` | Selected text |
+| `--editor-active-line` | `--gray-875` `#1A1A1F` | The line with the caret |
+| `--editor-caret` | `--color-text` `#F2F0EC` | The caret, 2 px wide |
+| `--editor-gutter-text` | `--gray-400` `#8A877F` | Line numbers: 5.21 on the editor |
+| `--editor-bracket-match` | 1 px `--color-border-control` outline | The matching bracket |
+| `--editor-search-match` | `--color-selection` fill and a 1 px `--color-border-control` outline | Search results |
 
 ## 5. Type
 
-- IBM Plex Sans for the interface, lesson prose, the wordmark, and the XP and streak numerals. IBM Plex Mono for code, the console, and the structural labels of section 2. Handjet is not used.
+- IBM Plex Sans for the interface, lesson prose, the wordmark, and the XP and streak numerals. IBM Plex Mono for code, the console, and the structural labels of section 2. Handjet is not used. Reason: IBM's typeface for technical interfaces, with a monospace companion and an Arabic companion.
+- `--font-sans`: `"IBM Plex Sans"`, then a metric-matched fallback of the system sans, generated with `size-adjust` so the swap does not shift layout. `--font-mono`: `"IBM Plex Mono"`, then a metric-matched `ui-monospace` fallback.
+- XP and streak numerals use `font-variant-numeric: tabular-nums`.
 - License: SIL Open Font License 1.1. Self-hosted as WOFF2, subset to Latin, with the license file kept beside the fonts. Only the weights in use ship: Sans 400, 500, 600; Mono 400, 600. Only the first view's fonts are preloaded.
 - IBM Plex Sans Arabic exists for a future Arabic interface. It is not shipped now.
+
+Sizes below are in px for reading. The tokens are written in rem (16 px = 1rem; 13 px = 0.8125rem), so text follows the browser's zoom and font size.
 
 | Token | Size / line height | Use |
 |---|---|---|
@@ -127,9 +175,9 @@ A small palette on `--color-surface-editor` (`#121215`). It is not a stock edito
 
 - Spacing scale on a 4 px base: `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16, `--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64 px.
 - Phone side gutter: 16 px. Touch targets at least 44 by 44 px.
-- Radius by role: `--radius-control` 4 px (buttons, fields), `--radius-panel` 6 px (panels, cards), `--radius-dialog` 8 px. Nothing is pill-shaped.
+- Radius by role: `--radius-control` 4 px (buttons, fields), `--radius-panel` 6 px (panels, cards), `--radius-dialog` 8 px. Nothing is pill-shaped. Reason: small radii read as precise and formal; they rise with the size of the element.
 - Depth comes from surface steps and hairline borders. A shadow appears only on elements that float above content (dialogs, menus): `--shadow-float: 0 8px 24px rgb(0 0 0 / 0.5)`.
-- Focus ring: 2 px solid `--color-focus`, offset 2 px, on every focusable element. Nothing else glows.
+- Focus ring: 2 px solid `--color-focus`, offset 2 px, on every focusable element; inset inside overflow containers (section 4.5). Nothing else glows.
 
 ## 7. Motion
 
@@ -143,6 +191,11 @@ A small palette on `--color-surface-editor` (`#121215`). It is not a stock edito
 - IBM Carbon icons, Apache License 2.0, imported one by one as SVG components and shipped in the bundle. Size 16 or 20 px, `currentColor`.
 - Few icons, each naming a real action or state: Run, Stop, Check, Reset code, pass, fail, warning, menu, close, external link. A new icon needs a real action or state.
 - An icon-only button has an accessible name from `src/messages`.
+- The one exception is the Google sign-in button. It uses Google's official "G" mark and Google's dark button style, unaltered, as Google's branding rules require. It is a third-party mark, not a Heap asset, so `CLAUDE.md` rule 6 does not apply to it.
+
+## 8a. Distinct from IBM's own design system
+
+IBM Plex, Carbon icons, and dark neutral grays together sit close to IBM's Carbon design system. Amber, the Plex Mono label motif, and the radii above keep it distinct. Components do not copy Carbon's look: no square tabs with a filled selected tab, no 0-radius fields, no Carbon component styles. The WP-1.4 screenshot review checks this.
 
 ## 9. Never
 
@@ -157,4 +210,8 @@ Everything in `docs/spec/03-experience.md` section 10.9, plus:
 
 Owner approval of this direction for the first release:
 
-Signed: Fahad    Date: 2026-11-15
+Signed: Fahad    Date: 2026-11-15 (first version)
+
+Revision after the design review on 2026-11-15: component states (4.5), link underlines, the editor palette without amber, editor chrome, font tokens, the inset focus ring, the Google button, and reasons for the main choices.
+
+Signed: Fahad    Date: 2026-11-15 (revision)

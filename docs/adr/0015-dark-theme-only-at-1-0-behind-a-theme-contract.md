@@ -8,7 +8,7 @@
 
 ## Context
 
-The product is a coding tool, and the owner chose a dark interface (ADR-0031). Each additional theme doubles the surface that must be verified.
+The product is a coding tool whose focal point is the editor, and the owner chose a dark interface on the decision sheet (`docs/reports/decision-sheet.md`). Each additional theme doubles the surface that must be verified.
 
 ## Decision
 
@@ -26,7 +26,7 @@ One dark theme. Components use semantic tokens only, enforced by lint, so a seco
 
 ## Evidence
 
-E-19. See `docs/spec/09-evidence.md`.
+The measured contrast of every token pair in `DESIGN.md` section 4.3.
 
 ## Revisit when
 

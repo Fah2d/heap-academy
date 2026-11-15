@@ -1,6 +1,6 @@
 # 03 Experience
 
-How the product looks, reads, and behaves. Section 10 is the brief the owner uses to author `DESIGN.md` in WP-1.1. `DESIGN.md` is the source of visual direction; antislop is the filter applied on top of it; this document supplies structure and behavior.
+How the product looks, reads, and behaves. Section 10 was the brief for the WP-1.1 direction interview, which produced the signed `DESIGN.md`. `DESIGN.md` is the source of visual direction; antislop is the filter applied on top of it; this document supplies structure and behavior.
 
 ## 1. Principles
 
@@ -158,7 +158,7 @@ One component renders every learner error with the same shape: a heading in plai
 
 ### 6.6 Completion moment
 
-When every test case passes: the tests list shows each one passed, one line states "Lesson complete" and the XP earned, and the primary action becomes "Next" with the next lesson's title. One restrained acknowledgement defined in `DESIGN.md` plays once and is static under reduced motion. No modal, no confetti, no sound.
+When every test case passes: the tests list shows each one passed, one line states "Lesson complete" and the XP earned, and the primary action becomes "Next" with the next lesson's title. The acknowledgement is the 160 ms state change defined in `DESIGN.md` section 7, with no animation beyond it. No modal, no confetti, no sound.
 
 For a guest, after the first completion only, an inline card below the result offers to save progress with an account. It can be dismissed and does not return in that session.
 
@@ -283,7 +283,7 @@ Design Read: *Reading this as: a coding practice tool for beginners arriving fro
 ### 10.3 Color
 
 - One accent: amber. Used for the primary action, focus, progress, and the current item. Never for decoration.
-- Text on amber is near-black, never white. Measured ratios (E-19): near-black on amber 8.28 to 1; white on amber 2.38 to 1, which fails.
+- Text on amber is near-black, never white. Measured ratios: `#0E0E10` on amber 8.12 to 1 (`DESIGN.md` section 4.3); white on amber 2.38 to 1 (E-19), which fails.
 - The measured pairs for every token in use are in `DESIGN.md` section 4.3.
 - Pass and fail have their own colors, each at AA contrast on every surface it appears on. Warning has no hue of its own. All three are paired with an icon and a word (`DESIGN.md` section 4.2).
 - Syntax highlighting uses a small palette built around the amber accent, defined as tokens (`DESIGN.md` section 4.4), each color AA on the editor background. A stock editor theme is not used.
@@ -300,7 +300,7 @@ A lint rule forbids raw color, spacing, or radius values in component code. This
 
 ### 10.5 Type
 
-- IBM Plex Sans for the interface, lesson prose, the wordmark, and the XP and streak numerals. IBM Plex Mono for code. Handjet is not used. Reason: it comes from terminal-era computing, which fits a coding tool; it has an Arabic companion so a future Arabic interface keeps one type voice; and it is openly licensed for self-hosting.
+- IBM Plex Sans for the interface, lesson prose, the wordmark, and the XP and streak numerals. IBM Plex Mono for code. Handjet is not used. Reason: it is IBM's typeface for technical interfaces, with a monospace companion; it has an Arabic companion so a future Arabic interface keeps one type voice; and it is openly licensed for self-hosting.
 - Lesson prose: at least 16 px, line height about 1.6, measure 60 to 75 characters. Code: at least 14 px desktop, 16 px on phones to avoid zoom on focus.
 - Fonts are self-hosted, subset, and preloaded for the first view only.
 
@@ -312,7 +312,7 @@ The seven-block progress glyph is dropped (ADR-0031). The identity motif is typo
 
 - Radius: small and consistent, set per element role. Nothing pill-shaped by default.
 - Depth on a dark interface comes from surface steps and hairline borders. Shadows only for elements that float above content (dialogs, menus).
-- Motion: 120 to 200 ms, ease-out, for state changes only. No entrance animations on scroll. Everything non-essential stops under reduced motion.
+- Motion: 120 to 160 ms, ease-out, for state changes only. No entrance animations on scroll. Everything non-essential stops under reduced motion.
 
 ### 10.8 Icons and illustration
 
