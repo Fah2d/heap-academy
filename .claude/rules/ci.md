@@ -12,7 +12,7 @@ Jobs and their order are in `docs/spec/07-operations.md` sections 2 and 3. The r
 - `timeout-minutes` on every job.
 - Install with the frozen lockfile. Key caches on the lockfile.
 - Pull request workflows use `pull_request`, never `pull_request_target`, and have no access to secrets. No `workflow_run`, `issue_comment`, or `pull_request_review` trigger touches secrets or artifacts from forks. GitHub-hosted runners only. The pull request workflow also runs on `edited`, so the attribution check sees the final title and description.
-- Production credentials exist only in the `production` environment, which needs the owner's approval for a deploy that contains a migration, and in the `production-backup` environment, which only `backup.yml` may name. Both are limited to `main` by a deployment branch policy.
+- Production credentials exist only in the `production` environment, which needs the owner's approval for a deploy that contains a migration, and in the `production-backup` environment, which only `backup.yml` may name. Staging credentials exist only in the `staging` environment. All three are limited to `main` by a deployment branch policy. No credential is a repository-level secret.
 - Jobs that hold staging or production credentials save no cache and upload no artifact, except the backup ciphertext (ADR-0030).
 - The deploy workflow keeps its order: staging migrations, approval when there is a migration, production migrations, deploy, smoke, roll back on failure. The host's automatic production deploy stays off.
 - One concurrency group per workflow and branch, so two deploys never run at once.

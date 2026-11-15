@@ -101,11 +101,11 @@ This release sets no formal objectives. It has three numbers the owner looks at 
 ## 6. Backup and recovery
 
 - A nightly workflow dumps production through the session pooler as a read-only role, pipes the dump into `age` to the owner's public key, attests the ciphertext, and keeps it as a workflow artifact for 7 days (ADR-0030). Free projects have no provider backups (E-24), and the repository is public, so nothing unencrypted is uploaded.
-- A freshness check alerts when the newest attested scheduled backup on `main` is more than 26 hours old. It runs in the morning review and in every day check.
+- A heartbeat monitor on a free tier emails the owner when `backup.yml` has not reported success for 26 hours (ADR-0030).
 - When FR-ADM-12 is built, a course export is a second copy of the lessons that the owner keeps himself.
 - Schema, policies, and configuration are in Git.
 - Recovery point 24 hours. Recovery time 4 hours.
-- **Restore drill**: in WP-7.3 the owner restores the latest backup into the local stack by the runbook and runs the verification script (table counts, one known lesson, policy checks). A backup that has never been restored is not a backup.
+- **Restore drill**: in WP-7.3 the owner restores the latest attested backup into a local stack on a separate machine without Claude Code, by the runbook, and runs the verification script (table counts, one known lesson, policy checks). A backup that has never been restored is not a backup.
 
 ## 7. Rate limits
 
@@ -113,13 +113,12 @@ Starting values. Every write is also bounded by a database key or a size check, 
 
 | What | Limit | Where |
 |---|---|---|
-| Email code requests | The provider's limits (one resend per 60 seconds per address, a project-wide hourly cap sized for launch day) and a bot challenge | Auth provider |
+| Email code requests | The provider's limits (one resend per 60 seconds per address, a project-wide cap of 20 an hour) and a bot challenge | Auth provider |
 | Every request, including `/runtime/*` | A per-address limit set in WP-7.1 from the measured page and runtime request counts | The host's firewall: the one rate-limit rule of a Hobby project (E-23) |
 | Each server action and report endpoint | 120 per minute per network address, lower for sign-in and deletion | Postgres counters in the action wrapper |
-| Email codes, project-wide | 20 an hour | Auth provider |
 | Report endpoints | Body at most 8 kB | Handler |
 
-A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests a month included (E-23). One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule on every path, and a small counter table in Postgres used by the action wrapper for per-action limits. The counter table follows T-14 in `06-security-privacy.md`.
+A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests a month included (E-23). One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule on every path, and a small counter table in Postgres used by the action wrapper for per-action limits. The counter table follows T-14 in `06-security-privacy.md`. The action wrapper sends the client address with an HMAC made from a server-only secret; the counter function checks it against the same secret in Supabase Vault, so a direct call through the Data API with the public key cannot choose a key or write a row.
 
 Provider settings to configure in WP-2.2: Resend free as the custom email sender (the built-in one is limited to 2 emails per hour, E-11; Resend free allows 100 a day, E-26), the custom-sender hourly limit set to 20 (default 30, E-24) so one burst cannot use the whole day, sign-in rate limits, the bot challenge, code lifetime, and the email template that shows a code.
 

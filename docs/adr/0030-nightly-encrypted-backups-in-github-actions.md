@@ -14,9 +14,9 @@ Supabase Free takes no automatic backups (E-24), and the repository is public (A
 
 **Taking the backup**
 
-- A scheduled workflow, `backup.yml`, runs once a night on `main`. It connects through the Supavisor session pooler, because the direct connection on the free plan is IPv6 only and the pooler is IPv4 (E-24). It connects as a dedicated read-only role, `backup_reader`, not as `postgres`.
-- The dump is piped straight into `age` (`pg_dump … | age -r "$BACKUP_AGE_RECIPIENT" > backup.age`). Plaintext never touches the runner's disk. The dump includes the `auth` schema (users, identities, authenticator factors), so a restore keeps accounts and the admin's second step.
-- The recipient public key is a variable of the `production-backup` environment, not a file in the repository. Before it encrypts, the job checks that the key's SHA-256 fingerprint matches the one recorded in the environment. After it encrypts, the job checks that every file starts with `age-encryption.org/v1`. Either check failing fails the run.
+- A scheduled workflow, `backup.yml`, runs once a night on `main`. It connects through the Supavisor session pooler, because the direct connection on the free plan is IPv6 only and the pooler is IPv4 (E-24). It connects as a dedicated role, `backup_reader`, not as `postgres`. The role has `SELECT` only, including on `auth`, and `BYPASSRLS`, because a dump must read every row; bypassing row level security is needed and accepted for this role alone. It has no `INSERT`, `UPDATE`, `DELETE`, or `TRUNCATE` anywhere, is not a member of `postgres`, `authenticator`, or `service_role`, and is not reachable through the Data API. A database test pins each of these.
+- The dump is made with `pg_dump` (the tool `supabase db dump` wraps), with flags that include the `auth` schema, and is piped straight into `age` (`pg_dump … | age -r "$BACKUP_AGE_RECIPIENT" > backup.age`). Plaintext never touches the runner's disk. The dump includes the `auth` schema (users, identities, authenticator factors), so a restore keeps accounts and the admin's second step.
+- The recipient public key is committed to the repository at `ops/backup-recipient.age.pub`. A public key is not secret, and changing it needs a reviewed pull request to `main`. The job encrypts only to that committed key, and checks it against the copy in the `production-backup` environment; a mismatch fails the run. After it encrypts, the job checks that every file starts with `age-encryption.org/v1`. Either check failing fails the run.
 - Workflow logs in a public repository are public. The job builds the connection settings from separate parts, masks each derived value with `::add-mask::`, never uses `set -x`, and never prints a connection string. A test runs the job against a deliberately wrong password and asserts the log contains no credential.
 - Only the ciphertext is uploaded, as an artifact with a 7-day retention. The job writes no cache and uploads nothing else.
 - The job attests the artifact with `actions/attest-build-provenance`.
@@ -29,16 +29,16 @@ Supabase Free takes no automatic backups (E-24), and the repository is public (A
 
 **Restoring**
 
-- The restore script accepts only an artifact whose run is `backup.yml`, `event == schedule`, `head_branch == main`, in this repository, and whose provenance passes `gh attestation verify`. It checks this before it decrypts. A test shows it refuses an artifact from any other run.
+- The restore script accepts only an artifact whose run is `backup.yml`, `event == schedule`, `head_branch == main`, in this repository, matched by the workflow's file path, not its display name, and whose provenance passes `gh attestation verify --signer-workflow OWNER/REPO/.github/workflows/backup.yml --source-ref refs/heads/main --deny-self-hosted-runners`. It checks this before it decrypts. A test shows it refuses an artifact from any other run.
 - The owner decrypts with the private key, which never enters the repository, CI, or the implementer's machine. The owner keeps it offline.
-- The restore drill runs on a machine, or a separate operating-system user, where Claude Code is not installed. Afterwards the plaintext and the database volume are destroyed.
+- The restore drill runs on a separate machine where Claude Code is not installed, never on the development machine. `age -d` is piped straight into `psql`, so no plaintext file is written; the key file has mode `0600`. Afterwards the database volume is destroyed.
 - The verification script counts rows in `auth.users`, the content tables, and `admins`, and checks one known lesson and the policies.
-- A restore brings back accounts deleted after the dump. The runbook re-applies deletions made since the dump's date.
+- A restore brings back accounts deleted after the dump. Each account deletion therefore emails the owner the deleted user ID and nothing else, a record that survives the loss of the database. The runbook re-applies every deletion dated after the dump.
 
 **Knowing it still runs**
 
 - A failed run emails the owner through GitHub's notifications.
-- Scheduled runs can be delayed or dropped without a failed run. A freshness check alerts when the newest attested artifact from a scheduled run on `main` is more than 26 hours old. It runs in the morning review and in every day check.
+- Scheduled runs can be delayed, dropped, or turned off after 60 days without repository activity (E-25, not verified), all without a failed run. A dead-man's switch covers this: on success, `backup.yml` pings a heartbeat monitor on a free tier (Healthchecks.io, or the uptime service if it offers heartbeats), which emails the owner after 26 hours of silence.
 
 ## Consequences
 
@@ -48,7 +48,7 @@ Supabase Free takes no automatic backups (E-24), and the repository is public (A
 - Cost: The recovery point is up to 24 hours. There is no point-in-time recovery.
 - Cost: Losing the private key makes every backup unreadable. The restore runbook says where the owner keeps it and how to rotate it.
 - Cost: Each dump counts against the 5 GB egress allowance, and the artifacts against the 500 MB of free storage. The day check watches both.
-- Cost: Not verified: whether GitHub's hosted runners reach the session pooler reliably, and whether `supabase db dump` with the chosen flags includes the `auth` schema. WP-7.3 proves both.
+- Cost: Not verified: whether GitHub's hosted runners reach the session pooler reliably, and whether a custom role on Supabase Free can be given `BYPASSRLS` and read access to `auth`. WP-7.3 proves both; if the role cannot be made, the owner decides before the backup is built.
 
 ## Alternatives considered
 
