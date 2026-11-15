@@ -1,6 +1,6 @@
 # ADR-0015: Dark theme only at 1.0, behind a theme contract
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1).
 - Date proposed: 2026-11-13
 - Decider: the owner
@@ -8,7 +8,7 @@
 
 ## Context
 
-The brand is a CRT phosphor display and the product is a coding tool. Each additional theme doubles the surface that must be verified.
+The product is a coding tool, and the owner chose a dark interface (ADR-0031). Each additional theme doubles the surface that must be verified.
 
 ## Decision
 

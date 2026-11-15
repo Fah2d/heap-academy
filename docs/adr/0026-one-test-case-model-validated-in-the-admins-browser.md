@@ -1,6 +1,6 @@
 # ADR-0026: One test case model, validated in the admin's browser before publishing
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence in WP-3.3 and WP-4.3.
 - Date proposed: 2026-11-15
 - Decider: the owner

@@ -1,6 +1,6 @@
 # ADR-0024: Lessons live in the database and are written in an admin dashboard
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1).
 - Date proposed: 2026-11-15
 - Decider: the owner

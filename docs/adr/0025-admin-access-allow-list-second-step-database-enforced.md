@@ -1,6 +1,6 @@
 # ADR-0025: Admin access: allow-list, second sign-in step, enforced by the database
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence in WP-2.3.
 - Date proposed: 2026-11-15
 - Decider: the owner

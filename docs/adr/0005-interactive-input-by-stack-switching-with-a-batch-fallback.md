@@ -1,6 +1,6 @@
 # ADR-0005: Interactive input by stack switching with a batch fallback
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence on Day 3 (WP-3.2).
 - Date proposed: 2026-11-13
 - Decider: the owner
