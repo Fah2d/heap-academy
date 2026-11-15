@@ -157,4 +157,4 @@ Everything in `docs/spec/03-experience.md` section 10.9, plus:
 
 Owner approval of this direction for the first release:
 
-Signed: ____________________ (Fahad)    Date: ____________
+Signed: Fahad    Date: 2026-11-15
