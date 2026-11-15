@@ -299,7 +299,7 @@ Checked 2026-11-15. No page showed a date.
 - "With the exception of `GITHUB_TOKEN`, secrets are not passed to the runner when a workflow is triggered from a forked repository." Workflows on `pull_request_target` run in the context of the base branch.
 - Who may download artifacts from a public repository is not stated. The download endpoint says only that tokens "need the repo scope". ADR-0030 assumes anyone can.
 - The maximum artifact retention for public repositories was not found on the pages read.
-- Not verified on 2026-11-15: scheduled workflows in public repositories are said to be disabled after 60 days without repository activity, and scheduled runs can be delayed or dropped. ADR-0030's freshness check covers both.
+- Not verified on 2026-11-15: scheduled workflows in public repositories are said to be disabled after 60 days without repository activity, and scheduled runs can be delayed or dropped. ADR-0030's heartbeat monitor covers both.
 
 Sources: [billing](https://docs.github.com/en/actions/administering-github-actions/usage-limits-billing-and-administration), [limits](https://docs.github.com/en/actions/reference/limits), [secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions), [artifacts API](https://docs.github.com/en/rest/actions/artifacts), [repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
 

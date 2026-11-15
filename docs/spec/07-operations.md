@@ -101,7 +101,7 @@ This release sets no formal objectives. It has three numbers the owner looks at 
 ## 6. Backup and recovery
 
 - A nightly workflow dumps production through the session pooler as a read-only role, pipes the dump into `age` to the owner's public key, attests the ciphertext, and keeps it as a workflow artifact for 7 days (ADR-0030). Free projects have no provider backups (E-24), and the repository is public, so nothing unencrypted is uploaded.
-- A heartbeat monitor on a free tier emails the owner when `backup.yml` has not reported success for 26 hours (ADR-0030).
+- A heartbeat monitor on a free tier emails the owner when `backup.yml` has not reported success for 26 hours. The ping URL is a masked secret of `production-backup`, pinged only after the upload and the attestation succeed (ADR-0030).
 - When FR-ADM-12 is built, a course export is a second copy of the lessons that the owner keeps himself.
 - Schema, policies, and configuration are in Git.
 - Recovery point 24 hours. Recovery time 4 hours.
