@@ -26,7 +26,7 @@ A work package ID, a commit range, and the folder of screenshots (`docs/reports/
 - **Accessibility.** Contrast, visible focus, labels, state shown by more than color, reduced motion. The axe result in the pull request is clean.
 - **Words.** The rules in section 9: plain, short, never blaming, buttons that name the action, no em dashes, no buzzwords, no invented numbers.
 - **antislop.** Nothing from the antislop failure list and nothing from section 10.9. The Delivery Gate report in the pull request is accurate, line by line, against the screenshots.
-- **Brand.** Only assets from `/brand`. Nothing generated or redrawn.
+- **Brand.** No logo, mark, mascot, or illustration; the wordmark is live text (ADR-0031). Nothing generated or redrawn.
 
 ## Report
 

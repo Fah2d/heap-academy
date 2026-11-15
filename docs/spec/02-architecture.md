@@ -58,7 +58,7 @@ Learner code is executed only inside a browser. Nothing in the platform box ever
 
 ## 4. Repository structure
 
-One private repository, one application package, pnpm (ADR-0023).
+One public repository, one application package, pnpm (ADR-0023, ADR-0029).
 
 ```
 src/
@@ -75,7 +75,7 @@ supabase/            Migrations, policy tests, seed data, config
 e2e/                 Playwright journeys and accessibility checks
 scripts/             Build and check scripts
 docs/                Spec, ADRs, runbooks, reports, the archived plan
-brand/               Brand kit supplied by the owner
+brand/               Reserved for brand files the owner may supply later (ADR-0031)
 ```
 
 ### 4.1 Dependency rules
@@ -438,30 +438,33 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | ADR | Decision | State |
 |---|---|---|
 | 0001 | Monorepo with pnpm workspaces and Turborepo | Superseded by 0023 |
-| 0002 | Next.js App Router on Vercel | Proposed |
-| 0003 | Learner code executes only in the browser | Proposed |
-| 0004 | Python runtime: Pyodide in a module worker, self-hosted | Proposed |
-| 0005 | Interactive input by stack switching with a batch fallback | Proposed |
+| 0002 | Next.js App Router on Vercel | Superseded by 0029 |
+| 0003 | Learner code executes only in the browser | Accepted |
+| 0004 | Python runtime: Pyodide in a module worker, self-hosted | Accepted |
+| 0005 | Interactive input by stack switching with a batch fallback | Accepted |
 | 0006 | Web previews in a dedicated sandbox document | Deferred by 0022 |
-| 0007 | Trust model for client-side grading | Proposed |
+| 0007 | Trust model for client-side grading | Accepted |
 | 0008 | Content as files with stable IDs and a synced catalog | Superseded by 0024 |
 | 0009 | Supabase; server-mediated writes; deny by default | Superseded by 0027 |
 | 0010 | Explicit versioned HTTP API for mutations | Superseded by 0027 |
-| 0011 | Guest-first progress with merge on sign-in | Proposed |
-| 0012 | Derive XP and streak; store no aggregates | Proposed |
-| 0013 | CodeMirror 6 as the editor | Proposed |
-| 0014 | UI foundation: tokens, Tailwind CSS, React Aria Components | Proposed |
-| 0015 | Dark theme only, behind a theme contract | Proposed |
-| 0016 | English only, with enforced right-to-left readiness | Proposed, reduced by 0022 |
-| 0017 | Sign-in with Google and email one-time code | Proposed |
+| 0011 | Guest-first progress with merge on sign-in | Accepted |
+| 0012 | Derive XP and streak; store no aggregates | Accepted |
+| 0013 | CodeMirror 6 as the editor | Accepted |
+| 0014 | UI foundation: tokens, Tailwind CSS, React Aria Components | Accepted |
+| 0015 | Dark theme only, behind a theme contract | Accepted |
+| 0016 | English only, with enforced right-to-left readiness | Accepted, reduced by 0022 |
+| 0017 | Sign-in with Google and email one-time code | Accepted |
 | 0018 | Access tiers as a policy seam, open at launch | Deferred by 0022 |
-| 0019 | Observability through ports | Proposed, reduced by 0022 |
-| 0020 | Workspace lifecycle as a statechart | Proposed |
+| 0019 | Observability through ports | Accepted, reduced by 0022 |
+| 0020 | Workspace lifecycle as a statechart | Accepted |
 | 0021 | Content security policy by route class | Superseded by 0028 |
-| 0022 | An eight-day first release: what ships and what waits | Proposed |
-| 0023 | One application package with enforced module boundaries | Proposed |
-| 0024 | Lessons live in the database and are written in an admin dashboard | Proposed |
-| 0025 | Admin access: allow-list, second sign-in step, enforced by the database | Proposed |
-| 0026 | One test case model, validated in the admin's browser before publishing | Proposed |
-| 0027 | Server actions behind one wrapper; row level security is the authority | Proposed |
-| 0028 | One nonce-based script policy; pages render per request | Proposed |
+| 0022 | An eight-day first release: what ships and what waits | Accepted |
+| 0023 | One application package with enforced module boundaries | Accepted |
+| 0024 | Lessons live in the database and are written in an admin dashboard | Accepted |
+| 0025 | Admin access: allow-list, second sign-in step, enforced by the database | Accepted |
+| 0026 | One test case model, validated in the admin's browser before publishing | Accepted |
+| 0027 | Server actions behind one wrapper; row level security is the authority | Accepted |
+| 0028 | One nonce-based script policy; pages render per request | Accepted |
+| 0029 | Zero-cost hosting on free tiers | Accepted |
+| 0030 | Nightly encrypted backups in GitHub Actions | Accepted |
+| 0031 | Identity without a brand kit | Accepted |

@@ -1,6 +1,6 @@
 # ADR-0002: Next.js App Router on Vercel
 
-- Status: Proposed
+- Status: Superseded by ADR-0029
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence in WP-1.3.
 - Date proposed: 2026-11-13
 - Decider: the owner

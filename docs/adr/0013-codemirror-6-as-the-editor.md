@@ -1,6 +1,6 @@
 # ADR-0013: CodeMirror 6 as the editor
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence in WP-4.2 and WP-5.3.
 - Date proposed: 2026-11-13
 - Decider: the owner

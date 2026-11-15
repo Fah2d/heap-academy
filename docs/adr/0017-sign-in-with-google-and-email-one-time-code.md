@@ -1,6 +1,6 @@
 # ADR-0017: Sign-in with Google and email one-time code
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence in WP-2.2.
 - Date proposed: 2026-11-13
 - Decider: the owner

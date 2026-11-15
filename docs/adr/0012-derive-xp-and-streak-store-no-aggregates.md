@@ -1,6 +1,6 @@
 # ADR-0012: Derive XP and streak; store no aggregates
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1).
 - Date proposed: 2026-11-13
 - Decider: the owner

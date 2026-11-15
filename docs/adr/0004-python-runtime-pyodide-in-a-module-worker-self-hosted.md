@@ -1,6 +1,6 @@
 # ADR-0004: Python runtime: Pyodide in a module worker, self-hosted
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence on Day 3 (WP-3.1).
 - Date proposed: 2026-11-13
 - Decider: the owner

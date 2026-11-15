@@ -1,6 +1,6 @@
 # ADR-0011: Guest-first progress with merge on sign-in
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1).
 - Date proposed: 2026-11-13
 - Decider: the owner

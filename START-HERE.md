@@ -25,15 +25,15 @@ About an hour. Start the first item now: it can take hours to be approved.
 
 1. **The slow part**: buy or pick the domain. Start the email sender's domain verification. Create the Google sign-in client and its consent screen.
 2. **Tools on your computer**: Node.js (current LTS), pnpm, Git, the GitHub CLI signed in, Docker (for the local database), and Claude Code. An authenticator app on your phone.
-3. **Accounts**: a paid GitHub plan, Vercel Pro, Supabase, an email provider, and a bot challenge (Cloudflare Turnstile or hCaptcha). Claude Code tells you on Day 1 which projects to create.
-4. **Repository**: create an empty **private** GitHub repository and clone it. Unzip this kit into it from a terminal, because copying by hand in Finder or Explorer can miss the hidden `.claude` folder:
+3. **Accounts**, all on free tiers (ADR-0029): GitHub (the repository is public), Vercel Hobby, Supabase Free, Resend, and a bot challenge (Cloudflare Turnstile or hCaptcha). Claude Code tells you on Day 1 which projects to create.
+4. **Repository**: create an empty **private** GitHub repository and clone it. It stays private until WP-1.3 has scanned its whole history for secrets; then you make it public (ADR-0029). Unzip this kit into it from a terminal, because copying by hand in Finder or Explorer can miss the hidden `.claude` folder:
 
    ```
    unzip heap-academy-spec-kit.zip -d path/to/your/repo
    ```
 
    On Windows PowerShell: `Expand-Archive heap-academy-spec-kit.zip -DestinationPath path\to\your\repo`. Afterwards `CLAUDE.md` sits at the top level, and `.claude/settings.json` and `.claude/skills/work-package/SKILL.md` exist.
-5. **Brand kit**: copy your logo, mark, mascot files, fonts, colors, and brand book into `brand/`. See `brand/README.md`.
+5. **Brand kit**: none. The wordmark is text and `DESIGN.md` holds every visual value (ADR-0031).
 6. **antislop**: in the repository folder run
 
    ```
@@ -92,29 +92,29 @@ The time boxes in the plan are estimates. They were not measured.
 | When | You |
 |---|---|
 | Every work package | Open the preview link, try it, read the pull request, merge. Aim for fifteen minutes each. |
-| Day 1 | Answer the decision sheet ("accept all" or name the changes). Answer the design interview and sign `DESIGN.md`. Create the Vercel project and two Supabase projects. Turn on branch protection. Put secrets where the runbook says, never in the repository. Point the domain. |
+| Day 1 | Answer the decision sheet ("accept all" or name the changes). Answer the design interview and sign `DESIGN.md`. Make the repository public. Create the Vercel Hobby project and two Supabase Free projects. Turn on branch protection. Put secrets where the runbook says, never in the repository. Point the domain. |
 | Day 2 | Enter the Google client and the email sender in Supabase. Create the bot challenge keys. Try the email code inside TikTok and Instagram. Make yourself the admin and enroll your authenticator app. |
 | Day 3 | Run the test page on a real iPhone and a real Android phone, in the browser and inside TikTok and Instagram. |
 | Day 4 onward | Write lessons. Publish your first one on Day 4. |
 | Day 5 | Complete a lesson on a real phone. Time yourself writing one. |
 | Day 6 | Read and approve the privacy policy and terms. |
-| Day 7 | Move production to Supabase Pro. Create the uptime check and spend alerts. Do one rollback and one restore from the runbooks. Test on your phones. |
+| Day 7 | Make the backup key pair and keep the private key offline. Create the uptime check and turn on usage notifications. Do one rollback and one restore from the runbooks. Test on your phones. |
 | Day 8 | Pass every launch lesson yourself on a phone. Walk the launch checklist. Say go. |
 
 ## 6. What it costs
 
-Checked on 2026-11-13 and 2026-11-15. Confirm before paying; prices change.
+Nothing except the domain (ADR-0029). Checked on 2026-11-15; limits change.
 
-| What | Why you cannot skip it | Cost |
+| What | Plan | The limit that matters |
 |---|---|---|
-| Vercel Pro | The free plan is for non-commercial use only. Rate limiting is billed by usage. | 20 US dollars a month, plus usage |
-| Supabase | Free works for staging. Free projects pause after a week of low activity and have no downloadable backups, so production moves to Pro before launch. | Free, then 25 US dollars a month |
-| GitHub paid personal plan | Branch protection on a private repository is not in the free plan. | See GitHub's pricing |
-| Email provider | Supabase's built-in sender is limited to 2 emails an hour, so sign-in codes need a real sender. | Pick a plan whose daily cap covers your launch-day sign-ups |
-| Bot challenge, uptime check | | Free tiers |
-| Domain | | Yearly |
+| GitHub | Free, public repository | Anyone can read the code and the spec. Actions minutes are free. |
+| Vercel | Hobby | Its terms allow only personal or non-commercial use, and Vercel may disable a Hobby project without notice. Per month: 100 GB transfer, 1,000,000 function invocations, 4 active CPU-hours. Past a limit the site waits up to 30 days; nothing is billed. |
+| Supabase | Free, staging and production | Pauses after a week of inactivity. 500 MB database, 5 GB egress. No provider backups, so a nightly workflow keeps 7 days of encrypted dumps (ADR-0030). |
+| Resend | Free | 100 emails a day, 3,000 a month. Google sign-in sends no email. |
+| Bot challenge, uptime check | Free tiers | |
+| Domain | Yearly | The only cost |
 
-Two costs grow with success: the Python runtime is about 5.5 MB per new learner, downloaded once and then cached (ten thousand new learners is roughly 55 GB of transfer), and every page view runs a small function. Both show on Vercel's usage page. `docs/spec/07-operations.md` section 9 says what to do when they get large.
+The Python runtime is about 5.5 MB per new learner, downloaded once and then cached. About 18,000 new learners in a month use the whole Vercel transfer allowance. ADR-0029 lists when each vendor moves to its paid plan. You accepted these risks on 2026-11-15.
 
 ## 7. Decisions made for you
 
@@ -129,7 +129,8 @@ WP-1.1 shows all of these on one sheet, each with what changes if you choose dif
 - Every page is rendered per request, so the strictest script security policy works. It costs a little compute per page view; the point at which to change it is written down.
 - Grading runs in the browser, so a learner could fake their own XP. Nothing depends on XP yet.
 - Dark theme only. English only, but built so Arabic can be added later.
-- The seven blocks of the heap mark as the progress indicator. This one is a proposal that needs your yes.
+- No brand kit: a text wordmark in IBM Plex Sans, an amber accent, and no illustration (your answer, ADR-0031).
+- Zero running cost except the domain: a public repository, Vercel Hobby, Supabase Free with nightly encrypted backups, Resend free (your answer, ADR-0029, ADR-0030).
 
 ## 8. What waits
 
@@ -158,4 +159,4 @@ All of that ran in one browser engine (Chromium). Firefox, Safari, and real phon
 | `.claude/rules/` | Standards that load when matching files are edited |
 | `.claude/agents/` | Three independent reviewers: code, security, design |
 | `.claude/skills/` | The procedures behind `/work-package`, `/day-check`, and `/adr` |
-| `brand/` | Where your brand kit goes |
+| `brand/` | Reserved for brand files you may supply later |

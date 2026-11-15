@@ -1,6 +1,6 @@
 # ADR-0028: One nonce-based script policy; pages render per request
 
-- Status: Proposed
+- Status: Accepted (owner, WP-1.1, 2026-11-15)
 - Decision due: Day 1 (WP-1.1). Confirmed by evidence in WP-1.3.
 - Date proposed: 2026-11-15
 - Decider: the owner

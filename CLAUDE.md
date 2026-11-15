@@ -81,7 +81,7 @@ supabase/            Migrations, policy tests, seed, config
 e2e/                 Journeys and accessibility checks
 scripts/             Build and check scripts
 docs/                Spec, ADRs, runbooks, reports, templates, the archived plan
-brand/               Brand kit from the owner
+brand/               Reserved for brand files the owner may supply later (ADR-0031)
 ```
 
 This is the target. A folder exists from the work package that creates it.

@@ -1,6 +1,6 @@
 # ADR-0019: Observability through ports
 
-- Status: Proposed. Reduced for the first release by ADR-0022.
+- Status: Accepted (owner, WP-1.1, 2026-11-15). Reduced for the first release by ADR-0022.
 - Decision due: Day 1 (WP-1.1).
 - Date proposed: 2026-11-13
 - Decider: the owner

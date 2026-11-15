@@ -40,7 +40,7 @@ Read this first.
 | E-11 | Supabase limits | Source |
 | E-12 | Walkthrough of the reference product | Observed |
 | E-13 | Vercel plan terms | Source |
-| E-14 | GitHub branch protection on private repositories | Source |
+| E-14 | GitHub branch protection on public and private repositories | Source |
 | E-15 | Browser versions Pyodide is tested against | Source |
 | E-16 | Pyodide standard stream handling | Source |
 | E-17 | antislop facts | Source (repository read in full) |
@@ -49,6 +49,10 @@ Read this first.
 | E-20 | Supabase second sign-in step and assurance levels | Source |
 | E-21 | Next.js nonces, dynamic rendering, and the data cache | Source |
 | E-22 | Host rate limiting and the auth bot challenge | Source |
+| E-23 | Vercel Hobby terms, limits, and rate limiting | Source |
+| E-24 | Supabase Free plan, backups, multi-factor authentication, connections | Source |
+| E-25 | GitHub Actions on a public repository | Source |
+| E-26 | Free email sender tiers | Source |
 
 ## 3. Details
 
@@ -257,10 +261,57 @@ Sources: [content security policy guide](https://nextjs.org/docs/app/guides/cont
 
 Checked 2026-11-15.
 
-- Vercel's firewall: custom rules, address blocking, and attack mitigation are free on all plans. Rate limiting is a priced feature, billed by usage on the Pro plan. Traffic the firewall denies does not count as requests or data transfer.
+- Vercel's firewall: custom rules, address blocking, and attack mitigation are free on all plans. Rate limiting is a priced feature, billed by usage on the Pro plan. Corrected on 2026-11-15 by E-23: rate limiting is available on all plans, with one rule on Hobby. Traffic the firewall denies does not count as requests or data transfer.
 - Supabase Auth supports hCaptcha and Cloudflare Turnstile. The documentation says the challenge can protect sign-in, sign-up, and password reset forms, and shows the token passed as `options: { captchaToken }` on a sign-up call. That the same option protects an email code request is an inference from the client library's interface, not a statement on that page. WP-2.2 confirms it.
 
 Sources: [firewall usage and pricing](https://vercel.com/docs/vercel-firewall/vercel-waf/usage-and-pricing), [bot challenge for auth](https://supabase.com/docs/guides/auth/auth-captcha).
+
+### E-23 Vercel Hobby
+
+Checked 2026-11-15. Terms last updated 2026-10-19; Hobby plan page last updated 2026-11-12; rate limiting page last updated 2026-08-28.
+
+- Terms, section 4: "You shall only use the Services under a Hobby plan for your personal or non-commercial use." No definition of commercial use was found in the terms. Vercel may "disable or remove any Project or website deployment on the Hobby plan with or without notice."
+- Included per month: 100 GB fast data transfer, 10 GB fast origin transfer, 1,000,000 function invocations, 4 active CPU-hours, 360 GB-hours of provisioned memory.
+- "In most cases, if you exceed your usage limits on the Hobby plan, you will have to wait until 30 days have passed before you can use the feature again." There are no billing cycles on Hobby.
+- "WAF Rate Limiting is available on all plans." A Hobby project has one rate-limit rule within three custom firewall rules, keyed by address or JA4 digest, fixed window from 10 seconds to 10 minutes, with 1,000,000 allowed requests included. This corrects the first bullet of E-22, which said rate limiting was a Pro feature.
+- Deploy from GitHub Actions: `vercel build`, then `vercel deploy --prebuilt`, with `--prod` for production. CLI uploads are limited to 100 MB of source on Hobby. A Hobby project cannot connect to a repository owned by a GitHub organization.
+
+Sources: [terms](https://vercel.com/legal/terms), [Hobby plan](https://vercel.com/docs/plans/hobby), [limits](https://vercel.com/docs/limits), [rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting), [Vercel for GitHub](https://vercel.com/docs/deployments/git/vercel-for-github).
+
+### E-24 Supabase Free
+
+Checked 2026-11-15. No page showed a date.
+
+- Free plan: 500 MB database, 5 GB egress, 50,000 monthly active users, two active projects. "Free projects are paused after 1 week of inactivity." The pages do not define activity or a restore window.
+- Backups: "Automatic backups: Not included" on Free. The backups guide recommends that free projects "regularly export their data using the Supabase CLI `db dump` command and maintain off-site backups."
+- Multi-factor authentication: "Basic Multi-Factor Auth: Included" on Free; the phone factor is a paid add-on. That the basic factor is the authenticator app (TOTP) is an inference from the MFA guide, which lists the app authenticator and defines `aal2`. WP-2.3 confirms it.
+- Custom SMTP is included on Free. With a custom sender, "a low rate-limit of 30 messages per hour is imposed", which can be changed on the rate limits page.
+- Connections: pg_dump needs a direct or session-mode connection. On Free the direct connection is IPv6 only; "The shared pooler is IPv4-only on every plan." Whether GitHub-hosted runners reach either reliably, and whether dumps count toward egress, is not documented.
+
+Sources: [pricing](https://supabase.com/pricing), [backups](https://supabase.com/docs/guides/platform/backups), [MFA](https://supabase.com/docs/guides/auth/auth-mfa), [SMTP](https://supabase.com/docs/guides/auth/auth-smtp), [connecting](https://supabase.com/docs/guides/database/connecting-to-postgres), [pooling and limits](https://supabase.com/docs/guides/database/connecting-to-postgres/pooling-and-limits).
+
+### E-25 GitHub Actions on a public repository
+
+Checked 2026-11-15. No page showed a date.
+
+- "GitHub Actions usage is free for standard GitHub-hosted runners in public repositories."
+- Artifact storage on GitHub Free: 500 MB. "GitHub Support cannot increase storage limits for GitHub Actions."
+- "With the exception of `GITHUB_TOKEN`, secrets are not passed to the runner when a workflow is triggered from a forked repository." Workflows on `pull_request_target` run in the context of the base branch.
+- Who may download artifacts from a public repository is not stated. The download endpoint says only that tokens "need the repo scope". ADR-0030 assumes anyone can.
+- The maximum artifact retention for public repositories was not found on the pages read.
+- Not verified on 2026-11-15: scheduled workflows in public repositories are said to be disabled after 60 days without repository activity, and scheduled runs can be delayed or dropped. ADR-0030's heartbeat monitor covers both.
+
+Sources: [billing](https://docs.github.com/en/actions/administering-github-actions/usage-limits-billing-and-administration), [limits](https://docs.github.com/en/actions/reference/limits), [secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions), [artifacts API](https://docs.github.com/en/rest/actions/artifacts), [repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
+
+### E-26 Free email sender tiers
+
+Checked 2026-11-15. No page showed a date.
+
+- Resend free: 3,000 emails a month; "The Free plan is limited to 100 emails per day." SMTP relay and 3 custom domains are included. The page states no commercial-use restriction and no branding.
+- MailerSend free: 500 emails a month, SMTP relay, 1 sending domain. Its logo probably appears on free emails, which is an inference from the plan table.
+- Brevo's pricing page did not render its content when fetched. Not compared.
+
+Sources: [Resend pricing](https://resend.com/pricing), [MailerSend pricing](https://www.mailersend.com/pricing).
 
 ## 4. Reference snippets
 
