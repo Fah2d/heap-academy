@@ -293,7 +293,7 @@ Reviewed in every day check.
 | RISK-10 | A framework or vendor behaves differently from this plan, because versions moved. | Every fact is dated in `09-evidence.md`. The implementer checks current documentation before first use and reports any difference. |
 | RISK-11 | AI attribution reaches the repository anyway, for example from a session that ignores project settings. | Three layers: settings, hooks, and the pipeline check on every commit and pull request text. |
 | RISK-12 | The privacy and terms text is wrong for the audience's law. | Plain text from the real data inventory, approved by the owner. A qualified review before any paid feature. |
-| RISK-13 | A free-tier limit is reached after a video spreads, and the site or sign-in stops: Vercel Hobby waits up to 30 days, Supabase Free pauses, Resend stops at 100 emails a day. Vercel may also disable a Hobby project under its terms. | The triggers of ADR-0029, read in the morning review and in every day check. The owner accepted this risk on 2026-11-15. |
+| RISK-13 | A free-tier limit is reached after a video spreads, and the site or sign-in stops: Vercel Hobby waits up to 30 days, Supabase Free pauses, Resend stops at 100 emails a day, a cap shared by sign-in codes and the deletion record emails of ADR-0030 (whose key, `RESEND_API_KEY`, the environment schema lists as a server variable). Vercel may also disable a Hobby project under its terms. | The triggers of ADR-0029, read in the morning review and in every day check. The owner accepted this risk on 2026-11-15. |
 
 ## 4. Launch checklist
 
