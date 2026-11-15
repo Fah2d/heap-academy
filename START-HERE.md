@@ -26,7 +26,7 @@ About an hour. Start the first item now: it can take hours to be approved.
 1. **The slow part**: buy or pick the domain. Start the email sender's domain verification. Create the Google sign-in client and its consent screen.
 2. **Tools on your computer**: Node.js (current LTS), pnpm, Git, the GitHub CLI signed in, Docker (for the local database), and Claude Code. An authenticator app on your phone.
 3. **Accounts**, all on free tiers (ADR-0029): GitHub (the repository is public), Vercel Hobby, Supabase Free, Resend, and a bot challenge (Cloudflare Turnstile or hCaptcha). Claude Code tells you on Day 1 which projects to create.
-4. **Repository**: create an empty **private** GitHub repository and clone it. Unzip this kit into it from a terminal, because copying by hand in Finder or Explorer can miss the hidden `.claude` folder:
+4. **Repository**: create an empty **private** GitHub repository and clone it. It stays private until WP-1.3 has scanned its whole history for secrets; then you make it public (ADR-0029). Unzip this kit into it from a terminal, because copying by hand in Finder or Explorer can miss the hidden `.claude` folder:
 
    ```
    unzip heap-academy-spec-kit.zip -d path/to/your/repo

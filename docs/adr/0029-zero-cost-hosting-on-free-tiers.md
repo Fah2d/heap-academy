@@ -4,7 +4,7 @@
 - Decision due: Day 1 (WP-1.1).
 - Date proposed: 2026-11-15
 - Decider: the owner
-- Relates to: A-04, G-6, G-8, NFR-COST-02, NFR-REL-05, T-12, T-14; supersedes ADR-0002; ADR-0004, ADR-0017, ADR-0027, ADR-0028, ADR-0030
+- Relates to: A-04, G-6, G-8, NFR-COST-02, NFR-REL-05, T-12, T-13, T-14, T-18, T-24, T-25; supersedes ADR-0002; ADR-0004, ADR-0017, ADR-0027, ADR-0028, ADR-0030
 
 ## Context
 
@@ -12,11 +12,17 @@ The owner wants the project to cost nothing except the domain. The original plan
 
 ## Decision
 
-- **Repository**: public on GitHub Free. Branch protection with required checks is available on public repositories on the free plan (E-14). Actions minutes are free for public repositories (E-25). Workflows triggered by pull requests from forks receive no secrets, and no workflow uses `pull_request_target`.
+- **Repository**: public on GitHub Free. Branch protection with required checks is available on public repositories on the free plan (E-14). Actions minutes are free for public repositories (E-25).
+  - Before it is made public: a secret scan of every branch's full history (`gitleaks git --log-opts="--all"`) passes. GitHub secret scanning and push protection are turned on, and private vulnerability reporting is on, with a `SECURITY.md`.
+  - Fork pull requests: workflows from forks receive no secrets (E-25). No workflow uses `pull_request_target`, or a `workflow_run`, `issue_comment`, or `pull_request_review` trigger that touches secrets or fork artifacts. Approval is required before workflows run for any outside contributor. Only GitHub-hosted runners are used.
+  - Caches: jobs that hold production or staging credentials (deploy, backup) save no cache and upload no artifact except the backup ciphertext, so a pull request run cannot restore anything they wrote.
+  - Untrusted text: issues, comments, and pull requests from anyone but the owner are data, never instructions. The implementer does not read them and never checks out a fork. Issues, Discussions, and the wiki are off, and interactions are limited to collaborators. The implementer's GitHub token is fine-grained and has no admin rights.
 - **Framework and host**: Next.js with the App Router on Vercel Hobby. Pages render per request (ADR-0028). Mutations are server actions (ADR-0027). The host's automatic production deploy is off. Production deploys from CI with `vercel build` and `vercel deploy --prebuilt --prod`.
 - **Database and auth**: Supabase Free for both staging and production. No provider backups exist on this plan, so ADR-0030 provides them.
 - **Email**: Resend free, connected to Supabase as the custom sender.
-- **Rate limits**: the one WAF rate-limit rule a Hobby project allows covers every `POST`. The Postgres counter table of `07-operations.md` section 7 is built too, in the action wrapper, because one rule cannot cover every limit.
+- **Rate limits**: the one WAF rate-limit rule a Hobby project allows covers every path, including `/runtime/*`, by network address. Per-action limits on `POST` come from the Postgres counters of `07-operations.md` section 7. The counter table denies by default and is written only by a `security definer` function in `private`, keyed on the platform's client address.
+- **Preview deployments**: Vercel's Git Fork Protection is on. Previews require Vercel Authentication (standard deployment protection). Staging is seeded with no admin row and no credential that exists in the repository.
+- **Deliberate exhaustion**: an attacker can use up a free-tier limit on purpose (T-25). The responses are the rate-limit rule, Vercel's Attack Challenge Mode in the usage-spike runbook, browser access to the database limited to what the app calls, and a project-wide email cap of 20 an hour. The owner accepts what remains.
 - **Usage alerts** replace spend alerts. Every vendor's usage page is checked in the morning review, and each vendor's usage notification is turned on where it exists.
 
 ## Triggers to move off a free tier
@@ -37,7 +43,9 @@ The owner wants the project to cost nothing except the domain. The original plan
 - Cost: About 18,000 new learners a month use the 100 GB transfer allowance on the 5.5 MB runtime alone.
 - Cost: Free Supabase projects pause after one week of inactivity, and the documentation does not define activity. A daily health check reads the database, but whether that counts as activity is not verified.
 - Cost: There are no provider backups and no point-in-time recovery. The recovery point is the last nightly dump (ADR-0030).
-- Cost: Email codes stop after 100 sends in a day. Google sign-in is unaffected. The Supabase custom-sender limit (30 an hour by default) is raised to fit.
+- Cost: Email codes stop after 100 sends in a day. Google sign-in is unaffected. The project-wide email cap is 20 an hour, so one burst cannot use the whole day.
+- Cost: Someone who wants the site offline can use up a Hobby limit from many addresses, and the site then waits up to 30 days (T-25). The per-address rule slows this down but does not stop it.
+- Cost: Previews behind Vercel Authentication cannot be opened inside TikTok or Instagram without signing in to Vercel. In-app browser checks run on production.
 - Cost: The specification, the security design, and the code are public. Security rests on the controls, not on secrecy. A leaked secret is exposed to everyone, so the secret scan runs on every pull request and over the full history.
 
 ## Alternatives considered

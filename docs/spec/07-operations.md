@@ -11,7 +11,8 @@ How the product is built, shipped, watched, recovered, and paid for. One person 
 | Production | Live site | Production project | Real | Learners and the owner's lessons |
 
 - Two Supabase projects, staging and production, both on the free plan, which allows two active projects (E-11, E-24). Production stays on Free until a trigger in ADR-0029 fires.
-- Preview deployments sign in against staging. Their addresses must be covered by the auth provider's redirect allow-list; configure a pattern for the preview domain, not individual addresses.
+- Preview deployments sign in against staging. Their addresses must be covered by the auth provider's redirect allow-list, with a pattern pinned to this project's prefix and account suffix, not a wildcard over the whole preview domain.
+- Previews require Vercel Authentication, and Vercel's Git Fork Protection is on (ADR-0029). Staging is seeded with no admin row and no credential that exists in the repository.
 - Lessons are data, so they are per environment. The owner writes real lessons in production only. Staging has seeded sample lessons.
 - Configuration is validated at build and at start (`02-architecture.md` section 13). `.env.example` is the list of record.
 
@@ -99,7 +100,8 @@ This release sets no formal objectives. It has three numbers the owner looks at 
 
 ## 6. Backup and recovery
 
-- A nightly workflow dumps production through the session pooler, encrypts the dump with `age` to the owner's public key, and keeps the ciphertext as a workflow artifact for 7 days (ADR-0030). Free projects have no provider backups (E-24), and the repository is public, so nothing unencrypted is uploaded.
+- A nightly workflow dumps production through the session pooler as a read-only role, pipes the dump into `age` to the owner's public key, attests the ciphertext, and keeps it as a workflow artifact for 7 days (ADR-0030). Free projects have no provider backups (E-24), and the repository is public, so nothing unencrypted is uploaded.
+- A freshness check alerts when the newest attested scheduled backup on `main` is more than 26 hours old. It runs in the morning review and in every day check.
 - When FR-ADM-12 is built, a course export is a second copy of the lessons that the owner keeps himself.
 - Schema, policies, and configuration are in Git.
 - Recovery point 24 hours. Recovery time 4 hours.
@@ -112,12 +114,14 @@ Starting values. Every write is also bounded by a database key or a size check, 
 | What | Limit | Where |
 |---|---|---|
 | Email code requests | The provider's limits (one resend per 60 seconds per address, a project-wide hourly cap sized for launch day) and a bot challenge | Auth provider |
-| Any `POST` to the app: server actions and report endpoints | 120 per minute per network address | The host's firewall: the one rate-limit rule of a Hobby project (E-23) |
+| Every request, including `/runtime/*` | A per-address limit set in WP-7.1 from the measured page and runtime request counts | The host's firewall: the one rate-limit rule of a Hobby project (E-23) |
+| Each server action and report endpoint | 120 per minute per network address, lower for sign-in and deletion | Postgres counters in the action wrapper |
+| Email codes, project-wide | 20 an hour | Auth provider |
 | Report endpoints | Body at most 8 kB | Handler |
 
-A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests a month included (E-23). One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule for every `POST`, and a small counter table in Postgres used by the action wrapper for per-action limits.
+A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests a month included (E-23). One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule on every path, and a small counter table in Postgres used by the action wrapper for per-action limits. The counter table follows T-14 in `06-security-privacy.md`.
 
-Provider settings to configure in WP-2.2: Resend free as the custom email sender (the built-in one is limited to 2 emails per hour, E-11; Resend free allows 100 a day, E-26), the custom-sender hourly limit raised from its default of 30 to fit the daily cap (E-24), sign-in rate limits, the bot challenge, code lifetime, and the email template that shows a code.
+Provider settings to configure in WP-2.2: Resend free as the custom email sender (the built-in one is limited to 2 emails per hour, E-11; Resend free allows 100 a day, E-26), the custom-sender hourly limit set to 20 (default 30, E-24) so one burst cannot use the whole day, sign-in rate limits, the bot challenge, code lifetime, and the email template that shows a code.
 
 ## 8. Incidents
 

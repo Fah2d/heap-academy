@@ -40,7 +40,7 @@ Read this first.
 | E-11 | Supabase limits | Source |
 | E-12 | Walkthrough of the reference product | Observed |
 | E-13 | Vercel plan terms | Source |
-| E-14 | GitHub branch protection on private repositories | Source |
+| E-14 | GitHub branch protection on public and private repositories | Source |
 | E-15 | Browser versions Pyodide is tested against | Source |
 | E-16 | Pyodide standard stream handling | Source |
 | E-17 | antislop facts | Source (repository read in full) |
@@ -261,7 +261,7 @@ Sources: [content security policy guide](https://nextjs.org/docs/app/guides/cont
 
 Checked 2026-11-15.
 
-- Vercel's firewall: custom rules, address blocking, and attack mitigation are free on all plans. Rate limiting is a priced feature, billed by usage on the Pro plan. Traffic the firewall denies does not count as requests or data transfer.
+- Vercel's firewall: custom rules, address blocking, and attack mitigation are free on all plans. Rate limiting is a priced feature, billed by usage on the Pro plan. Corrected on 2026-11-15 by E-23: rate limiting is available on all plans, with one rule on Hobby. Traffic the firewall denies does not count as requests or data transfer.
 - Supabase Auth supports hCaptcha and Cloudflare Turnstile. The documentation says the challenge can protect sign-in, sign-up, and password reset forms, and shows the token passed as `options: { captchaToken }` on a sign-up call. That the same option protects an email code request is an inference from the client library's interface, not a statement on that page. WP-2.2 confirms it.
 
 Sources: [firewall usage and pricing](https://vercel.com/docs/vercel-firewall/vercel-waf/usage-and-pricing), [bot challenge for auth](https://supabase.com/docs/guides/auth/auth-captcha).
@@ -299,6 +299,7 @@ Checked 2026-11-15. No page showed a date.
 - "With the exception of `GITHUB_TOKEN`, secrets are not passed to the runner when a workflow is triggered from a forked repository." Workflows on `pull_request_target` run in the context of the base branch.
 - Who may download artifacts from a public repository is not stated. The download endpoint says only that tokens "need the repo scope". ADR-0030 assumes anyone can.
 - The maximum artifact retention for public repositories was not found on the pages read.
+- Not verified on 2026-11-15: scheduled workflows in public repositories are said to be disabled after 60 days without repository activity, and scheduled runs can be delayed or dropped. ADR-0030's freshness check covers both.
 
 Sources: [billing](https://docs.github.com/en/actions/administering-github-actions/usage-limits-billing-and-administration), [limits](https://docs.github.com/en/actions/reference/limits), [secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions), [artifacts API](https://docs.github.com/en/rest/actions/artifacts), [repository Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
 
