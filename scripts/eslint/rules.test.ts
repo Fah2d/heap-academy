@@ -63,8 +63,13 @@ describe("module boundaries", () => {
 
   it("[NFR-MAINT-05] allows the privileged client only in the account deletion use case", async () => {
     const code = 'import { x } from "@/infrastructure/db/privileged";';
-    expect(await ruleIds("src/features/admin/server/publish.ts", code)).toContain(boundary);
-    expect(await ruleIds("src/infrastructure/db/client.ts", code)).toContain(boundary);
+    // Each file imports server-only, so only the privileged import can be reported.
+    expect(
+      await ruleIds("src/features/admin/server/publish.ts", `import "server-only";\n${code}`),
+    ).toContain(boundary);
+    expect(
+      await ruleIds("src/infrastructure/db/client.ts", `import "server-only";\n${code}`),
+    ).toContain(boundary);
     expect(
       await ruleIds(
         "src/features/profile/server/delete-account-helper.ts",
