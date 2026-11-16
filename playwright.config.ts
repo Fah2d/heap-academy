@@ -8,6 +8,15 @@ const port = 3100;
 // server, so e2e/gallery.spec.ts runs against one beside the production build.
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
+// The servers under test get the fake values of .env.example unless the
+// environment sets real ones. None of them is a secret, and no test reaches
+// Supabase or Resend.
+const environment = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "http://127.0.0.1:54321",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+    process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ?? "sb_publishable_example",
+  RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "re_example_not_a_real_key",
+};
 
 export default defineConfig({
   testDir: "./e2e",
@@ -35,11 +44,13 @@ export default defineConfig({
       // Readiness by port: the site has no page at "/" until WP-5.1, and
       // Playwright does not count a 404 there as ready.
       port,
+      env: environment,
       reuseExistingServer: !process.env["CI"],
     },
     {
       command: `pnpm dev --port ${developmentPort}`,
       url: `http://127.0.0.1:${developmentPort}/dev/primitives`,
+      env: environment,
       reuseExistingServer: !process.env["CI"],
     },
   ],
