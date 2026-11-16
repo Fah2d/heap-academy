@@ -7,7 +7,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 const PAGE = "/no-such-page";
 
-/** Collects every violation the page reports, from before its first script. */
+/**
+ * Collects every violation the page reports, from before its first script.
+ * The `securitypolicyviolation` event is the one signal all three engines
+ * send; console text differs per engine and also carries warnings that are
+ * not violations.
+ */
 async function watchViolations(page: Page): Promise<() => Promise<string[]>> {
   // An init script runs in every document before the page's own scripts; the
   // policy does not apply to it.
@@ -18,22 +23,30 @@ async function watchViolations(page: Page): Promise<() => Promise<string[]>> {
       seen.push(`${event.effectiveDirective} ${event.blockedURI}`);
     });
   });
-  const console: string[] = [];
-  page.on("console", (message) => {
-    if (/content.security.policy/i.test(message.text())) console.push(message.text());
+  return () => page.evaluate(() => (window as unknown as { __violations: string[] }).__violations);
+}
+
+/**
+ * The page's scripts have run: the inline flight data scripts filled
+ * `__next_f`, and the external client entry set `window.next`.
+ */
+async function scriptsRan(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const scope = window as unknown as { __next_f?: unknown[]; next?: { version?: string } };
+    return (
+      document.readyState === "complete" &&
+      Array.isArray(scope.__next_f) &&
+      scope.__next_f.length > 0 &&
+      typeof scope.next?.version === "string"
+    );
   });
-  return async () => [
-    ...(await page.evaluate(() => (window as unknown as { __violations: string[] }).__violations)),
-    ...console,
-  ];
 }
 
 test("[NFR-SEC-02] the page runs its scripts with no policy violation", async ({ page }) => {
   const violations = await watchViolations(page);
   const response = await page.goto(PAGE);
   expect(response?.headers()["content-security-policy"]).toMatch(/'nonce-[^']+'/);
-  // Every script the page loads has loaded and run.
-  await page.waitForLoadState("networkidle");
+  await scriptsRan(page);
   expect(await violations()).toEqual([]);
 });
 
