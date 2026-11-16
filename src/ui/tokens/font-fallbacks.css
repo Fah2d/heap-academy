@@ -1,0 +1,33 @@
+/*
+ * The metric-matched fallback for IBM Plex Mono (DESIGN.md section 5). Until
+ * Plex Mono loads, code and labels draw in a local monospace face scaled so
+ * each character is as wide as Plex Mono's and each line as tall, so the swap
+ * moves nothing.
+ *
+ * One face per local font, because each needs its own scale. The values come
+ * from Next.js's formula (next/font's fallback metrics) applied to:
+ *   IBM Plex Mono: 1000 units per em, advance 600, ascent 1025, descent 275,
+ *     line gap 0, read from src/ui/fonts/ibm-plex-mono-latin-400-normal.woff2.
+ *   Menlo (macOS): 2048 units, advance 1233, ascent 1901, descent 483, gap 0.
+ *   Courier New (Windows, macOS): 2048 units, advance 1229, ascent 1705,
+ *     descent 615, gap 0. Liberation Mono (Linux) is metric-compatible with it.
+ * src/ui/tokens/font-fallbacks.test.ts recomputes every value.
+ */
+@font-face {
+  font-family: plex-mono-fallback-menlo;
+  src: local("Menlo Regular"), local("Menlo-Regular");
+  size-adjust: 99.66%;
+  ascent-override: 102.85%;
+  descent-override: 27.59%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: plex-mono-fallback-courier;
+  src:
+    local("Courier New"), local("CourierNewPSMT"), local("Liberation Mono"), local("LiberationMono");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}

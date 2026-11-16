@@ -19,9 +19,13 @@ export const plexSans = localFont({
 });
 
 // Mono appears only where code or a structural label does, so it is not
-// preloaded. Next.js offers a metric fallback for Arial and Times New Roman
-// only, so the mono fallback is not metric-matched (recorded in the WP-1.4
-// pull request). Any monospace fallback still keeps code in columns.
+// preloaded. Next.js generates metric fallbacks for Arial and Times New Roman
+// only, so the mono fallbacks are declared in src/ui/tokens/font-fallbacks.css
+// and come first in the stack, ahead of the unmatched system monospace.
+//
+// The WOFF2 files are byte-for-byte the @fontsource/ibm-plex-sans and
+// @fontsource/ibm-plex-mono files of the version in package.json, which are
+// development dependencies for that reason only (a test compares them).
 export const plexMono = localFont({
   src: [
     { path: "../../ui/fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
@@ -31,7 +35,7 @@ export const plexMono = localFont({
   display: "swap",
   preload: false,
   adjustFontFallback: false,
-  fallback: ["ui-monospace", "Menlo", "Consolas", "Courier New", "monospace"],
+  fallback: ["plex-mono-fallback-menlo", "plex-mono-fallback-courier", "ui-monospace", "monospace"],
 });
 
 /** The class names that declare both font variables on the document. */
