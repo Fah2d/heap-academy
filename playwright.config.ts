@@ -4,6 +4,10 @@ import { defineConfig, devices } from "@playwright/test";
 // screen (docs/spec/05-engineering-handbook.md section 8). Chromium runs on
 // every pull request; Firefox and WebKit on main and before launch.
 const port = 3100;
+// The primitive gallery and the error page exist only on the development
+// server, so e2e/gallery.spec.ts runs against one beside the production build.
+const developmentPort = 3101;
+const gallery = /gallery\.spec\.ts$/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -14,13 +18,29 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: gallery, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: gallery, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: gallery, use: { ...devices["Desktop Safari"] } },
+    {
+      name: "gallery",
+      testMatch: gallery,
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
   ],
-  webServer: {
-    command: `pnpm build && pnpm start --port ${port}`,
-    url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: !process.env["CI"],
-  },
+  // In order: the production build must finish before the development server
+  // starts writing beside it.
+  webServer: [
+    {
+      command: `pnpm build && pnpm start --port ${port}`,
+      // Readiness by port: the site has no page at "/" until WP-5.1, and
+      // Playwright does not count a 404 there as ready.
+      port,
+      reuseExistingServer: !process.env["CI"],
+    },
+    {
+      command: `pnpm dev --port ${developmentPort}`,
+      url: `http://127.0.0.1:${developmentPort}/dev/primitives`,
+      reuseExistingServer: !process.env["CI"],
+    },
+  ],
 });
