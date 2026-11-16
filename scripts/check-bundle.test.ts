@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { findServerVariables, serverVariableNames } from "./check-bundle.mjs";
+import { findServerVariables, main, serverVariableNames } from "./check-bundle.mjs";
 
 let folder: string | undefined;
 
@@ -22,7 +22,10 @@ function bundle(files: Record<string, string>): string {
 
 describe("bundle secret check", () => {
   it("[T-12] takes the server variables from .env.example, leaving out the public ones", () => {
-    expect(serverVariableNames(readFileSync(".env.example", "utf8"))).toEqual(["RESEND_API_KEY"]);
+    expect(serverVariableNames(readFileSync(".env.example", "utf8"))).toEqual([
+      "RESEND_API_KEY",
+      "HEAP_RELEASE",
+    ]);
     expect(serverVariableNames("# comment\nNEXT_PUBLIC_A=1\nB_SECRET=2\n")).toEqual(["B_SECRET"]);
   });
 
@@ -46,5 +49,18 @@ describe("bundle secret check", () => {
     expect(
       findServerVariables(root, ["RESEND_API_KEY"], { RESEND_API_KEY: "re_x_1234567" }),
     ).toEqual([]);
+  });
+
+  it("[T-12] fails a folder with no file in it, which proves nothing", () => {
+    const root = bundle({});
+    const errors: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk: string | Uint8Array) => errors.push(String(chunk)) > 0;
+    try {
+      expect(main([root])).toBe(1);
+    } finally {
+      process.stderr.write = write;
+    }
+    expect(errors.join("")).toContain("nothing was checked");
   });
 });

@@ -35,10 +35,9 @@ export function proxy(request: NextRequest): NextResponse {
 
   log({
     level: "info",
-    event: "request",
     requestId,
-    route: request.nextUrl.pathname,
-    detail: { method: request.method },
+    route: `${request.method} ${request.nextUrl.pathname}`,
+    outcome: "request",
   });
   return response;
 }

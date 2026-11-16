@@ -1,21 +1,22 @@
-// Structured JSON on the server (docs/spec/02-architecture.md section 13,
-// docs/spec/07-operations.md section 4.1): request ID, route, outcome, and
-// duration. No email, name, or learner code goes in a log line (NFR-PRIV-03),
-// so an entry has no free-form text field: every value is one of the fields
-// below, and `detail` takes short codes and numbers only.
+import { RELEASE_LOCAL } from "@/infrastructure/env/schema";
+import type { RequestId } from "@/infrastructure/http/request-id";
+
+// Structured JSON on the server, with an allowlist of fields
+// (.claude/rules/server.md, docs/spec/07-operations.md section 4.1): the
+// request ID, the route, an outcome code, the duration, and the release. No
+// field takes free text, so no email, name, learner code, or token can reach
+// a log line (NFR-PRIV-03).
 
 export type LogLevel = "info" | "warn" | "error";
 
 export type LogEntry = {
   level: LogLevel;
-  /** What happened, as a short code: `request`, `csp-violation`. */
-  event: string;
-  requestId: string;
-  /** The path, without its query string. */
+  requestId: RequestId | "none";
+  /** The method and path, without the query string: `GET /courses`. */
   route: string;
-  outcome?: string;
+  /** A short code for what happened: `request`, `csp-violation:script-src-elem:inline`. */
+  outcome: string;
   durationMs?: number;
-  detail?: Readonly<Record<string, string | number | boolean>>;
 };
 
 export type Logger = (entry: LogEntry) => void;
@@ -23,12 +24,14 @@ export type Logger = (entry: LogEntry) => void;
 export function createLogger({
   write,
   now,
+  release,
 }: {
   write: (line: string) => void;
   now: () => Date;
+  release: string;
 }): Logger {
   return (entry) => {
-    write(JSON.stringify({ time: now().toISOString(), ...entry }));
+    write(JSON.stringify({ time: now().toISOString(), release, ...entry }));
   };
 }
 
@@ -39,4 +42,6 @@ export const log: Logger = createLogger({
     console.log(line);
   },
   now: () => new Date(),
+  // Inlined at build by next.config.ts.
+  release: process.env.HEAP_RELEASE ?? RELEASE_LOCAL,
 });

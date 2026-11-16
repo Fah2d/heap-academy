@@ -6,13 +6,15 @@ import { log as serverLog, type Logger } from "@/infrastructure/logging/logger";
 // POST /api/csp-report (docs/spec/06-security-privacy.md section 5.2). Browsers
 // send content security policy violations here in one of two formats: the
 // legacy `report-uri` body (Firefox) and the Reporting API's list of reports
-// (Chromium, WebKit). Each violation becomes one log line. The body is
-// untrusted, so it is size-capped and parsed, and only the directive and the
-// origin and path of the two addresses are kept: a query string can carry a
-// token or an email address.
+// (Chromium, WebKit). The body is untrusted: it is size-capped and parsed,
+// and it is reduced to codes before anything is logged. An address in a
+// report could hold personal data (.claude/rules/server.md), so none is
+// kept: only the directive and the kind of thing that was blocked.
 
 /** Larger than any real report; a browser batches a handful at most. */
 export const MAX_REPORT_BYTES = 16 * 1024;
+/** Log lines one request may write. More violations than this are counted, not logged. */
+export const MAX_LOGGED_VIOLATIONS = 10;
 
 const LEGACY_TYPE = "application/csp-report";
 const REPORTING_TYPE = "application/reports+json";
@@ -21,7 +23,6 @@ const text = z.string().max(2048);
 
 const legacyReport = z.object({
   "csp-report": z.object({
-    "document-uri": text.optional(),
     "blocked-uri": text.optional(),
     "effective-directive": text.optional(),
     "violated-directive": text.optional(),
@@ -34,7 +35,6 @@ const reportingApiReports = z
     z.object({
       type: text,
       body: z.object({
-        documentURL: text.optional(),
         blockedURL: text.optional(),
         effectiveDirective: text.optional(),
         disposition: text.optional(),
@@ -43,27 +43,52 @@ const reportingApiReports = z
   )
   .max(100);
 
+export type BlockedKind =
+  "inline" | "eval" | "wasm-eval" | "data" | "blob" | "self" | "external" | "other";
+
 export type Violation = {
   directive: string;
-  blocked: string;
-  document: string;
-  disposition: string;
+  blocked: BlockedKind;
+  enforced: boolean;
 };
 
-/** The origin and path of an address; a keyword such as `inline` or `eval` as it is. */
-function withoutQuery(value: string | undefined): string {
-  if (value === undefined || value === "") return "unknown";
-  if (!URL.canParse(value)) return value.slice(0, 64);
+const DIRECTIVE = /^[a-z][a-z-]{0,39}$/;
+const KEYWORDS: ReadonlyMap<string, BlockedKind> = new Map([
+  ["inline", "inline"],
+  ["eval", "eval"],
+  ["wasm-eval", "wasm-eval"],
+  ["data", "data"],
+  ["blob", "blob"],
+]);
+
+function blockedKind(value: string | undefined, origin: string): BlockedKind {
+  if (value === undefined || value === "") return "other";
+  const keyword = KEYWORDS.get(value.replace(/:$/, ""));
+  if (keyword !== undefined) return keyword;
+  if (!URL.canParse(value)) return "other";
   const url = new URL(value);
-  return url.protocol === "http:" || url.protocol === "https:"
-    ? `${url.origin}${url.pathname}`
-    : url.protocol.replace(/:$/, "");
+  const scheme = KEYWORDS.get(url.protocol.replace(/:$/, ""));
+  if (scheme !== undefined) return scheme;
+  return url.origin === origin ? "self" : "external";
+}
+
+function violation(
+  directive: string | undefined,
+  blocked: string | undefined,
+  disposition: string | undefined,
+  origin: string,
+): Violation {
+  return {
+    directive: directive !== undefined && DIRECTIVE.test(directive) ? directive : "unknown",
+    blocked: blockedKind(blocked, origin),
+    enforced: disposition !== "report",
+  };
 }
 
 export type ParseResult = { ok: true; violations: Violation[] } | { ok: false };
 
 /** Parses a report body in either format. Reports of other types are ignored. */
-export function parseCspReport(contentType: string, body: string): ParseResult {
+export function parseCspReport(contentType: string, body: string, origin: string): ParseResult {
   let json: unknown;
   try {
     json = JSON.parse(body);
@@ -77,12 +102,12 @@ export function parseCspReport(contentType: string, body: string): ParseResult {
     return {
       ok: true,
       violations: [
-        {
-          directive: report["effective-directive"] ?? report["violated-directive"] ?? "unknown",
-          blocked: withoutQuery(report["blocked-uri"]),
-          document: withoutQuery(report["document-uri"]),
-          disposition: report.disposition ?? "unknown",
-        },
+        violation(
+          report["effective-directive"] ?? report["violated-directive"],
+          report["blocked-uri"],
+          report.disposition,
+          origin,
+        ),
       ],
     };
   }
@@ -92,12 +117,9 @@ export function parseCspReport(contentType: string, body: string): ParseResult {
     ok: true,
     violations: parsed.data
       .filter((report) => report.type === "csp-violation")
-      .map(({ body: report }) => ({
-        directive: report.effectiveDirective ?? "unknown",
-        blocked: withoutQuery(report.blockedURL),
-        document: withoutQuery(report.documentURL),
-        disposition: report.disposition ?? "unknown",
-      })),
+      .map(({ body: report }) =>
+        violation(report.effectiveDirective, report.blockedURL, report.disposition, origin),
+      ),
   };
 }
 
@@ -132,18 +154,26 @@ export async function handleCspReport(
   }
   const body = await readCapped(request, MAX_REPORT_BYTES);
   if (body === undefined) return new Response(null, { status: 413 });
-  const result = parseCspReport(contentType, body);
+  const url = new URL(request.url);
+  const result = parseCspReport(contentType, body, url.origin);
   if (!result.ok) return new Response(null, { status: 400 });
 
   const requestId = parseRequestId(request.headers.get(REQUEST_ID_HEADER)) ?? "none";
-  for (const violation of result.violations) {
+  const route = `POST ${url.pathname}`;
+  for (const { directive, blocked, enforced } of result.violations.slice(
+    0,
+    MAX_LOGGED_VIOLATIONS,
+  )) {
     log({
-      level: "warn",
-      event: "csp-violation",
+      level: enforced ? "warn" : "info",
       requestId,
-      route: new URL(request.url).pathname,
-      detail: violation,
+      route,
+      outcome: `csp-violation:${directive}:${blocked}`,
     });
+  }
+  const unlogged = result.violations.length - MAX_LOGGED_VIOLATIONS;
+  if (unlogged > 0) {
+    log({ level: "warn", requestId, route, outcome: `csp-violation:more:${unlogged}` });
   }
   return new Response(null, { status: 204 });
 }

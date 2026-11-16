@@ -50,11 +50,32 @@ describe("proxy", () => {
     const entry: unknown = JSON.parse(String(write.mock.calls[0]?.[0]));
     expect(entry).toMatchObject({
       level: "info",
-      event: "request",
       requestId: response.headers.get("x-request-id"),
-      route: "/courses",
+      route: "GET /courses",
+      outcome: "request",
     });
     expect(JSON.stringify(entry)).not.toContain("email");
+  });
+
+  it("[NFR-SEC-02] gives production no unsafe-eval, and upgrades requests over HTTPS only", () => {
+    // Vitest runs with NODE_ENV=test, as a production server runs with production.
+    expect(process.env.NODE_ENV).not.toBe("development");
+    const secure = run("https://heap.test/").headers.get("content-security-policy") ?? "";
+    expect(secure).not.toContain("'unsafe-eval'");
+    expect(secure).toContain("upgrade-insecure-requests");
+    const plain = run("http://127.0.0.1:3100/").headers.get("content-security-policy") ?? "";
+    expect(plain).not.toContain("upgrade-insecure-requests");
+  });
+
+  it("[NFR-SEC-02] gives the development server unsafe-eval", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    try {
+      expect(run("http://127.0.0.1:3000/").headers.get("content-security-policy")).toContain(
+        "'unsafe-eval'",
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("[NFR-SEC-02] names the report endpoint on this origin", () => {
