@@ -7,8 +7,7 @@ import { errorPage } from "@/messages/system";
 import "@/ui/styles.css";
 
 // Replaces the root layout when the layout itself fails, so it brings its own
-// document, styles, and fonts. Without the layout there is no request ID, so
-// the reference is the server's digest when there is one.
+// document, styles, and fonts.
 export default function GlobalError({ error, retry }: { error: unknown; retry: () => void }) {
   const { lang, dir } = documentAttributes(LOCALE);
   return (

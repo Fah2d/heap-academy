@@ -2,24 +2,23 @@
 
 import { errorPage } from "@/messages/system";
 import { Button, Link } from "@/ui";
-import { useRequestId } from "./request-id-context";
 import { SystemPage } from "./system-page";
 
 /**
- * The reference a learner can quote (FR-SYS-01, NFR-OBS-01). An error from
- * the server carries a digest, which Next.js writes to the server log with
- * the error. Otherwise the reference is the ID of the request that rendered
- * the page, which the server log also carries.
+ * The reference a learner can keep (FR-SYS-01, NFR-OBS-01): the digest of an
+ * error from the server, which Next.js writes to the server log with the
+ * error. An error in the browser is logged nowhere until the client error
+ * report exists, so it gets no reference (owner's decision on pull request #3).
  */
-export function errorReference(error: unknown, requestId: string | undefined): string | undefined {
+export function errorReference(error: unknown): string | undefined {
   if (error instanceof Error && "digest" in error && typeof error.digest === "string") {
     if (error.digest !== "") return error.digest;
   }
-  return requestId;
+  return undefined;
 }
 
 export function ErrorView({ error, retry }: { error: unknown; retry: () => void }) {
-  const reference = errorReference(error, useRequestId());
+  const reference = errorReference(error);
   return (
     <SystemPage heading={errorPage.heading} body={errorPage.body}>
       <Button variant="primary" onPress={retry}>

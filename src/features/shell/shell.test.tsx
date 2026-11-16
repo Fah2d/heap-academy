@@ -6,11 +6,9 @@ import { errorPage, notFound } from "@/messages/system";
 import { shell } from "@/messages/shell";
 import { ErrorView, errorReference } from "./components/error-view";
 import { NotFoundView } from "./components/not-found-view";
-import { RequestIdProvider } from "./components/request-id-context";
-import { SiteShell } from "./components/site-shell";
 // fonts.ts runs only under the Next.js compiler, so the test imports the
 // modules directly rather than through index.ts.
-import { parseRequestId } from "./request-id";
+import { SiteShell } from "./components/site-shell";
 
 afterEach(cleanup);
 
@@ -51,33 +49,13 @@ describe("error page", () => {
     expect(screen.queryByText(errorPage.referenceHint)).toBeNull();
   });
 
-  it("[FR-SYS-01] [NFR-OBS-01] shows the request ID when the error has no digest", () => {
-    const requestId = parseRequestId("req_7f3a9c2e41b8");
-    render(
-      <RequestIdProvider requestId={requestId}>
-        <ErrorView error={new Error("thrown in the browser")} retry={() => undefined} />
-      </RequestIdProvider>,
-    );
-    expect(screen.getByText("req_7f3a9c2e41b8").tagName).toBe("CODE");
-  });
-
-  it("[FR-SYS-01] prefers the digest, falls back to the request ID, and invents nothing", () => {
-    expect(errorReference(serverError("123"), "req_abcdefgh")).toBe("123");
-    expect(errorReference(serverError(""), "req_abcdefgh")).toBe("req_abcdefgh");
-    expect(errorReference("a thrown string", "req_abcdefgh")).toBe("req_abcdefgh");
-    expect(errorReference(new Error("x"), undefined)).toBeUndefined();
-  });
-});
-
-describe("request ID", () => {
-  it("[NFR-OBS-01] accepts a well-formed ID and rejects anything else", () => {
-    expect(parseRequestId("0b6f7c1e-4d2a-4f3e-9a51-2c8e7d6b5a40")).toBe(
-      "0b6f7c1e-4d2a-4f3e-9a51-2c8e7d6b5a40",
-    );
-    expect(parseRequestId(null)).toBeUndefined();
-    expect(parseRequestId("<script>")).toBeUndefined();
-    expect(parseRequestId("short")).toBeUndefined();
-    expect(parseRequestId("x".repeat(65))).toBeUndefined();
+  // A browser error is logged nowhere until the client error report exists, so
+  // no reference could lead to it (owner's decision on pull request #3).
+  it("[FR-SYS-01] [NFR-OBS-01] shows only the server's digest, and invents nothing", () => {
+    expect(errorReference(serverError("123"))).toBe("123");
+    expect(errorReference(serverError(""))).toBeUndefined();
+    expect(errorReference("a thrown string")).toBeUndefined();
+    expect(errorReference(new Error("x"))).toBeUndefined();
   });
 });
 
