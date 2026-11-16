@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cx } from "../class-names";
 import { CheckmarkFilled, ErrorFilled, InformationFilled, WarningAltFilled } from "../icons";
+import { LiveText } from "./live-text";
 
 export type NoticeKind = "information" | "warning" | "error" | "success";
 
@@ -27,19 +28,22 @@ const icons: Record<NoticeKind, { icon: ReactNode; tone: string }> = {
 
 export function Notice({ kind, kindLabel, children, announce }: NoticeProps) {
   const { icon, tone } = icons[kind];
-  const role = announce === "assertive" ? "alert" : announce === "polite" ? "status" : undefined;
+  const sentence = (
+    <>
+      <span className="font-semibold">{kindLabel}: </span>
+      {children}
+    </>
+  );
   return (
-    <div
-      role={role}
-      className="flex items-start gap-3 rounded-panel border border-border-control bg-surface p-4 text-base text-text"
-    >
+    <div className="flex items-start gap-3 rounded-panel border border-border-control bg-surface p-4 text-base text-text">
       <span aria-hidden="true" className={cx("inline-flex shrink-0", tone)}>
         {icon}
       </span>
-      <p>
-        <span className="font-semibold">{kindLabel}: </span>
-        {children}
-      </p>
+      {announce === undefined ? (
+        <p>{sentence}</p>
+      ) : (
+        <LiveText role={announce === "assertive" ? "alert" : "status"}>{sentence}</LiveText>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button, Dialog, Disclosure, Link, Notice, Progress, Status, Tabs, TextField } from "@/ui";
@@ -123,6 +124,23 @@ describe("TextField", () => {
     const field = screen.getByRole("textbox", { name: "Email address" });
     expect(field.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByText("Enter an email address with an @ sign.")).toBeTruthy();
+    expect(
+      screen.getByRole("textbox", { description: "Enter an email address with an @ sign." }),
+    ).toBe(field);
+  });
+
+  it("[ADR-0014] falls back to the field's own validation message when no sentence is given", () => {
+    render(
+      <TextField label="Name" validationBehavior="aria" validate={() => "Enter your name."} />,
+    );
+    const field = screen.getByRole("textbox", { name: "Name" });
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("textbox", { description: "Enter your name." })).toBe(field);
+  });
+
+  it("[ADR-0014] shows no error icon on a valid field", () => {
+    const { container } = render(<TextField label="Name" validate={() => null} />);
+    expect(container.querySelector("svg")).toBeNull();
   });
 
   it("[ADR-0014] supports disabled and read-only fields", () => {
@@ -156,6 +174,26 @@ describe("Tabs", () => {
     await userEvent.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Code" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel").textContent).toBe("Editor");
+  });
+
+  it("[ADR-0014] reserves the selected weight's width, so selecting a tab does not move its neighbors", () => {
+    render(
+      <Tabs
+        label="Lesson views"
+        items={[
+          { id: "lesson", title: "Lesson", content: <p>Instructions</p> },
+          { id: "code", title: "Code", content: <p>Editor</p> },
+        ]}
+      />,
+    );
+    for (const name of ["Lesson", "Code"]) {
+      const tab = screen.getByRole("tab", { name });
+      const reserve = tab.querySelector('[aria-hidden="true"]');
+      expect(reserve?.textContent, name).toBe(name);
+      expect(reserve?.className.split(/\s+/), name).toEqual(
+        expect.arrayContaining(["invisible", "font-semibold", "col-start-1", "row-start-1"]),
+      );
+    }
   });
 });
 
@@ -231,6 +269,23 @@ describe("Notice", () => {
       </Notice>,
     );
     expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
+  it("[ADR-0014] puts an announced notice's region in the page before its text", async () => {
+    const notice = (
+      <Notice kind="information" kindLabel="Information" announce="polite">
+        Your code is saved on this device.
+      </Notice>
+    );
+    const first = renderToStaticMarkup(notice);
+    expect(first).toContain('role="status"');
+    expect(first).not.toContain("Your code is saved");
+    render(notice);
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe(
+        "Information: Your code is saved on this device.",
+      );
+    });
   });
 });
 

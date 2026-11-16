@@ -10,14 +10,28 @@ import {
 } from "react-aria-components";
 import { ErrorFilled } from "../icons";
 
-export type TextFieldProps = Omit<AriaTextFieldProps, "className" | "style" | "children"> & {
+type FieldProps = Omit<AriaTextFieldProps, "className" | "style" | "children" | "isInvalid"> & {
   /** The visible label. Placeholder text is never the only label. */
   label: string;
   description?: string;
   placeholder?: string;
-  /** The sentence shown below the field when it is invalid. */
-  errorMessage?: string;
 };
+
+/**
+ * A field marked invalid by its owner carries the sentence that says why, so
+ * it is never marked by color and an icon alone. A field made invalid by its
+ * own validation (`isRequired`, `validate`) shows that validation's message
+ * when `errorMessage` is not given.
+ */
+export type TextFieldProps = FieldProps &
+  (
+    | { isInvalid?: false; errorMessage?: string }
+    | {
+        isInvalid: true;
+        /** The sentence shown below the field when it is invalid. */
+        errorMessage: string;
+      }
+  );
 
 const input =
   "min-h-target w-full rounded-control border border-border-control bg-bg px-3 text-base text-text transition-colors placeholder:text-text-subtle not-read-only:data-hovered:border-text-muted data-invalid:border-fail data-disabled:border-border data-disabled:bg-surface data-disabled:text-text-muted read-only:border-border read-only:bg-surface";
@@ -39,10 +53,19 @@ export function TextField({
         </Text>
       )}
       <FieldError className="flex items-start gap-2 text-sm text-fail">
-        <span aria-hidden="true" className="inline-flex pbs-1">
-          <ErrorFilled size={16} />
-        </span>
-        <span>{errorMessage}</span>
+        {({ validationErrors }) => {
+          const sentence = errorMessage ?? validationErrors.join(" ");
+          // No sentence, no icon: a lone icon would say "wrong" without saying why.
+          if (sentence === "") return null;
+          return (
+            <>
+              <span aria-hidden="true" className="inline-flex pbs-1">
+                <ErrorFilled size={16} />
+              </span>
+              <span>{sentence}</span>
+            </>
+          );
+        }}
       </FieldError>
     </AriaTextField>
   );
