@@ -2,8 +2,13 @@
 // (NFR-MAINT-05, ADR-0023). Changing what is allowed here is a spec change
 // that needs the owner.
 
-import { dirname, relative, resolve, sep } from "node:path";
 import { builtinModules } from "node:module";
+import { dirname, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Found from this file, not from ESLint's working directory, so the rule
+// works the same from an editor or from another folder.
+const SRC_ROOT = fileURLToPath(new URL("../../src/", import.meta.url));
 
 /**
  * Which project modules each module may import, besides itself.
@@ -40,6 +45,12 @@ const NODE_BUILTINS = new Set(builtinModules.flatMap((name) => [name, `node:${na
 const PRIVILEGED_CLIENT = "infrastructure/db/privileged";
 // The account deletion use case is the only caller (CLAUDE.md rule 8).
 const PRIVILEGED_CALLER = "features/profile/server/delete-account";
+
+// Folders whose modules run in the browser, and folders whose modules must
+// declare themselves server-only (docs/spec/02-architecture.md sections 4.1, 4.2).
+const CLIENT_FOLDER = /^features\/[^/]+\/client\//;
+const SERVER_FOLDER = /^(?:features\/[^/]+\/server|infrastructure\/db)\//;
+const TEST_FILE = /\.test$/;
 
 /**
  * @param {string} srcRoot absolute path of `src`
@@ -81,18 +92,24 @@ export const moduleBoundaries = {
         "The privileged database client may be imported only by the account deletion use case (CLAUDE.md rule 8).",
       impure:
         "`{{from}}` must stay pure: it may not import `{{source}}` (docs/spec/02-architecture.md section 4.1).",
+      serverOnly:
+        'A module in this folder runs only on the server and must start with `import "server-only"` (docs/spec/02-architecture.md section 4.1).',
     },
   },
   create(context) {
-    const srcRoot = resolve(context.cwd, "src");
+    const srcRoot = SRC_ROOT;
     const importer = locate(srcRoot, context.filename);
     if (importer === undefined) return {};
-    const isClient = context.sourceCode.ast.body.some(
-      (statement) =>
-        statement.type === "ExpressionStatement" &&
-        statement.expression.type === "Literal" &&
-        statement.expression.value === "use client",
-    );
+    const body = context.sourceCode.ast.body;
+    const isClient =
+      CLIENT_FOLDER.test(importer.path) ||
+      body.some(
+        (statement) =>
+          statement.type === "ExpressionStatement" &&
+          statement.expression.type === "Literal" &&
+          statement.expression.value === "use client",
+      );
+    const mustBeServerOnly = SERVER_FOLDER.test(importer.path) && !TEST_FILE.test(importer.path);
 
     /**
      * @param {import("estree").Node} node
@@ -118,7 +135,7 @@ export const moduleBoundaries = {
       const target = locate(srcRoot, absolute);
       if (target === undefined) return;
 
-      if (target.path === PRIVILEGED_CLIENT && !importer.path.startsWith(PRIVILEGED_CALLER)) {
+      if (target.path === PRIVILEGED_CLIENT && importer.path !== PRIVILEGED_CALLER) {
         context.report({ node, messageId: "privileged" });
         return;
       }
@@ -153,6 +170,14 @@ export const moduleBoundaries = {
     };
 
     return {
+      Program(node) {
+        if (!mustBeServerOnly) return;
+        const declares = body.some(
+          (statement) =>
+            statement.type === "ImportDeclaration" && statement.source.value === "server-only",
+        );
+        if (!declares) context.report({ node, messageId: "serverOnly" });
+      },
       ImportDeclaration(node) {
         if (typeof node.source.value === "string") check(node, node.source.value);
       },

@@ -5,6 +5,8 @@ import { logicalProperties } from "./logical-properties.mjs";
 import { moduleBoundaries } from "./module-boundaries.mjs";
 import { noInlineStrings } from "./no-inline-strings.mjs";
 
+export { CSS_ALLOWED_PROPERTIES, CSS_ALLOWED_UNITS } from "./logical-properties.mjs";
+
 /** @type {import("eslint").ESLint.Plugin} */
 export const heapPlugin = {
   meta: { name: "heap" },
@@ -75,6 +77,8 @@ export const PURITY_SELECTORS = [
   },
 ];
 
+// Through `globalThis` or `self` any of these can be reached, so those are
+// banned too. Timers are time; `crypto` is randomness.
 export const IO_GLOBALS = [
   "fetch",
   "XMLHttpRequest",
@@ -87,4 +91,18 @@ export const IO_GLOBALS = [
   "window",
   "navigator",
   "process",
+  "globalThis",
+  "self",
+  "global",
+  "setTimeout",
+  "setInterval",
+  "setImmediate",
+  "queueMicrotask",
+  "requestAnimationFrame",
+  "structuredClone",
+  "performance",
+  "crypto",
+  "Worker",
+  "postMessage",
+  "importScripts",
 ].map((name) => ({ name, message: "src/domain and src/grader perform no I/O." }));

@@ -1,5 +1,6 @@
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Lints snippets through the repository's real configuration, as if they were
@@ -64,9 +65,54 @@ describe("module boundaries", () => {
     const code = 'import { x } from "@/infrastructure/db/privileged";';
     expect(await ruleIds("src/features/admin/server/publish.ts", code)).toContain(boundary);
     expect(await ruleIds("src/infrastructure/db/client.ts", code)).toContain(boundary);
-    expect(await ruleIds("src/features/profile/server/delete-account.ts", code)).not.toContain(
+    expect(
+      await ruleIds(
+        "src/features/profile/server/delete-account-helper.ts",
+        `import "server-only";\n${code}`,
+      ),
+    ).toContain(boundary);
+    expect(
+      await ruleIds(
+        "src/features/profile/index.ts",
+        `export { x } from "@/infrastructure/db/privileged";`,
+      ),
+    ).toContain(boundary);
+    expect(
+      await ruleIds(
+        "src/features/profile/server/delete-account.ts",
+        `import "server-only";\n${code}`,
+      ),
+    ).not.toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] treats a feature's client folder as client code without the directive", async () => {
+    const hook = "src/features/workspace/client/use-save.ts";
+    expect(await ruleIds(hook, 'import { x } from "@/infrastructure/db/client";')).toContain(
       boundary,
     );
+    expect(await ruleIds(hook, 'import { x } from "../server/save";')).toContain(boundary);
+  });
+
+  it.each(["src/features/workspace/server/save.ts", "src/infrastructure/db/client.ts"])(
+    '[NFR-MAINT-05] requires import "server-only" in %s',
+    async (path) => {
+      expect(await ruleIds(path, "export const a = 1;")).toContain(boundary);
+      expect(await ruleIds(path, 'import "server-only";\nexport const a = 1;')).not.toContain(
+        boundary,
+      );
+    },
+  );
+
+  it("[NFR-MAINT-05] finds src from the rule's own location, whatever the working directory", async () => {
+    const elsewhere = new ESLint({
+      cwd: join(import.meta.dirname, "../../src"),
+      overrideConfigFile: join(import.meta.dirname, "../../eslint.config.mjs"),
+      overrideConfig: [{ files: ["**/*.{ts,tsx}"], ...tseslint.configs.disableTypeChecked }],
+    });
+    const [result] = await elsewhere.lintText('import { x } from "@/infrastructure/db/client";', {
+      filePath: join(import.meta.dirname, "../../src/domain/streak.ts"),
+    });
+    expect(result?.messages.map((message) => message.ruleId)).toContain(boundary);
   });
 
   it.each([
@@ -81,11 +127,17 @@ describe("module boundaries", () => {
   });
 
   it.each([
-    ["src/features/workspace/server/run.ts", 'import { x } from "@/runtime/controller";'],
-    ["src/features/workspace/server/run.ts", 'import { x } from "../../../grader/compare";'],
+    [
+      "src/features/workspace/server/run.ts",
+      'import "server-only";\nimport { x } from "@/runtime/controller";',
+    ],
+    [
+      "src/features/workspace/server/run.ts",
+      'import "server-only";\nimport { x } from "../../../grader/compare";',
+    ],
     ["src/runtime/controller.ts", 'import { x } from "@/grader/compare";'],
     ["src/content/queries.ts", 'import { x } from "@/infrastructure/db/public";'],
-    ["src/infrastructure/db/client.ts", 'import { x } from "@/domain/ids";'],
+    ["src/infrastructure/db/client.ts", 'import "server-only";\nimport { x } from "@/domain/ids";'],
     ["src/app/page.tsx", 'import { x } from "@/features/catalog";'],
     ["src/app/layout.tsx", 'import "@/ui/tokens.css";'],
     ["src/instrumentation.ts", 'import { x } from "@/infrastructure/env/schema";'],
@@ -100,6 +152,9 @@ describe("module boundaries", () => {
     ["new Date()", "const t = new Date();"],
     ["Math.random()", "const r = Math.random();"],
     ["fetch", 'void fetch("/x");'],
+    ["globalThis.fetch", 'void globalThis.fetch("/x");'],
+    ["setTimeout", "setTimeout(() => undefined, 1);"],
+    ["structuredClone", "const c = structuredClone({});"],
   ])(
     "[NFR-MAINT-05] keeps time, randomness, and I/O out of src/domain: %s",
     async (_name, code) => {
@@ -151,8 +206,41 @@ describe("no inline strings", () => {
     ["alt", 'export const A = () => <img alt="Logo" src="/a.png" />;'],
     ["placeholder", 'export const A = () => <input placeholder="Email" />;'],
     ["title", 'export const A = () => <abbr title="Experience points" />;'],
+    [
+      "a ternary",
+      'export const A = ({ ok }: { ok: boolean }) => <p>{ok ? "Passed" : "Failed"}</p>;',
+    ],
+    ["a fallback", 'export const A = ({ n }: { n?: string }) => <p>{n ?? "Guest"}</p>;'],
+    ["a joined string", 'export const A = ({ n }: { n: number }) => <p>{n + " passed"}</p>;'],
+    [
+      "an attribute ternary",
+      'export const A = ({ ok }: { ok: boolean }) => <img alt={ok ? "Open" : "Closed"} src="/a.png" />;',
+    ],
+    [
+      "a component prop",
+      'declare const Notice: (p: { heading: string }) => null;\nexport const A = () => <Notice heading="Saved" />;',
+    ],
+    [
+      "a component prop with spaces",
+      'declare const Notice: (p: { heading: string }) => null;\nexport const A = () => <Notice heading="try again" />;',
+    ],
   ])("[NFR-I18N-01] fails lint for inline %s", async (_name, code) => {
     expect(await ruleIds(file, code)).toContain(rule);
+  });
+
+  it.each([
+    ["src/app/page.tsx", 'export const metadata = { title: "Heap Academy" };'],
+    [
+      "src/app/layout.tsx",
+      'export const metadata = { openGraph: { description: "Learn Python" } };',
+    ],
+    [
+      "src/app/courses/page.tsx",
+      'export function generateMetadata() { return { title: "Courses" }; }',
+    ],
+    ["src/app/sitemap.ts", 'export const metadata = { keywords: ["python"] };'],
+  ])("[NFR-I18N-01] fails lint for inline page metadata in %s", async (path, code) => {
+    expect(await ruleIds(path, code)).toContain(rule);
   });
 
   it.each([
@@ -163,6 +251,18 @@ describe("no inline strings", () => {
     ["a class name", 'export const A = () => <p className="text-start" />;'],
     ["a separator", "export const A = () => <span>·</span>;"],
     ["whitespace", "export const A = () => <p> </p>;"],
+    [
+      "a setting prop",
+      'declare const Button: (p: { variant: string; tone: string }) => null;\nexport const A = () => <Button variant="primary" tone="quiet" />;',
+    ],
+    [
+      "an identifier-like prop",
+      'declare const Icon: (p: { glyph: string }) => null;\nexport const A = () => <Icon glyph="check" />;',
+    ],
+    [
+      "metadata from messages",
+      'import { m } from "@/messages/home";\nexport const metadata = { title: m.title, alternates: { canonical: "/" } };',
+    ],
   ])("[NFR-I18N-01] allows %s", async (_name, code) => {
     expect(await ruleIds(file, code)).not.toContain(rule);
   });
@@ -200,10 +300,31 @@ describe("logical properties", () => {
     expect(await ruleIds(file, code)).not.toContain(rule);
   });
 
-  it("[NFR-I18N-02] fails lint for a physical property in a stylesheet", async () => {
-    expect(await ruleIds("src/ui/tokens.css", ".panel { margin-left: 4px; }")).toContain(
-      "css/prefer-logical-properties",
-    );
-    expect(await ruleIds("src/ui/tokens.css", ".panel { margin-inline-start: 4px; }")).toEqual([]);
+  it("[NFR-I18N-02] fails lint for physical classes kept in a variable in a primitive", async () => {
+    expect(
+      await ruleIds("src/ui/variants.ts", 'export const button = "ml-4 text-left";'),
+    ).toContain(rule);
+    expect(
+      await ruleIds("src/ui/variants.ts", 'export const button = "ms-4 text-start";'),
+    ).not.toContain(rule);
   });
+
+  it.each([
+    ".panel { margin-left: 4px; }",
+    ".panel { padding-right: 4px; }",
+    ".panel { left: 0; }",
+  ])("[NFR-I18N-02] fails lint for an inline-axis side in a stylesheet: %s", async (css) => {
+    expect(await ruleIds("src/ui/tokens.css", css)).toContain("css/prefer-logical-properties");
+  });
+
+  it.each([
+    ".panel { margin-inline-start: 4px; }",
+    ".panel { margin-top: 4px; inset-block-start: 0; }",
+    ".panel { width: 100%; min-height: 100dvh; }",
+  ])(
+    "[NFR-I18N-02] allows block-axis sides and sizes in a stylesheet, as in classes: %s",
+    async (css) => {
+      expect(await ruleIds("src/ui/tokens.css", css)).toEqual([]);
+    },
+  );
 });

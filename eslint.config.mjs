@@ -5,6 +5,8 @@ import nextTs from "eslint-config-next/typescript";
 import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
 import {
+  CSS_ALLOWED_PROPERTIES,
+  CSS_ALLOWED_UNITS,
   heapPlugin,
   IO_GLOBALS,
   PURITY_SELECTORS,
@@ -91,14 +93,22 @@ export default defineConfig([
     },
   },
 
-  // NFR-I18N-01 and NFR-I18N-02 in everything that renders.
+  // NFR-I18N-01 and NFR-I18N-02 in everything that renders, and in page
+  // metadata, which can sit in route files.
   {
-    files: ["src/**/*.tsx"],
+    files: ["src/**/*.tsx", "src/app/**/*.ts"],
     ignores: TESTS,
     rules: {
       "heap/no-inline-strings": "error",
       "heap/logical-properties": "error",
     },
+  },
+  // Primitives and components keep class lists in variables too, so every
+  // string there is checked for physical classes.
+  {
+    files: ["src/ui/**/*.{ts,tsx}", "src/features/*/components/**/*.{ts,tsx}"],
+    ignores: TESTS,
+    rules: { "heap/logical-properties": ["error", { allStrings: true }] },
   },
 
   // src/domain and src/grader are pure.
@@ -115,13 +125,19 @@ export default defineConfig([
 
   { files: TESTS, rules: { "@typescript-eslint/no-non-null-assertion": "off" } },
 
-  // Stylesheets: logical properties only (NFR-I18N-02).
+  // Stylesheets: logical properties for the inline axis (NFR-I18N-02), with
+  // the same scope as heap/logical-properties.
   {
     files: ["**/*.css"],
     plugins: { css },
     language: "css/css",
     languageOptions: { tolerant: true },
-    rules: { "css/prefer-logical-properties": "error" },
+    rules: {
+      "css/prefer-logical-properties": [
+        "error",
+        { allowProperties: CSS_ALLOWED_PROPERTIES, allowUnits: CSS_ALLOWED_UNITS },
+      ],
+    },
   },
 
   // Plain JavaScript files are checked by tsc with checkJs; the type-aware
