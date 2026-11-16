@@ -109,9 +109,82 @@ describe("workflows", () => {
 
   it("[T-13] the pull request checks read their rules from the base commit", () => {
     const text = read("ci.yml");
-    expect(text).toMatch(/git show "\$source:\$file"/);
+    const base = step(job(text, "static"), "The checks from the base commit");
+    expect(base).toContain(
+      'if git cat-file -e "$base:$file" 2>/dev/null; then source=$base; else source=HEAD; fi',
+    );
+    expect(base).toContain('git show "$source:$file"');
+    expect(base).toContain(
+      "for file in scripts/check-attribution.mjs .gitleaks.toml scripts/install-gitleaks.sh; do",
+    );
+    // The ignore file comes from the base or not at all.
+    expect(base).toContain('git show "$base:.gitleaksignore"');
+    expect(base).not.toContain('git show "$source:.gitleaksignore"');
     expect(text).not.toMatch(/node scripts\/check-attribution\.mjs/);
     expect(text).not.toMatch(/--config \.gitleaks\.toml/);
+    expect(job(text, "static")).not.toMatch(/^\s*(?:run: )?scripts\/install-gitleaks\.sh/m);
+  });
+
+  it("[T-12] [T-13] the secret scan cannot be silenced from the pull request", () => {
+    const scan = step(job(read("ci.yml"), "static"), "Secret scan of the commits");
+    expect(scan).toContain('"$RUNNER_TEMP/bin/gitleaks" git');
+    expect(scan).toContain('--config "$RUNNER_TEMP/checks/.gitleaks.toml"');
+    expect(scan).toContain('--gitleaks-ignore-path "$RUNNER_TEMP/checks/ignore"');
+    expect(scan).toContain("--ignore-gitleaks-allow");
+    expect(step(job(read("ci.yml"), "static"), "Install gitleaks")).toContain(
+      'sh "$RUNNER_TEMP/checks/install-gitleaks.sh" "$RUNNER_TEMP/bin"',
+    );
+  });
+
+  it("[T-13] the base-commit checks run before any step runs the pull request's code", () => {
+    const text = job(read("ci.yml"), "static");
+    const firstPullRequestCode = text.indexOf("run: pnpm install --frozen-lockfile");
+    expect(firstPullRequestCode).toBeGreaterThan(0);
+    for (const name of [
+      "The checks from the base commit",
+      "Attribution in the commits",
+      "Attribution in the pull request title and description",
+      "Attribution in the files",
+      "Install gitleaks",
+      "Secret scan of the commits",
+    ]) {
+      const position = text.indexOf(`name: ${name}\n`);
+      expect(position, name).toBeGreaterThan(0);
+      expect(position, name).toBeLessThan(firstPullRequestCode);
+    }
+  });
+
+  it("[NFR-REL-04] the deploy promotes what it deployed, and rolls back only on failure or cancel", () => {
+    const production = job(read("deploy.yml"), "production");
+    expect(step(production, "Deploy")).toContain(
+      "url=$(vercel deploy --prebuilt --prod --skip-domain)",
+    );
+    expect(step(production, "Promote")).toContain('run: vercel promote "$DEPLOYMENT" --yes');
+    expect(step(production, "Promote")).toContain("DEPLOYMENT: ${{ steps.deploy.outputs.url }}");
+    const rollback = step(production, "Roll back to the previous deployment");
+    expect(rollback).toContain(
+      "if: (failure() || cancelled()) && steps.promote.outcome != 'skipped' && steps.previous.outputs.id != ''",
+    );
+    expect(rollback).toContain('vercel rollback "$PREVIOUS"');
+    expect(rollback).toContain("PREVIOUS: ${{ steps.previous.outputs.id }}");
+  });
+
+  it("[NFR-REL-04] only a 404 for the production alias means there is nothing to roll back to", () => {
+    const lookup = step(
+      job(read("deploy.yml"), "production"),
+      "Remember the deployment production serves",
+    );
+    expect(lookup).toContain("--write-out '%{http_code}'");
+    expect(lookup).not.toContain('|| id=""');
+    expect(lookup).toMatch(/ {12}404\)\n {14}id=""\n {14}echo "::warning::/);
+    expect(lookup).toMatch(/ {12}\*\)\n {14}echo "::error::[^\n]*\n {14}exit 1\n/);
+    expect(lookup).toContain("jq --raw-output --exit-status '.deploymentId | strings'");
+  });
+
+  it("[T-18] each deploy job names its own environment, so production needs the owner's approval", () => {
+    const text = read("deploy.yml");
+    expect(job(text, "staging-migrations")).toMatch(/^ {4}environment: staging$/m);
+    expect(job(text, "production")).toMatch(/^ {4}environment:\n {6}name: production$/m);
   });
 
   it("[T-18] the deploy workflow restores no cache, keeps its order, and never runs twice at once", () => {

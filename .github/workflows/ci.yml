@@ -45,10 +45,14 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
+      # Every check that must not be loosened by the pull request it checks
+      # runs here, before any step runs the pull request's own code
+      # (`pnpm install`, lint): that code could put a fake `node` or
+      # `gitleaks` on the path of every later step. The checks, the secret
+      # scan's rules and ignore file, and the gitleaks installer come from the
+      # base commit. Only a file that does not exist yet on the base is taken
+      # from the pull request. What stays with the pull request is this
+      # workflow file itself: a change to it is pushed by the owner.
       - name: The commit range
         id: range
         env:
@@ -64,21 +68,23 @@ jobs:
           else
             echo "range=$PUSH_BEFORE..$PUSH_AFTER" >> "$GITHUB_OUTPUT"
           fi
-      # The checks come from the base commit, so a pull request cannot loosen
-      # the rule it is checked by. Only a check that does not exist yet on
-      # the base is taken from the pull request itself.
       - name: The checks from the base commit
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
         run: |
           base=${PR_BASE:-$PUSH_BEFORE}
-          mkdir "$RUNNER_TEMP/checks"
-          for file in scripts/check-attribution.mjs .gitleaks.toml; do
+          mkdir "$RUNNER_TEMP/checks" "$RUNNER_TEMP/checks/ignore" "$RUNNER_TEMP/bin"
+          for file in scripts/check-attribution.mjs .gitleaks.toml scripts/install-gitleaks.sh; do
             if git cat-file -e "$base:$file" 2>/dev/null; then source=$base; else source=HEAD; fi
             echo "$file from $source"
             git show "$source:$file" > "$RUNNER_TEMP/checks/$(basename "$file")"
           done
+          # The ignore file only ever comes from the base: a pull request
+          # that adds one cannot silence a finding in itself.
+          if git cat-file -e "$base:.gitleaksignore" 2>/dev/null; then
+            git show "$base:.gitleaksignore" > "$RUNNER_TEMP/checks/ignore/.gitleaksignore"
+          fi
       - name: Attribution in the commits
         env:
           RANGE: ${{ steps.range.outputs.range }}
@@ -92,13 +98,21 @@ jobs:
       - name: Attribution in the files
         run: node "$RUNNER_TEMP/checks/check-attribution.mjs" --files
       - name: Install gitleaks
-        run: |
-          scripts/install-gitleaks.sh "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+        run: sh "$RUNNER_TEMP/checks/install-gitleaks.sh" "$RUNNER_TEMP/bin"
+      # `--ignore-gitleaks-allow`: a `gitleaks:allow` comment in the pull
+      # request does not hide its own secret.
       - name: Secret scan of the commits
         env:
           RANGE: ${{ steps.range.outputs.range }}
-        run: gitleaks git --log-opts="$RANGE" --redact --no-banner --config "$RUNNER_TEMP/checks/.gitleaks.toml"
+        run: >-
+          "$RUNNER_TEMP/bin/gitleaks" git --log-opts="$RANGE" --redact --no-banner
+          --config "$RUNNER_TEMP/checks/.gitleaks.toml"
+          --gitleaks-ignore-path "$RUNNER_TEMP/checks/ignore"
+          --ignore-gitleaks-allow
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
       - name: Dependency audit
         run: pnpm audit --audit-level high
 
