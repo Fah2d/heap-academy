@@ -1,3 +1,10 @@
+# Install scripts are denied unless listed here (handbook section 6).
+# @carbon/icon-helpers and @carbon/icons-react: their only install script is
+# `ibmtelemetry` (IBM usage telemetry). The packages ship built `es` and `lib`
+# folders, so nothing needs to run. Checked in WP-1.4.
+allowBuilds:
+  "@carbon/icon-helpers": false
+  "@carbon/icons-react": false
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
 strictDepBuilds: true

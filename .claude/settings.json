@@ -53,6 +53,7 @@
     "allowUnsandboxedCommands": false,
     "excludedCommands": ["gh"],
     "filesystem": {
+      "allowWrite": ["~/Library/pnpm/store"],
       "denyRead": [
         "./.env",
         "./.env.local",
