@@ -32,7 +32,7 @@ test("[NFR-SEC-02] the page runs its scripts with no policy violation", async ({
   const violations = await watchViolations(page);
   const response = await page.goto(PAGE);
   expect(response?.headers()["content-security-policy"]).toMatch(/'nonce-[^']+'/);
-  // React has hydrated: the skip link moves focus, which needs the page's scripts.
+  // Every script the page loads has loaded and run.
   await page.waitForLoadState("networkidle");
   expect(await violations()).toEqual([]);
 });
