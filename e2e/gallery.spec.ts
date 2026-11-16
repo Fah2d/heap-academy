@@ -6,7 +6,8 @@ import { gallery } from "../src/messages/gallery";
 // The development-only primitive gallery and error page (WP-1.4). This file
 // runs against the development server: the production build has neither page.
 
-const WIDTHS = [375, 768, 1280];
+// 320 px is the narrowest width NFR-A11Y-05 names; the rest are the screenshot widths.
+const WIDTHS = [320, 375, 768, 1280];
 const TARGET = 44;
 
 // The overlay the development server draws over a page that threw. It is not

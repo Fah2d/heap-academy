@@ -5,7 +5,8 @@ import { shell } from "../src/messages/shell";
 
 // The shell and the not-found page on the production build (WP-1.4).
 
-const WIDTHS = [375, 768, 1280];
+// 320 px is the narrowest width NFR-A11Y-05 names; the rest are the screenshot widths.
+const WIDTHS = [320, 375, 768, 1280];
 const TARGET = 44;
 
 test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async ({ page }) => {
