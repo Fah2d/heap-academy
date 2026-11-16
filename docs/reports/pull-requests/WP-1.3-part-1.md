@@ -23,15 +23,15 @@ This is a **draft**. The work package is done only when one real page is live th
 | Item | Where |
 |---|---|
 | `static`, `unit`, `build` jobs. Actions pinned by commit, `permissions: {}`, a timeout on every job, frozen lockfile, no secrets, runs on `edited` | `.github/workflows/ci.yml` |
-| `static`: format, lint, types, attribution in the commits, the title and description, and the files; gitleaks over the range; `pnpm audit --audit-level high`. The attribution script and the gitleaks rules come from the base commit, so a pull request cannot loosen them | same |
+| `static`: attribution in the commits, the title and description, and the files; gitleaks over the range; then format, lint, types and `pnpm audit --audit-level high`. The attribution script, the gitleaks rules, its ignore file and its installer come from the base commit, and they run before any step runs the pull request's code. `gitleaks:allow` comments are ignored. What a pull request can still change is the workflow file itself; a change to it is pushed by you (choice 8) | same |
 | `build`: production build, then the bundle secret check | same, `scripts/check-bundle.mjs` |
-| Deploy: staging migrations, approval, production migrations, note the served deployment, `vercel build`, the bundle check on the production build, `deploy --prebuilt --prod --skip-domain`, `promote`, smoke that the address serves this commit, rollback on failure or cancel. One concurrency group; no cache in credentialed jobs; the token only in the steps that talk to Vercel | `.github/workflows/deploy.yml`, `scripts/apply-migrations.sh` |
+| Deploy: staging migrations, approval, production migrations, note the served deployment, `vercel build`, the bundle check on the production build, `deploy --prebuilt --prod --skip-domain`, `promote`, smoke that the address serves this commit, rollback on failure or cancel. Only a 404 for the alias means "nothing to roll back to"; any other answer stops the deploy. One concurrency group; no cache in credentialed jobs; the token is in the environment of the steps that talk to Vercel only, which is not a boundary (see Risks) | `.github/workflows/deploy.yml`, `scripts/apply-migrations.sh` |
 | Every deploy tool locked: the Vercel CLI from its own npm lockfile, the Supabase CLI from its release archive checked by SHA-256 | `tools/vercel-cli/`, `scripts/install-supabase.sh` |
 | Vercel's own production deploy from Git turned off | `vercel.json` |
 | The nonce policy of `06-security-privacy.md` section 5.2, set on the request (where Next.js reads the nonce) and on the response | `src/proxy.ts`, `src/infrastructure/http/security-headers.ts` |
 | HSTS, nosniff, referrer policy and permissions policy on every response, static files included | `next.config.ts` |
-| Request IDs on every request. A client-sent ID is replaced, which closes WP-1.4's security MINOR 3. JSON logs with a closed set of fields: request ID, route, outcome code, duration, release | `src/infrastructure/http/request-id.ts`, `src/infrastructure/logging/logger.ts` |
-| `GET /api/health` (liveness and the release) and `POST /api/csp-report` (both report formats, 16 KiB cap, at most 10 log lines a request, only the directive and a kind code logged, no address) | `src/features/system/server`, `src/app/api` |
+| Request IDs on every request. A client-sent ID is replaced, which closes WP-1.4's security MINOR 3. JSON logs with a closed set of fields: request ID, route, outcome code, duration, release. The line is built from those fields and each is checked at run time; the route is the method and a path pattern (`GET /:param`), so a path the client chose never reaches the log. Each server error is logged with its digest next to the request ID (WP-1.4 decision 3) | `src/infrastructure/http/request-id.ts`, `src/infrastructure/logging/`, `src/instrumentation.ts` |
+| `GET /api/health` (liveness and the release) and `POST /api/csp-report` (both report formats, 8 kB cap as `07-operations.md` section 7 says, at most 10 log lines a request, only a known directive name and a kind code logged, no address) | `src/features/system/server`, `src/app/api` |
 | `pnpm infra:verify --url <base> [--page <path>] [--release <sha>] [--repo OWNER/REPO]`. The page policy is compared with section 5.2 directive by directive. `--repo` checks the repository settings and that each environment deploys from `main` only | `scripts/infra-verify.mjs` |
 | The rules of `.claude/rules/ci.md`, tested on the workflow files | `scripts/workflows.test.ts` |
 | Policy enforced and no violation, in Chromium, Firefox and WebKit (written, not run) | `e2e/csp.spec.ts` |
@@ -48,8 +48,8 @@ $ eslint --max-warnings=0 .
 $ tsc --noEmit
 $ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
 $ vitest run --coverage
- Test Files  16 passed (16)
-      Tests  463 passed (463)
+ Test Files  18 passed (18)
+      Tests  501 passed (501)
 ```
 
 Exit 0. Every `pnpm` run here also prints `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` from the sandbox's store lock; the scripts run regardless.
@@ -65,20 +65,23 @@ Exit 0. Every `pnpm` run here also prints `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOC
 - `development: true`;
 - `secure: false`.
 
-**`pnpm infra:verify` on this branch alone.** Built with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567` and started without it, which shows the release is fixed at build. `next start` ran on 127.0.0.1:3131 with the fake `.env.example` values. Main has no page yet: the only page is Next's built-in not-found, which is prerendered static, so it cannot carry a nonce (E-21). **Merge WP-1.4 first**, or the first deploy's smoke fails on this line.
+After the second reviews, the mutations they found surviving each fail a test too, and the fake server has a broken variant for every smoke check: no policy, a widened policy, no script, a fixed request ID, health without nosniff, a report endpoint answering 200, a GET answering 200, a page that is not HTML, and a static file without the headers. `scripts/workflows.test.ts` now pins the exact rollback condition, the deploy and promote lines, the alias lookup's 404 branch, each job's environment, and the order of the base-commit checks before `pnpm install`.
+
+**`pnpm infra:verify` on this branch alone, at 53e8ab0.** Built with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567` and the fake `.env.example` values, then `next start` on 127.0.0.1:3141. Main has no page yet: the only page is Next's built-in not-found, which is prerendered static, so it cannot carry a nonce (E-21). **Merge WP-1.4 first**, or the first deploy's smoke fails on this line.
 
 ```
-$ node scripts/infra-verify.mjs --url http://127.0.0.1:3131 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
+$ node scripts/infra-verify.mjs --url http://127.0.0.1:3141 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
 PASS  page /no-such-page is HTML: 404 text/html; charset=utf-8
-PASS  Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-giDCwIgRJ6ZKL9WEE8C7rg==' 'strict-dynamic'; style-src 'self' 'nonce-giDCwIgRJ6ZKL9WEE8C7rg=='; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp
+PASS  Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-O/IFjo/90gm0AEJTfwfmrQ==' 'strict-dynamic'; style-src 'self' 'nonce-O/IFjo/90gm0AEJTfwfmrQ=='; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp
 FAIL  every script carries the nonce: 0 of 12 scripts; without: <script src="/_next/static/chunks/2bg3w5buoxyi3.js" async=""> <script src="/_next/static/chunks/2tryakn-yp90k.js" async=""> <script src="/_next/static/chunks/turbopack-2u1d16houkiyo.js" async="">
-PASS  a new nonce per request: giDCwIgRJ6ZKL9WEE8C7rg== then oLaM0ohWO5GVTuIZKxxyGw==
+PASS  a new nonce per request: O/IFjo/90gm0AEJTfwfmrQ== then ERDj3GbAWiiaU+7smjvcLg==
 PASS  X-Content-Type-Options: nosniff
 PASS  Referrer-Policy: strict-origin-when-cross-origin
 PASS  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=(), browsing-topics=()
 SKIP  Strict-Transport-Security: not applicable over plain HTTP (sent: max-age=63072000; includeSubDomains)
-PASS  a request ID per request: 526851ee-d30b-43a8-9d1b-3edc2f9a061b then 2cc8d66e-472f-4769-9822-388960d4c7aa
-PASS  a client-sent request ID is replaced: 526851ee-d30b-43a8-9d1b-3edc2f9a061b
+PASS  a static file carries the security headers: 200 /_next/static/chunks/2bg3w5buoxyi3.js
+PASS  a request ID per request: 11eb2766-af6e-4cb6-90c0-dc6339f5e6e3 then 9a397e5e-fdcd-4b12-819f-b9fb116af8b8
+PASS  a client-sent request ID is replaced: 11eb2766-af6e-4cb6-90c0-dc6339f5e6e3
 PASS  /api/health answers ok: 200 {"status":"ok","release":"0123456789abcdef0123456789abcdef01234567"}
 PASS  the address serves the expected release: 0123456789abcdef0123456789abcdef01234567, expected 0123456789abcdef0123456789abcdef01234567
 PASS  /api/health is not cached: no-store
@@ -88,10 +91,14 @@ PASS  /api/csp-report refuses a malformed report: 400
 PASS  /api/csp-report caps the size: 413
 PASS  /api/csp-report refuses GET: 405
 
-1 of 18 checks failed.
+1 of 19 checks failed.
 ```
 
-**`pnpm infra:verify` on a throwaway merge of this branch with `wp/1.4-tokens-primitives-shell`.** WP-1.4's root layout reads the request headers, so every page renders per request (`ƒ /_not-found` in the build output). The merge was made in a separate clone under `$TMPDIR`, with the `next.config.ts` resolution described under "Merge note". Nothing was committed. On the merge: `tsc` and `eslint` clean, `vitest run` `Test Files 20 passed (20)`, `Tests 602 passed (602)`.
+Then `curl http://127.0.0.1:3141/ada@example.com/x`. The server log has 0 lines containing `ada@`; the request is logged as `"route":"GET /:param/:param"`.
+
+**That server is still running.** `pkill` answered "Cannot get process list" inside the sandbox, which hides processes from later commands. Stop it from your terminal: `pkill -f "next start --hostname 127.0.0.1 --port 3141"`.
+
+**`pnpm infra:verify` on a throwaway merge of this branch with `wp/1.4-tokens-primitives-shell`, at 1a129a9, before the second reviews' fixes; not run again since.** WP-1.4's root layout reads the request headers, so every page renders per request (`ƒ /_not-found` in the build output). The merge was made in a separate clone under `$TMPDIR`, with the `next.config.ts` resolution described under "Merge note". Nothing was committed. On the merge: `tsc` and `eslint` clean, `vitest run` `Test Files 20 passed (20)`, `Tests 602 passed (602)`.
 
 ```
 $ node scripts/infra-verify.mjs --url http://127.0.0.1:3132 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
@@ -145,34 +152,45 @@ Run it once more yourself just before you make the repository public (runbook st
 - **The workflows themselves** have not run: no runner, and no `actionlint` on this machine. `scripts/workflows.test.ts` checks the rules from `.claude/rules/ci.md` as text.
 - **Vercel behavior the docs leave open:** that `vercel build` needs no token after `vercel pull`; that `GET /v4/aliases/{host}` works for a Hobby account without a `teamId`; and that `npm ci --ignore-scripts` leaves the Vercel CLI working (2 packages in its tree declare install scripts). The first deploy shows each one.
 - **The e2e wait on `window.next.version`**: confirmed in `next/dist/client/app-bootstrap.js`, not in a browser.
+- **The digest log line on a running server.** No route on this branch throws, so `onRequestError` is unit-tested only. Whether Next.js passes the proxy's replaced `x-request-id` in the request headers it gives `onRequestError` is not verified; if it does not, the line has `requestId: "none"` and the digest still finds it.
+- **The fork-approval mapping.** GitHub's REST reference gives `approval_policy` with `first_time_contributors_new_to_github`, `first_time_contributors` and `all_external_contributors`. That the last one is the screen's "Require approval for all external contributors" is my reading of the name; the reference does not say.
 
 ## Reviews
 
-`code-reviewer` and `security-reviewer`, fresh contexts, on `main..830bc18`. Both gave **CHANGES REQUIRED** with no BLOCKER. The reports and what I did with each finding are in `docs/reports/reviews/WP-1.3/`. Neither was re-run after the fixes.
+Two rounds each of `code-reviewer` and `security-reviewer`, fresh contexts. Reports in `docs/reports/reviews/WP-1.3/`.
 
-Fixed:
+- **Round 1** on `main..830bc18`: both CHANGES REQUIRED, no BLOCKER. Fixed in 3f926b9..5a7af8b: the rollback that left later deploys staged; the environment branch-policy checks; smoke checks that could not fail; deploy tools outside a lockfile; the logger allowlist; the token's Workflows permission; CI rules read from the pull request; the tag-object pin; migration TLS; report fan-out; the e2e wait; the empty-folder bundle check.
+- **Round 2** on `main..1a129a9`: both CHANGES REQUIRED, no BLOCKER. Not run again after these fixes.
 
-- **Rollback.** A rollback made every later deploy stay staged while the run went green. Now the deploy promotes, and the smoke checks the release.
-- **T-18.** The environment branch-policy checks were missing.
-- **Smoke checks.** Several could not fail. Mutations now fail them.
-- **Deploy tools.** Vercel and Supabase CLIs were installed outside a lockfile, and setup-bun wrote to the Actions cache.
-- **Logging.** The logger had no field allowlist. An email in a report reached the log, shown live by the reviewer.
-- **The implementer token.** Workflows write let a pushed workflow forge a passing check. It is now dropped from the runbook.
-- **CI rules from the pull request.** The checks read their own rules from the pull request being checked.
-- **Action pin.** `pnpm/action-setup` was pinned to a tag object.
-- **Migration connection.** It did not require TLS, and the password was not masked.
-- **Report endpoint.** One request could fan out to many log lines.
-- **e2e wait.** The test waited on network idle.
-- **Bundle check.** An empty folder passed.
+Round 2, fixed in 4c09c2e..fc9aef9:
 
-Open:
+- **The route in the log was client text** (code MAJOR 3, security MAJOR 1). An email in the path reached the log, and the logger copied any extra field. The line is now built from the named fields, each checked at run time, and the route is a pattern. Tests with an email in the path and an extra field.
+- **The rollback runbook typed the Vercel token into a terminal** (security MAJOR 2). The command-line rollback is gone; the dashboard's Instant Rollback needs no token.
+- **A pull request could loosen its own checks** (code MAJOR 1, security MINOR 3). The base-commit checks run before `pnpm install`; the gitleaks installer and ignore file come from the base; `--ignore-gitleaks-allow`.
+- **The alias lookup failed open** (code MAJOR 2, security MINOR 5). Only a 404 means no target, with a warning; anything else stops the deploy before it starts. The runbook has a row for it.
+- **Surviving mutations** (code MAJOR 4): see "Mutations" above.
+- **The report endpoint** (security MINOR 6, code MINOR): 8 kB cap from the spec, a closed list of directive names, tests for report-only, precedence and the 100-report limit.
+- **The token "isolation" claim** (security MINOR 4): reworded in `deploy.yml`, and under Risks.
+- **The bundle check's coverage** (security MINOR 9, code MINOR): `--env-file` adds every server variable the pull wrote; the comment says Sensitive variables arrive as placeholders.
+- **`--repo`** (security MINOR 8, code MINOR): fork approval and Dependabot secrets; `gh` errors are printed.
+- **Static-file headers** (code MINOR): checked by the smoke.
+- **Required checks tied to GitHub Actions** (security MINOR 10): in the ruleset step.
+- **The promotion timeout race** (code MINOR): the runbook says to check which deployment is Current after a timed-out promotion. The workflow itself does not wait on `vercel promote status`: not built, because I could not check the CLI's options here.
+- **The server error digest** (WP-1.4 decision 3): logged with the request ID.
 
-- **The spec text** (choices 1, 2, 5 and 7 below). Your decision.
-- **The three-engine run.** Needs a browser.
-- **A build check that fails on any static page.** Not built.
-- **The fork-approval read in `--repo`.** Not built.
-- **A deny rule for `gh api -X PUT .../merge`.** Yours to add, because `.claude/settings.json` is not writable here.
-- **The Vercel CLI's audit result** (choice 12).
+Open, for you:
+
+- **The spec text** (choices 1, 2, 5 and 7, and the 8 kB report cap now matches the spec). Proposed in the `spec-change` pull request, `wp/spec-change-shell-nav-errors`, each marked "pending owner decision".
+- **The Vercel CLI's audit result** (choice 12; code MAJOR 5c, security MINOR 4).
+- **A deny rule for `gh api -X PUT .../merge`** (security MINOR 11). `.claude/settings.json` is yours.
+
+Open, for part 2 or later:
+
+- **The three-engine run and the trial without `style-src-attr`** (code MAJOR 5b). Needs a browser.
+- **A build check that fails on any static page** (security MINOR 7). Not built: on this branch alone it would fail `build` until WP-1.4 merges.
+- **Hobby rollback eligibility after an earlier rollback** (code MINOR). The first deploys show it.
+- **A rate limit on `/api/csp-report`** (code MINOR). The spec sets none; noted for WP-7.x.
+- **The duplicated request ID helper** (code MINOR). Follow-up after both merge.
 
 ## Choices I made while you were away
 
@@ -190,7 +208,7 @@ Open:
 12. **The Vercel CLI has its own npm lockfile** (`tools/vercel-cli`), because `pnpm add` is blocked in this sandbox. It is installed with `npm ci --ignore-scripts`, outside the app's dependency tree. `npm audit` on it reports 38 advisories: 1 critical (`tar`), 21 high (`undici`, `path-to-regexp`, `minimatch`, `js-yaml`, `zod`, `smol-toml`, and Vercel's own packages that pin them), 16 moderate. All of them sit inside Vercel's dependencies of `vercel@65.16.0`, which is the latest release (published 2026-11-14). Nothing passes untrusted input to them; they process our own build. `pnpm dlx` would resolve the same pinned versions without a lock. No audit gate runs on this lockfile, because it would fail every run. Your choice: accept it as is (recommended), or move the CLI into `devDependencies` from your machine with `pnpm add -D --save-exact vercel@65.16.0`, which puts it under `pnpm audit --audit-level high` and fails `static` today.
 13. **The release is the commit SHA**, set by the deploy workflow as `HEAP_RELEASE` at build, parsed by the environment schema (a full SHA or `local`), and inlined by `next.config.ts`. A prebuilt deployment does not see the build's environment at run time.
 
-**Spec changes to approve** (the reviewers asked for them; I have not edited the spec):
+**Spec changes to approve** (the reviewers asked for them). They are written into the `spec-change` pull request on `wp/spec-change-shell-nav-errors`, each marked "pending owner decision"; this branch does not edit the spec:
 
 - `02-architecture.md` section 4: add `features/system`, which holds the platform routes: health and the policy report.
 - `08-delivery-plan.md` WP-2.1 "Builds": add "the database check in `/api/health`".
@@ -229,6 +247,8 @@ Nothing is deployed. Once the owner steps are done, the first merge deploys thro
 
 The policy is enforced from the first deploy, as the spec asks, so a missing nonce would block scripts. `infra:verify` in the smoke step catches that and rolls back.
 
+The Vercel token is in the environment of the Vercel steps only, but that is not a boundary. Every step of the production job shares one runner, so a build-time dependency run by `vercel build` could change what a later step runs. Such a dependency already writes the production bundle. The stronger form is a build job without credentials that hands its output to the deploy job; it is not built.
+
 ## Definition of Done
 
 - [ ] Every "Done when" line is met. **Not met:** most lines need accounts (see above). This is part 1.
@@ -236,5 +256,13 @@ The policy is enforced from the first deploy, as the spec asks, so a missing non
 - [x] `pnpm verify` passes. CI has not run yet.
 - [x] No stub, dead control, placeholder or invented number. `/api/health` reports what exists today.
 - [x] No new tables. No new server actions.
-- [x] Every reviewer blocker is fixed: there were none. The MAJORs are fixed or listed as open under Reviews.
+- [x] Every reviewer blocker is fixed: there were none in either round. The MAJORs are fixed or listed as open under Reviews. The reviewers have not seen the round-2 fixes.
 - [x] No AI attribution in any commit or in this description. `git log --format=fuller main..HEAD` shows author and committer `Fahad <Fah2d@users.noreply.github.com>` on every commit.
+
+## Updating this pull request
+
+`gh` cannot reach GitHub from the sandbox. From your terminal, in the repository root:
+
+```sh
+gh pr edit 4 --body-file docs/reports/pull-requests/WP-1.3-part-1.md
+```
