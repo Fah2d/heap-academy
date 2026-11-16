@@ -38,6 +38,17 @@ describe("module boundaries", () => {
     expect(await ruleIds(path, code)).toContain(boundary);
   });
 
+  it("[NFR-MAINT-05] treats a module's folder import as that module, not as a root file", async () => {
+    const from = "src/features/shell/components/view.tsx";
+    expect(await ruleIds(from, 'import { Button } from "@/ui";')).not.toContain(boundary);
+    expect(await ruleIds("src/domain/ids.ts", 'import { Button } from "@/ui";')).toContain(
+      boundary,
+    );
+    expect(await ruleIds("src/ui/button.tsx", 'import { m } from "@/messages";')).toContain(
+      boundary,
+    );
+  });
+
   it("[NFR-MAINT-05] lets a feature import another feature only through its index.ts", async () => {
     const from = "src/features/workspace/components/editor.tsx";
     expect(await ruleIds(from, 'import { x } from "@/features/progress/server/merge";')).toContain(
