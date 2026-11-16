@@ -275,6 +275,26 @@ export async function verifyDeployment({ url, page = "/", release, timeoutMs = T
 
   checks.push(...securityHeaderChecks(first.headers, secure));
 
+  // A built file: next.config.ts gives static files the same headers, and
+  // the proxy does not run for them.
+  const staticPath = /<script[^>]*\ssrc=["'](\/_next\/static\/[^"']+)["']/i.exec(html)?.[1];
+  if (staticPath === undefined) {
+    checks.push(check("a static file carries the security headers", false, "no static script"));
+  } else {
+    const file = await request(new URL(staticPath, base));
+    await file.arrayBuffer();
+    const missing = securityHeaderChecks(file.headers, secure)
+      .filter((item) => item.status === "fail")
+      .map((item) => item.name);
+    checks.push(
+      check(
+        "a static file carries the security headers",
+        file.ok && missing.length === 0,
+        `${file.status} ${staticPath}${missing.length > 0 ? `; missing: ${missing.join(", ")}` : ""}`,
+      ),
+    );
+  }
+
   const id = first.headers.get("x-request-id") ?? "";
   const secondId = second.headers.get("x-request-id") ?? "";
   checks.push(
@@ -368,7 +388,8 @@ export async function verifyDeployment({ url, page = "/", release, timeoutMs = T
       String(malformed.status),
     ),
   );
-  const oversize = await post("application/csp-report", "x".repeat(64 * 1024));
+  // Just over the 8 kB of docs/spec/07-operations.md section 7.
+  const oversize = await post("application/csp-report", "x".repeat(9000));
   await oversize.arrayBuffer();
   checks.push(
     check("/api/csp-report caps the size", oversize.status === 413, String(oversize.status)),
@@ -387,7 +408,13 @@ export async function verifyDeployment({ url, page = "/", release, timeoutMs = T
 function ghApi(path) {
   try {
     return JSON.parse(execFileSync("gh", ["api", path], { encoding: "utf8", stdio: "pipe" }));
-  } catch {
+  } catch (error) {
+    // The check that reads this then fails. Say why, so "absent" and "could
+    // not be read" (no access, rate limit) can be told apart.
+    const stderr =
+      typeof error === "object" && error !== null && "stderr" in error ? String(error.stderr) : "";
+    const reason = stderr.trim().split("\n")[0] || String(error);
+    process.stderr.write(`gh api ${path}: ${reason}\n`);
     return undefined;
   }
 }
@@ -415,6 +442,10 @@ export function verifyRepository(repo, api = ghApi) {
   const limit = record(api(`repos/${repo}/interaction-limits`))["limit"];
   const reporting = record(api(`repos/${repo}/private-vulnerability-reporting`))["enabled"];
   const secrets = record(api(`repos/${repo}/actions/secrets`))["total_count"];
+  const dependabotSecrets = record(api(`repos/${repo}/dependabot/secrets`))["total_count"];
+  const forkApproval = record(
+    api(`repos/${repo}/actions/permissions/fork-pr-contributor-approval`),
+  )["approval_policy"];
   /** @type {Check[]} */
   const checks = [
     check(
@@ -437,6 +468,18 @@ export function verifyRepository(repo, api = ghApi) {
       "no repository-level secrets (they belong to an environment)",
       secrets === 0,
       secrets === undefined ? "could not be read" : `${String(secrets)} secrets`,
+    ),
+    check(
+      "no Dependabot secrets",
+      dependabotSecrets === 0,
+      dependabotSecrets === undefined
+        ? "could not be read"
+        : `${String(dependabotSecrets)} secrets`,
+    ),
+    check(
+      "workflows from every external contributor wait for approval",
+      forkApproval === "all_external_contributors",
+      typeof forkApproval === "string" ? forkApproval : "could not be read",
     ),
   ];
   for (const name of ENVIRONMENTS) {

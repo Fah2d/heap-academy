@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { findServerVariables, main, serverVariableNames } from "./check-bundle.mjs";
+import {
+  findServerVariables,
+  main,
+  serverVariableNames,
+  serverVariablesOf,
+} from "./check-bundle.mjs";
 
 let folder: string | undefined;
 
@@ -62,5 +67,51 @@ describe("bundle secret check", () => {
       process.stderr.write = write;
     }
     expect(errors.join("")).toContain("nothing was checked");
+  });
+
+  function quietly(run: () => number): { code: number; errors: string } {
+    const errors: string[] = [];
+    const write = process.stderr.write.bind(process.stderr);
+    const out = process.stdout.write.bind(process.stdout);
+    process.stderr.write = (chunk: string | Uint8Array) => errors.push(String(chunk)) > 0;
+    process.stdout.write = () => true;
+    try {
+      return { code: run(), errors: errors.join("") };
+    } finally {
+      process.stderr.write = write;
+      process.stdout.write = out;
+    }
+  }
+
+  it("[T-12] reads the server variables of a pulled environment file, leaving out public and Vercel system ones", () => {
+    expect(
+      serverVariablesOf(
+        [
+          'NEXT_PUBLIC_SUPABASE_URL="https://x.supabase.co"',
+          'SUPABASE_SECRET_ONLY_IN_VERCEL="sb_secret_value_123"',
+          'VERCEL_ENV="production"',
+          'VERCEL_OIDC_TOKEN="eyJ.oidc.token"',
+        ].join("\n"),
+      ),
+    ).toEqual({
+      SUPABASE_SECRET_ONLY_IN_VERCEL: "sb_secret_value_123",
+      VERCEL_OIDC_TOKEN: "eyJ.oidc.token",
+    });
+  });
+
+  it("[T-12] with --env-file, finds a variable that is set in Vercel but missing from .env.example", () => {
+    const root = bundle({ "chunks/a.js": 'const k="sb_secret_value_123"', "env/.env": "" });
+    writeFileSync(join(root, "env/.env"), 'ONLY_IN_VERCEL="sb_secret_value_123"\n');
+    const chunks = join(root, "chunks");
+    const { code, errors } = quietly(() => main([chunks, "--env-file", join(root, "env/.env")]));
+    expect(code).toBe(1);
+    expect(errors).toContain("the value of ONLY_IN_VERCEL");
+    expect(quietly(() => main([chunks])).code).toBe(0);
+  });
+
+  it("[T-12] refuses arguments it does not know", () => {
+    const root = bundle({ "chunks/a.js": "" });
+    expect(quietly(() => main([root, "--env"])).code).toBe(2);
+    expect(quietly(() => main([root, "--other", "x"])).code).toBe(2);
   });
 });

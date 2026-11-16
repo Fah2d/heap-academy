@@ -177,7 +177,16 @@ type Broken =
   | "no-nosniff"
   | "no-size-cap"
   | "accepts-anything"
-  | "hangs";
+  | "hangs"
+  | "no-policy"
+  | "wide-policy"
+  | "no-script"
+  | "fixed-id"
+  | "health-no-nosniff"
+  | "report-200"
+  | "get-200"
+  | "not-html"
+  | "static-bare";
 
 /** A server that behaves as the application should. `broken` names one thing it gets wrong. */
 function application(broken?: Broken): Handler {
@@ -187,16 +196,28 @@ function application(broken?: Broken): Handler {
     counter += 1;
     const nonce = broken === "fixed-nonce" ? "fixed" : `nonce${counter}`;
     const id =
-      broken === "echo-id" ? String(request.headers["x-request-id"]) : `request_${counter}_id`;
+      broken === "echo-id"
+        ? String(request.headers["x-request-id"])
+        : broken === "fixed-id"
+          ? "request_fixed_id"
+          : `request_${counter}_id`;
     const { "x-content-type-options": _nosniff, ...withoutNosniff } = STATIC_HEADERS;
     const common = {
       ...(broken === "no-nosniff" ? withoutNosniff : STATIC_HEADERS),
       "x-request-id": id,
     };
     const path = request.url ?? "/";
+    if (path === "/_next/static/a.js") {
+      response.writeHead(200, {
+        ...(broken === "static-bare" ? {} : STATIC_HEADERS),
+        "content-type": "application/javascript",
+      });
+      response.end("");
+      return;
+    }
     if (path === "/api/health") {
       response.writeHead(broken === "health-down" ? 500 : 200, {
-        ...common,
+        ...(broken === "health-no-nosniff" ? withoutNosniff : common),
         "content-type": "application/json",
         "cache-control": broken === "health-cached" ? "public, max-age=60" : "no-store",
       });
@@ -206,28 +227,33 @@ function application(broken?: Broken): Handler {
     }
     if (path === "/api/csp-report") {
       if (request.method !== "POST") {
-        response.writeHead(405, common).end();
+        response.writeHead(broken === "get-200" ? 200 : 405, common).end();
         return;
       }
       const chunks: Buffer[] = [];
       request.on("data", (chunk: Buffer) => chunks.push(chunk));
       request.on("end", () => {
         const body = Buffer.concat(chunks).toString();
-        const tooLarge = body.length > 16 * 1024 && broken !== "no-size-cap";
+        const tooLarge = body.length > 8000 && broken !== "no-size-cap";
         const malformed = body.includes("not a report") && broken !== "accepts-anything";
-        response.writeHead(tooLarge ? 413 : malformed ? 400 : 204, common).end();
+        const ok = broken === "report-200" ? 200 : 204;
+        response.writeHead(tooLarge ? 413 : malformed ? 400 : ok, common).end();
       });
       return;
     }
+    const policy =
+      broken === "wide-policy"
+        ? GOOD_POLICY(nonce).replace("connect-src 'self'", "connect-src *")
+        : GOOD_POLICY(nonce);
     response.writeHead(404, {
       ...common,
-      "content-type": "text/html; charset=utf-8",
-      "content-security-policy": GOOD_POLICY(nonce),
+      "content-type": broken === "not-html" ? "application/json" : "text/html; charset=utf-8",
+      ...(broken === "no-policy" ? {} : { "content-security-policy": policy }),
     });
     const extra = broken === "inline-script" ? "<script>alert(1)</script>" : "";
-    response.end(
-      `<html><body><script nonce="${nonce}" src="/_next/a.js"></script>${extra}</body></html>`,
-    );
+    const script =
+      broken === "no-script" ? "" : `<script nonce="${nonce}" src="/_next/static/a.js"></script>`;
+    response.end(`<html><body>${script}${extra}</body></html>`);
   };
 }
 
@@ -249,6 +275,15 @@ describe("verifyDeployment", () => {
     ["no-nosniff", "X-Content-Type-Options"],
     ["no-size-cap", "/api/csp-report caps the size"],
     ["accepts-anything", "/api/csp-report refuses a malformed report"],
+    ["no-policy", "Content-Security-Policy"],
+    ["wide-policy", "Content-Security-Policy"],
+    ["no-script", "every script carries the nonce"],
+    ["fixed-id", "a request ID per request"],
+    ["health-no-nosniff", "/api/health carries nosniff"],
+    ["report-200", "/api/csp-report accepts a report"],
+    ["get-200", "/api/csp-report refuses GET"],
+    ["not-html", "page / is HTML"],
+    ["static-bare", "a static file carries the security headers"],
   ])(
     "[NFR-SEC-02] [FR-SYS-04] fails a deployment that gets one thing wrong: %s",
     async (broken, name) => {
@@ -290,6 +325,10 @@ const GOOD_REPOSITORY: Record<string, unknown> = {
   "repos/o/r/interaction-limits": { limit: "collaborators_only" },
   "repos/o/r/private-vulnerability-reporting": { enabled: true },
   "repos/o/r/actions/secrets": { total_count: 0, secrets: [] },
+  "repos/o/r/dependabot/secrets": { total_count: 0, secrets: [] },
+  "repos/o/r/actions/permissions/fork-pr-contributor-approval": {
+    approval_policy: "all_external_contributors",
+  },
   ...Object.fromEntries(
     ["staging", "production", "production-backup"].flatMap((name) => [
       [
@@ -321,6 +360,25 @@ describe("verifyRepository", () => {
     expect(repositoryFailures({ "repos/o/r/interaction-limits": {} })).toEqual([
       "interactions limited to collaborators",
     ]);
+  });
+
+  it("[T-18] fails a Dependabot secret, or one that cannot be read", () => {
+    for (const value of [{ total_count: 2 }, undefined]) {
+      expect(repositoryFailures({ "repos/o/r/dependabot/secrets": value })).toEqual([
+        "no Dependabot secrets",
+      ]);
+    }
+  });
+
+  it("[T-18] fails unless workflows from every external contributor need approval", () => {
+    for (const policy of ["first_time_contributors", "first_time_contributors_new_to_github"]) {
+      expect(
+        repositoryFailures({
+          "repos/o/r/actions/permissions/fork-pr-contributor-approval": { approval_policy: policy },
+        }),
+        policy,
+      ).toEqual(["workflows from every external contributor wait for approval"]);
+    }
   });
 
   it("[T-18] fails a repository-level secret", () => {
