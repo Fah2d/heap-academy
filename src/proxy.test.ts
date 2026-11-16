@@ -46,15 +46,24 @@ describe("proxy", () => {
 
   it("[NFR-OBS-01] logs the request with its ID and path, without the query string", () => {
     const write = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    const response = proxy(new NextRequest("https://heap.test/courses?email=a%40b.test"));
+    const response = proxy(new NextRequest("https://heap.test/api/health?email=a%40b.test"));
     const entry: unknown = JSON.parse(String(write.mock.calls[0]?.[0]));
     expect(entry).toMatchObject({
       level: "info",
       requestId: response.headers.get("x-request-id"),
-      route: "GET /courses",
+      route: "GET /api/health",
       outcome: "request",
     });
     expect(JSON.stringify(entry)).not.toContain("email");
+  });
+
+  it("[NFR-PRIV-03] [T-16] logs an email in the path as a parameter, and bounds the line", () => {
+    const write = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    proxy(new NextRequest(`https://heap.test/ada@example.com/${"x".repeat(3000)}`));
+    const line = String(write.mock.calls[0]?.[0]);
+    expect(line).not.toContain("ada@example.com");
+    expect(line).not.toContain("xxx");
+    expect(JSON.parse(line)).toMatchObject({ route: "GET /:param/:param" });
   });
 
   it("[NFR-SEC-02] gives production no unsafe-eval, and upgrades requests over HTTPS only", () => {

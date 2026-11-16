@@ -6,6 +6,7 @@ import {
   reportingEndpoints,
 } from "@/infrastructure/http/security-headers";
 import { log } from "@/infrastructure/logging/logger";
+import { logRoute } from "@/infrastructure/logging/route";
 
 // Runs before every page and route handler (docs/spec/02-architecture.md
 // section 12). It does no network work, so it cannot slow a page down or
@@ -36,7 +37,7 @@ export function proxy(request: NextRequest): NextResponse {
   log({
     level: "info",
     requestId,
-    route: `${request.method} ${request.nextUrl.pathname}`,
+    route: logRoute(request.method, request.nextUrl.pathname),
     outcome: "request",
   });
   return response;
