@@ -15,10 +15,12 @@ export function SystemPage({
   children: ReactNode;
 }) {
   return (
-    <section className="mx-auto flex max-w-prose flex-col gap-5 px-gutter py-7">
-      <h1 className="text-xl font-semibold text-text">{heading}</h1>
-      <p className="text-base text-text-muted">{body}</p>
-      <div className="flex flex-wrap items-center gap-4">{children}</div>
-    </section>
+    <div className="mx-auto max-w-page px-gutter py-7">
+      <section className="flex max-w-prose flex-col gap-5">
+        <h1 className="text-xl font-semibold text-balance text-text">{heading}</h1>
+        <p className="text-base text-text-muted">{body}</p>
+        <div className="flex flex-wrap items-center gap-4">{children}</div>
+      </section>
+    </div>
   );
 }

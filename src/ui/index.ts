@@ -6,7 +6,7 @@ export {
   type ButtonSurface,
   type ButtonVariant,
 } from "./primitives/button";
-export { Dialog, type DialogProps } from "./primitives/dialog";
+export { Dialog, DialogActions, type DialogProps } from "./primitives/dialog";
 export { Disclosure, type DisclosureProps } from "./primitives/disclosure";
 export { Link, type LinkProps, type LinkVariant } from "./primitives/link";
 export { Notice, type NoticeKind, type NoticeProps } from "./primitives/notice";

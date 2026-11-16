@@ -2,7 +2,18 @@
 
 import type { ReactNode } from "react";
 import { gallery as m } from "@/messages/gallery";
-import { Button, Dialog, Disclosure, Link, Notice, Progress, Status, Tabs, TextField } from "@/ui";
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  Disclosure,
+  Link,
+  Notice,
+  Progress,
+  Status,
+  Tabs,
+  TextField,
+} from "@/ui";
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -64,19 +75,21 @@ export function PrimitiveGallery() {
           </Link>{" "}
           {m.inlineAfter}
         </p>
-        <Example label={m.standaloneLink}>
+        <Example label={m.standaloneVariant}>
           <Link href="#notices" variant="standalone">
             {m.standaloneLink}
           </Link>
         </Example>
-        <nav aria-label={m.navLabel} className="flex gap-5">
-          <Link href="#buttons" variant="nav" current>
-            {m.navCurrent}
-          </Link>
-          <Link href="#links" variant="nav">
-            {m.navOther}
-          </Link>
-        </nav>
+        <Example label={m.navVariant}>
+          <nav aria-label={m.navLabel} className="flex gap-5">
+            <Link href="#buttons" variant="nav" current>
+              {m.navCurrent}
+            </Link>
+            <Link href="#links" variant="nav">
+              {m.navOther}
+            </Link>
+          </nav>
+        </Example>
       </Section>
 
       <Section id="text-fields" title={m.textFields}>
@@ -127,21 +140,26 @@ export function PrimitiveGallery() {
       </Section>
 
       <Section id="dialog" title={m.dialogs}>
-        <Dialog trigger={<Button variant="secondary">{m.openDialog}</Button>} title={m.dialogTitle}>
-          {(close) => (
-            <>
-              <p className="text-base text-text-muted">{m.dialogBody}</p>
-              <div className="flex flex-wrap justify-end gap-3">
-                <Button variant="secondary" surface="raised" onPress={close}>
-                  {m.dialogCancel}
-                </Button>
-                <Button variant="destructive" surface="raised" onPress={close}>
-                  {m.dialogConfirm}
-                </Button>
-              </div>
-            </>
-          )}
-        </Dialog>
+        <div className="flex">
+          <Dialog
+            trigger={<Button variant="secondary">{m.openDialog}</Button>}
+            title={m.dialogTitle}
+          >
+            {(close) => (
+              <>
+                <p className="text-base text-text-muted">{m.dialogBody}</p>
+                <DialogActions>
+                  <Button variant="secondary" surface="raised" onPress={close}>
+                    {m.dialogCancel}
+                  </Button>
+                  <Button variant="destructive" surface="raised" onPress={close}>
+                    {m.dialogConfirm}
+                  </Button>
+                </DialogActions>
+              </>
+            )}
+          </Dialog>
+        </div>
       </Section>
 
       <Section id="disclosures" title={m.disclosures}>
@@ -191,11 +209,11 @@ export function PrimitiveGallery() {
       </Section>
 
       <Section id="status" title={m.status}>
-        <Example label={m.status}>
+        <div className="flex flex-wrap items-center gap-3">
           <Status state="pass" label={m.passed} />
           <Status state="fail" label={m.failed} />
           <Status state="not-run" label={m.notRun} />
-        </Example>
+        </div>
       </Section>
     </div>
   );

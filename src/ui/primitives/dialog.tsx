@@ -19,6 +19,15 @@ export type DialogProps = {
 };
 
 /**
+ * The row of buttons at the end of a dialog. Below the `md` breakpoint the
+ * buttons stack at full width, so two labels of different lengths never wrap
+ * into a ragged pair.
+ */
+export function DialogActions({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-3 md:flex-row md:justify-end">{children}</div>;
+}
+
+/**
  * A modal dialog. Escape closes it, focus stays inside while it is open, and
  * focus returns to the trigger when it closes. React Aria provides all three.
  */
