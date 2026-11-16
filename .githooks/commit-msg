@@ -1,5 +1,6 @@
 #!/bin/sh
 # Every commit message passes the AI attribution check, including messages
-# written to a file (docs/spec/05-engineering-handbook.md section 4.1).
+# written to a file, and so does the author and committer identity Git will
+# record (docs/spec/05-engineering-handbook.md section 4.1).
 set -eu
-node scripts/check-attribution.mjs --message-file "$1"
+node scripts/check-attribution.mjs --message-file "$1" --check-identity
