@@ -101,6 +101,7 @@ export default defineConfig([
     rules: {
       "heap/no-inline-strings": "error",
       "heap/logical-properties": "error",
+      "heap/no-raw-values": "error",
     },
   },
   // Primitives and components keep class lists in variables too, so every
@@ -108,7 +109,10 @@ export default defineConfig([
   {
     files: ["src/ui/**/*.{ts,tsx}", "src/features/*/components/**/*.{ts,tsx}"],
     ignores: TESTS,
-    rules: { "heap/logical-properties": ["error", { allStrings: true }] },
+    rules: {
+      "heap/logical-properties": ["error", { allStrings: true }],
+      "heap/no-raw-values": ["error", { allStrings: true }],
+    },
   },
 
   // src/domain and src/grader are pure.
@@ -138,6 +142,13 @@ export default defineConfig([
         { allowProperties: CSS_ALLOWED_PROPERTIES, allowUnits: CSS_ALLOWED_UNITS },
       ],
     },
+  },
+  // Semantic tokens only, outside the token files (ADR-0015).
+  {
+    files: ["src/**/*.css"],
+    ignores: ["src/ui/tokens/**"],
+    plugins: { heap: heapPlugin },
+    rules: { "heap/no-raw-css-values": "error" },
   },
 
   // Plain JavaScript files are checked by tsc with checkJs; the type-aware

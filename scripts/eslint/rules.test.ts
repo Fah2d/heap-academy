@@ -319,7 +319,9 @@ describe("logical properties", () => {
     ".panel { padding-right: 4px; }",
     ".panel { left: 0; }",
   ])("[NFR-I18N-02] fails lint for an inline-axis side in a stylesheet: %s", async (css) => {
-    expect(await ruleIds("src/ui/tokens.css", css)).toContain("css/prefer-logical-properties");
+    expect(await ruleIds("src/ui/tokens/sample.css", css)).toContain(
+      "css/prefer-logical-properties",
+    );
   });
 
   it.each([
@@ -329,7 +331,74 @@ describe("logical properties", () => {
   ])(
     "[NFR-I18N-02] allows block-axis sides and sizes in a stylesheet, as in classes: %s",
     async (css) => {
-      expect(await ruleIds("src/ui/tokens.css", css)).toEqual([]);
+      expect(await ruleIds("src/ui/tokens/sample.css", css)).toEqual([]);
     },
   );
+});
+
+describe("no raw values", () => {
+  const rule = "heap/no-raw-values";
+  const cssRule = "heap/no-raw-css-values";
+  const component = "src/features/catalog/components/course-row.tsx";
+
+  it.each([
+    'export const A = () => <div className="p-[13px]" />;',
+    'export const A = () => <div className="md:hover:bg-[#fff]" />;',
+    'export const A = () => <div className="rounded-[6px] flex" />;',
+    'export const A = () => <div className="text-[rgb(0_0_0)]" />;',
+    'export const A = () => <div className="[mask-type:luminance]" />;',
+    'export const A = () => <div className={cn("p-2", active && "gap-[3px]")} />;',
+    "export const A = () => <div style={{ padding: 12 }} />;",
+    'export const A = () => <div style={{ color: "#fff" }} />;',
+    'export const A = () => <div style={{ borderRadius: "4px" }} />;',
+    'export const A = () => <div style={{ boxShadow: "0 1px 2px rgb(0 0 0 / 0.5)" }} />;',
+  ])("[ADR-0015] fails lint for a raw value in a component: %s", async (code) => {
+    expect(
+      await ruleIds(
+        component,
+        `declare const cn: (...a: unknown[]) => string; declare const active: boolean;\n${code}`,
+      ),
+    ).toContain(rule);
+  });
+
+  it.each([
+    'export const A = () => <div className="p-4 bg-surface rounded-control text-text-muted" />;',
+    'export const A = () => <div className="data-[state=open]:p-2 group-data-[x]:gap-1" />;',
+    'export const A = () => <div className="duration-(--motion-base) min-h-target" />;',
+    'export const A = () => <div style={{ padding: "var(--space-4)", flexGrow: 1 }} />;',
+    "export const A = () => <div style={{ margin: 0 }} />;",
+  ])("[ADR-0015] allows token utilities and token references: %s", async (code) => {
+    expect(await ruleIds(component, code)).not.toContain(rule);
+  });
+
+  it("[ADR-0015] fails lint for raw classes kept in a variable in a primitive", async () => {
+    expect(await ruleIds("src/ui/variants.ts", 'export const b = "px-[10px]";')).toContain(rule);
+    expect(await ruleIds("src/ui/variants.ts", 'export const b = "px-4";')).not.toContain(rule);
+  });
+
+  it.each([
+    ".panel { color: #fff; }",
+    ".panel { background: rgb(0 0 0 / 0.5); }",
+    ".panel { padding: 12px; }",
+    ".panel { border-radius: 0.25rem; }",
+    ".panel { font-size: 13px; }",
+    ".panel { box-shadow: 0 8px 24px black; }",
+    ".panel { --local-gap: 4px; }",
+  ])("[ADR-0015] fails lint for a raw value in a stylesheet: %s", async (css) => {
+    expect(await ruleIds("src/ui/base.css", css)).toContain(cssRule);
+  });
+
+  it.each([
+    ".panel { color: var(--color-text); padding: var(--space-4); }",
+    ".panel { outline: 2px solid var(--color-focus); outline-offset: 2px; }",
+    ".panel { margin: 0; min-block-size: 100dvh; font-size: 100%; }",
+  ])("[ADR-0015] allows tokens, hairlines, and proportions in a stylesheet: %s", async (css) => {
+    expect(await ruleIds("src/ui/base.css", css)).not.toContain(cssRule);
+  });
+
+  it("[ADR-0015] allows raw values only in the token files", async () => {
+    expect(await ruleIds("src/ui/tokens/primitives.css", ":root { --gray-950: #0e0e10; }")).toEqual(
+      [],
+    );
+  });
 });
