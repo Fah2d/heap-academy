@@ -25,8 +25,14 @@ const underlined =
 const classes: Record<LinkVariant, string> = {
   inline: underlined,
   standalone: cx(underlined, "inline-flex min-h-target items-center font-medium"),
-  nav: "inline-flex min-h-target min-w-target items-center justify-center border-b-(length:--marker-width) border-transparent text-text-muted no-underline hover:text-text",
+  nav: "inline-flex min-h-target min-w-target items-center justify-center border-b-(length:--marker-width) no-underline",
 };
+
+// Exclusive sets: when two utilities set one property, the stylesheet's order
+// decides, not the class attribute's, so the current link must not also carry
+// the resting color and border.
+const navCurrent = "border-action font-semibold text-text";
+const navRest = "border-transparent text-text-muted hover:text-text";
 
 export function Link({ href, variant, current = false, children }: LinkProps) {
   const isCurrent = variant === "nav" && current;
@@ -34,7 +40,7 @@ export function Link({ href, variant, current = false, children }: LinkProps) {
     <NextLink
       href={href}
       aria-current={isCurrent ? "page" : undefined}
-      className={cx(classes[variant], isCurrent && "border-action font-semibold text-text")}
+      className={cx(classes[variant], variant === "nav" && (isCurrent ? navCurrent : navRest))}
     >
       {children}
     </NextLink>

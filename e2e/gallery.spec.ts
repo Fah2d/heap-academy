@@ -44,7 +44,7 @@ for (const width of WIDTHS) {
       await page.goto("/dev/primitives");
       await openDialog(page);
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-      await saveScreen(page, "gallery-dialog", width);
+      await saveScreen(page, "gallery-dialog", width, { fullPage: false });
     });
 
     test("[NFR-A11Y-06] every control is at least 44 by 44 px", async ({ page }) => {
@@ -80,6 +80,39 @@ for (const width of WIDTHS) {
     });
   });
 }
+
+// Tailwind orders utilities in the stylesheet, not in the class attribute, so
+// only the computed style shows which of two classes for one property won.
+test("[ADR-0014] the current navigation link shows the text color and the amber marker", async ({
+  page,
+}) => {
+  await page.goto("/dev/primitives");
+  const navigation = page.getByRole("navigation", { name: gallery.navLabel });
+  const style = (name: string) =>
+    navigation.getByRole("link", { name, exact: true }).evaluate((element) => {
+      const computed = getComputedStyle(element);
+      return { color: computed.color, marker: computed.borderBlockEndColor };
+    });
+  // The token values, resolved by the browser the same way.
+  const token = (name: string) =>
+    page.evaluate((property) => {
+      const probe = document.createElement("span");
+      probe.style.color = `var(${property})`;
+      document.body.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    }, name);
+
+  const current = await style(gallery.navCurrent);
+  const other = await style(gallery.navOther);
+  expect(current).toEqual({
+    color: await token("--color-text"),
+    marker: await token("--color-action"),
+  });
+  expect(other.color).toBe(await token("--color-text-muted"));
+  expect(other.marker).toBe("rgba(0, 0, 0, 0)");
+});
 
 test.describe("motion", () => {
   async function buttonTransition(page: Page) {

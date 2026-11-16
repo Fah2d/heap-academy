@@ -61,6 +61,31 @@ describe("Link", () => {
     expect(screen.getByRole("link", { name: "Profile" }).getAttribute("aria-current")).toBeNull();
   });
 
+  // Tailwind orders utilities in the stylesheet, not in the class attribute, so
+  // a current link that also carried the resting classes would render as one at
+  // rest. The computed colors are checked in e2e/gallery.spec.ts.
+  it("[ADR-0014] gives the current navigation link only the current color and marker", () => {
+    render(
+      <nav>
+        <Link href="/courses" variant="nav" current>
+          Courses
+        </Link>
+        <Link href="/profile" variant="nav">
+          Profile
+        </Link>
+      </nav>,
+    );
+    const current = screen.getByRole("link", { name: "Courses" }).classList;
+    const rest = screen.getByRole("link", { name: "Profile" }).classList;
+    expect(current.contains("border-action")).toBe(true);
+    expect(current.contains("text-text")).toBe(true);
+    expect(current.contains("border-transparent")).toBe(false);
+    expect(current.contains("text-text-muted")).toBe(false);
+    expect(rest.contains("border-transparent")).toBe(true);
+    expect(rest.contains("text-text-muted")).toBe(true);
+    expect(rest.contains("border-action")).toBe(false);
+  });
+
   it("[ADR-0014] underlines a link in running text, so it is not marked by color alone", () => {
     render(
       <Link href="/a" variant="inline">
