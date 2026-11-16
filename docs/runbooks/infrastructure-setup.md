@@ -159,7 +159,7 @@ Do this after the WP-1.3 pull request has run its checks once, so the check name
 4. [ ] Tick:
    - **Restrict deletions**.
    - **Require a pull request before merging**. Required approvals: 0 (you are the only person; GitHub does not let an author approve their own pull request, and the implementer's pull requests are opened under your account). Tick **Require conversation resolution before merging**.
-   - **Require status checks to pass**, tick **Require branches to be up to date before merging**, and add `static`, `unit`, `build`. Add `db` when WP-2.1 adds it and `e2e` when its job exists.
+   - **Require status checks to pass**, tick **Require branches to be up to date before merging**, and add `static`, `unit`, `build`. For each, choose **GitHub Actions** as the source, so a status posted by any other integration or token cannot satisfy it. Add `db` when WP-2.1 adds it and `e2e` when its job exists, with the same source.
    - **Block force pushes**.
 5. [ ] Create. Check: open a test pull request that changes one word in a document, push a commit that fails formatting, and see **Merge** blocked. Close it without merging.
 

@@ -30,10 +30,10 @@ Use this when production is broken and the cause is the latest deploy (an S1 in 
 2. [ ] Vercel dashboard → the project → **Deployments**. Find the deployment marked **Current** under Production.
 3. [ ] Open the menu on the previous production deployment → **Instant Rollback** (Hobby can roll back to the previous production deployment only). Confirm.
 
-   Or from your machine, with the locked CLI: `npm ci --prefix tools/vercel-cli --ignore-scripts`, then `VERCEL_TOKEN=<Vercel token> tools/vercel-cli/node_modules/.bin/vercel rollback <previous deployment URL>`. Check with `... vercel rollback status`.
+   There is no command-line rollback in this runbook. The Vercel token lives only in the GitHub `production` environment, and a token typed into a terminal stays in its shell history on a machine where Claude Code runs (T-18, `06-security-privacy.md` section 5.5). The dashboard needs no token.
 4. [ ] `pnpm infra:verify --url https://<domain>` passes.
 5. [ ] Note the time. More than 5 minutes is a finding for the incident write-up.
-6. [ ] While rolled back, Vercel turns off the automatic domain assignment: a plain `vercel deploy --prod` would stay staged. The deploy workflow promotes each deployment explicitly, so the next merge's deploy ends the rollback. To undo the rollback by hand: `vercel promote <deployment URL>`.
+6. [ ] While rolled back, Vercel turns off the automatic domain assignment: a plain `vercel deploy --prod` would stay staged. The deploy workflow promotes each deployment explicitly, so the next merge's deploy ends the rollback. To undo the rollback by hand: open that deployment's menu in the dashboard → **Promote**.
 7. [ ] S1 and S2 get a short write-up in `docs/reports/incidents/` (`07-operations.md` section 8).
 
 ## The database is not rolled back
@@ -49,8 +49,9 @@ Never run a command against the production database from a working machine. The 
 | Staging migrations | A migration is wrong, or `SUPABASE_DB_URL` in `staging` is wrong or expired | Fix forward in a pull request; check the secret against the Supabase Connect dialog |
 | Waiting for approval | Waiting for you | Approve or reject |
 | Production migrations | The same migration fails on production data | Production is on the old app and the partly applied migration rolled back in its transaction. Fix forward |
+| Remember the deployment production serves | Vercel answered something other than 200 or 404: the token lacks access to the project, or Vercel is down | Nothing was deployed. Check the token's scope in GitHub `production`, then re-run. A 404 is only a warning: the address serves nothing yet, so this deploy has no rollback target |
 | Vercel build or deploy | `VERCEL_TOKEN` expired (90 days), or a Hobby limit was reached | Renew the token in GitHub `production`; check the Vercel usage page |
-| Promote | The promotion timed out (3 minutes) | The job has rolled back. Re-run it |
+| Promote | The promotion timed out (3 minutes) | The job has rolled back. Vercel finishes a timed-out promotion anyway, which can come after the rollback: open **Deployments** and check which one is **Current**. If it is the failed one, use **Instant Rollback** (above). Then re-run |
 | Smoke | The new deployment is broken, or the address still serves another release | The job has already rolled back. Read the infra:verify output in the log |
 
 ## Re-run a deploy
