@@ -8,6 +8,10 @@ const port = 3100;
 // server, so e2e/gallery.spec.ts runs against one beside the production build.
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
+// The same development pages on an emulated phone: a mobile viewport, touch,
+// and the phone's pixel density, not a resized desktop window.
+const phone = /phone\.spec\.ts$/;
+const developmentOnly = [gallery, phone];
 // The servers under test get the fake values of .env.example unless the
 // environment sets real ones. None of them is a secret, and no test reaches
 // Supabase or Resend.
@@ -27,13 +31,18 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", testIgnore: gallery, use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", testIgnore: gallery, use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", testIgnore: gallery, use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: developmentOnly, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: developmentOnly, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: developmentOnly, use: { ...devices["Desktop Safari"] } },
     {
       name: "gallery",
       testMatch: gallery,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
+    {
+      name: "phone",
+      testMatch: phone,
+      use: { ...devices["Pixel 7"], baseURL: `http://127.0.0.1:${developmentPort}` },
     },
   ],
   // In order: the production build must finish before the development server
