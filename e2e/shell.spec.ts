@@ -17,9 +17,13 @@ test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async
   await expect(page.getByRole("main")).toBeVisible();
 });
 
-test("[WP-1.4] the primitive gallery is absent from the production build", async ({ request }) => {
-  const response = await request.get("/dev/primitives");
-  expect(response.status()).toBe(404);
+test("[WP-1.4] the development-only pages are absent from the production build", async ({
+  request,
+}) => {
+  for (const path of ["/dev/primitives", "/dev/error"]) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(404);
+  }
 });
 
 test("[NFR-I18N-03] the document carries its language and direction", async ({ page }) => {

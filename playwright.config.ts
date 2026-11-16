@@ -40,7 +40,7 @@ export default defineConfig({
   // starts writing beside it.
   webServer: [
     {
-      command: `pnpm build && pnpm start --port ${port}`,
+      command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`,
       // Readiness by port: the site has no page at "/" until WP-5.1, and
       // Playwright does not count a 404 there as ready.
       port,
@@ -48,7 +48,7 @@ export default defineConfig({
       reuseExistingServer: !process.env["CI"],
     },
     {
-      command: `pnpm dev --port ${developmentPort}`,
+      command: `pnpm dev --hostname 127.0.0.1 --port ${developmentPort}`,
       url: `http://127.0.0.1:${developmentPort}/dev/primitives`,
       env: environment,
       reuseExistingServer: !process.env["CI"],
