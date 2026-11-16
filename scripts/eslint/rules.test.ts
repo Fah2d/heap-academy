@@ -363,6 +363,10 @@ describe("no raw values", () => {
     'export const A = () => <div style={{ color: "#fff" }} />;',
     'export const A = () => <div style={{ borderRadius: "4px" }} />;',
     'export const A = () => <div style={{ boxShadow: "0 1px 2px rgb(0 0 0 / 0.5)" }} />;',
+    'export const A = () => <div style={{ color: "red" }} />;',
+    'export const A = () => <div style={{ borderColor: "RebeccaPurple" }} />;',
+    'export const A = () => <div style={{ "--gap": "13px" }} className="gap-(--gap)" />;',
+    'export const A = () => <div style={{ "--tint": "#fff" }} />;',
   ])("[ADR-0015] fails lint for a raw value in a component: %s", async (code) => {
     expect(
       await ruleIds(
@@ -378,6 +382,8 @@ describe("no raw values", () => {
     'export const A = () => <div className="duration-(--motion-base) min-h-target" />;',
     'export const A = () => <div style={{ padding: "var(--space-4)", flexGrow: 1 }} />;',
     "export const A = () => <div style={{ margin: 0 }} />;",
+    'export const A = () => <div style={{ color: "currentColor", background: "transparent" }} />;',
+    'export const A = () => <div style={{ "--progress": "40%" }} />;',
   ])("[ADR-0015] allows token utilities and token references: %s", async (code) => {
     expect(await ruleIds(component, code)).not.toContain(rule);
   });
@@ -395,6 +401,11 @@ describe("no raw values", () => {
     ".panel { font-size: 13px; }",
     ".panel { box-shadow: 0 8px 24px black; }",
     ".panel { --local-gap: 4px; }",
+    ".panel { color: red; }",
+    ".panel { background: white; }",
+    ".panel { border-color: black; }",
+    ".panel { border: 1px solid navy; }",
+    ".panel { --local-tint: tomato; }",
   ])("[ADR-0015] fails lint for a raw value in a stylesheet: %s", async (css) => {
     expect(await ruleIds("src/ui/base.css", css)).toContain(cssRule);
   });
@@ -403,6 +414,8 @@ describe("no raw values", () => {
     ".panel { color: var(--color-text); padding: var(--space-4); }",
     ".panel { outline: 2px solid var(--color-focus); outline-offset: 2px; }",
     ".panel { margin: 0; min-block-size: 100dvh; font-size: 100%; }",
+    ".panel { color: currentColor; background: transparent; border-color: inherit; }",
+    ".panel { display: inline-block; text-align: start; white-space: nowrap; }",
   ])("[ADR-0015] allows tokens, hairlines, and proportions in a stylesheet: %s", async (css) => {
     expect(await ruleIds("src/ui/base.css", css)).not.toContain(cssRule);
   });

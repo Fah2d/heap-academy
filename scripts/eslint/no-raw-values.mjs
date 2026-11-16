@@ -15,6 +15,164 @@
 /** @typedef {import("estree").Node} Node */
 
 const COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i;
+// The 148 named colors of CSS Color 4. `transparent`, `currentColor`, and the
+// global keywords are not in the list: they carry no design value.
+const NAMED_COLORS = new Set([
+  "aliceblue",
+  "antiquewhite",
+  "aqua",
+  "aquamarine",
+  "azure",
+  "beige",
+  "bisque",
+  "black",
+  "blanchedalmond",
+  "blue",
+  "blueviolet",
+  "brown",
+  "burlywood",
+  "cadetblue",
+  "chartreuse",
+  "chocolate",
+  "coral",
+  "cornflowerblue",
+  "cornsilk",
+  "crimson",
+  "cyan",
+  "darkblue",
+  "darkcyan",
+  "darkgoldenrod",
+  "darkgray",
+  "darkgreen",
+  "darkgrey",
+  "darkkhaki",
+  "darkmagenta",
+  "darkolivegreen",
+  "darkorange",
+  "darkorchid",
+  "darkred",
+  "darksalmon",
+  "darkseagreen",
+  "darkslateblue",
+  "darkslategray",
+  "darkslategrey",
+  "darkturquoise",
+  "darkviolet",
+  "deeppink",
+  "deepskyblue",
+  "dimgray",
+  "dimgrey",
+  "dodgerblue",
+  "firebrick",
+  "floralwhite",
+  "forestgreen",
+  "fuchsia",
+  "gainsboro",
+  "ghostwhite",
+  "gold",
+  "goldenrod",
+  "gray",
+  "green",
+  "greenyellow",
+  "grey",
+  "honeydew",
+  "hotpink",
+  "indianred",
+  "indigo",
+  "ivory",
+  "khaki",
+  "lavender",
+  "lavenderblush",
+  "lawngreen",
+  "lemonchiffon",
+  "lightblue",
+  "lightcoral",
+  "lightcyan",
+  "lightgoldenrodyellow",
+  "lightgray",
+  "lightgreen",
+  "lightgrey",
+  "lightpink",
+  "lightsalmon",
+  "lightseagreen",
+  "lightskyblue",
+  "lightslategray",
+  "lightslategrey",
+  "lightsteelblue",
+  "lightyellow",
+  "lime",
+  "limegreen",
+  "linen",
+  "magenta",
+  "maroon",
+  "mediumaquamarine",
+  "mediumblue",
+  "mediumorchid",
+  "mediumpurple",
+  "mediumseagreen",
+  "mediumslateblue",
+  "mediumspringgreen",
+  "mediumturquoise",
+  "mediumvioletred",
+  "midnightblue",
+  "mintcream",
+  "mistyrose",
+  "moccasin",
+  "navajowhite",
+  "navy",
+  "oldlace",
+  "olive",
+  "olivedrab",
+  "orange",
+  "orangered",
+  "orchid",
+  "palegoldenrod",
+  "palegreen",
+  "paleturquoise",
+  "palevioletred",
+  "papayawhip",
+  "peachpuff",
+  "peru",
+  "pink",
+  "plum",
+  "powderblue",
+  "purple",
+  "rebeccapurple",
+  "red",
+  "rosybrown",
+  "royalblue",
+  "saddlebrown",
+  "salmon",
+  "sandybrown",
+  "seagreen",
+  "seashell",
+  "sienna",
+  "silver",
+  "skyblue",
+  "slateblue",
+  "slategray",
+  "slategrey",
+  "snow",
+  "springgreen",
+  "steelblue",
+  "tan",
+  "teal",
+  "thistle",
+  "tomato",
+  "turquoise",
+  "violet",
+  "wheat",
+  "white",
+  "whitesmoke",
+  "yellow",
+  "yellowgreen",
+]);
+// Words as CSS splits them, so `inline-block` and `white-space` are one word.
+const hasNamedColor = (/** @type {string} */ value) =>
+  value
+    .toLowerCase()
+    .split(/[^a-z-]+/)
+    .some((word) => NAMED_COLORS.has(word));
 // A non-zero length in px, rem, or em. Percentages, viewport units, and
 // unitless numbers are proportions, not design values.
 const LENGTH = /(?<![\w.-])-?(?:\d*\.)?\d*[1-9]\d*(?:\.\d+)?(?:px|rem|em)\b/i;
@@ -23,6 +181,11 @@ const LENGTH = /(?<![\w.-])-?(?:\d*\.)?\d*[1-9]\d*(?:\.\d+)?(?:px|rem|em)\b/i;
 // shadow. `width` and `height` are included: a fixed size belongs in a token.
 const DESIGN_STYLE_KEY =
   /^(?:margin|padding|gap|rowGap|columnGap|inset|top|bottom|left|right|width|height|minWidth|minHeight|maxWidth|maxHeight|blockSize|inlineSize|minBlockSize|minInlineSize|maxBlockSize|maxInlineSize|borderRadius|border.*Radius|fontSize|lineHeight|letterSpacing|boxShadow|textShadow|color|background|backgroundColor|border|borderColor|outline|outlineColor|fill|stroke)/;
+
+// Stylesheet properties whose value can hold a color keyword. Named colors
+// are checked only here: a word like `tan` means nothing in `display`.
+const COLOR_CSS_PROPERTY =
+  /^(?:color|background|border|outline|fill|stroke|box-shadow|text-shadow|text-decoration|caret-color|accent-color|column-rule)(?:-|$)/;
 
 // The same, as stylesheet properties.
 const DESIGN_CSS_PROPERTY =
@@ -59,7 +222,9 @@ function arbitraryClasses(text) {
 /** @param {unknown} value */
 function isRawStyleValue(value) {
   if (typeof value === "number") return value !== 0;
-  if (typeof value === "string") return COLOR.test(value) || LENGTH.test(value);
+  if (typeof value === "string") {
+    return COLOR.test(value) || LENGTH.test(value) || hasNamedColor(value);
+  }
   return false;
 }
 
@@ -135,7 +300,9 @@ export const noRawValues = {
             : property.key.type === "Literal" && typeof property.key.value === "string"
               ? property.key.value
               : "";
-        if (key.startsWith("--") || !DESIGN_STYLE_KEY.test(key)) continue;
+        // A custom property set inline is a value a utility will read, as in
+        // `style={{ "--gap": "13px" }}` with `gap-(--gap)`, so it is checked too.
+        if (!key.startsWith("--") && !DESIGN_STYLE_KEY.test(key)) continue;
         const value = property.value;
         const raw =
           value.type === "Literal"
@@ -220,7 +387,10 @@ export const noRawCssValues = {
         const property = node.property.toLowerCase();
         const value = source.getText(node.value);
         const reportOn = /** @type {Node} */ (node.value);
-        if (COLOR.test(value)) {
+        if (
+          COLOR.test(value) ||
+          ((property.startsWith("--") || COLOR_CSS_PROPERTY.test(property)) && hasNamedColor(value))
+        ) {
           context.report({ node: reportOn, messageId: "color", data: { property } });
         } else if (
           (property.startsWith("--") || DESIGN_CSS_PROPERTY.test(property)) &&
