@@ -4,10 +4,11 @@
 // names in .env.example without the NEXT_PUBLIC_ prefix, the list of record
 // (docs/spec/02-architecture.md section 13). The check looks for each name,
 // and for each value the environment holds for it, in every file under the
-// given folder (the build's `.next/static`).
+// given folder: the CI build's `.next/static`, and the production build's
+// `.vercel/output/static` in the deploy workflow, where the values are real.
 //
 // Usage: check-bundle.mjs <folder>
-// Exit codes: 0 clean, 1 a server variable found, 2 usage error.
+// Exit codes: 0 clean, 1 a server variable found or no file to check, 2 usage error.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -70,6 +71,11 @@ export function main(argv) {
   }
   const names = serverVariableNames(readFileSync(".env.example", "utf8"));
   const files = filesUnder(folder).length;
+  if (files === 0) {
+    // An empty folder proves nothing: the build failed or wrote elsewhere.
+    process.stderr.write(`No files under ${folder}; nothing was checked.\n`);
+    return 1;
+  }
   const findings = findServerVariables(folder, names, process.env);
   for (const { file, what } of findings) process.stderr.write(`${file}: ${what}\n`);
   if (findings.length > 0) {

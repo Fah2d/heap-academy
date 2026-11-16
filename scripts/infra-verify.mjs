@@ -2,19 +2,26 @@
 // External checks of a running deployment (docs/spec/07-operations.md section
 // 1.1, docs/spec/06-security-privacy.md section 5.6): the response headers,
 // the script policy and its nonce, request IDs, the health endpoint, and the
-// report endpoint. It reads only what any visitor can see.
+// report endpoint. It reads only what any visitor can see, and the reports it
+// sends are ones the endpoint refuses or ignores, so it adds nothing to the
+// violation log.
 //
 // Usage:
-//   infra-verify.mjs --url <base URL> [--page <path>] [--repo OWNER/REPO]
+//   infra-verify.mjs --url <base URL> [--page <path>] [--release <sha>] [--repo OWNER/REPO]
 //
-//   --url    the deployment to check, such as http://127.0.0.1:3100 or the
-//            production address. The deploy workflow's smoke step runs this.
-//   --page   an HTML page to check the policy on (default "/"). Any status is
-//            accepted as long as the response is a page.
-//   --repo   also check the repository settings of ADR-0029 with `gh api`:
-//            interaction limits, secret scanning, push protection, and
-//            private vulnerability reporting. Needs a login with
-//            Administration read, so the owner runs it.
+//   --url      the deployment to check, such as http://127.0.0.1:3100 or the
+//              production address. The deploy workflow's smoke step runs this.
+//   --page     an HTML page to check the policy on (default "/"). Any status
+//              is accepted as long as the response is a page.
+//   --release  the commit the address must serve, by /api/health. The deploy
+//              smoke passes its own commit, so a deploy that never went live
+//              fails instead of checking the previous one.
+//   --repo     also check the repository settings of ADR-0029 and T-18 with
+//              `gh api`: secret scanning, push protection, private
+//              vulnerability reporting, interaction limits, no repository
+//              secrets, and the three environments (main only; the owner
+//              approves production). Needs Administration and Secrets read,
+//              so the owner runs it.
 //
 // Exit codes: 0 every check passed, 1 a check failed, 2 usage error.
 
@@ -25,6 +32,57 @@ import { pathToFileURL } from "node:url";
 
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const ONE_YEAR = 31_536_000;
+/** No single request may take longer: a hung deployment fails the smoke, so it rolls back. */
+const TIMEOUT_MS = 15_000;
+
+/** The features turned off by Permissions-Policy (src/infrastructure/http/security-headers.ts). */
+export const DISABLED_FEATURES = [
+  "camera",
+  "microphone",
+  "geolocation",
+  "payment",
+  "usb",
+  "display-capture",
+  "browsing-topics",
+];
+
+const NONCE = "'nonce-*'";
+
+/**
+ * The policy of docs/spec/06-security-privacy.md section 5.2, a nonce written
+ * as 'nonce-*'. `style-src-attr` may be absent: that is the stricter policy
+ * WP-1.3 tries. The report directives are checked apart.
+ * @type {ReadonlyMap<string, readonly string[]>}
+ */
+const EXPECTED_POLICY = new Map([
+  ["default-src", ["'self'"]],
+  ["script-src", ["'self'", NONCE, "'strict-dynamic'"]],
+  ["style-src", ["'self'", NONCE]],
+  ["style-src-attr", ["'unsafe-inline'"]],
+  ["img-src", ["'self'", "data:"]],
+  ["font-src", ["'self'"]],
+  ["connect-src", ["'self'"]],
+  ["worker-src", ["'self'"]],
+  ["object-src", ["'none'"]],
+  ["base-uri", ["'none'"]],
+  ["form-action", ["'self'"]],
+  ["frame-ancestors", ["'none'"]],
+]);
+const OPTIONAL_DIRECTIVES = new Set(["style-src-attr"]);
+const REPORT_DIRECTIVES = new Set(["report-uri", "report-to"]);
+
+/**
+ * `fetch` that never follows a redirect and gives up after `timeoutMs`.
+ * @param {number} timeoutMs
+ */
+const requester =
+  (timeoutMs) =>
+  /**
+   * @param {string | URL} url
+   * @param {RequestInit} [init]
+   */
+  (url, init = {}) =>
+    fetch(url, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs), ...init });
 
 /**
  * @param {string} header
@@ -44,36 +102,39 @@ export function parsePolicy(header) {
  * What is wrong with a page's policy, measured against
  * docs/spec/06-security-privacy.md section 5.2. Empty when nothing is.
  * @param {Map<string, string[]>} policy
+ * @param {{ secure: boolean }} options  over HTTPS, `upgrade-insecure-requests` is required
  * @returns {string[]}
  */
-export function policyProblems(policy) {
+export function policyProblems(policy, { secure }) {
   const problems = [];
-  const script = policy.get("script-src") ?? [];
-  if (!script.some((value) => /^'nonce-[^']+'$/.test(value))) {
-    problems.push("script-src has no nonce");
-  }
-  if (!script.includes("'strict-dynamic'")) problems.push("script-src lacks 'strict-dynamic'");
-  for (const unsafe of ["'unsafe-inline'", "'unsafe-eval'"]) {
-    if (script.includes(unsafe)) problems.push(`script-src allows ${unsafe}`);
-  }
-  if ((policy.get("style-src") ?? []).includes("'unsafe-inline'")) {
-    problems.push("style-src allows 'unsafe-inline'");
-  }
-  /** @type {[string, string][]} */
-  const exact = [
-    ["default-src", "'self'"],
-    ["object-src", "'none'"],
-    ["base-uri", "'none'"],
-    ["frame-ancestors", "'none'"],
-  ];
-  for (const [directive, value] of exact) {
+  for (const [directive, expected] of EXPECTED_POLICY) {
     const values = policy.get(directive);
-    if (values?.length !== 1 || values[0] !== value) {
-      problems.push(`${directive} is not ${value}`);
+    if (values === undefined) {
+      if (!OPTIONAL_DIRECTIVES.has(directive)) problems.push(`${directive} is absent`);
+      continue;
     }
+    const normalized = values.map((value) => (/^'nonce-[^']+'$/.test(value) ? NONCE : value));
+    const same =
+      normalized.length === expected.length &&
+      normalized.every((value) => expected.includes(value));
+    if (!same) {
+      problems.push(`${directive} is ${values.join(" ") || "empty"}, not ${expected.join(" ")}`);
+    }
+  }
+  if (secure && !policy.has("upgrade-insecure-requests")) {
+    problems.push("upgrade-insecure-requests is absent");
   }
   if (!policy.has("report-uri") && !policy.has("report-to")) {
     problems.push("no report-uri or report-to");
+  }
+  for (const directive of policy.keys()) {
+    if (
+      !EXPECTED_POLICY.has(directive) &&
+      !REPORT_DIRECTIVES.has(directive) &&
+      directive !== "upgrade-insecure-requests"
+    ) {
+      problems.push(`unexpected directive ${directive}`);
+    }
   }
   return problems;
 }
@@ -108,11 +169,12 @@ export function scriptsWithoutNonce(html, nonce) {
 const check = (name, ok, detail) => ({ name, status: ok ? "pass" : "fail", detail });
 
 /**
+ * The headers of section 5.1 on one response.
  * @param {Headers} headers
  * @param {boolean} secure
  * @returns {Check[]}
  */
-function securityHeaderChecks(headers, secure) {
+export function securityHeaderChecks(headers, secure) {
   const permissions = headers.get("permissions-policy") ?? "";
   const hsts = headers.get("strict-transport-security") ?? "";
   const maxAge = Number(/max-age=(\d+)/.exec(hsts)?.[1] ?? "0");
@@ -129,11 +191,17 @@ function securityHeaderChecks(headers, secure) {
     ),
     check(
       "Permissions-Policy",
-      ["camera=()", "microphone=()", "geolocation=()"].every((item) => permissions.includes(item)),
+      DISABLED_FEATURES.every((feature) =>
+        permissions.split(",").some((item) => item.trim() === `${feature}=()`),
+      ),
       permissions || "absent",
     ),
     secure
-      ? check("Strict-Transport-Security", maxAge >= ONE_YEAR, hsts || "absent")
+      ? check(
+          "Strict-Transport-Security",
+          maxAge >= ONE_YEAR && /includeSubDomains/i.test(hsts),
+          hsts || "absent",
+        )
       : {
           name: "Strict-Transport-Security",
           status: "skip",
@@ -144,18 +212,18 @@ function securityHeaderChecks(headers, secure) {
 
 /**
  * Runs every check against a running deployment.
- * @param {{ url: string, page?: string }} options
- * @returns {Promise<Check[]>}
+ * @param {{ url: string, page?: string, release?: string, timeoutMs?: number }} options
+ * @returns {Promise<Check[]>}  rejects when the deployment does not answer in time
  */
-export async function verifyDeployment({ url, page = "/" }) {
+export async function verifyDeployment({ url, page = "/", release, timeoutMs = TIMEOUT_MS }) {
+  const request = requester(timeoutMs);
   const base = new URL(url);
   const secure = base.protocol === "https:";
   /** @type {Check[]} */
   const checks = [];
 
   // The page and its script policy.
-  const first = await fetch(new URL(page, base), {
-    redirect: "manual",
+  const first = await request(new URL(page, base), {
     headers: { "x-request-id": "infra_verify_client_value" },
   });
   const html = await first.text();
@@ -169,7 +237,7 @@ export async function verifyDeployment({ url, page = "/" }) {
   );
   const header = first.headers.get("content-security-policy") ?? "";
   const policy = parsePolicy(header);
-  const problems = header === "" ? ["absent"] : policyProblems(policy);
+  const problems = header === "" ? ["absent"] : policyProblems(policy, { secure });
   checks.push(
     check("Content-Security-Policy", problems.length === 0, problems.join("; ") || header),
   );
@@ -194,7 +262,7 @@ export async function verifyDeployment({ url, page = "/" }) {
     );
   }
 
-  const second = await fetch(new URL(page, base), { redirect: "manual" });
+  const second = await request(new URL(page, base));
   await second.arrayBuffer();
   const secondNonce = nonceOf(parsePolicy(second.headers.get("content-security-policy") ?? ""));
   checks.push(
@@ -225,7 +293,7 @@ export async function verifyDeployment({ url, page = "/" }) {
   );
 
   // The health endpoint.
-  const health = await fetch(new URL("/api/health", base), { redirect: "manual" });
+  const health = await request(new URL("/api/health", base));
   const healthBody = await health.text();
   /** @type {unknown} */
   let healthJson;
@@ -242,6 +310,26 @@ export async function verifyDeployment({ url, page = "/" }) {
     healthJson.status === "ok";
   checks.push(
     check("/api/health answers ok", healthy, `${health.status} ${healthBody.slice(0, 80)}`),
+  );
+  const served =
+    typeof healthJson === "object" &&
+    healthJson !== null &&
+    "release" in healthJson &&
+    typeof healthJson.release === "string"
+      ? healthJson.release
+      : "absent";
+  checks.push(
+    release === undefined
+      ? {
+          name: "the address serves the expected release",
+          status: "skip",
+          detail: `no --release given (serves ${served})`,
+        }
+      : check(
+          "the address serves the expected release",
+          served === release,
+          `${served}, expected ${release}`,
+        ),
   );
   checks.push(
     check(
@@ -260,33 +348,32 @@ export async function verifyDeployment({ url, page = "/" }) {
 
   // The report endpoint.
   const reportUrl = new URL("/api/csp-report", base);
-  const sample = JSON.stringify({
-    "csp-report": {
-      "document-uri": new URL("/infra-verify", base).href,
-      "blocked-uri": "inline",
-      "effective-directive": "script-src-elem",
-      disposition: "report",
-    },
-  });
-  const accepted = await fetch(reportUrl, {
-    method: "POST",
-    headers: { "content-type": "application/csp-report" },
-    body: sample,
-  });
+  const post = (/** @type {string} */ type, /** @type {string} */ body) =>
+    request(reportUrl, { method: "POST", headers: { "content-type": type }, body });
+  // A report list with no violation in it: accepted, and nothing is logged.
+  const accepted = await post(
+    "application/reports+json",
+    JSON.stringify([{ type: "infra-verify", age: 0, url: base.href, body: {} }]),
+  );
   await accepted.arrayBuffer();
   checks.push(
     check("/api/csp-report accepts a report", accepted.status === 204, String(accepted.status)),
   );
-  const oversize = await fetch(reportUrl, {
-    method: "POST",
-    headers: { "content-type": "application/csp-report" },
-    body: "x".repeat(64 * 1024),
-  });
+  const malformed = await post("application/csp-report", '{"csp-report":"not a report"}');
+  await malformed.arrayBuffer();
+  checks.push(
+    check(
+      "/api/csp-report refuses a malformed report",
+      malformed.status === 400,
+      String(malformed.status),
+    ),
+  );
+  const oversize = await post("application/csp-report", "x".repeat(64 * 1024));
   await oversize.arrayBuffer();
   checks.push(
     check("/api/csp-report caps the size", oversize.status === 413, String(oversize.status)),
   );
-  const get = await fetch(reportUrl);
+  const get = await request(reportUrl);
   await get.arrayBuffer();
   checks.push(check("/api/csp-report refuses GET", get.status === 405, String(get.status)));
 
@@ -295,46 +382,102 @@ export async function verifyDeployment({ url, page = "/" }) {
 
 /**
  * @param {string} path
- * @returns {unknown}
+ * @returns {unknown}  undefined when the resource does not exist or cannot be read
  */
 function ghApi(path) {
-  return JSON.parse(execFileSync("gh", ["api", path], { encoding: "utf8" }));
+  try {
+    return JSON.parse(execFileSync("gh", ["api", path], { encoding: "utf8", stdio: "pipe" }));
+  } catch {
+    return undefined;
+  }
 }
 
+/** The environments of docs/runbooks/infrastructure-setup.md; each may deploy from main only (T-18). */
+export const ENVIRONMENTS = ["staging", "production", "production-backup"];
+
 /**
- * The repository settings of ADR-0029, read with `gh api`.
+ * @param {unknown} value
+ * @returns {Record<string, unknown>}
+ */
+const record = (value) =>
+  typeof value === "object" && value !== null ? /** @type {Record<string, unknown>} */ (value) : {};
+
+/**
+ * The repository settings of ADR-0029 and the environment rules of T-18,
+ * read with `gh api`.
  * @param {string} repo
  * @param {(path: string) => unknown} [api]
  * @returns {Check[]}
  */
 export function verifyRepository(repo, api = ghApi) {
-  const repository =
-    /** @type {{ security_and_analysis?: Record<string, { status?: string }> }} */ (
-      api(`repos/${repo}`)
-    );
-  const analysis = repository.security_and_analysis ?? {};
-  const limits = /** @type {{ limit?: string }} */ (api(`repos/${repo}/interaction-limits`));
-  const reporting = /** @type {{ enabled?: boolean }} */ (
-    api(`repos/${repo}/private-vulnerability-reporting`)
-  );
-  return [
+  const analysis = record(record(api(`repos/${repo}`))["security_and_analysis"]);
+  const status = (/** @type {string} */ key) => record(analysis[key])["status"];
+  const limit = record(api(`repos/${repo}/interaction-limits`))["limit"];
+  const reporting = record(api(`repos/${repo}/private-vulnerability-reporting`))["enabled"];
+  const secrets = record(api(`repos/${repo}/actions/secrets`))["total_count"];
+  /** @type {Check[]} */
+  const checks = [
     check(
       "secret scanning",
-      analysis["secret_scanning"]?.status === "enabled",
-      analysis["secret_scanning"]?.status ?? "absent",
+      status("secret_scanning") === "enabled",
+      String(status("secret_scanning") ?? "absent"),
     ),
     check(
       "push protection",
-      analysis["secret_scanning_push_protection"]?.status === "enabled",
-      analysis["secret_scanning_push_protection"]?.status ?? "absent",
+      status("secret_scanning_push_protection") === "enabled",
+      String(status("secret_scanning_push_protection") ?? "absent"),
     ),
-    check("private vulnerability reporting", reporting.enabled === true, String(reporting.enabled)),
+    check("private vulnerability reporting", reporting === true, String(reporting)),
     check(
       "interactions limited to collaborators",
-      limits.limit === "collaborators_only",
-      limits.limit ?? "no limit in force",
+      limit === "collaborators_only",
+      typeof limit === "string" ? limit : "no limit in force",
+    ),
+    check(
+      "no repository-level secrets (they belong to an environment)",
+      secrets === 0,
+      secrets === undefined ? "could not be read" : `${String(secrets)} secrets`,
     ),
   ];
+  for (const name of ENVIRONMENTS) {
+    const environment = api(`repos/${repo}/environments/${name}`);
+    if (environment === undefined) {
+      checks.push(check(`environment ${name}`, false, "absent"));
+      continue;
+    }
+    const branchPolicy = record(record(environment)["deployment_branch_policy"]);
+    const policies = record(api(`repos/${repo}/environments/${name}/deployment-branch-policies`))[
+      "branch_policies"
+    ];
+    const names = Array.isArray(policies)
+      ? policies.map(
+          (item) => `${String(record(item)["type"] ?? "branch")}:${String(record(item)["name"])}`,
+        )
+      : [];
+    checks.push(
+      check(
+        `environment ${name} deploys from main only`,
+        branchPolicy["custom_branch_policies"] === true &&
+          branchPolicy["protected_branches"] === false &&
+          names.length === 1 &&
+          names[0] === "branch:main",
+        names.length > 0 ? names.join(", ") : "no branch restriction",
+      ),
+    );
+    if (name === "production") {
+      const rules = record(environment)["protection_rules"];
+      const reviewed =
+        Array.isArray(rules) && rules.some((rule) => record(rule)["type"] === "required_reviewers");
+      checks.push(
+        check(
+          "environment production needs the owner's approval",
+          reviewed,
+          reviewed ? "required reviewers" : "no required reviewer",
+        ),
+      );
+    }
+  }
+  return checks;
 }
 
 /** @param {Check[]} checks */
@@ -356,7 +499,7 @@ export async function main(argv) {
     const value = argv[index + 1];
     if (!flag?.startsWith("--") || value === undefined) {
       process.stderr.write(
-        "usage: infra-verify.mjs --url <base URL> [--page <path>] [--repo OWNER/REPO]\n",
+        "usage: infra-verify.mjs --url <base URL> [--page <path>] [--release <sha>] [--repo OWNER/REPO]\n",
       );
       return 2;
     }
@@ -367,7 +510,24 @@ export async function main(argv) {
     process.stderr.write("infra-verify: --url must be an absolute URL\n");
     return 2;
   }
-  const checks = await verifyDeployment({ url, ...(options["page"] && { page: options["page"] }) });
+  /** @type {Check[]} */
+  let checks;
+  try {
+    checks = await verifyDeployment({
+      url,
+      ...(options["page"] && { page: options["page"] }),
+      ...(options["release"] && { release: options["release"] }),
+    });
+  } catch (error) {
+    // A refused connection or a timeout: the deployment does not answer.
+    checks = [
+      check(
+        "the deployment answers",
+        false,
+        error instanceof Error ? error.message : String(error),
+      ),
+    ];
+  }
   if (options["repo"] !== undefined) checks.push(...verifyRepository(options["repo"]));
   print(checks);
   const failed = checks.filter((item) => item.status === "fail").length;
