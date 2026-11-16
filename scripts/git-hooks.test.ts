@@ -54,6 +54,18 @@ describe("commit-msg Git hook", () => {
     expect(hasCommits()).toBe(false);
   });
 
+  it("[NFR-MAINT-08] refuses a trailer hidden below a scissors line typed into the message", () => {
+    const { repo, commit, hasCommits } = scratchRepository();
+    const message = join(repo, "message.txt");
+    writeFileSync(
+      message,
+      `feat: one\n\n# ------------------------ >8 ------------------------\n${CO_AUTHOR}\n`,
+    );
+    const result = commit(`--file=${message}`);
+    expect(result.status).not.toBe(0);
+    expect(hasCommits()).toBe(false);
+  });
+
   it("[NFR-MAINT-08] refuses a commit whose author is named Claude", () => {
     const { commit, hasCommits } = scratchRepository();
     const result = commit("-c", `user.name=${CLAUDE}`, "--message=feat: one");
