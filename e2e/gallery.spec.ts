@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { errorPage } from "../src/messages/system";
 import { gallery } from "../src/messages/gallery";
+import { saveScreen } from "./screens";
 
 // The development-only primitive gallery and error page (WP-1.4). This file
 // runs against the development server: the production build has neither page.
@@ -34,6 +35,7 @@ for (const width of WIDTHS) {
     test("[NFR-A11Y-02] the gallery has no axe violation", async ({ page }) => {
       await page.goto("/dev/primitives");
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await saveScreen(page, "gallery", width);
     });
 
     test("[NFR-A11Y-02] the gallery with the dialog open has no axe violation", async ({
@@ -42,6 +44,7 @@ for (const width of WIDTHS) {
       await page.goto("/dev/primitives");
       await openDialog(page);
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await saveScreen(page, "gallery-dialog", width);
     });
 
     test("[NFR-A11Y-06] every control is at least 44 by 44 px", async ({ page }) => {
@@ -73,6 +76,7 @@ for (const width of WIDTHS) {
       await hideDevelopmentOverlay(page);
       await expect(page.getByRole("button", { name: errorPage.retry })).toBeVisible();
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await saveScreen(page, "error", width);
     });
   });
 }

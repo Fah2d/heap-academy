@@ -82,7 +82,7 @@ describe("request ID", () => {
 });
 
 describe("site shell", () => {
-  it("[NFR-A11Y-06] puts the skip link first and points it at the main landmark", async () => {
+  it("[NFR-A11Y-03] puts the skip link first and points it at the main landmark", async () => {
     render(
       <SiteShell>
         <p>Content</p>

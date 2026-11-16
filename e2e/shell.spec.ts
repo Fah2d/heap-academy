@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { notFound } from "../src/messages/system";
 import { shell } from "../src/messages/shell";
+import { saveScreen } from "./screens";
 
 // The shell and the not-found page on the production build (WP-1.4).
 
@@ -53,6 +54,7 @@ for (const width of WIDTHS) {
     await page.goto("/no-such-page");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
+    await saveScreen(page, "not-found", width);
   });
 
   test(`[NFR-A11Y-06] every control on the not-found page is at least 44 px at ${width} px`, async ({

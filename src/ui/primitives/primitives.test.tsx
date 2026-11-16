@@ -67,7 +67,9 @@ describe("Link", () => {
         first lesson
       </Link>,
     );
-    expect(screen.getByRole("link", { name: "first lesson" }).className).toContain("underline");
+    const classes = screen.getByRole("link", { name: "first lesson" }).className.split(/\s+/);
+    expect(classes).toContain("underline");
+    expect(classes).not.toContain("no-underline");
   });
 });
 
