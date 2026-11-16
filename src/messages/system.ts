@@ -10,8 +10,9 @@ export const notFound = {
 export const errorPage = {
   title: "This page could not open",
   heading: "This page could not open",
-  body: "Something failed on our side while we prepared this page. Try again. If it keeps happening, quote the reference below when you tell us about it.",
+  body: "Something failed on our side while we prepared this page. Try again.",
   retry: "Try again",
   homeLink: "Go to the home page",
+  referenceHint: "If it keeps happening, note this reference. Our logs file the failure under it.",
   referenceLabel: "Reference",
 } as const;

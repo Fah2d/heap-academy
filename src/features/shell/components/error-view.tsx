@@ -29,9 +29,13 @@ export function ErrorView({ error, retry }: { error: unknown; retry: () => void 
         {errorPage.homeLink}
       </Link>
       {reference !== undefined && (
-        <p className="basis-full text-sm text-text-muted">
-          {errorPage.referenceLabel} <code className="text-text select-all">{reference}</code>
-        </p>
+        <div className="flex basis-full flex-col gap-1 text-sm text-text-muted">
+          <p>{errorPage.referenceHint}</p>
+          <p>
+            {errorPage.referenceLabel}{" "}
+            <code className="break-all text-text select-all">{reference}</code>
+          </p>
+        </div>
       )}
     </SystemPage>
   );

@@ -42,6 +42,13 @@ describe("error page", () => {
     const reference = screen.getByText("2741609137");
     expect(reference.tagName).toBe("CODE");
     expect(reference.closest("p")?.textContent).toBe(`${errorPage.referenceLabel} 2741609137`);
+    expect(screen.getByText(errorPage.referenceHint)).toBeTruthy();
+  });
+
+  it("[FR-SYS-01] asks for no reference when it has none to show", () => {
+    render(<ErrorView error={new Error("thrown in the browser")} retry={() => undefined} />);
+    expect(screen.queryByText(errorPage.referenceLabel, { exact: false })).toBeNull();
+    expect(screen.queryByText(errorPage.referenceHint)).toBeNull();
   });
 
   it("[FR-SYS-01] [NFR-OBS-01] shows the request ID when the error has no digest", () => {
