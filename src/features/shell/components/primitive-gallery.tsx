@@ -9,6 +9,7 @@ import {
   Disclosure,
   Link,
   Notice,
+  Play,
   Progress,
   Status,
   Tabs,
@@ -63,6 +64,19 @@ export function PrimitiveGallery() {
           </Button>
           <Button variant="destructive" isDisabled>
             {m.deleteTestCase}
+          </Button>
+        </Example>
+        <Example label={m.withIcon}>
+          <Button variant="primary" icon={<Play size={16} />}>
+            {m.run}
+          </Button>
+          <Button variant="secondary" icon={<Play size={16} />}>
+            {m.run}
+          </Button>
+        </Example>
+        <Example label={m.fullWidth}>
+          <Button variant="primary" block>
+            {m.check}
           </Button>
         </Example>
       </Section>

@@ -8,3 +8,11 @@ export const shell = {
   description:
     "Short Python lessons that you read, write, and run in your browser, with the test cases in plain view.",
 } as const;
+
+/**
+ * A page title from the template, for the error pages, which set their own
+ * `<title>` because the metadata API does not reach them.
+ */
+export function pageTitle(title: string): string {
+  return shell.titleTemplate.replace("%s", title);
+}

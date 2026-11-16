@@ -2,12 +2,12 @@
 
 import { ErrorView } from "@/features/shell";
 import { errorPage } from "@/messages/system";
-import { shell } from "@/messages/shell";
+import { pageTitle } from "@/messages/shell";
 
 export default function Error({ error, retry }: { error: unknown; retry: () => void }) {
   return (
     <>
-      <title>{`${errorPage.title} | ${shell.productName}`}</title>
+      <title>{pageTitle(errorPage.title)}</title>
       <ErrorView error={error} retry={retry} />
     </>
   );
