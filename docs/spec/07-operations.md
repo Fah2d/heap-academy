@@ -63,6 +63,8 @@ flowchart LR
 4. Smoke production: the health endpoint, the home page, one lesson page, one runtime file, the response headers.
 5. On failure, promote the previous deployment and alert the owner.
 
+> **Pending owner decision (proposed in WP-1.3, pull request #4):** the owner approves every production deploy, not only one that contains a migration. A GitHub environment's required reviewer applies to every job that names the environment, so approving only migrations needs a fourth environment. Accepting this changes step 2, the diagram, and `.claude/rules/ci.md`; rejecting it means adding the fourth environment.
+
 ### 3.1 Database changes
 
 - Forward-only migrations. An applied migration is never edited.
@@ -80,7 +82,7 @@ flowchart LR
 
 ### 4.1 Logs
 
-Structured JSON on the server: request ID, action or route, outcome code, duration. No email, name, or learner code (NFR-PRIV-03). The request ID is shown on error pages so a learner can quote it (NFR-OBS-01).
+Structured JSON on the server: request ID, action or route, outcome code, duration. No email, name, or learner code (NFR-PRIV-03). A server error is logged with its digest next to the request ID, and the error page shows the digest so a learner can quote it (NFR-OBS-01). A browser error shows no reference until `/api/client-error` exists.
 
 ### 4.2 Errors
 

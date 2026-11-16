@@ -63,7 +63,7 @@ One public repository, one application package, pnpm (ADR-0023, ADR-0029).
 ```
 src/
   app/               Routes only. Thin: compose features, no business rules.
-  features/          catalog, workspace, progress, auth, profile, admin
+  features/          catalog, workspace, progress, auth, profile, admin, shell
   domain/            Pure rules. No I/O, no framework imports.
   grader/            Test case schema, comparison, result types, the Python harness
   runtime/           Worker protocol, controller, watchdog, statechart, worker entry
@@ -77,6 +77,10 @@ scripts/             Build and check scripts
 docs/                Spec, ADRs, runbooks, reports, the archived plan
 brand/               Reserved for brand files the owner may supply later (ADR-0031)
 ```
+
+`features/shell` holds the page frame (skip link, header, and later the header nav and the footer), the not-found and error pages, the fonts, and the development-only primitives page (WP-1.4).
+
+> **Pending owner decision (proposed in WP-1.3, pull request #4):** add `features/system`, which holds the platform routes that belong to no learner feature: `/api/health` and `/api/csp-report`. The `features` line would then end `admin, shell, system`.
 
 ### 4.1 Dependency rules
 
