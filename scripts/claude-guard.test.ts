@@ -222,6 +222,10 @@ describe("skipping Git hooks", () => {
     "rm .githook?/commit-msg",
     "mv .githook* /tmp/x",
     "echo exit 0 >| .githooks/commit-msg",
+    "sed -i '' 's/block(/ALLOW || block(/' scripts/claude-guard.mjs",
+    "cp /tmp/x scripts/check-attribution.mjs",
+    "rm scripts/pre-push.mjs",
+    "git checkout c2d86a3 -- scripts/claude-guard.mjs",
     "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m 'feat: x'",
     "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git commit -m 'feat: x'",
     "sed -i '' 's/exit 1/exit 0/' .githooks/pre-commit",
@@ -412,6 +416,9 @@ describe("guardrail files", () => {
     ["Write", { file_path: "/repo/.GITHOOKS/commit-msg", content: "exit 0" }],
     ["Write", { file_path: "/repo/.git/CONFIG", content: "" }],
     ["Write", { file_path: "/repo/.Claude/Settings.Local.json", content: "{}" }],
+    ["Edit", { file_path: "/repo/scripts/claude-guard.mjs", old_string: "a", new_string: "b" }],
+    ["Write", { file_path: "/repo/scripts/check-attribution.mjs", content: "" }],
+    ["Write", { file_path: "/repo/scripts/pre-push.mjs", content: "" }],
   ])("[T-18] blocks %s with %j", (name, input) => {
     expect(tool(name, input).decision).toBe("block");
   });

@@ -758,12 +758,13 @@ function checkGhApi(args, context, cwd) {
 // ---------------------------------------------------------------- Bash
 
 // Files that hold the guardrails: the Git hooks, the Git configuration that
-// points at them, and local Claude Code settings, which can turn hooks off.
+// points at them, local Claude Code settings, which can turn hooks off, and
+// the scripts that do the checking (owner decision on pull request #2).
 // Changing one weakens a control, so it needs the owner. `.claude/settings.json`
 // is checked separately: it may change, but must keep its controls.
 // Matched without case, because the disk may not tell `.GITHOOKS` from `.githooks`.
 const GUARDRAIL_PATH =
-  /(?:^|\/)(?:\.githooks(?:\/|$)|\.git\/(?:config$|hooks(?:\/|$))|\.claude\/settings\.local\.json$)/i;
+  /(?:^|\/)(?:\.githooks(?:\/|$)|\.git\/(?:config$|hooks(?:\/|$))|\.claude\/settings\.local\.json$|scripts\/(?:claude-guard|check-attribution|pre-push)\.mjs$)/i;
 const SETTINGS_PATH = /(?:^|\/)\.claude\/settings\.json$/i;
 // The folders themselves, as the target of `rm -rf` or `mv`.
 const GUARDRAIL_FOLDER = /(?:^|\/)(?:\.claude|\.githooks|\.git)\/?$/i;
@@ -784,6 +785,9 @@ const GUARDRAIL_SAMPLES = [
   ".claude",
   ".claude/settings.json",
   ".claude/settings.local.json",
+  "scripts/claude-guard.mjs",
+  "scripts/check-attribution.mjs",
+  "scripts/pre-push.mjs",
 ];
 
 /** @param {string} path */

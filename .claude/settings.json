@@ -18,6 +18,9 @@
       "Edit(/.git/config)",
       "Edit(/.git/hooks/**)",
       "Edit(/.claude/settings.local.json)",
+      "Edit(/scripts/claude-guard.mjs)",
+      "Edit(/scripts/check-attribution.mjs)",
+      "Edit(/scripts/pre-push.mjs)",
       "Bash(git push --force *)",
       "Bash(git push * --force *)",
       "Bash(git push -f *)",
@@ -43,6 +46,32 @@
       "Bash(gh repo delete *)",
       "Bash(gh repo edit --visibility *)"
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "filesystem": {
+      "denyRead": [
+        "./.env",
+        "./.env.local",
+        "./.env.development",
+        "./.env.development.local",
+        "./.env.production",
+        "./.env.production.local",
+        "./.env.staging",
+        "./.env.test",
+        "./.env.test.local"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "github.com",
+        "api.github.com",
+        "*.githubusercontent.com",
+        "registry.npmjs.org"
+      ]
+    }
   },
   "hooks": {
     "PreToolUse": [
