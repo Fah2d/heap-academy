@@ -19,6 +19,7 @@
     "attribution": "node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files",
     "test": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "infra:verify": "node scripts/infra-verify.mjs",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm attribution && pnpm test"
   },
   "dependencies": {
