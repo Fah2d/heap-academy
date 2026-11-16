@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { parseRequestId, REQUEST_ID_HEADER } from "@/infrastructure/http/request-id";
 import { log as serverLog, type Logger } from "@/infrastructure/logging/logger";
+import { logRoute } from "@/infrastructure/logging/route";
 
 // POST /api/csp-report (docs/spec/06-security-privacy.md section 5.2). Browsers
 // send content security policy violations here in one of two formats: the
@@ -11,8 +12,8 @@ import { log as serverLog, type Logger } from "@/infrastructure/logging/logger";
 // report could hold personal data (.claude/rules/server.md), so none is
 // kept: only the directive and the kind of thing that was blocked.
 
-/** Larger than any real report; a browser batches a handful at most. */
-export const MAX_REPORT_BYTES = 16 * 1024;
+/** At most 8 kB (docs/spec/07-operations.md section 7). */
+export const MAX_REPORT_BYTES = 8000;
 /** Log lines one request may write. More violations than this are counted, not logged. */
 export const MAX_LOGGED_VIOLATIONS = 10;
 
@@ -52,7 +53,41 @@ export type Violation = {
   enforced: boolean;
 };
 
-const DIRECTIVE = /^[a-z][a-z-]{0,39}$/;
+/**
+ * The directive names of Content Security Policy Level 3, including the
+ * effective directives browsers report (`script-src-elem`). Anything else in
+ * a report is logged as `unknown`, so a report cannot write a word of its
+ * own choosing into the log.
+ */
+export const DIRECTIVES: ReadonlySet<string> = new Set([
+  "base-uri",
+  "child-src",
+  "connect-src",
+  "default-src",
+  "fenced-frame-src",
+  "font-src",
+  "form-action",
+  "frame-ancestors",
+  "frame-src",
+  "img-src",
+  "manifest-src",
+  "media-src",
+  "object-src",
+  "report-to",
+  "report-uri",
+  "require-trusted-types-for",
+  "sandbox",
+  "script-src",
+  "script-src-attr",
+  "script-src-elem",
+  "style-src",
+  "style-src-attr",
+  "style-src-elem",
+  "trusted-types",
+  "upgrade-insecure-requests",
+  "webrtc",
+  "worker-src",
+]);
 const KEYWORDS: ReadonlyMap<string, BlockedKind> = new Map([
   ["inline", "inline"],
   ["eval", "eval"],
@@ -79,7 +114,7 @@ function violation(
   origin: string,
 ): Violation {
   return {
-    directive: directive !== undefined && DIRECTIVE.test(directive) ? directive : "unknown",
+    directive: directive !== undefined && DIRECTIVES.has(directive) ? directive : "unknown",
     blocked: blockedKind(blocked, origin),
     enforced: disposition !== "report",
   };
@@ -159,7 +194,7 @@ export async function handleCspReport(
   if (!result.ok) return new Response(null, { status: 400 });
 
   const requestId = parseRequestId(request.headers.get(REQUEST_ID_HEADER)) ?? "none";
-  const route = `POST ${url.pathname}`;
+  const route = logRoute("POST", url.pathname);
   for (const { directive, blocked, enforced } of result.violations.slice(
     0,
     MAX_LOGGED_VIOLATIONS,

@@ -115,9 +115,13 @@ describe("content security policy reports", () => {
 
   it("[NFR-SEC-02] logs at most a fixed number of lines per request", async () => {
     const { entries, log } = collect();
-    await handleCspReport(post(reportingApi(40), "application/reports+json"), log);
+    const response = await handleCspReport(
+      post(reportingApi(25, "inline"), "application/reports+json"),
+      log,
+    );
+    expect(response.status).toBe(204);
     expect(entries).toHaveLength(MAX_LOGGED_VIOLATIONS + 1);
-    expect(entries.at(-1)?.outcome).toBe(`csp-violation:more:${40 - MAX_LOGGED_VIOLATIONS}`);
+    expect(entries.at(-1)?.outcome).toBe(`csp-violation:more:${25 - MAX_LOGGED_VIOLATIONS}`);
   });
 
   it("[NFR-SEC-02] refuses a body over the size cap with 413 and logs nothing", async () => {
@@ -138,5 +142,76 @@ describe("content security policy reports", () => {
       const response = await handleCspReport(post(body, "application/csp-report"), () => undefined);
       expect(response.status, body).toBe(400);
     }
+  });
+
+  it("[NFR-SEC-02] logs a report-only violation at info, and an enforced one at warn", async () => {
+    const body = (disposition: string) =>
+      JSON.stringify({
+        "csp-report": {
+          "blocked-uri": "inline",
+          "effective-directive": "style-src-attr",
+          disposition,
+        },
+      });
+    const { entries, log } = collect();
+    await handleCspReport(post(body("report"), "application/csp-report"), log);
+    await handleCspReport(post(body("enforce"), "application/csp-report"), log);
+    expect(entries.map(({ level }) => level)).toEqual(["info", "warn"]);
+    expect(parseCspReport("application/csp-report", body("report"), ORIGIN)).toMatchObject({
+      violations: [{ enforced: false }],
+    });
+  });
+
+  it("[NFR-SEC-02] prefers the effective directive over the violated one", () => {
+    const both = JSON.stringify({
+      "csp-report": {
+        "blocked-uri": "inline",
+        "effective-directive": "script-src-elem",
+        "violated-directive": "script-src",
+      },
+    });
+    expect(parseCspReport("application/csp-report", both, ORIGIN)).toMatchObject({
+      violations: [{ directive: "script-src-elem" }],
+    });
+  });
+
+  it("[NFR-PRIV-03] [T-16] logs a directive that is not a policy directive as unknown", () => {
+    for (const directive of ["fatima-alharbi", "ada@example.com", "script-src-elemx"]) {
+      expect(
+        parseCspReport(
+          "application/csp-report",
+          JSON.stringify({ "csp-report": { "effective-directive": directive } }),
+          ORIGIN,
+        ),
+        directive,
+      ).toMatchObject({ violations: [{ directive: "unknown" }] });
+    }
+  });
+
+  it("[NFR-SEC-02] refuses more than 100 reports in one body", () => {
+    expect(parseCspReport("application/reports+json", reportingApi(99), ORIGIN)).toMatchObject({
+      ok: true,
+    });
+    expect(parseCspReport("application/reports+json", reportingApi(100), ORIGIN)).toEqual({
+      ok: false,
+    });
+  });
+
+  it("[NFR-SEC-02] caps the body at 8 kB, as 07-operations.md section 7 says", async () => {
+    expect(MAX_REPORT_BYTES).toBe(8000);
+    const sized = (bytes: number) => {
+      const shell = JSON.stringify({ "csp-report": { "blocked-uri": "" } });
+      return JSON.stringify({ "csp-report": { "blocked-uri": "x".repeat(bytes - shell.length) } });
+    };
+    const atCap = await handleCspReport(
+      post(sized(8000), "application/csp-report"),
+      () => undefined,
+    );
+    const over = await handleCspReport(
+      post(sized(8001), "application/csp-report"),
+      () => undefined,
+    );
+    expect(atCap.status).toBe(400);
+    expect(over.status).toBe(413);
   });
 });
