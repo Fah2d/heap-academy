@@ -121,16 +121,19 @@ function git(args) {
 }
 
 /**
- * @param {string} range
+ * Checks every commit that `git log <revisions>` lists: its message, author,
+ * and committer. The pre-push hook passes `<sha> --not --remotes=<name>`.
+ *
+ * @param {string[]} revisions
  * @returns {string[]}
  */
-function checkRange(range) {
+export function checkRevisions(revisions) {
   const RECORD = "\u001e";
   const FIELD = "\u001f";
   const log = git([
     "log",
     `--format=%H${FIELD}%an${FIELD}%ae${FIELD}%cn${FIELD}%ce${FIELD}%B${RECORD}`,
-    range,
+    ...revisions,
   ]);
   /** @type {string[]} */
   const problems = [];
@@ -248,9 +251,9 @@ export function main(argv) {
     } else if (mode === "--stdin") {
       problems = textProblems(readFileSync(0, "utf8"));
     } else if (mode === "--range" && value) {
-      problems = checkRange(value);
+      problems = checkRevisions([value]);
     } else if (mode === "--branch") {
-      problems = checkRange(branchRange());
+      problems = checkRevisions([branchRange()]);
     } else if (mode === "--files") {
       problems = trackedFileProblems();
     } else {
