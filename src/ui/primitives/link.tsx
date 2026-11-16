@@ -25,7 +25,7 @@ const underlined =
 const classes: Record<LinkVariant, string> = {
   inline: underlined,
   standalone: cx(underlined, "inline-flex min-h-target items-center font-medium"),
-  nav: "inline-flex min-h-target min-w-target items-center justify-center border-b-(length:--marker-width) no-underline",
+  nav: "inline-flex min-h-target min-w-target items-center justify-center border-be-(length:--marker-width) no-underline",
 };
 
 // Exclusive sets: when two utilities set one property, the stylesheet's order

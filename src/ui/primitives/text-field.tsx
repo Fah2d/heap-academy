@@ -39,7 +39,7 @@ export function TextField({
         </Text>
       )}
       <FieldError className="flex items-start gap-2 text-sm text-fail">
-        <span aria-hidden="true" className="inline-flex pt-1">
+        <span aria-hidden="true" className="inline-flex pbs-1">
           <ErrorFilled size={16} />
         </span>
         <span>{errorMessage}</span>

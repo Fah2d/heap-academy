@@ -91,7 +91,12 @@ test("[ADR-0014] the current navigation link shows the text color and the amber 
   const style = (name: string) =>
     navigation.getByRole("link", { name, exact: true }).evaluate((element) => {
       const computed = getComputedStyle(element);
-      return { color: computed.color, marker: computed.borderBlockEndColor };
+      return {
+        color: computed.color,
+        marker: computed.borderBlockEndColor,
+        markerWidth: computed.borderBlockEndWidth,
+        weight: computed.fontWeight,
+      };
     });
   // The token values, resolved by the browser the same way.
   const token = (name: string) =>
@@ -106,12 +111,18 @@ test("[ADR-0014] the current navigation link shows the text color and the amber 
 
   const current = await style(gallery.navCurrent);
   const other = await style(gallery.navOther);
+  // DESIGN.md 4.2: the text color, weight 600, and a 2 px amber bar. The
+  // weight is the cue that is not color. The resting link keeps a transparent
+  // bar of the same width, so becoming current shifts nothing.
   expect(current).toEqual({
     color: await token("--color-text"),
     marker: await token("--color-action"),
+    markerWidth: "2px",
+    weight: "600",
   });
   expect(other.color).toBe(await token("--color-text-muted"));
   expect(other.marker).toBe("rgba(0, 0, 0, 0)");
+  expect(other.markerWidth).toBe("2px");
 });
 
 test.describe("motion", () => {

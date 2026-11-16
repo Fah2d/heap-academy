@@ -40,7 +40,7 @@ export function Disclosure({
           {title}
         </AriaButton>
       </Heading>
-      <DisclosurePanel className="ps-6 pb-2 text-base text-text">{children}</DisclosurePanel>
+      <DisclosurePanel className="ps-6 pbe-2 text-base text-text">{children}</DisclosurePanel>
     </AriaDisclosure>
   );
 }

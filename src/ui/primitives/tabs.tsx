@@ -18,7 +18,7 @@ export type TabsProps = {
 };
 
 const tab =
-  "-mb-(--hairline) inline-flex min-h-target items-center border-b-(length:--marker-width) border-transparent px-4 text-base text-text-muted transition-colors data-hovered:text-text data-selected:border-action data-selected:font-semibold data-selected:text-text";
+  "-mbe-(--hairline) inline-flex min-h-target items-center border-be-(length:--marker-width) border-transparent px-4 text-base text-text-muted transition-colors data-hovered:text-text data-selected:border-action data-selected:font-semibold data-selected:text-text";
 
 /** Selected: text color, weight 600, and the 2 px amber bar on the block-end edge. */
 export function Tabs({ label, items, defaultSelectedKey, onSelectionChange }: TabsProps) {
@@ -28,7 +28,7 @@ export function Tabs({ label, items, defaultSelectedKey, onSelectionChange }: Ta
       {...(defaultSelectedKey !== undefined && { defaultSelectedKey })}
       {...(onSelectionChange !== undefined && { onSelectionChange })}
     >
-      <TabList aria-label={label} className="flex gap-1 border-b border-border">
+      <TabList aria-label={label} className="flex gap-1 border-be border-border">
         {items.map((item) => (
           <Tab key={item.id} id={item.id} className={tab}>
             {item.title}
@@ -36,7 +36,7 @@ export function Tabs({ label, items, defaultSelectedKey, onSelectionChange }: Ta
         ))}
       </TabList>
       {items.map((item) => (
-        <TabPanel key={item.id} id={item.id} className="pt-4">
+        <TabPanel key={item.id} id={item.id} className="pbs-4">
           {item.content}
         </TabPanel>
       ))}

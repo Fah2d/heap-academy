@@ -16,7 +16,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       >
         {shell.skipLink}
       </a>
-      <header className="border-b border-border">
+      <header className="border-be border-border">
         <div className="mx-auto flex min-h-target max-w-page items-center px-gutter py-3">
           <NextLink
             href="/"
