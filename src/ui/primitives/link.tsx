@@ -25,7 +25,7 @@ const underlined =
 const classes: Record<LinkVariant, string> = {
   inline: underlined,
   standalone: cx(underlined, "inline-flex min-h-target items-center font-medium"),
-  nav: "inline-flex min-h-target items-center border-b-(length:--marker-width) border-transparent text-text-muted no-underline hover:text-text",
+  nav: "inline-flex min-h-target min-w-target items-center justify-center border-b-(length:--marker-width) border-transparent text-text-muted no-underline hover:text-text",
 };
 
 export function Link({ href, variant, current = false, children }: LinkProps) {

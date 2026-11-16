@@ -1,7 +1,7 @@
 /*
  * The one global stylesheet. The root layout imports it; nothing else does.
  */
-@import "tailwindcss";
+@import "tailwindcss" source("../");
 @import "./tokens/primitives.css";
 @import "./tokens/semantic.css";
 @import "./tokens/components.css";

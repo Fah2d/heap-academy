@@ -20,7 +20,7 @@ export type TextFieldProps = Omit<AriaTextFieldProps, "className" | "style" | "c
 };
 
 const input =
-  "min-h-target w-full rounded-control border border-border-control bg-bg px-3 text-base text-text transition-colors placeholder:text-text-subtle data-hovered:border-text-muted data-invalid:border-fail data-disabled:border-border data-disabled:bg-surface data-disabled:text-text-muted read-only:border-border read-only:bg-surface";
+  "min-h-target w-full rounded-control border border-border-control bg-bg px-3 text-base text-text transition-colors placeholder:text-text-subtle not-read-only:data-hovered:border-text-muted data-invalid:border-fail data-disabled:border-border data-disabled:bg-surface data-disabled:text-text-muted read-only:border-border read-only:bg-surface";
 
 export function TextField({
   label,

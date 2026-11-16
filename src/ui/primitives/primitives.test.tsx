@@ -210,12 +210,12 @@ describe("Notice", () => {
 describe("Progress", () => {
   it("[ADR-0014] exposes its value and always shows it as text", () => {
     render(
-      <Progress label="Starting Python" value={4.1} maxValue={9.8} valueLabel="4.1 of 9.8 MB" />,
+      <Progress label="Starting Python" value={2.7} maxValue={5.5} valueLabel="2.7 of 5.5 MB" />,
     );
     const bar = screen.getByRole("progressbar", { name: "Starting Python" });
-    expect(bar.getAttribute("aria-valuenow")).toBe("4.1");
-    expect(bar.getAttribute("aria-valuetext")).toBe("4.1 of 9.8 MB");
-    expect(screen.getByText("4.1 of 9.8 MB")).toBeTruthy();
+    expect(bar.getAttribute("aria-valuenow")).toBe("2.7");
+    expect(bar.getAttribute("aria-valuetext")).toBe("2.7 of 5.5 MB");
+    expect(screen.getByText("2.7 of 5.5 MB")).toBeTruthy();
   });
 });
 

@@ -3,7 +3,7 @@
 export const gallery = {
   title: "Primitives",
   intro:
-    "Every primitive in every state that can be shown without a pointer. Hover, press, and focus are shown by moving the pointer or the keyboard over them.",
+    "Every primitive in every state that can be shown without a pointer. To see hover, press, and focus, point at a control or move to it with the Tab key.",
 
   buttons: "Buttons",
   rest: "At rest",
@@ -68,9 +68,10 @@ export const gallery = {
 
   progress: "Progress",
   progressLabel: "Starting Python",
-  progressEmpty: "0 of 9.8 MB",
-  progressPart: "4.1 of 9.8 MB",
-  progressFull: "9.8 of 9.8 MB",
+  // The Python runtime's transfer size with Brotli (docs/spec/09-evidence.md, E-02).
+  progressEmpty: "0 of 5.5 MB",
+  progressPart: "2.7 of 5.5 MB",
+  progressFull: "5.5 of 5.5 MB",
 
   status: "Test case states",
   passed: "Passed",

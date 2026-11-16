@@ -6,7 +6,7 @@ export type ProgressProps = {
   label: string;
   value: number;
   maxValue: number;
-  /** The value in words, always shown: "3 of 12 lessons", "4.1 of 9.8 MB". */
+  /** The value in words, always shown: "3 of 12 lessons", "2.7 of 5.5 MB". */
   valueLabel: string;
 };
 
@@ -25,7 +25,7 @@ export function Progress({ label, value, maxValue, valueLabel }: ProgressProps) 
             <Label className="text-base font-medium text-text">{label}</Label>
             <span className="text-sm text-text-muted tabular-nums">{valueLabel}</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-control bg-surface-hover">
+          <div className="h-2 w-full overflow-hidden bg-surface-hover">
             <div
               className="h-full bg-action transition-all"
               style={{ inlineSize: `${percentage ?? 0}%` }}

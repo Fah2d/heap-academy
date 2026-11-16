@@ -174,17 +174,17 @@ export function PrimitiveGallery() {
 
       <Section id="progress" title={m.progress}>
         <div className="flex max-w-prose flex-col gap-5">
-          <Progress label={m.progressLabel} value={0} maxValue={9.8} valueLabel={m.progressEmpty} />
+          <Progress label={m.progressLabel} value={0} maxValue={5.5} valueLabel={m.progressEmpty} />
           <Progress
             label={m.progressLabel}
-            value={4.1}
-            maxValue={9.8}
+            value={2.7}
+            maxValue={5.5}
             valueLabel={m.progressPart}
           />
           <Progress
             label={m.progressLabel}
-            value={9.8}
-            maxValue={9.8}
+            value={5.5}
+            maxValue={5.5}
             valueLabel={m.progressFull}
           />
         </div>
