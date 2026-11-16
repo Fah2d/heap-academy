@@ -8,9 +8,11 @@ A merge to `main` starts **Deploy**. Nothing else deploys production: Vercel's o
 
 1. **Staging migrations.** Applies `supabase/migrations` to the staging project (`supabase db push`, environment `staging`). A failure stops the run here; production is untouched.
 2. **Approval.** The `production` job waits for your approval (environment `production`, required reviewer). Open the run, check what changed, press **Review deployments → Approve and deploy**. If the merge carries a migration, read the pull request's note on whether the previous app version still works with it (`07-operations.md` section 3.1) before you approve.
-3. **Production migrations**, then **build and deploy the app** with the Vercel CLI (`vercel build --prod`, `vercel deploy --prebuilt --prod`).
-4. **Smoke.** `pnpm infra:verify --url <production URL>`: the health endpoint, the response headers, the script policy with its nonce, a page's scripts carrying that nonce, request IDs, the report endpoint. Lesson and runtime-file checks join it when those exist (WP-3.1, WP-5.1).
-5. **On a smoke failure**, the job promotes the previous production deployment (`vercel rollback`) and fails. GitHub emails you that the run failed. That email is the alert.
+3. **Production migrations.** Then the job notes which deployment the production address serves now (Vercel's alias API).
+4. **Build** with the Vercel CLI from `tools/vercel-cli` (`vercel build --prod`, with the commit as the release), then the bundle secret check on the production build's static files.
+5. **Deploy and promote.** `vercel deploy --prebuilt --prod --skip-domain`, then `vercel promote <that deployment>`. Promoting assigns the production domain whether or not an earlier rollback turned off the automatic assignment, and turns it back on.
+6. **Smoke.** `pnpm infra:verify --url <production URL> --release <commit>`: the address serves this commit (by `/api/health`), the response headers, the script policy with its nonce, a page's scripts carrying that nonce, request IDs, the report endpoint. Lesson and runtime-file checks join it when those exist (WP-3.1, WP-5.1).
+7. **On a failure after the deploy**, or a cancelled run, the job rolls back to the deployment noted in step 3 (`vercel rollback <id>`) and fails. GitHub emails you that the run failed. That email is the alert.
 
 Two deploys never run at once: the workflow has one concurrency group, and a second merge waits for the first run to end.
 
@@ -28,10 +30,10 @@ Use this when production is broken and the cause is the latest deploy (an S1 in 
 2. [ ] Vercel dashboard → the project → **Deployments**. Find the deployment marked **Current** under Production.
 3. [ ] Open the menu on the previous production deployment → **Instant Rollback** (Hobby can roll back to the previous production deployment only). Confirm.
 
-   Or from your machine: `pnpm dlx vercel@65.16.0 rollback <previous deployment URL> --token <Vercel token>`. Check with `pnpm dlx vercel@65.16.0 rollback status`.
+   Or from your machine, with the locked CLI: `npm ci --prefix tools/vercel-cli --ignore-scripts`, then `VERCEL_TOKEN=<Vercel token> tools/vercel-cli/node_modules/.bin/vercel rollback <previous deployment URL>`. Check with `... vercel rollback status`.
 4. [ ] `pnpm infra:verify --url https://<domain>` passes.
 5. [ ] Note the time. More than 5 minutes is a finding for the incident write-up.
-6. [ ] While rolled back, Vercel does not move production to a new deployment by itself. The next merge's deploy workflow ends the rollback. If you want to undo the rollback by hand: `vercel promote <deployment URL>`.
+6. [ ] While rolled back, Vercel turns off the automatic domain assignment: a plain `vercel deploy --prod` would stay staged. The deploy workflow promotes each deployment explicitly, so the next merge's deploy ends the rollback. To undo the rollback by hand: `vercel promote <deployment URL>`.
 7. [ ] S1 and S2 get a short write-up in `docs/reports/incidents/` (`07-operations.md` section 8).
 
 ## The database is not rolled back
@@ -48,7 +50,8 @@ Never run a command against the production database from a working machine. The 
 | Waiting for approval | Waiting for you | Approve or reject |
 | Production migrations | The same migration fails on production data | Production is on the old app and the partly applied migration rolled back in its transaction. Fix forward |
 | Vercel build or deploy | `VERCEL_TOKEN` expired (90 days), or a Hobby limit was reached | Renew the token in GitHub `production`; check the Vercel usage page |
-| Smoke | The new deployment is broken | The job has already rolled back. Read the infra:verify output in the log |
+| Promote | The promotion timed out (3 minutes) | The job has rolled back. Re-run it |
+| Smoke | The new deployment is broken, or the address still serves another release | The job has already rolled back. Read the infra:verify output in the log |
 
 ## Re-run a deploy
 

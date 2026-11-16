@@ -33,7 +33,7 @@ The Free plan allows two active projects (E-11, E-24). Both are needed: previews
 4. [ ] For each project, note:
    - The project reference (the `<ref>` in `https://<ref>.supabase.co`, shown in **Project Settings → General**).
    - **Project URL** and the **publishable key** (`sb_publishable_...`) from **Project Settings → API Keys**. Neither is secret; both go to the browser.
-   - The **Session pooler** connection string from the project's **Connect** dialog (it is IPv4; the direct connection on Free is IPv6 only, E-24). Put the project's password into it. The whole string is **secret**: `production database URL` and `staging database URL`.
+   - The **Session pooler** connection string from the project's **Connect** dialog (it is IPv4; the direct connection on Free is IPv6 only, E-24). Put the project's password into it, and add `?sslmode=require` at the end: `scripts/apply-migrations.sh` refuses a connection without TLS. The whole string is **secret**: `production database URL` and `staging database URL`.
 5. [ ] Do not create a secret key (`sb_secret_...`) yet. Only account deletion uses one (WP-6.2), and only in production.
 
 Not yet: the auth settings (Google, the email sender, redirect addresses). They come in step 10 once the pieces they point at exist.
@@ -137,16 +137,17 @@ The implementer pushes branches and opens pull requests. It must not be able to 
    | Metadata | Read | Required by GitHub for every token |
    | Contents | Read and write | Push work package branches |
    | Pull requests | Read and write | Open and update pull requests |
-   | Workflows | Read and write | Push changes to `.github/workflows/`; without it GitHub refuses any push that touches a workflow file |
    | Actions | Read | Read check results and logs |
    | Commit statuses | Read | Read check results |
 
    Leave **Administration, Environments, Secrets, Variables, Deployments, Pages, Webhooks** and every other permission at **No access**. Leave every **Account permission** at **No access**.
 4. [ ] Generate. On your machine, in a terminal where the implementer runs: `gh auth login --with-token` and paste the token, then `gh auth setup-git`. Check with `gh auth status`.
 
-Workflows write is the one broad permission. A change to a workflow still needs a pull request that you merge, and branch protection (step 9) means no workflow change reaches `main` without you.
+**No Workflows permission, on purpose.** With Contents write and Workflows write together, a pushed branch could carry a new workflow that runs on `push`, grants itself `checks: write`, and posts a passing `static` check on any pull request. That would satisfy branch protection. Without Workflows write, GitHub refuses any push by this token that touches `.github/workflows/`. When a work package changes a workflow, the implementer commits it on the branch and stops. You push that branch with your own login (`git push origin <branch>`) after reading the workflow diff.
 
-The interaction-limit check of `pnpm infra:verify --repo OWNER/REPO` needs Administration read, which this token does not have, so you run that one with your own login.
+**What this token can still do.** Contents and Pull requests write together can merge a pull request through the API (`gh api -X PUT repos/OWNER/REPO/pulls/N/merge`) once its checks pass, because required approvals are 0. The repository's permission rules deny `gh pr merge`, and should deny the API form too (see the WP-1.3 pull request). The ruleset still requires every check to pass.
+
+The repository checks of `pnpm infra:verify --repo OWNER/REPO` need Administration and Secrets read, which this token does not have, so you run them with your own login.
 
 ## 9. Branch protection with the required checks
 
@@ -190,11 +191,10 @@ ADR-0029. The order matters: once public, anything in the history is public.
 4. [ ] **Settings → Moderation options → Interaction limits → Limit to prior contributors... ** choose **Limit to repository collaborators**, for the longest period offered. It expires; the renewal is in the morning review.
 5. [ ] **Settings → Actions → General → Approval for running fork pull request workflows from contributors → Require approval for all external contributors**.
 6. [ ] **Settings → Code security**: turn on **Secret Protection** (secret scanning), **Push protection**, and **Private vulnerability reporting**.
-7. [ ] Check, and paste the output into the WP-1.3 pull request:
+7. [ ] Check with your own login, and paste the output into the WP-1.3 pull request. It reads secret scanning, push protection, private reporting, the interaction limit, that no secret sits at repository level, and that each of `staging`, `production`, and `production-backup` deploys from `main` only, with your approval on `production`:
 
    ```sh
-   gh api repos/OWNER/REPO --jq .security_and_analysis
-   gh api repos/OWNER/REPO/interaction-limits
+   pnpm infra:verify --url https://<domain> --repo OWNER/REPO
    ```
 
 ## 12. First deploy
