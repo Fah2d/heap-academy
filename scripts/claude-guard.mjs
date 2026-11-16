@@ -25,6 +25,7 @@ import { findAttribution, findIdentityAttribution } from "./check-attribution.mj
  * @property {() => string} currentBranch
  * @property {(path: string) => string | undefined} readFile
  */
+/** The context while checking one shell command, which some checks read whole. @typedef {Context & { command: string }} ShellContext */
 
 /** @type {Verdict} */
 const ALLOW = { decision: "allow" };
@@ -51,7 +52,8 @@ function isSecretPathOrGlob(path) {
 // Finds `.env` or `.env.<anything>` standing as its own word inside a larger
 // string, such as code passed to `node -e`. `process.env` does not match,
 // because the character before the dot is a letter.
-const SECRET_IN_TEXT = /(?:^|[\s'"=/:(<>,;|&`])(\.env(?:\.[\w.-]+)?)(?=$|[\s'"),;|&<>`])/g;
+// Shell globs such as `.env*` or `.env.?ocal` count: the shell expands them.
+const SECRET_IN_TEXT = /(?:^|[\s'"=/:(<>,;|&`])(\.env(?:[.*?[][\w.*?[\]-]*)?)(?=$|[\s'"),;|&<>`])/g;
 
 /** @param {string} text */
 function mentionsSecretFile(text) {
@@ -65,7 +67,7 @@ function mentionsSecretFile(text) {
 function isSecretPathToken(token) {
   const value = token.replace(/^--?[\w-]+=/, "");
   const afterColon = value.includes(":") ? value.slice(value.lastIndexOf(":") + 1) : value;
-  return isSecretFileName(basename(afterColon));
+  return isSecretPathOrGlob(afterColon);
 }
 
 // ---------------------------------------------------------------- shell words
@@ -148,7 +150,26 @@ export function splitCommands(command) {
   return commands.filter((words) => words.length > 0);
 }
 
-const WRAPPERS = new Set(["sudo", "env", "command", "exec", "nohup", "time", "xargs", "builtin"]);
+const WRAPPERS = new Set([
+  "sudo",
+  "env",
+  "command",
+  "exec",
+  "nohup",
+  "time",
+  "xargs",
+  "builtin",
+  "timeout",
+  "nice",
+  "ionice",
+  "stdbuf",
+  "caffeinate",
+  "npx",
+  "pnpx",
+]);
+// Options of a wrapper that take the next word as their value.
+const WRAPPER_OPTIONS_WITH_VALUE = new Set(["-u", "-g", "-n", "-s", "-k", "-C", "-c", "-p"]);
+const PACKAGE_RUNNERS = new Set(["pnpm", "npm", "yarn", "bun"]);
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "fish"]);
 
 /** @param {string[]} words */
@@ -156,8 +177,27 @@ function stripWrappers(words) {
   let start = 0;
   while (start < words.length) {
     const word = words[start] ?? "";
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word) || WRAPPERS.has(basename(word))) {
+    const name = basename(word);
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
       start += 1;
+    } else if (WRAPPERS.has(name)) {
+      start += 1;
+      // Skip the wrapper's own options and, for `timeout` and `nice`, a number.
+      while (start < words.length) {
+        const option = words[start] ?? "";
+        if (option.startsWith("-") && !/^-\d/.test(option)) {
+          start += WRAPPER_OPTIONS_WITH_VALUE.has(option) ? 2 : 1;
+        } else if (
+          (name === "timeout" || name === "nice") &&
+          /^[+-]?\d+(?:\.\d+)?[smhd]?$/.test(option)
+        ) {
+          start += 1;
+        } else {
+          break;
+        }
+      }
+    } else if (PACKAGE_RUNNERS.has(name) && ["exec", "dlx", "x"].includes(words[start + 1] ?? "")) {
+      start += 2;
     } else {
       break;
     }
@@ -167,7 +207,7 @@ function stripWrappers(words) {
 
 /**
  * @param {string} file
- * @param {Context} context
+ * @param {ShellContext} context
  * @param {string} cwd
  */
 function readRelative(file, context, cwd) {
@@ -184,6 +224,23 @@ function hasAttribution(text) {
 
 // ---------------------------------------------------------------- git
 
+/**
+ * Git accepts any unambiguous prefix of a long option, so `--no-veri` is
+ * `--no-verify`. A word counts as the option when it is a prefix of it at
+ * least `minimum` characters long.
+ *
+ * @param {string} word
+ * @param {string} option
+ * @param {number} minimum
+ */
+function isLongOption(word, option, minimum) {
+  const name = word.split("=")[0] ?? "";
+  return name.length >= minimum && option.startsWith(name);
+}
+
+/** @param {string} word */
+const skipsHooks = (word) => isLongOption(word, "--no-verify", 6);
+
 const GIT_GLOBAL_WITH_VALUE = new Set([
   "-C",
   "-c",
@@ -196,7 +253,7 @@ const GIT_GLOBAL_WITH_VALUE = new Set([
 
 /**
  * @param {string[]} args the words after `git`
- * @param {Context} context
+ * @param {ShellContext} context
  * @param {string} cwd
  * @returns {Verdict}
  */
@@ -217,7 +274,7 @@ function checkGit(args, context, cwd) {
   const sub = args[i] ?? "";
   const rest = args.slice(i + 1);
 
-  if (rest.includes("--no-verify")) return block("skipping Git hooks (--no-verify)");
+  if (rest.some(skipsHooks)) return block("skipping Git hooks (--no-verify)");
 
   switch (sub) {
     case "push":
@@ -240,7 +297,7 @@ const PUSH_WITH_VALUE = new Set(["-o", "--push-option", "--repo", "--receive-pac
 
 /**
  * @param {string[]} args
- * @param {Context} context
+ * @param {ShellContext} context
  * @returns {Verdict}
  */
 function checkPush(args, context) {
@@ -253,15 +310,21 @@ function checkPush(args, context) {
       continue;
     }
     if (word.startsWith("--")) {
-      const name = word.split("=")[0];
-      if (name === "--force" || name === "--force-with-lease" || name === "--force-if-includes") {
+      if (
+        isLongOption(word, "--force-with-lease", 5) ||
+        isLongOption(word, "--force-if-includes", 5)
+      ) {
         return block("force push");
       }
-      if (name === "--mirror") return block("force push (--mirror rewrites every remote branch)");
-      if (name === "--all" || name === "--branches")
+      if (isLongOption(word, "--mirror", 4)) {
+        return block("force push (--mirror rewrites every remote branch)");
+      }
+      if (isLongOption(word, "--all", 4) || isLongOption(word, "--branches", 4)) {
         return block(`push to ${PROTECTED_BRANCH} (--all includes it)`);
-      if (name === "--delete" || name === "--prune")
+      }
+      if (isLongOption(word, "--delete", 5) || isLongOption(word, "--prune", 5)) {
         return block("deleting branches on the remote");
+      }
       continue;
     }
     if (word.startsWith("-") && word.length > 1) {
@@ -283,17 +346,19 @@ function checkPush(args, context) {
     if (refspec.startsWith(":")) return block("deleting branches on the remote");
     const destination = refspec.includes(":") ? refspec.slice(refspec.indexOf(":") + 1) : refspec;
     const branch = destination.replace(/^refs\/heads\//, "");
-    const resolved = branch === "HEAD" ? context.currentBranch() : branch;
+    const resolved = branch === "HEAD" || branch === "@" ? context.currentBranch() : branch;
     if (resolved === PROTECTED_BRANCH) return block(`push to ${PROTECTED_BRANCH}`);
   }
   return ALLOW;
 }
 
 const COMMIT_SHORT_WITH_VALUE = new Set(["m", "F", "C", "c", "t"]);
+// Short options whose value, if any, is attached: `-uno`, `-Skey`.
+const COMMIT_SHORT_OPTIONAL_VALUE = new Set(["u", "S"]);
 
 /**
  * @param {string[]} args
- * @param {Context} context
+ * @param {ShellContext} context
  * @param {string} cwd
  * @returns {Verdict}
  */
@@ -326,6 +391,7 @@ function checkCommit(args, context, cwd) {
     if (/^-[A-Za-z]/.test(word) && !word.startsWith("--")) {
       for (const flag of word.slice(1)) {
         if (flag === "n") return block("skipping Git hooks (-n is --no-verify)");
+        if (COMMIT_SHORT_OPTIONAL_VALUE.has(flag)) break;
         if (COMMIT_SHORT_WITH_VALUE.has(flag)) {
           if (flag === "F" && word.endsWith("F")) {
             messageFiles.push(args[i + 1] ?? "");
@@ -337,7 +403,13 @@ function checkCommit(args, context, cwd) {
     }
   }
   for (const file of messageFiles) {
-    if (file === "-" || file === "") continue;
+    if (file === "") continue;
+    if (file === "-") {
+      if (!context.command.includes("<<")) {
+        return block("AI attribution check cannot read a message piped from another command");
+      }
+      continue;
+    }
     const text = readRelative(file, context, cwd);
     if (text === undefined)
       return block(`AI attribution check could not read the message file ${file}`);
@@ -346,20 +418,63 @@ function checkCommit(args, context, cwd) {
   return ALLOW;
 }
 
+const CONFIG_OPTIONS_WITH_VALUE = new Set([
+  "--file",
+  "-f",
+  "--blob",
+  "--type",
+  "--default",
+  "--comment",
+  "--value",
+]);
+const CONFIG_SUBCOMMANDS = new Set([
+  "set",
+  "unset",
+  "get",
+  "list",
+  "edit",
+  "rename-section",
+  "remove-section",
+]);
+
 /**
+ * Handles both the old form (`git config --unset key`) and the subcommand
+ * form of Git 2.46 and later (`git config unset key`).
+ *
  * @param {string[]} args
  * @returns {Verdict}
  */
 function checkConfig(args) {
-  const words = args.filter((word) => !word.startsWith("-") || word.startsWith("--unset"));
-  const unsetting = args.some((word) => word.startsWith("--unset") || word === "--remove-section");
-  const keyIndex = words.findIndex((word) => !word.startsWith("--"));
-  const key = words[keyIndex] ?? "";
-  const value = words[keyIndex + 1];
+  let unsetting = false;
+  let editing = false;
+  /** @type {string[]} */
+  const positional = [];
+  for (let i = 0; i < args.length; i += 1) {
+    const word = args[i] ?? "";
+    if (CONFIG_OPTIONS_WITH_VALUE.has(word)) {
+      i += 1;
+      continue;
+    }
+    if (word.startsWith("--unset") || word === "--remove-section") unsetting = true;
+    else if (word === "--edit" || word === "-e") editing = true;
+    else if (!word.startsWith("-")) positional.push(word);
+  }
+  const subcommand = CONFIG_SUBCOMMANDS.has(positional[0] ?? "") ? positional.shift() : undefined;
+  if (subcommand === "unset" || subcommand === "remove-section") unsetting = true;
+  if (subcommand === "edit") editing = true;
+  if (editing) return block("editing Git configuration by hand (it holds core.hooksPath)");
+  if (subcommand === "get" || subcommand === "list") return ALLOW;
+
+  const key = positional[0] ?? "";
+  const value = positional[1];
+  if (unsetting && /^(?:core|alias)$/i.test(key)) {
+    return block("removing a Git configuration section that holds the hooks or aliases");
+  }
   if (/^core\.hookspath$/i.test(key)) {
     if (unsetting) return block("skipping Git hooks (unsetting core.hooksPath)");
-    if (value !== undefined && value !== HOOKS_DIR)
+    if (value !== undefined && value !== HOOKS_DIR) {
       return block("skipping Git hooks (core.hooksPath override)");
+    }
   }
   if (/^alias\./i.test(key) && (value !== undefined || unsetting)) {
     return block("defining a Git alias");
@@ -392,7 +507,7 @@ const GH_API_WITH_VALUE = new Set([
 
 /**
  * @param {string[]} args the words after `gh`
- * @param {Context} context
+ * @param {ShellContext} context
  * @param {string} cwd
  * @returns {Verdict}
  */
@@ -423,7 +538,13 @@ function checkGh(args, context, cwd) {
       let file;
       if (word === "--body-file" || word === "-F" || word === "--notes-file") file = rest[i + 1];
       else if (word.startsWith("--body-file=")) file = word.slice("--body-file=".length);
-      if (file === undefined || file === "-") continue;
+      if (file === undefined) continue;
+      if (file === "-") {
+        if (!context.command.includes("<<")) {
+          return block("AI attribution check cannot read a body piped from another command");
+        }
+        continue;
+      }
       const text = readRelative(file, context, cwd);
       if (text === undefined)
         return block(`AI attribution check could not read the body file ${file}`);
@@ -437,7 +558,7 @@ function checkGh(args, context, cwd) {
 
 /**
  * @param {string[]} args the words after `gh api`
- * @param {Context} context
+ * @param {ShellContext} context
  * @param {string} cwd
  * @returns {Verdict}
  */
@@ -494,15 +615,34 @@ function checkGhApi(args, context, cwd) {
 
 // ---------------------------------------------------------------- Bash
 
-const HOOK_TAMPERING = new Set([
+// Files that hold the guardrails: the Git hooks, the Git configuration that
+// points at them, and local Claude Code settings, which can turn hooks off.
+// Changing one weakens a control, so it needs the owner. `.claude/settings.json`
+// is checked separately: it may change, but must keep its controls.
+const GUARDRAIL_PATH =
+  /(?:^|\/)(?:\.githooks(?:\/|$)|\.git\/(?:config$|hooks(?:\/|$))|\.claude\/settings\.local\.json$)/;
+const SETTINGS_PATH = /(?:^|\/)\.claude\/settings\.json$/;
+
+/** @param {string} path */
+const isProtectedPath = (path) => GUARDRAIL_PATH.test(path) || SETTINGS_PATH.test(path);
+
+// Commands that change the file they are given.
+const FILE_CHANGERS = new Set([
   "rm",
   "mv",
+  "cp",
   "chmod",
   "chflags",
   "unlink",
   "truncate",
   "ln",
   "chown",
+  "tee",
+  "install",
+  "dd",
+  "rsync",
+  "sed",
+  "perl",
 ]);
 
 /**
@@ -525,8 +665,100 @@ function removesExecute(mode) {
 }
 
 /**
+ * Whether a simple command changes a guardrail file.
+ *
+ * @param {string} name
+ * @param {string[]} args
+ */
+function changesGuardrail(name, args) {
+  if (!FILE_CHANGERS.has(name)) return false;
+  const targets = args
+    .filter((word) => !word.startsWith("-") || word.startsWith("of="))
+    .map((word) => word.replace(/^of=/, ""));
+  if (!targets.some(isProtectedPath)) return false;
+  switch (name) {
+    case "chmod":
+      return args.some(removesExecute);
+    case "cp":
+    case "install":
+    case "rsync":
+      return isProtectedPath(targets[targets.length - 1] ?? "");
+    case "sed":
+    case "perl":
+      return args.some((word) => /^-[a-zA-Z]*i/.test(word) || word.startsWith("--in-place"));
+    default:
+      return true;
+  }
+}
+
+/**
+ * The words of a simple command that it reads from, leaving out the targets
+ * of output redirection and the destination of `cp .env.example <file>`.
+ * Writing a local `.env` file exposes nothing; reading one does.
+ *
+ * @param {string[]} words
+ */
+function wordsThatRead(words) {
+  /** @type {string[]} */
+  const read = [];
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i] ?? "";
+    if (/^\d?>/.test(word) && !word.startsWith(">&")) {
+      i += 1;
+      continue;
+    }
+    read.push(word);
+  }
+  const name = basename(read[0] ?? "");
+  const operands = read.slice(1).filter((word) => !word.startsWith("-"));
+  if (
+    name === "cp" &&
+    operands.length >= 2 &&
+    operands.slice(0, -1).every((word) => basename(word) === EXAMPLE_ENV)
+  ) {
+    return read.slice(0, -1);
+  }
+  return read;
+}
+
+// Configuration passed through the environment, which `git -c` checks miss.
+const CONFIG_IN_ENVIRONMENT = /^GIT_CONFIG_(?:PARAMETERS|KEY_\d+)=.*(?:core\.hookspath|alias\.)/i;
+
+// `$(cat file)` and `$(<file)` put a file's text into a command where the
+// attribution check cannot see it, so the file is read and checked here.
+const SUBSTITUTED_FILE =
+  /\$\(\s*(?:cat\s+([^)<|;&]+?)|<\s*([^)]+?))\s*\)|`\s*cat\s+([^`<|;&]+?)\s*`/g;
+
+/**
  * @param {string} command
- * @param {Context} context
+ * @param {ShellContext} context
+ * @param {string} cwd
+ * @returns {Verdict}
+ */
+function checkSubstitutedFiles(command, context, cwd) {
+  for (const match of command.matchAll(SUBSTITUTED_FILE)) {
+    const files = (match[1] ?? match[2] ?? match[3] ?? "")
+      .split(/\s+/)
+      .filter((word) => word !== "");
+    for (const file of files) {
+      const path = file.replace(/^['"]|['"]$/g, "");
+      if (isSecretPathOrGlob(path)) return block("reading a secret file (.env)");
+      const text = readRelative(path, context, cwd);
+      if (text === undefined) return block(`AI attribution check could not read ${path}`);
+      if (hasAttribution(text)) {
+        return block("AI attribution in a file passed to a git or gh command");
+      }
+    }
+  }
+  return ALLOW;
+}
+
+const GUARDRAIL_CHANGE =
+  "changing a guardrail file (Git hooks, Git configuration, or Claude Code settings)";
+
+/**
+ * @param {string} command
+ * @param {ShellContext} context
  * @param {string} cwd
  * @param {number} depth
  * @returns {Verdict}
@@ -543,25 +775,34 @@ function checkBash(command, context, cwd, depth = 0) {
     if (hasAttribution(command) || commands.flat().some(hasAttribution)) {
       return block("AI attribution in a git or gh command");
     }
-  }
-  if (new RegExp(`>\\s*${HOOKS_DIR.replace(".", "\\.")}/`).test(command)) {
-    return block("changing the Git hooks");
+    const substituted = checkSubstitutedFiles(command, context, cwd);
+    if (substituted.decision === "block") return substituted;
   }
 
   for (const original of commands) {
+    if (original.some((word) => CONFIG_IN_ENVIRONMENT.test(word))) {
+      return block("skipping Git hooks (configuration passed in the environment)");
+    }
+    for (let i = 0; i < original.length - 1; i += 1) {
+      if (/^\d?>/.test(original[i] ?? "") && isProtectedPath(original[i + 1] ?? "")) {
+        return block(GUARDRAIL_CHANGE);
+      }
+    }
+
     const words = stripWrappers(original);
     const name = basename(words[0] ?? "");
     const args = words.slice(1);
 
     if (name === "git" || name === "gh") {
-      if (args.some(isSecretPathToken)) return block("reading a secret file (.env)");
-    } else if (words.some(mentionsSecretFile)) {
+      const removingFromIndex = name === "git" && args.includes("rm") && args.includes("--cached");
+      if (!removingFromIndex && args.some(isSecretPathToken)) {
+        return block("reading a secret file (.env)");
+      }
+    } else if (wordsThatRead(words).some(mentionsSecretFile)) {
       return block("reading a secret file (.env)");
     }
 
-    if (HOOK_TAMPERING.has(name) && args.some((word) => word.includes(HOOKS_DIR))) {
-      if (name !== "chmod" || args.some(removesExecute)) return block("changing the Git hooks");
-    }
+    if (changesGuardrail(name, args)) return block(GUARDRAIL_CHANGE);
 
     /** @type {Verdict} */
     let verdict = ALLOW;
@@ -577,6 +818,100 @@ function checkBash(command, context, cwd, depth = 0) {
     if (verdict.decision === "block") return verdict;
   }
   return ALLOW;
+}
+
+// ---------------------------------------------------------------- settings
+
+const REQUIRED_ATTRIBUTION = { commit: "", pr: "", sessionUrl: false };
+
+/** @param {unknown} value @returns {Record<string, unknown>} */
+const asRecord = (value) =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? /** @type {Record<string, unknown>} */ (value)
+    : {};
+
+/** @param {unknown} settings @returns {string[]} */
+function denyRules(settings) {
+  const deny = asRecord(asRecord(settings)["permissions"])["deny"];
+  return Array.isArray(deny) ? deny.filter((rule) => typeof rule === "string") : [];
+}
+
+/**
+ * A change to `.claude/settings.json` may add rules, but must keep the
+ * attribution settings exactly, every deny rule, and this guard as a
+ * PreToolUse hook, and must not turn hooks off.
+ *
+ * @param {string} next the file's content after the change
+ * @param {string | undefined} current the file's content now
+ * @returns {Verdict}
+ */
+export function checkSettingsChange(next, current) {
+  /** @type {unknown} */
+  let parsed;
+  try {
+    parsed = JSON.parse(next);
+  } catch {
+    // Claude Code ignores a settings file that does not parse, controls and all.
+    return block("changing .claude/settings.json into JSON that does not parse");
+  }
+  const settings = asRecord(parsed);
+  const attribution = asRecord(settings["attribution"]);
+  if (
+    attribution["commit"] !== REQUIRED_ATTRIBUTION.commit ||
+    attribution["pr"] !== REQUIRED_ATTRIBUTION.pr ||
+    attribution["sessionUrl"] !== REQUIRED_ATTRIBUTION.sessionUrl
+  ) {
+    return block("changing the attribution settings (CLAUDE.md rule 15)");
+  }
+  if (settings["disableAllHooks"] === true) return block("turning Claude Code hooks off");
+  const hooks = JSON.stringify(settings["hooks"] ?? {});
+  if (!hooks.includes("PreToolUse") || !hooks.includes("scripts/claude-guard.mjs")) {
+    return block("removing the repository guard hook");
+  }
+  if (current !== undefined) {
+    /** @type {unknown} */
+    let before;
+    try {
+      before = JSON.parse(current);
+    } catch {
+      // The current file does not parse, so only the new content can be checked.
+      before = {};
+    }
+    const kept = new Set(denyRules(settings));
+    const removed = denyRules(before).filter((rule) => !kept.has(rule));
+    if (removed.length > 0) return block(`removing deny rules: ${removed.join(", ")}`);
+  }
+  return ALLOW;
+}
+
+/**
+ * The content a file tool call would leave behind.
+ *
+ * @param {string} toolName
+ * @param {Record<string, unknown>} input
+ * @param {string | undefined} current
+ * @returns {string | undefined}
+ */
+function contentAfter(toolName, input, current) {
+  if (toolName === "Write") {
+    return typeof input["content"] === "string" ? input["content"] : undefined;
+  }
+  if (current === undefined) return undefined;
+  const edits =
+    toolName === "MultiEdit" && Array.isArray(input["edits"])
+      ? input["edits"].map(asRecord)
+      : [input];
+  let text = current;
+  for (const edit of edits) {
+    const oldString = edit["old_string"];
+    const newString = edit["new_string"];
+    if (typeof oldString !== "string" || typeof newString !== "string") return undefined;
+    text =
+      edit["replace_all"] === true
+        ? text.split(oldString).join(newString)
+        : text.replace(oldString, () => newString);
+  }
+  return text;
 }
 
 // ---------------------------------------------------------------- entry
@@ -605,8 +940,22 @@ export function evaluate(input, context) {
     case "MultiEdit":
     case "Write": {
       const path = field("file_path");
-      if (path !== undefined && isSecretFileName(basename(path)))
-        return block("reading or writing a secret file (.env)");
+      if (path === undefined) return ALLOW;
+      if (isSecretFileName(basename(path))) return block("reading or writing a secret file (.env)");
+      if (toolName === "Read") return ALLOW;
+      if (GUARDRAIL_PATH.test(path)) {
+        return block(
+          "changing a guardrail file (Git hooks, Git configuration, or local Claude Code settings)",
+        );
+      }
+      if (SETTINGS_PATH.test(path)) {
+        const current = context.readFile(path);
+        const next = contentAfter(toolName, toolInput, current);
+        if (next === undefined) {
+          return block("the guard could not work out the new .claude/settings.json");
+        }
+        return checkSettingsChange(next, current);
+      }
       return ALLOW;
     }
     case "NotebookEdit": {
@@ -628,7 +977,7 @@ export function evaluate(input, context) {
     case "Bash": {
       const command = field("command");
       if (command === undefined) return ALLOW;
-      return checkBash(command, context, cwd);
+      return checkBash(command, { ...context, command }, cwd);
     }
     default:
       return ALLOW;
