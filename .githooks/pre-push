@@ -1,0 +1,5 @@
+#!/bin/sh
+# Refuses a push to main, a push that rewrites or deletes a remote branch, and
+# AI attribution in any pushed commit (scripts/pre-push.mjs, T-18).
+set -eu
+exec node scripts/pre-push.mjs "$@"

@@ -1,0 +1,146 @@
+import css from "@eslint/css";
+import comments from "@eslint-community/eslint-plugin-eslint-comments/configs";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from "eslint/config";
+import tseslint from "typescript-eslint";
+import {
+  CSS_ALLOWED_PROPERTIES,
+  CSS_ALLOWED_UNITS,
+  heapPlugin,
+  IO_GLOBALS,
+  PURITY_SELECTORS,
+  RAW_HTML_SELECTORS,
+} from "./scripts/eslint/plugin.mjs";
+
+const CODE = ["**/*.{js,mjs,cjs,ts,tsx}"];
+const TESTS = ["**/*.test.{ts,tsx}", "e2e/**"];
+
+// Files where Next.js requires a default export.
+const NEXT_DEFAULT_EXPORTS = [
+  "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.{ts,tsx}",
+  "*.config.{ts,mjs}",
+];
+
+export default defineConfig([
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "next-env.d.ts",
+  ]),
+
+  { files: CODE, extends: [...nextVitals, ...nextTs] },
+
+  {
+    files: CODE,
+    plugins: { heap: heapPlugin },
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+    rules: {
+      "heap/module-boundaries": "error",
+      "no-restricted-syntax": ["error", ...RAW_HTML_SELECTORS],
+      "react/no-danger": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          "ts-expect-error": "allow-with-description",
+          minimumDescriptionLength: 10,
+        },
+      ],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "import/no-default-export": "error",
+      "no-eval": "error",
+      "no-implied-eval": "error",
+      "no-new-func": "error",
+      // This rule checks links into a `pages/` directory. The app uses the App
+      // Router only, so there are no such pages and the rule only prints a warning.
+      "@next/next/no-html-link-for-pages": "off",
+    },
+  },
+
+  // Type-aware rules for TypeScript sources.
+  {
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      "@typescript-eslint/switch-exhaustiveness-check": [
+        "error",
+        { considerDefaultExhaustiveForUnions: false },
+      ],
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/consistent-type-imports": "error",
+    },
+  },
+
+  // A suppression needs a reason on the same line (handbook section 5).
+  comments.recommended,
+  {
+    rules: {
+      "@eslint-community/eslint-comments/require-description": ["error", { ignore: [] }],
+      "@eslint-community/eslint-comments/no-unlimited-disable": "error",
+    },
+  },
+
+  // NFR-I18N-01 and NFR-I18N-02 in everything that renders, and in page
+  // metadata, which can sit in route files.
+  {
+    files: ["src/**/*.tsx", "src/app/**/*.ts"],
+    ignores: TESTS,
+    rules: {
+      "heap/no-inline-strings": "error",
+      "heap/logical-properties": "error",
+    },
+  },
+  // Primitives and components keep class lists in variables too, so every
+  // string there is checked for physical classes.
+  {
+    files: ["src/ui/**/*.{ts,tsx}", "src/features/*/components/**/*.{ts,tsx}"],
+    ignores: TESTS,
+    rules: { "heap/logical-properties": ["error", { allStrings: true }] },
+  },
+
+  // src/domain and src/grader are pure.
+  {
+    files: ["src/domain/**/*.{ts,tsx}", "src/grader/**/*.{ts,tsx}"],
+    ignores: TESTS,
+    rules: {
+      "no-restricted-syntax": ["error", ...RAW_HTML_SELECTORS, ...PURITY_SELECTORS],
+      "no-restricted-globals": ["error", ...IO_GLOBALS],
+    },
+  },
+
+  { files: NEXT_DEFAULT_EXPORTS, rules: { "import/no-default-export": "off" } },
+
+  { files: TESTS, rules: { "@typescript-eslint/no-non-null-assertion": "off" } },
+
+  // Stylesheets: logical properties for the inline axis (NFR-I18N-02), with
+  // the same scope as heap/logical-properties.
+  {
+    files: ["**/*.css"],
+    plugins: { css },
+    language: "css/css",
+    languageOptions: { tolerant: true },
+    rules: {
+      "css/prefer-logical-properties": [
+        "error",
+        { allowProperties: CSS_ALLOWED_PROPERTIES, allowUnits: CSS_ALLOWED_UNITS },
+      ],
+    },
+  },
+
+  // Plain JavaScript files are checked by tsc with checkJs; the type-aware
+  // TypeScript rules do not apply to them.
+  { files: ["**/*.{js,mjs,cjs}"], extends: [tseslint.configs.disableTypeChecked] },
+]);

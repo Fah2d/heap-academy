@@ -1,0 +1,13 @@
+#!/bin/sh
+# Layer 2 (docs/spec/05-engineering-handbook.md section 2): format and lint the
+# staged files, then scan the staged changes for secrets (NFR-SEC-04, T-12).
+set -eu
+
+pnpm exec lint-staged
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed, so the secret scan cannot run." >&2
+  echo "Install it (macOS: brew install gitleaks) and commit again." >&2
+  exit 1
+fi
+gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml

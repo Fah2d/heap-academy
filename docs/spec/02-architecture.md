@@ -80,11 +80,17 @@ brand/               Reserved for brand files the owner may supply later (ADR-00
 
 ### 4.1 Dependency rules
 
-Enforced by lint import rules (NFR-MAINT-05). A violation fails the build.
+Enforced by lint import rules (NFR-MAINT-05). A violation fails the build. The table in `scripts/eslint/module-boundaries.mjs` is the source of truth, and this graph matches it (ADR-0032).
 
 ```mermaid
 flowchart TD
+  root[src root files] --> features
+  root --> infrastructure
+  root --> messages
   app[app] --> features
+  app --> messages
+  app -. stylesheets only .-> ui
+  features --> messages
   features --> runtime
   features --> content
   features --> ui
@@ -98,7 +104,9 @@ flowchart TD
   infrastructure --> domain
 ```
 
-- `domain`, `grader`, and `ui` import nothing else from the project.
+- `domain`, `grader`, `ui`, and `messages` import nothing else from the project.
+- `app` imports from `ui` only stylesheets. Files directly in `src/`, such as `instrumentation.ts`, form the root area.
+- The one exception to purity is `grader/node-runner/`, the test-only Node runner of `04-content-system.md` section 3.2. Only tests and scripts import it (ADR-0032, built in WP-3.3).
 - `domain` imports nothing that performs I/O: no `fetch`, no file access, no React, no Next, no Supabase, no `Date.now()` without an injected clock.
 - Nothing imports from `app`. A feature imports another feature only through its `index.ts`.
 - Server-only modules import `server-only`. Client code cannot import `infrastructure/db`.
@@ -468,3 +476,4 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | 0029 | Zero-cost hosting on free tiers | Accepted |
 | 0030 | Nightly encrypted backups in GitHub Actions | Accepted |
 | 0031 | Identity without a brand kit | Accepted |
+| 0032 | Module table additions and a test-only grader runner | Accepted |

@@ -114,9 +114,9 @@ When FR-GRD-07 is built, a failed comparison is classified so the message can be
 
 ### 3.2 Running it outside a browser
 
-`src/grader` also has a small runner that executes the harness in Pyodide inside a Node worker thread, with the same time limit behavior as the browser (terminate on limit). The grader's own tests and the parity suite use it (FR-GRD-04). Prototype timings: start about 1.8 s, three tests in about 2 ms, a runaway loop terminated at its limit (E-04).
+`src/grader/node-runner/` holds a small runner that executes the harness in Pyodide inside a Node worker thread, with the same time limit behavior as the browser (terminate on limit). The grader's own tests and the parity suite use it (FR-GRD-04). Prototype timings: start about 1.8 s, three tests in about 2 ms, a runaway loop terminated at its limit (E-04).
 
-It is a test tool. No production path runs learner or lesson code on a server.
+It is a test tool. No production path runs learner or lesson code on a server. It is the one folder of `src/grader` exempt from the purity rule, and only tests and scripts import it (ADR-0032).
 
 ## 4. Validation and publishing
 
