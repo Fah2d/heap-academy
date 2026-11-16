@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   EnvironmentError,
   parseEnvironment,
+  parsePublicEnvironment,
   publicEnvironmentSchema,
   serverEnvironmentSchema,
 } from "./schema";
@@ -49,6 +50,30 @@ describe("environment schema", () => {
     } catch (error) {
       expect(String(error)).not.toContain(secretLooking);
     }
+  });
+
+  it("[NFR-SEC-04] refuses a secret key where the publishable key belongs", () => {
+    const attempt = () =>
+      parsePublicEnvironment({ ...valid, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_secret_abc" });
+    expect(attempt).toThrow(/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must be a publishable key/);
+  });
+
+  it("[NFR-SEC-04] accepts http only for the local stack", () => {
+    expect(() =>
+      parsePublicEnvironment({ ...valid, NEXT_PUBLIC_SUPABASE_URL: "http://example.supabase.co" }),
+    ).toThrow(/must use https/);
+    expect(
+      parsePublicEnvironment({ ...valid, NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co" })
+        .NEXT_PUBLIC_SUPABASE_URL,
+    ).toBe("https://example.supabase.co");
+  });
+
+  it("[NFR-SEC-04] checks the public variables at build without needing server secrets", () => {
+    const { RESEND_API_KEY: _omitted, ...publicOnly } = valid;
+    expect(parsePublicEnvironment(publicOnly)).toEqual({
+      NEXT_PUBLIC_SUPABASE_URL: valid.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    });
   });
 
   it("[NFR-SEC-04] treats an empty value as missing", () => {
