@@ -17,7 +17,7 @@ import {
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <section id={id} aria-labelledby={`${id}-heading`} className="flex flex-col gap-4 scroll-mt-4">
+    <section id={id} aria-labelledby={`${id}-heading`} className="flex flex-col gap-4 scroll-mbs-4">
       <h2 id={`${id}-heading`} className="text-lg font-semibold text-text">
         {title}
       </h2>
