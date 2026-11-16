@@ -51,7 +51,7 @@
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
-    "excludedCommands": ["gh"],
+    "excludedCommands": ["gh", "pnpm test:e2e", "npx playwright"],
     "filesystem": {
       "allowWrite": ["~/Library/pnpm/store"],
       "denyRead": [
