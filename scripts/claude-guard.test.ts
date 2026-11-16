@@ -53,6 +53,14 @@ describe("secret files", () => {
     "echo $(cat .env.local)",
     "node -e \"console.log(require('fs').readFileSync('.env','utf8'))\"",
     "cat .env*",
+    "cat .e*",
+    "cat .en?.local",
+    "cat .[e]nv.local",
+    "head -c 400 .e?v.local",
+    "cat .ENV.local",
+    "git --no-pager grep --no-index -h -e SECRET -e rm -e --cached -- .env.local",
+    "cp --target-directory=/tmp/x .env.example .env.local",
+    "cp .env.example .env.local /tmp/x",
     "grep KEY .env.*",
     "head .env?local",
     "cat .env.example .env.local",
@@ -98,6 +106,11 @@ describe("force push and push to main", () => {
     'sh -c "git push -f"',
     "git push --force-w origin wp/1.2-x",
     "git push --forc origin wp/1.2-x",
+    "git push --m origin",
+    'bash -lc "git push -f"',
+    'zsh -ic "git push -f"',
+    "echo 'git push -f' | bash",
+    "bash <<< 'git push -f'",
     "timeout 60 git push --force origin wp/1.2-x",
     "env -i git push --force",
     "sudo -u fahad git push -f",
@@ -123,6 +136,26 @@ describe("force push and push to main", () => {
     expect(bash("git push origin", "main").decision).toBe("block");
   });
 
+  it.each([
+    "git push origin heads/main",
+    "git push origin wp/x:heads/main",
+    "git push --b origin",
+    "git config remote.origin.push HEAD:main",
+    "git config push.default upstream",
+    "git config branch.wp/x.merge refs/heads/main",
+    "gh api repos/o/r/merges -f base=main -f head=wp/x",
+    "gh api -X PATCH repos/o/r/git/refs/heads/main/",
+    "gh api -X PATCH 'repos/o/r/git/refs/heads/main?x=1'",
+    "gh api graphql -f query='mutation { mergePullRequest(input: {}) { clientMutationId } }'",
+    "gh alias set mg 'pr merge'",
+  ])("[T-18] blocks a push or merge into main by another route: %s", (command) => {
+    expect(bash(command).decision).toBe("block");
+  });
+
+  it("[T-18] allows a GraphQL query that changes nothing", () => {
+    expect(bash("gh api graphql -f query='query { viewer { login } }'").decision).toBe("allow");
+  });
+
   it("[T-18] blocks pushing the checked-out main by another name", () => {
     expect(bash("git push origin @", "main").decision).toBe("block");
     expect(bash("git push origin HEAD", "main").decision).toBe("block");
@@ -142,6 +175,7 @@ describe("deleting remote branches", () => {
     "git push origin -d wp/old",
     "git push origin :wp/old",
     "git push origin --delet wp/old",
+    "git push --de origin wp/old",
     "gh api -X DELETE repos/o/r/git/refs/heads/wp/old",
     "gh api --method DELETE repos/o/r/git/refs/heads/wp/old",
   ])("[T-18] blocks: %s", (command) => {
@@ -169,6 +203,25 @@ describe("skipping Git hooks", () => {
     "git config --file .git/config core.hooksPath /dev/null",
     "git config --edit",
     "git config --remove-section core",
+    "git config rename-section core corex",
+    "git config --rename-section core corex",
+    "git -c include.path=/tmp/evil.cfg commit -m 'feat: x'",
+    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=include.path GIT_CONFIG_VALUE_0=/tmp/evil.cfg git commit -m 'feat: x'",
+    "git config include.path /tmp/evil.cfg",
+    "git config includeIf.onbranch:wp/**.path /tmp/evil.cfg",
+    "cat <<'EOF' | git commit --no-verify -F -\nfeat: one\nEOF",
+    "git commit -F - <<'EOF'\nfeat: one\nEOF\ngit push --force origin wp/x",
+    "git rm .githooks/commit-msg",
+    "git mv .githooks/commit-msg /tmp/x",
+    "git checkout c2d86a3 -- .claude/settings.json",
+    "git checkout HEAD~5 -- .githooks",
+    "git restore --source=HEAD~9 .githooks/commit-msg",
+    "git stash push -- .claude/settings.json",
+    "rm -rf .claude",
+    "mv .claude /tmp/x",
+    "rm .githook?/commit-msg",
+    "mv .githook* /tmp/x",
+    "echo exit 0 >| .githooks/commit-msg",
     "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/dev/null git commit -m 'feat: x'",
     "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null'\" git commit -m 'feat: x'",
     "sed -i '' 's/exit 1/exit 0/' .githooks/pre-commit",
@@ -292,6 +345,28 @@ describe("AI attribution", () => {
   it("[NFR-MAINT-08] blocks a body or message piped in from another command", () => {
     expect(bash("cat body.md | gh pr create --title t --body-file -").decision).toBe("block");
     expect(bash("cat msg.txt | git commit -F -").decision).toBe("block");
+    expect(bash("cat body.md | gh pr create --title t --body-file - # <<").decision).toBe("block");
+  });
+
+  it("[NFR-MAINT-08] blocks a body file the guard cannot read as a regular file", () => {
+    expect(bash("gh pr create --title t --body-file /dev/stdin < body.md").decision).toBe("block");
+  });
+
+  it("[NFR-MAINT-08] reads an API field file given with the value attached", () => {
+    const files = { "/repo/body.md": `Body\n\n${CO_AUTHOR}\n` };
+    expect(bash("gh api repos/o/r/issues -Fbody=@body.md", undefined, files).decision).toBe(
+      "block",
+    );
+    expect(bash("gh api repos/o/r/issues --input=body.md", undefined, files).decision).toBe(
+      "block",
+    );
+  });
+
+  it("[NFR-MAINT-08] checks a here-document body and the commands after it", () => {
+    const clean = "git commit -F - <<'EOF'\nfeat: one\nEOF\ngit status";
+    expect(bash(clean).decision).toBe("allow");
+    const credited = `git commit -F - <<'EOF'\nfeat: one\n\n${CO_AUTHOR}\nEOF`;
+    expect(bash(credited).decision).toBe("block");
   });
 
   it("[NFR-MAINT-08] allows a body passed in a here-document, which the check can read", () => {
@@ -301,6 +376,9 @@ describe("AI attribution", () => {
   });
 });
 
+const GUARD_MATCHER = "Bash|Read|Edit|MultiEdit|Write|NotebookEdit|Grep|Glob";
+const GUARD_COMMAND = 'node "$CLAUDE_PROJECT_DIR/scripts/claude-guard.mjs" || exit 2';
+
 describe("guardrail files", () => {
   const settingsPath = "/repo/.claude/settings.json";
   const current = JSON.stringify({
@@ -308,7 +386,10 @@ describe("guardrail files", () => {
     permissions: { deny: ["Read(**/.env)"] },
     hooks: {
       PreToolUse: [
-        { matcher: "Bash", hooks: [{ type: "command", command: "node scripts/claude-guard.mjs" }] },
+        {
+          matcher: GUARD_MATCHER,
+          hooks: [{ type: "command", command: GUARD_COMMAND, timeout: 10 }],
+        },
       ],
     },
   });
@@ -328,6 +409,9 @@ describe("guardrail files", () => {
     ["Write", { file_path: "/repo/.git/config", content: "" }],
     ["Write", { file_path: "/repo/.git/hooks/pre-commit", content: "" }],
     ["Write", { file_path: "/repo/.claude/settings.local.json", content: "{}" }],
+    ["Write", { file_path: "/repo/.GITHOOKS/commit-msg", content: "exit 0" }],
+    ["Write", { file_path: "/repo/.git/CONFIG", content: "" }],
+    ["Write", { file_path: "/repo/.Claude/Settings.Local.json", content: "{}" }],
   ])("[T-18] blocks %s with %j", (name, input) => {
     expect(tool(name, input).decision).toBe("block");
   });
@@ -343,6 +427,41 @@ describe("guardrail files", () => {
     ["removes a deny rule", { ...base, permissions: { deny: [] } }],
     ["removes the guard hook", { ...base, hooks: {} }],
     ["turns hooks off", { ...base, disableAllHooks: true }],
+    [
+      "gives the guard a matcher that never matches",
+      {
+        ...base,
+        hooks: {
+          PreToolUse: [
+            { matcher: "NoSuchTool", hooks: [{ type: "command", command: GUARD_COMMAND }] },
+          ],
+        },
+      },
+    ],
+    [
+      "keeps the guard's name but not its command",
+      {
+        ...base,
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: GUARD_MATCHER,
+              hooks: [{ type: "command", command: "true # scripts/claude-guard.mjs" }],
+            },
+          ],
+        },
+      },
+    ],
+    [
+      "moves the guard to another event",
+      {
+        ...base,
+        hooks: {
+          PreToolUse: [],
+          Stop: [{ matcher: GUARD_MATCHER, hooks: [{ type: "command", command: GUARD_COMMAND }] }],
+        },
+      },
+    ],
   ])("[T-18] [NFR-MAINT-08] blocks a settings change that %s", (_name, next) => {
     expect(settings(next).decision).toBe("block");
   });
