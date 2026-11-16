@@ -1,0 +1,46 @@
+/*
+ * Tier 3: component tokens, only where a component needs its own knob.
+ * Syntax and editor tokens of DESIGN.md section 4.4. They may point at
+ * primitives. The code editor that uses them is built in WP-4.2.
+ */
+:root {
+  --syntax-text: var(--color-text);
+  --syntax-keyword: var(--color-text);
+  --syntax-keyword-weight: var(--font-weight-semibold);
+  --syntax-string: var(--sage-300);
+  --syntax-number: var(--pink-300);
+  --syntax-function: var(--blue-300);
+  --syntax-builtin: var(--teal-300);
+  --syntax-comment: var(--gray-450);
+  --syntax-error: var(--color-fail);
+
+  --editor-selection: var(--color-selection-editor);
+  --editor-caret: var(--color-text);
+  --editor-gutter-text: var(--color-text-subtle);
+  --editor-gutter-active: var(--color-text);
+  --editor-bracket-match: var(--color-text-muted);
+  --editor-search-match: var(--color-selection-editor);
+  --editor-search-outline: var(--color-text-muted);
+
+  /* The focus ring: 2 px, offset 2 px, inset inside overflow containers. */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* A pressed button moves 1 px down (DESIGN.md section 4.5). */
+  --press-shift: 1px;
+
+  /* Links in running text (DESIGN.md section 4.2). */
+  --link-underline-offset: 0.15em;
+
+  /* The current-item marker: 2 px, inline start in lists, block end in tabs and header links. */
+  --marker-width: 2px;
+
+  /* Hairline borders, the 1 px dividers and outlines. */
+  --hairline: 1px;
+}
+
+@media (width >= 48rem) {
+  :root {
+    --text-code: 0.875rem;
+  }
+}
