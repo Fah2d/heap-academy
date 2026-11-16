@@ -1,0 +1,112 @@
+# The one way production changes (docs/spec/07-operations.md section 3,
+# runbook docs/runbooks/deploy-and-rollback.md). In order: staging migrations,
+# the owner's approval, production migrations, deploy, smoke, roll back on a
+# failed smoke. Vercel's own production deploy from Git is off (vercel.json),
+# so the database always moves first.
+#
+# Rules: .claude/rules/ci.md. These jobs hold credentials, so they restore and
+# save no cache and upload no artifact.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+# Never two deploys at once, and never cancel one halfway.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VERCEL_CLI: vercel@65.16.0
+  SUPABASE_CLI_VERSION: 2.122.1
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  staging-migrations:
+    name: staging migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Apply migrations to staging
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: scripts/apply-migrations.sh
+
+  production:
+    name: production
+    needs: staging-migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Required reviewer: the owner. The job waits here for approval.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    permissions:
+      contents: read
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@9bbca1e9dc2902adb87e8780fe5c98796985a62d # v6.1.1
+      # No `cache:`: a job holding production credentials writes no cache.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - name: Apply migrations to production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: scripts/apply-migrations.sh
+      - name: Remember the current production deployment
+        id: previous
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          id=$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&target=production&state=READY&limit=1" \
+            | jq --raw-output '.deployments[0].uid // empty')
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "Current production deployment: ${id:-none}"
+      - name: Build
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          pnpm dlx "$VERCEL_CLI" pull --yes --environment=production --token="$VERCEL_TOKEN"
+          pnpm dlx "$VERCEL_CLI" build --prod --token="$VERCEL_TOKEN"
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url=$(pnpm dlx "$VERCEL_CLI" deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "Deployed: $url"
+      - name: Smoke production
+        run: node scripts/infra-verify.mjs --url "$PRODUCTION_URL"
+      - name: Roll back to the previous deployment
+        if: failure() && steps.deploy.outcome == 'success' && steps.previous.outputs.id != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PREVIOUS: ${{ steps.previous.outputs.id }}
+        run: |
+          pnpm dlx "$VERCEL_CLI" rollback "$PREVIOUS" --token="$VERCEL_TOKEN"
+          echo "::error::The smoke check failed. Production was rolled back to $PREVIOUS."
