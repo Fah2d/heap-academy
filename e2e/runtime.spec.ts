@@ -161,6 +161,13 @@ test.describe("Python runtime", () => {
   }) => {
     const requests: string[] = [];
     page.context().on("request", (request) => requests.push(request.url()));
+    // A control: the log must see this engine's worker requests at all, or
+    // an empty log below would prove nothing.
+    await page.reload();
+    await expect(page.getByRole("status")).toHaveAttribute("data-status", "ready", {
+      timeout: READY_MS,
+    });
+    expect(requests.some((url) => url.endsWith("/manifest.json"))).toBe(true);
     // The loaders answer with promises, which settle after the run; the
     // second run reads what they settled with.
     await outputOf(
@@ -182,9 +189,13 @@ test.describe("Python runtime", () => {
         "        note(error)",
       ].join("\n"),
     );
-    const probe = await outputOf(page, "import sys\nprint(len(sys._heap_probe), sys._heap_probe)");
-    expect(probe).toMatch(/^2 /);
-    expect(probe).not.toContain("'loaded'");
+    const probe = await outputOf(
+      page,
+      'import sys\nprint(len(sys._heap_probe), "micropip" in sys.modules, sys._heap_probe)',
+    );
+    // Both settled; a loader may settle without loading, so what counts is
+    // that micropip never arrived and nothing was requested.
+    expect(probe).toMatch(/^2 False /);
     expect(requests.filter((url) => /micropip|\/api\/health/.test(url))).toEqual([]);
   });
 

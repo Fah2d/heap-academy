@@ -32,10 +32,16 @@ export const BLOCKED_GLOBALS = [
 
 /**
  * On the worker's navigator: a beacon is a request, a service worker outlives
- * the page, and `storage` (the origin's private file system) and `locks` are
- * shared with every page of the origin.
+ * the page, and `storage` (the origin's private file system), `storageBuckets`
+ * and `locks` are shared with every page of the origin.
  */
-export const BLOCKED_NAVIGATOR = ["sendBeacon", "serviceWorker", "storage", "locks"] as const;
+export const BLOCKED_NAVIGATOR = [
+  "sendBeacon",
+  "serviceWorker",
+  "storage",
+  "storageBuckets",
+  "locks",
+] as const;
 
 export type LockdownResult = { ok: true } | { ok: false; remaining: string[] };
 
