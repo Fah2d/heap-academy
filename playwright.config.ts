@@ -39,11 +39,17 @@ export default defineConfig({
       testMatch: gallery,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${developmentPort}` },
     },
-    {
-      name: "phone",
+    // Pixel 7 as it is (412 px), then at the 375 px review width and the
+    // common 360 px Android width, with the same touch and pixel density.
+    ...[undefined, 375, 360].map((width) => ({
+      name: width === undefined ? "phone" : `phone-${width}`,
       testMatch: phone,
-      use: { ...devices["Pixel 7"], baseURL: `http://127.0.0.1:${developmentPort}` },
-    },
+      use: {
+        ...devices["Pixel 7"],
+        ...(width !== undefined && { viewport: { width, height: 667 } }),
+        baseURL: `http://127.0.0.1:${developmentPort}`,
+      },
+    })),
   ],
   // In order: the production build must finish before the development server
   // starts writing beside it.

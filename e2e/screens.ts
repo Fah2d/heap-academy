@@ -6,7 +6,7 @@ import { test, type Page } from "@playwright/test";
 // section 3.3). The folder is the work package that last changed these screens.
 const FOLDER = join("docs", "reports", "screens", "WP-1.4");
 // One engine's pictures, so Firefox and WebKit runs do not overwrite them.
-const SCREENSHOT_PROJECTS = new Set(["chromium", "gallery", "phone"]);
+const SCREENSHOT_PROJECTS = new Set(["chromium", "gallery", "phone", "phone-375", "phone-360"]);
 
 // A state with a fixed overlay, such as an open dialog, is saved at the size
 // of the viewport: a full-page capture paints the overlay as a band across it.

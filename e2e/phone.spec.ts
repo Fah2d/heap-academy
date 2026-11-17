@@ -5,8 +5,8 @@ import { notFound } from "../src/messages/system";
 import { saveScreen } from "./screens";
 
 // The primitive gallery and the not-found page on an emulated phone (the
-// `phone` project, Pixel 7): touch, a mobile viewport, and the phone's pixel
-// density. Design review 2 of WP-1.4, MINOR 9, asked for this beside the
+// `phone`, `phone-375` and `phone-360` projects, Pixel 7 at 412, 375 and
+// 360 px): touch, a mobile viewport, and the phone's pixel density. Design review 2 of WP-1.4, MINOR 9, asked for this beside the
 // resized desktop captures. Runs against the development server.
 
 const TARGET = 44;
@@ -32,6 +32,9 @@ test("[NFR-A11Y-06] every control can be tapped: at least 44 by 44 px", async ({
   for (const control of await controls.all()) {
     // WCAG 2.5.8 exempts a link inside a sentence; its size is the text's.
     if (await control.evaluate((element) => element.closest("p") !== null)) continue;
+    // A control that is not drawn, such as one in a closed panel, has no box
+    // to tap; it is measured where it is shown.
+    if (!(await control.isVisible())) continue;
     const box = await control.boundingBox();
     const name = (await control.getAttribute("aria-label")) ?? (await control.textContent());
     expect(box?.width, `${name} width`).toBeGreaterThanOrEqual(TARGET);
