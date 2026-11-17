@@ -477,3 +477,4 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | 0030 | Nightly encrypted backups in GitHub Actions | Accepted |
 | 0031 | Identity without a brand kit | Accepted |
 | 0032 | Module table additions and a test-only grader runner | Accepted |
+| 0033 | The Python worker is compiled by the TypeScript compiler, outside the bundler | Proposed |
