@@ -1,6 +1,8 @@
+import { characterCount } from "./output.ts";
 import {
   createRunId,
   type FatalReason,
+  OUTPUT_LIMIT,
   type OutputStream,
   type PageMessage,
   type ParseError,
@@ -45,7 +47,7 @@ export type RunResult = {
 };
 
 /** Why the controller is starting a new worker. */
-export type RestartReason = "time_limit" | "stopped" | "crashed" | "memory";
+export type RestartReason = "time_limit" | "stopped" | "crashed" | "memory" | "output_limit";
 
 export type ControllerEvent =
   | { type: "progress"; loadedBytes: number; totalBytes: number }
@@ -60,6 +62,7 @@ export type ControllerReport =
   | { code: "malformed_message"; error: ParseError }
   | { code: "unexpected_message"; messageType: string }
   | { code: "fatal"; reason: FatalReason }
+  | { code: "message_error" }
   | { code: "worker_error" };
 
 export type ControllerStatus =
@@ -87,7 +90,8 @@ export type RuntimeController = {
   dispose: () => void;
 };
 
-type Current = { runId: RunId; started: number; timer: unknown };
+/** The run in progress; `received` counts the characters of output that reached the page. */
+type Current = { runId: RunId; started: number; timer: unknown; received: number };
 
 export function createRuntimeController({
   createWorker,
@@ -109,7 +113,9 @@ export function createRuntimeController({
     const result: RunResult = {
       runId: current.runId,
       outcome,
-      truncated,
+      // A program that catches the write error and keeps going ends at the
+      // time limit; the cap it hit is still reported (FR-RUN-03).
+      truncated: truncated || current.received >= OUTPUT_LIMIT,
       durationMs: durationMs ?? Math.max(0, Math.round(now() - current.started)),
     };
     current = undefined;
@@ -168,6 +174,7 @@ export function createRuntimeController({
         return;
       case "output":
         if (current?.runId !== message.runId) return unexpected();
+        current.received += characterCount(message.text);
         onEvent(message);
         return;
       case "input_request":
@@ -177,8 +184,11 @@ export function createRuntimeController({
         if (current?.runId !== message.runId) return unexpected();
         finish(message.outcome, message.truncated, message.durationMs);
         // A program that ran out of memory may leave the runtime's memory
-        // grown; a new worker gives it back.
+        // grown; a new worker gives it back. One stopped at the output cap may
+        // leave text in Python's stream buffers, which the next run would
+        // print; a new worker has none.
         if (message.outcome.kind === "memory") return restart("memory");
+        if (message.outcome.kind === "output_limit") return restart("output_limit");
         status = "ready";
         return;
       case "fatal":
@@ -200,7 +210,7 @@ export function createRuntimeController({
       if (live()) receive(event.data);
     });
     next.addEventListener("messageerror", () => {
-      if (live()) report({ code: "malformed_message", error: "not_an_object" });
+      if (live()) report({ code: "message_error" });
     });
     next.addEventListener("error", () => {
       if (!live()) return;
@@ -238,7 +248,7 @@ export function createRuntimeController({
         finish({ kind: "time_limit" }, false);
         restart("time_limit");
       }, timeLimitMs);
-      current = { runId, started: now(), timer };
+      current = { runId, started: now(), timer, received: 0 };
       worker.postMessage(message);
       return { ok: true, runId };
     },

@@ -6,7 +6,7 @@ import {
   TIME_LIMIT_MS,
   type WorkerLike,
 } from "./controller.ts";
-import type { PageMessage } from "./protocol.ts";
+import { OUTPUT_LIMIT, type PageMessage } from "./protocol.ts";
 
 // The controller with a fake worker and a fake clock. The real worker and
 // the real clock are in the browser tests (e2e/runtime.spec.ts).
@@ -16,6 +16,7 @@ type FakeWorker = WorkerLike & {
   terminated: boolean;
   send: (data: unknown) => void;
   fail: () => void;
+  garble: () => void;
 };
 
 function fakeWorker(): FakeWorker {
@@ -30,6 +31,7 @@ function fakeWorker(): FakeWorker {
     },
     send: (data) => listeners.get("message")?.forEach((listener) => listener({ data })),
     fail: () => listeners.get("error")?.forEach((listener) => listener({})),
+    garble: () => listeners.get("messageerror")?.forEach((listener) => listener({})),
   };
   return worker;
 }
@@ -205,6 +207,61 @@ describe("runtime controller", () => {
     });
     expect(setup.events.map((event) => event.type)).toEqual(["run_done", "restarting"]);
     expect(setup.workers).toHaveLength(2);
+  });
+
+  it("[FR-RUN-03] after the output cap the run is reported and a new worker starts", () => {
+    const setup = started();
+    const request = setup.controller.run("flood");
+    if (!request.ok) throw new Error("run refused");
+    setup.latest().send({
+      type: "run_done",
+      runId: request.runId,
+      outcome: { kind: "output_limit", message: "" },
+      truncated: true,
+      durationMs: 40,
+    });
+    expect(setup.events[1]).toEqual({ type: "restarting", reason: "output_limit" });
+    expect(setup.workers[0]?.terminated).toBe(true);
+    expect(setup.workers).toHaveLength(2);
+  });
+
+  it("[FR-RUN-03] reports the cap as reached when a program that hit it runs into the time limit", () => {
+    const setup = started();
+    const request = setup.controller.run("flood that catches the error");
+    if (!request.ok) throw new Error("run refused");
+    const text = "x".repeat(OUTPUT_LIMIT / 2);
+    for (const _ of [1, 2]) {
+      setup.latest().send({ type: "output", runId: request.runId, stream: "stdout", text });
+    }
+    setup.advance(TIME_LIMIT_MS);
+    expect(setup.events[2]).toMatchObject({
+      result: { outcome: { kind: "time_limit" }, truncated: true },
+    });
+  });
+
+  it("[FR-RUN-02] a run under the cap that reaches the time limit is not reported as cut", () => {
+    const setup = started();
+    setup.controller.run("loop");
+    setup.advance(TIME_LIMIT_MS);
+    expect(setup.events[0]).toMatchObject({ result: { truncated: false } });
+  });
+
+  it("[FR-RUN-06] a new worker that dies before it is ready fails, without starting another", () => {
+    const setup = started();
+    setup.controller.run("loop");
+    setup.advance(TIME_LIMIT_MS);
+    expect(setup.controller.status).toBe("restarting");
+    setup.latest().fail();
+    expect(setup.controller.status).toBe("failed");
+    expect(setup.workers).toHaveLength(2);
+    setup.workers[1]?.send({ type: "fatal", reason: "load_failed" });
+    expect(setup.workers).toHaveLength(2);
+  });
+
+  it("[NFR-SEC-01] reports a message that could not be read as its own code", () => {
+    const setup = started();
+    setup.latest().garble();
+    expect(setup.reports).toEqual([{ code: "message_error" }]);
   });
 
   it("[FR-RUN-06] a runtime that cannot start fails, and can be started again", () => {
