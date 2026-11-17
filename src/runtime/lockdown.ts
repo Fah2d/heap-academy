@@ -9,7 +9,7 @@
 // (`connect-src 'self'`, no `unsafe-eval`) is the second layer, and the
 // residual risks are in docs/spec/06-security-privacy.md section 6.
 
-/** Network, spawning and cross-context channels. */
+/** Network, spawning, cross-context channels, and storage shared with the page's origin. */
 export const BLOCKED_GLOBALS = [
   "fetch",
   "XMLHttpRequest",
@@ -22,13 +22,20 @@ export const BLOCKED_GLOBALS = [
   "importScripts",
   "BroadcastChannel",
   "caches",
+  // IndexedDB belongs to the origin, so a later feature's drafts or progress
+  // stored there would be readable by a pasted program.
+  "indexedDB",
   // The page reads the worker's messages through the protocol parser, but a
   // program has no reason to post its own. The worker keeps a bound copy.
   "postMessage",
 ] as const;
 
-/** On the worker's navigator: a beacon is a request, a service worker outlives the page. */
-export const BLOCKED_NAVIGATOR = ["sendBeacon", "serviceWorker"] as const;
+/**
+ * On the worker's navigator: a beacon is a request, a service worker outlives
+ * the page, and `storage` (the origin's private file system) and `locks` are
+ * shared with every page of the origin.
+ */
+export const BLOCKED_NAVIGATOR = ["sendBeacon", "serviceWorker", "storage", "locks"] as const;
 
 export type LockdownResult = { ok: true } | { ok: false; remaining: string[] };
 
