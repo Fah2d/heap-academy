@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cx } from "../class-names";
 import { CheckmarkFilled, ErrorFilled, InformationFilled, WarningAltFilled } from "../icons";
-import { LiveText } from "./live-text";
+import { LiveRegion } from "./live-region";
 
 export type NoticeKind = "information" | "warning" | "error" | "success";
 
@@ -12,7 +12,9 @@ export type NoticeProps = {
   children: ReactNode;
   /**
    * `polite` or `assertive` when the notice appears after the page loaded and
-   * must be announced. A notice present on load is not announced.
+   * must be announced. The notice then draws one frame after its region, and
+   * only once scripts run, so a notice present on load is never announced:
+   * leave this unset for it.
    */
   announce?: "polite" | "assertive";
 };
@@ -28,22 +30,17 @@ const icons: Record<NoticeKind, { icon: ReactNode; tone: string }> = {
 
 export function Notice({ kind, kindLabel, children, announce }: NoticeProps) {
   const { icon, tone } = icons[kind];
-  const sentence = (
-    <>
-      <span className="font-semibold">{kindLabel}: </span>
-      {children}
-    </>
-  );
-  return (
+  const box = (
     <div className="flex items-start gap-3 rounded-panel border border-border-control bg-surface p-4 text-base text-text">
       <span aria-hidden="true" className={cx("inline-flex shrink-0", tone)}>
         {icon}
       </span>
-      {announce === undefined ? (
-        <p>{sentence}</p>
-      ) : (
-        <LiveText role={announce === "assertive" ? "alert" : "status"}>{sentence}</LiveText>
-      )}
+      <p>
+        <span className="font-semibold">{kindLabel}: </span>
+        {children}
+      </p>
     </div>
   );
+  if (announce === undefined) return box;
+  return <LiveRegion role={announce === "assertive" ? "alert" : "status"}>{box}</LiveRegion>;
 }
