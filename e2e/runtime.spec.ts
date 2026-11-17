@@ -1,9 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 import { runtimeDev } from "../src/messages/runtime-dev";
+import { BLOCKED_GLOBALS, BLOCKED_NAVIGATOR } from "../src/runtime/lockdown";
+import { OUTPUT_LIMIT } from "../src/runtime/protocol";
 
 // WP-3.1's "Done when", in Chromium, Firefox and WebKit (the runtime-*
 // projects), against the development-only runtime page. Each program runs
 // in the real Pyodide worker; nothing is faked.
+//
+// Loading Pyodide takes seconds, and several tests wait for the 5 second
+// limit and a new worker, so these tests have a longer budget than the
+// default 30 s. It is set here once, for this file only.
+test.describe.configure({ timeout: 120_000 });
 
 const READY_MS = 60_000;
 
@@ -25,6 +32,13 @@ async function runProgram(page: Page, source: string, stdin = "") {
 
 const outcome = (page: Page) => page.locator("[data-outcome]");
 const output = (page: Page) => page.getByTestId("runtime-output");
+
+/** Runs a program and returns its output once it has finished. */
+async function outputOf(page: Page, source: string): Promise<string> {
+  await runProgram(page, source);
+  await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");
+  return (await output(page).textContent()) ?? "";
+}
 
 test.describe("Python runtime", () => {
   test.beforeEach(async ({ page }) => {
@@ -85,7 +99,12 @@ test.describe("Python runtime", () => {
       timeout: 15_000,
     });
     await expect(outcome(page)).toHaveAttribute("data-truncated", "true");
-    expect((await output(page).textContent())?.length).toBe(64_000);
+    expect((await output(page).textContent())?.length).toBe(OUTPUT_LIMIT);
+    // A new worker, so nothing the flood left in a buffer reaches the next run.
+    await expect(page.getByTestId("runtime-restarts")).toHaveText("1");
+    await runProgram(page, 'print("after")');
+    await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");
+    await expect(output(page)).toHaveText("after\n");
   });
 
   test("[FR-RUN-06] [NFR-REL-03] recovers from a memory bomb without a reload", async ({
@@ -105,79 +124,114 @@ test.describe("Python runtime", () => {
     await expect(output(page)).toHaveText("recovered\n");
   });
 
-  test("[T-01] from Python, network and spawning APIs are gone, on the prototype chain too", async ({
+  test("[T-01] from Python, network, spawning and shared storage are gone, on the prototype chain too", async ({
     page,
   }) => {
-    await runProgram(
+    const text = await outputOf(
       page,
       [
-        "import js",
-        'names = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "Worker", "importScripts", "BroadcastChannel", "postMessage"]',
+        "import js, sys",
+        "from pyodide.ffi import jsnull",
+        `names = ${JSON.stringify(BLOCKED_GLOBALS)}`,
+        `navigator_names = ${JSON.stringify(BLOCKED_NAVIGATOR)}`,
         "print([name for name in names if hasattr(js, name)])",
         "chain = js.Object.getPrototypeOf(js)",
-        "while chain is not None and str(chain) != 'jsnull':",
+        "while chain is not None and chain is not jsnull:",
         "    print([name for name in names if js.Object.prototype.hasOwnProperty.call(chain, name)])",
         "    chain = js.Object.getPrototypeOf(chain)",
-        'print(hasattr(js.navigator, "sendBeacon"))',
+        "print([name for name in navigator_names if hasattr(js.navigator, name)])",
+        // Pyodide's own network helpers bind fetch and XMLHttpRequest when
+        // they are imported; nothing imported them before the lock-down.
+        'print("pyodide.http" in sys.modules)',
+        "try:",
+        "    import pyodide.http",
+        '    print("imported")',
+        "except ImportError:",
+        '    print("refused")',
       ].join("\n"),
     );
-    await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");
-    const lines = ((await output(page).textContent()) ?? "").trim().split("\n");
-    expect(lines.length).toBeGreaterThan(2);
-    expect(lines.slice(0, -1).every((line) => line === "[]")).toBe(true);
-    expect(lines.at(-1)).toBe("False");
+    const lines = text.trim().split("\n");
+    expect(lines.length).toBeGreaterThan(4);
+    expect(lines.slice(0, -2).every((line) => line === "[]")).toBe(true);
+    expect(lines.slice(-2)).toEqual(["False", "refused"]);
   });
 
-  test("[T-01] evaluating JavaScript from Python is refused by the worker's own policy", async ({
+  test("[T-01] Pyodide's own loaders cannot reach the network after the lock-down", async ({
     page,
   }) => {
-    await runProgram(
+    const requests: string[] = [];
+    page.context().on("request", (request) => requests.push(request.url()));
+    // The loaders answer with promises, which settle after the run; the
+    // second run reads what they settled with.
+    await outputOf(
       page,
       [
-        "import js",
-        "for attempt in (lambda: js.eval('1 + 1'), lambda: js.Function('return 1')()):",
+        "import sys, pyodide_js",
+        "from pyodide.ffi import create_proxy",
+        "sys._heap_probe = []",
+        "def note(value):",
+        "    sys._heap_probe.append(str(value))",
+        "attempts = (",
+        '    lambda: pyodide_js.loadPackage("micropip"),',
+        '    lambda: pyodide_js._api.loadBinaryFile("/api/health"),',
+        ")",
+        "for attempt in attempts:",
+        "    try:",
+        '        attempt().then(create_proxy(lambda _: note("loaded")), create_proxy(note))',
+        "    except Exception as error:",
+        "        note(error)",
+      ].join("\n"),
+    );
+    const probe = await outputOf(page, "import sys\nprint(len(sys._heap_probe), sys._heap_probe)");
+    expect(probe).toMatch(/^2 /);
+    expect(probe).not.toContain("'loaded'");
+    expect(requests.filter((url) => /micropip|\/api\/health/.test(url))).toEqual([]);
+  });
+
+  test("[T-01] evaluating JavaScript from Python is refused, by the worker's own policy", async ({
+    page,
+  }) => {
+    const refusals = await outputOf(
+      page,
+      [
+        "import js, sys",
+        "from pyodide.ffi import create_proxy",
+        "from pyodide.code import run_js",
+        "sys._heap_policies = []",
+        'js.self.addEventListener("securitypolicyviolation", create_proxy(',
+        "    lambda event: sys._heap_policies.append(event.originalPolicy)))",
+        "attempts = (lambda: js.eval('1 + 1'), lambda: js.Function('return 1')(), lambda: run_js('1 + 1'))",
+        "for attempt in attempts:",
         "    try:",
         "        attempt()",
         "        print('evaluated')",
         "    except Exception as error:",
-        "        print('refused')",
-        "from pyodide.code import run_js",
-        "try:",
-        "    run_js('1 + 1')",
-        "    print('evaluated')",
-        "except Exception:",
-        "    print('refused')",
+        "        print('EvalError' in str(error))",
         // WebAssembly still compiles: the policy has 'wasm-unsafe-eval'.
         "print(bool(js.WebAssembly.validate(js.Uint8Array.new([0, 97, 115, 109, 1, 0, 0, 0]))))",
       ].join("\n"),
     );
-    await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");
-    await expect(output(page)).toHaveText("refused\nrefused\nrefused\nTrue\n");
+    expect(refusals).toBe("True\nTrue\nTrue\nTrue\n");
+    // The violation is reported against the worker's policy, not the page's.
+    const policy = await outputOf(page, "import sys\nprint(sys._heap_policies[0])");
+    expect(policy).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(policy).not.toContain("nonce-");
   });
 
-  test("[T-01] the worker script carries its own policy, and the page's has no wasm-unsafe-eval", async ({
-    page,
-  }) => {
-    const workerResponse = page.waitForResponse((response) =>
-      response.url().endsWith("/_runtime/worker/worker/python-worker.js"),
-    );
-    const pageResponse = await page.goto("/dev/runtime");
-    const policy = (await workerResponse).headers()["content-security-policy"] ?? "";
-    expect(policy).toContain("script-src 'self' 'wasm-unsafe-eval'");
-    expect(policy).toContain("connect-src 'self'");
-    expect(policy).not.toContain("'unsafe-eval'");
-    expect(pageResponse?.headers()["content-security-policy"]).not.toContain("wasm-unsafe-eval");
+  test("[FR-RUN-07] a second visit loads the runtime from the cache", async ({ page }) => {
+    await page.reload();
     await expect(page.getByRole("status")).toHaveAttribute("data-status", "ready", {
       timeout: READY_MS,
     });
-  });
-
-  test("[FR-RUN-07] serves the runtime files immutable, under their version", async ({ page }) => {
-    const wasm = page.waitForResponse((response) => response.url().endsWith("pyodide.asm.wasm"));
-    await page.goto("/dev/runtime");
-    const response = await wasm;
-    expect(response.url()).toMatch(/\/_runtime\/pyodide\/\d+\.\d+\.\d+\/pyodide\.asm\.wasm$/);
-    expect(response.headers()["cache-control"]).toBe("public, max-age=31536000, immutable");
+    const transferred = await outputOf(
+      page,
+      [
+        "import js",
+        'entries = [entry for entry in js.performance.getEntriesByType("resource") if entry.name.endswith("pyodide.asm.wasm")]',
+        'print(entries[0].transferSize if entries else "none")',
+      ].join("\n"),
+    );
+    expect(transferred).toBe("0\n");
   });
 
   test("[FR-RUN-01] the page stays responsive during a busy loop: no frame gap of 50 ms", async ({
@@ -208,5 +262,34 @@ test.describe("Python runtime", () => {
     await runProgram(page, 'print("ok")');
     await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");
     await expect(page.getByTestId("runtime-dropped")).toHaveText("0");
+  });
+});
+
+// A fresh page for each test: nothing loaded the runtime before, so the
+// responses are first responses, not revalidations.
+test.describe("Python runtime files", () => {
+  test("[T-01] the worker script carries its own policy, and the page's has no wasm-unsafe-eval", async ({
+    page,
+  }) => {
+    const workerResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/_runtime/worker/worker/python-worker.js"),
+    );
+    const pageResponse = await page.goto("/dev/runtime");
+    const policy = (await workerResponse).headers()["content-security-policy"] ?? "";
+    expect(policy).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(policy).toContain("connect-src 'self'");
+    expect(policy).not.toContain("'unsafe-eval'");
+    expect(pageResponse?.headers()["content-security-policy"]).not.toContain("wasm-unsafe-eval");
+    await expect(page.getByRole("status")).toHaveAttribute("data-status", "ready", {
+      timeout: READY_MS,
+    });
+  });
+
+  test("[FR-RUN-07] serves the runtime files immutable, under their version", async ({ page }) => {
+    const wasm = page.waitForResponse((response) => response.url().endsWith("pyodide.asm.wasm"));
+    await page.goto("/dev/runtime");
+    const response = await wasm;
+    expect(response.url()).toMatch(/\/_runtime\/pyodide\/\d+\.\d+\.\d+\/pyodide\.asm\.wasm$/);
+    expect(response.headers()["cache-control"]).toBe("public, max-age=31536000, immutable");
   });
 });
