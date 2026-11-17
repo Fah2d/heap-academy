@@ -25,7 +25,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
@@ -52,30 +52,50 @@ export class RuntimeBuildError extends Error {
 const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
- * Builds a folder beside `target` and then puts it in place, so a server
- * reading `target` while another build runs never sees half of it. The
- * production and development servers of the browser tests both build at
- * start; whichever finishes second keeps the first's identical output.
+ * Where a build is put together before it is moved into place: outside
+ * `public/`, so a half-built folder is never served, and on the same disk as
+ * the repository, so moving it is a rename. Ignored by Git with node_modules.
+ */
+const STAGING = join(REPOSITORY, "node_modules", ".cache", "heap-runtime");
+
+/**
+ * Builds a folder in `stagingDir` and swaps it in with two renames, so a
+ * server reading `target` sees the old folder or the new one, missing only
+ * between the two renames, never half of one. The production and development
+ * servers of the browser tests both build at start; whichever finishes second
+ * keeps the first's identical output.
  *
  * @param {string} target
+ * @param {string} stagingDir
  * @param {(folder: string) => void} build
  */
-function replaceFolder(target, build) {
+function replaceFolder(target, stagingDir, build) {
   mkdirSync(dirname(target), { recursive: true });
-  const staging = mkdtempSync(`${target}.building-`);
+  mkdirSync(stagingDir, { recursive: true });
+  const staging = mkdtempSync(join(stagingDir, `${basename(target)}-`));
+  const previous = `${staging}.previous`;
   try {
     build(staging);
-    rmSync(target, { recursive: true, force: true });
+    try {
+      renameSync(target, previous);
+    } catch (error) {
+      if (codeOf(error) !== "ENOENT") throw error;
+    }
     try {
       renameSync(staging, target);
     } catch (error) {
       // Another build put its identical output in place first.
-      const code = error instanceof Error && "code" in error ? error.code : undefined;
-      if (code !== "ENOTEMPTY" && code !== "EEXIST") throw error;
+      if (codeOf(error) !== "ENOTEMPTY" && codeOf(error) !== "EEXIST") throw error;
     }
   } finally {
     rmSync(staging, { recursive: true, force: true });
+    rmSync(previous, { recursive: true, force: true });
   }
+}
+
+/** @param {unknown} error */
+function codeOf(error) {
+  return error instanceof Error && "code" in error ? error.code : undefined;
 }
 
 /**
@@ -98,11 +118,12 @@ function sizes(contents) {
 /**
  * Copies the runtime files and writes the manifest.
  *
- * @param {{ packageDir: string, outDir: string, version?: string, budgetBytes?: number }} options
+ * @param {{ packageDir: string, outDir: string, version?: string, budgetBytes?: number, stagingDir?: string }} options
  */
 export function copyRuntime({
   packageDir,
   outDir,
+  stagingDir = STAGING,
   version = RUNTIME_VERSION,
   budgetBytes = BROTLI_BUDGET_BYTES,
 }) {
@@ -120,7 +141,7 @@ export function copyRuntime({
   }
   /** @type {{ version: string, files: { name: string, bytes: number, gzipBytes: number, brotliBytes: number }[], totalBytes: number, totalBrotliBytes: number } | undefined} */
   let manifest;
-  replaceFolder(join(outDir, "pyodide"), (folder) => {
+  replaceFolder(join(outDir, "pyodide"), stagingDir, (folder) => {
     const target = join(folder, version);
     mkdirSync(target);
     const files = RUNTIME_FILES.map((name) => {
@@ -155,12 +176,12 @@ export function copyRuntime({
 /**
  * Compiles the worker with the TypeScript compiler.
  *
- * @param {{ outDir: string }} options
+ * @param {{ outDir: string, stagingDir?: string }} options
  */
-export function compileWorker({ outDir }) {
+export function compileWorker({ outDir, stagingDir = STAGING }) {
   const require = createRequire(import.meta.url);
   const tsc = join(dirname(require.resolve("typescript/package.json")), "bin", "tsc");
-  replaceFolder(join(outDir, "worker"), (folder) => {
+  replaceFolder(join(outDir, "worker"), stagingDir, (folder) => {
     const result = spawnSync(
       process.execPath,
       [tsc, "-p", join(REPOSITORY, "tsconfig.worker.json"), "--outDir", folder],

@@ -14,6 +14,9 @@ import {
   RuntimeBuildError,
 } from "./build-runtime.mjs";
 
+// Staged in the temporary folder too, so each rename stays on one disk.
+const STAGING_DIR = mkdtempSync(join(tmpdir(), "staging-"));
+
 // The runtime build against a stand-in package, so these tests do not need
 // the 13 MB distribution. The build itself runs against the real package.
 
@@ -28,7 +31,7 @@ function fakePackage(version = "314.0.7", files = RUNTIME_FILES) {
 describe("runtime build", () => {
   it("[FR-RUN-07] copies the five runtime files under their version, with a size manifest", () => {
     const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
-    const manifest = copyRuntime({ packageDir: fakePackage(), outDir });
+    const manifest = copyRuntime({ packageDir: fakePackage(), outDir, stagingDir: STAGING_DIR });
     const target = join(outDir, "pyodide", "314.0.7");
     expect(readdirSync(target).sort()).toEqual([...RUNTIME_FILES, "manifest.json"].sort());
     const written: unknown = JSON.parse(readFileSync(join(target, "manifest.json"), "utf8"));
@@ -40,17 +43,28 @@ describe("runtime build", () => {
 
   it("[FR-RUN-07] a rebuild leaves only this release's files, and no half-built folder", () => {
     const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
-    copyRuntime({ packageDir: fakePackage("314.0.6"), outDir, version: "314.0.6" });
-    copyRuntime({ packageDir: fakePackage(), outDir });
+    copyRuntime({
+      packageDir: fakePackage("314.0.6"),
+      outDir,
+      version: "314.0.6",
+      stagingDir: STAGING_DIR,
+    });
+    copyRuntime({ packageDir: fakePackage(), outDir, stagingDir: STAGING_DIR });
     expect(readdirSync(join(outDir, "pyodide"))).toEqual(["314.0.7"]);
     expect(readdirSync(outDir)).toEqual(["pyodide"]);
+    // Nothing is staged where it would be served, and nothing is left staged.
+    expect(readdirSync(STAGING_DIR).filter((name) => name.startsWith("pyodide-"))).toEqual([]);
   });
 
   it("[FR-RUN-07] a failed build keeps the previous output and leaves nothing half-built", () => {
     const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
-    copyRuntime({ packageDir: fakePackage(), outDir });
+    copyRuntime({ packageDir: fakePackage(), outDir, stagingDir: STAGING_DIR });
     expect(() =>
-      copyRuntime({ packageDir: fakePackage("314.0.7", RUNTIME_FILES.slice(1)), outDir }),
+      copyRuntime({
+        packageDir: fakePackage("314.0.7", RUNTIME_FILES.slice(1)),
+        outDir,
+        stagingDir: STAGING_DIR,
+      }),
     ).toThrow(RuntimeBuildError);
     expect(readdirSync(outDir)).toEqual(["pyodide"]);
     expect(readdirSync(join(outDir, "pyodide", "314.0.7"))).toHaveLength(RUNTIME_FILES.length + 1);
@@ -71,6 +85,7 @@ describe("runtime build", () => {
       copyRuntime({
         packageDir: fakePackage("314.0.8"),
         outDir: mkdtempSync(join(tmpdir(), "r-")),
+        stagingDir: STAGING_DIR,
       }),
     ).toThrow(RuntimeBuildError);
   });
@@ -80,6 +95,7 @@ describe("runtime build", () => {
       copyRuntime({
         packageDir: join(tmpdir(), "no-such-package"),
         outDir: mkdtempSync(join(tmpdir(), "r-")),
+        stagingDir: STAGING_DIR,
       }),
     ).toThrow(RuntimeBuildError);
   });
@@ -89,6 +105,7 @@ describe("runtime build", () => {
       copyRuntime({
         packageDir: fakePackage("314.0.7", RUNTIME_FILES.slice(1)),
         outDir: mkdtempSync(join(tmpdir(), "r-")),
+        stagingDir: STAGING_DIR,
       }),
     ).toThrow("the package has no pyodide.mjs");
   });
@@ -100,13 +117,14 @@ describe("runtime build", () => {
         packageDir: fakePackage(),
         outDir: mkdtempSync(join(tmpdir(), "r-")),
         budgetBytes: 4 * 2048,
+        stagingDir: STAGING_DIR,
       }),
     ).toThrow(/NFR-PERF-04 allows 8192/);
   });
 
   it("[FR-RUN-01] compiles the worker to ES modules the browser can load without a bundler", () => {
     const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
-    compileWorker({ outDir });
+    compileWorker({ outDir, stagingDir: STAGING_DIR });
     const entry = join(outDir, WORKER_URL.replace(/^\/_runtime\//, ""));
     const files = [
       "worker/python-worker.js",
