@@ -2,10 +2,18 @@ import { OUTPUT_LIMIT, type OutputStream } from "./protocol.ts";
 
 // Output batching and the output cap (FR-RUN-03, architecture section 5.2).
 // Python writes from inside a running program, when the worker's event loop
-// cannot run a timer, so a batch is sent from a write once the interval has
-// passed, and the rest when the run ends.
+// cannot run a timer, so every decision to send is made inside a write.
+//
+// A write is sent at once while fewer than OUTPUT_BURST sends have gone out
+// in the current 50 ms window, so a program that prints a few lines and then
+// computes shows them while it computes. Past that, as in a print flood,
+// writes are held and sent together by the first write of the next window,
+// or when the run ends. What a flood writes in its last window before a long
+// silence therefore waits for the end of the run.
 
 export const OUTPUT_INTERVAL_MS = 50;
+/** Sends allowed in one window before writes are held. */
+export const OUTPUT_BURST = 8;
 
 export type OutputChunk = { stream: OutputStream; text: string };
 
@@ -26,10 +34,11 @@ export type OutputOptions = {
   now: () => number;
   limit?: number;
   intervalMs?: number;
+  burst?: number;
 };
 
 /** The first `count` characters of `text`, never splitting a surrogate pair. */
-function head(text: string, count: number): string {
+export function head(text: string, count: number): string {
   let end = 0;
   let characters = 0;
   while (end < text.length && characters < count) {
@@ -41,7 +50,7 @@ function head(text: string, count: number): string {
 }
 
 /** Characters as a reader counts them: a surrogate pair is one. */
-function characterCount(text: string): number {
+export function characterCount(text: string): number {
   let count = 0;
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
@@ -56,16 +65,29 @@ export function createOutputCollector({
   now,
   limit = OUTPUT_LIMIT,
   intervalMs = OUTPUT_INTERVAL_MS,
+  burst = OUTPUT_BURST,
 }: OutputOptions): OutputCollector {
   let pending: OutputChunk[] = [];
   let written = 0;
   let truncated = false;
-  let lastSent = now();
+  let windowStart = Number.NEGATIVE_INFINITY;
+  let sendsInWindow = 0;
 
   function flush(): void {
     for (const chunk of pending) send(chunk);
     pending = [];
-    lastSent = now();
+  }
+
+  /** Sends now if this window still allows it; otherwise the text waits. */
+  function sendIfAllowed(): void {
+    const time = now();
+    if (time - windowStart >= intervalMs) {
+      windowStart = time;
+      sendsInWindow = 0;
+    }
+    if (sendsInWindow >= burst) return;
+    sendsInWindow += 1;
+    flush();
   }
 
   function append(stream: OutputStream, text: string): void {
@@ -89,7 +111,7 @@ export function createOutputCollector({
       }
       append(stream, text);
       written += size;
-      if (now() - lastSent >= intervalMs) flush();
+      sendIfAllowed();
       return true;
     },
     flush,

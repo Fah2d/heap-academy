@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOutputCollector, type OutputChunk } from "./output.ts";
+import { createOutputCollector, OUTPUT_BURST, type OutputChunk } from "./output.ts";
 
 function collector(limit = 10) {
   let time = 0;
@@ -19,14 +19,33 @@ function collector(limit = 10) {
 }
 
 describe("output collector", () => {
-  it("[FR-RUN-03] holds writes until 50 ms have passed, then sends them as one", () => {
+  it("[FR-RUN-01] sends a write at once, so a program that prints and then computes shows it", () => {
     const { output, sent, advance } = collector(1000);
+    advance(5);
+    output.write("stdout", "first\n");
+    // The program now computes for 2 s and writes nothing.
+    advance(2_000);
+    expect(sent).toEqual([{ stream: "stdout", text: "first\n" }]);
+  });
+
+  it("[FR-RUN-01] sends a few quick lines each at once", () => {
+    const { output, sent } = collector(1000);
+    for (let index = 0; index < OUTPUT_BURST; index += 1) output.write("stdout", String(index));
+    expect(sent).toHaveLength(OUTPUT_BURST);
+  });
+
+  it("[FR-RUN-03] past the burst, holds writes until the next 50 ms window, then sends them as one", () => {
+    const { output, sent, advance } = collector(1000);
+    for (let index = 0; index < OUTPUT_BURST; index += 1) output.write("stdout", "x");
     output.write("stdout", "a");
     output.write("stdout", "b");
-    expect(sent).toEqual([]);
-    advance(50);
+    expect(sent).toHaveLength(OUTPUT_BURST);
+    advance(49);
     output.write("stdout", "c");
-    expect(sent).toEqual([{ stream: "stdout", text: "abc" }]);
+    expect(sent).toHaveLength(OUTPUT_BURST);
+    advance(1);
+    output.write("stdout", "d");
+    expect(sent.at(-1)).toEqual({ stream: "stdout", text: "abcd" });
   });
 
   it("[FR-RUN-03] keeps the order of the two streams", () => {
@@ -64,5 +83,7 @@ describe("output collector", () => {
     for (let index = 0; index < 100_000; index += 1) output.write("stdout", "flood\n");
     output.flush();
     expect(sent.reduce((total, chunk) => total + chunk.text.length, 0)).toBe(64_000);
+    // With no time passing, the flood is the burst and then one held batch.
+    expect(sent.length).toBeLessThanOrEqual(OUTPUT_BURST + 1);
   });
 });
