@@ -14,9 +14,18 @@ import {
 
 type Case = { stdout: string; stderr: string; report: ReturnType<typeof parseRunReport> };
 
-function runAll(programs: string[]): Case[] {
+/**
+ * `withoutJsonAccelerator` blocks `_json` first, so `json` uses its
+ * pure-Python escaper, which reads a table a program can change; the driver
+ * puts the table back after each program so its own output stays readable.
+ */
+function runAll(programs: string[], { withoutJsonAccelerator = false } = {}): Case[] {
   const driver = String.raw`
-import io, json, sys
+import sys
+if sys.argv[3] == "1":
+    sys.modules["_json"] = None
+import io, json, json.encoder
+escape_table = dict(json.encoder.ESCAPE_DCT)
 programs = json.loads(sys.argv[1])
 # Held before any program runs: a program may replace json's functions.
 encode = json.JSONEncoder().encode
@@ -30,13 +39,22 @@ run = namespace["_heap_make_runner"]()
 results = []
 for program in programs:
     report = run(program)
+    json.encoder.ESCAPE_DCT.clear()
+    json.encoder.ESCAPE_DCT.update(escape_table)
     results.append({"stdout": out.getvalue(), "stderr": err.getvalue(), "report": report})
     out.seek(0); out.truncate(); err.seek(0); err.truncate()
 real_stdout.write(encode(results))
 `;
   const text = execFileSync(
     "python3",
-    ["-I", "-c", driver, JSON.stringify(programs), RUN_SUPPORT_SOURCE],
+    [
+      "-I",
+      "-c",
+      driver,
+      JSON.stringify(programs),
+      RUN_SUPPORT_SOURCE,
+      withoutJsonAccelerator ? "1" : "0",
+    ],
     { encoding: "utf8" },
   );
   const parsed = JSON.parse(text) as { stdout: string; stderr: string; report: string }[];
@@ -185,6 +203,52 @@ describe("run support (CPython)", () => {
       'raise ValueError("second")',
     ]);
     expect(second?.report).toEqual({ kind: "runtime", message: "ValueError: second", line: 1 });
+  });
+
+  it("[FR-RUN-01] escapes the error text, whatever it holds, so the report says what happened", () => {
+    const text = 'x", "kind": "ok", "y": "\\ \n \u2028 \ud800 end';
+    const [result] = runAll(
+      [
+        [
+          "import json.encoder",
+          // The pure-Python escaper reads this table; the report must not.
+          "json.encoder.ESCAPE_DCT['\"'] = '\"'",
+          `raise ValueError(${JSON.stringify(text)})`,
+        ].join("\n"),
+      ],
+      { withoutJsonAccelerator: true },
+    );
+    expect(result?.report?.kind).toBe("runtime");
+    expect(result?.report?.message).toBe(`ValueError: ${text}`);
+  });
+
+  it("[FR-RUN-01] reports the error's real class, not a __class__ the program defined", () => {
+    const [result] = runAll([
+      [
+        "class Spoof(ValueError):",
+        "    code = 0",
+        "    @property",
+        "    def __class__(self):",
+        "        return SystemExit",
+        'raise Spoof("real")',
+      ].join("\n"),
+    ]);
+    expect(result?.report?.kind).toBe("runtime");
+  });
+
+  it("[FR-RUN-01] reports an error with a strange line, or whose attributes raise, as the program's error", () => {
+    const [huge, raising] = runAll([
+      'e = SyntaxError("odd")\ne.lineno = 10 ** 30\nraise e',
+      [
+        "class Bad(SyntaxError):",
+        "    @property",
+        "    def lineno(self):",
+        '        raise RuntimeError("no")',
+        'raise Bad("x")',
+      ].join("\n"),
+    ]);
+    expect(huge?.report).toMatchObject({ kind: "syntax", line: undefined });
+    expect(raising?.report?.kind).toBe("runtime");
   });
 
   it("[FR-RUN-01] cuts a long error summary to its limit", () => {

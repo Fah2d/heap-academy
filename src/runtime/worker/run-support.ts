@@ -31,7 +31,6 @@ def _heap_make_runner():
     import linecache
     import sys
     import traceback
-    from json.encoder import encode_basestring_ascii
 
     filename = "${PROGRAM_FILENAME}"
     builtins_dict = builtins.__dict__
@@ -51,13 +50,13 @@ def _heap_make_runner():
     to_text = str
     length = len
     kind_of = type
-    is_instance = isinstance
+    is_subclass = issubclass
     integer = int
-    boolean = bool
     compile_program = compile
     execute = exec
     collect = gc.collect
-    quote = encode_basestring_ascii
+    translate = str.translate
+    split_lines = str.splitlines
     format_only = traceback.format_exception_only
     format_full = traceback.format_exception
     base_exception = BaseException
@@ -65,6 +64,16 @@ def _heap_make_runner():
     syntax_error = SyntaxError
     eof_error = EOFError
     memory_error = MemoryError
+
+    # JSON string escapes, held here: json's own escaping reads module state a
+    # program can change. Lone surrogates are escaped so the text stays valid.
+    escapes = {code: "\\u%04x" % code for code in range(0x20)}
+    escapes.update({code: "\\u%04x" % code for code in range(0xD800, 0xE000)})
+    escapes[0x22] = '\\"'
+    escapes[0x5C] = "\\\\"
+
+    def quote(text):
+        return '"' + translate(text, escapes) + '"'
 
     # Text a program prints reaches the page as it is written, not when a
     # buffer fills (FR-RUN-01: output streams while the program runs).
@@ -123,37 +132,41 @@ def _heap_make_runner():
             return ""
         return text[:${SUMMARY_LIMIT}]
 
+    # The class itself, not isinstance, which follows a __class__ the program
+    # may have defined.
     def outcome(failure):
         if failure is None:
             return "ok", "", None
         summary = summarize(failure)
-        if is_instance(failure, system_exit):
+        cls = kind_of(failure)
+        if is_subclass(cls, system_exit):
             code = failure.code
             if code is None or (kind_of(code) is integer and code == 0):
                 return "ok", "", None
             return "runtime", summary, None
-        if is_instance(failure, syntax_error):
+        if is_subclass(cls, syntax_error):
             report(failure, None)
             return "syntax", summary, failure.lineno
         tb = learner_frames(failure)
         report(failure, tb)
         line = last_line(tb)
-        if is_instance(failure, eof_error):
+        if is_subclass(cls, eof_error):
             return "input_ended", summary, line
-        if is_instance(failure, memory_error):
+        if is_subclass(cls, memory_error):
             return "memory", summary, line
         return "runtime", summary, line
 
-    # Built without json, which the program can change.
-    def result(kind, message, line):
-        if kind_of(line) is not integer or kind_of(line) is boolean or line < 1:
+    # Built without json, which the program can change. A line is kept only
+    # if it is in the program (a syntax error may point one past its end).
+    def result(kind, message, line, line_count):
+        if kind_of(line) is not integer or line < 1 or line > line_count + 1:
             line = None
         line_text = "null" if line is None else to_text(line)
         return '{"kind": ' + quote(kind) + ', "message": ' + quote(message) + ', "line": ' + line_text + "}"
 
     def run(source):
         restore()
-        line_cache[filename] = (length(source), None, source.splitlines(True), filename)
+        line_cache[filename] = (length(source), None, split_lines(source, True), filename)
         namespace = {"__name__": "__main__", "__builtins__": builtins}
         failure = None
         try:
@@ -164,13 +177,17 @@ def _heap_make_runner():
         # globals stay until then, because its __str__ may read them.
         restore()
         flush()
-        kind, message, line = outcome(failure)
+        try:
+            kind, message, line = outcome(failure)
+        except base_exception:
+            # The error's own attributes raised; it is still the program's error.
+            kind, message, line = "runtime", "", None
         dict_clear(namespace)
         namespace = None
         failure = None
         collect()
         restore()
-        return result(kind, message, line)
+        return result(kind, message, line, length(split_lines(source)))
 
     return run
 
