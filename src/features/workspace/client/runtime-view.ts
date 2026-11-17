@@ -1,0 +1,67 @@
+import type {
+  ControllerEvent,
+  ControllerReport,
+  ControllerStatus,
+  RunResult,
+} from "@/runtime/controller";
+import type { OutputStream } from "@/runtime/protocol";
+
+// What the development runtime page shows, built from the controller's
+// events. Pure, so it is tested without a browser.
+
+export type RuntimeView = {
+  status: ControllerStatus;
+  progress: { loadedBytes: number; totalBytes: number } | undefined;
+  output: { stream: OutputStream; text: string }[];
+  result: RunResult | undefined;
+  restarts: number;
+  dropped: ControllerReport["code"][];
+};
+
+export const INITIAL_VIEW: RuntimeView = {
+  status: "idle",
+  progress: undefined,
+  output: [],
+  result: undefined,
+  restarts: 0,
+  dropped: [],
+};
+
+export function reduceView(
+  view: RuntimeView,
+  event: ControllerEvent,
+  status: ControllerStatus,
+): RuntimeView {
+  switch (event.type) {
+    case "progress":
+      return { ...view, status, progress: event };
+    case "ready":
+    case "failed":
+      return { ...view, status };
+    case "output": {
+      const last = view.output[view.output.length - 1];
+      const output =
+        last !== undefined && last.stream === event.stream
+          ? [...view.output.slice(0, -1), { stream: last.stream, text: last.text + event.text }]
+          : [...view.output, { stream: event.stream, text: event.text }];
+      return { ...view, status, output };
+    }
+    case "run_done":
+      return { ...view, status, result: event.result };
+    case "restarting":
+      return { ...view, status, restarts: view.restarts + 1, progress: undefined };
+    default: {
+      const unreachable: never = event;
+      return unreachable;
+    }
+  }
+}
+
+/** A new run starts with empty output and no result. */
+export function startRun(view: RuntimeView, status: ControllerStatus): RuntimeView {
+  return { ...view, status, output: [], result: undefined };
+}
+
+export function addReport(view: RuntimeView, report: ControllerReport): RuntimeView {
+  return { ...view, dropped: [...view.dropped, report.code] };
+}
