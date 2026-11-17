@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -35,6 +36,34 @@ describe("runtime build", () => {
     expect(manifest.totalBytes).toBe(5 * 2048);
     // Random bytes do not compress: each Brotli size is close to the file's.
     for (const file of manifest.files) expect(file.brotliBytes).toBeGreaterThan(2000);
+  });
+
+  it("[FR-RUN-07] a rebuild leaves only this release's files, and no half-built folder", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
+    copyRuntime({ packageDir: fakePackage("314.0.6"), outDir, version: "314.0.6" });
+    copyRuntime({ packageDir: fakePackage(), outDir });
+    expect(readdirSync(join(outDir, "pyodide"))).toEqual(["314.0.7"]);
+    expect(readdirSync(outDir)).toEqual(["pyodide"]);
+  });
+
+  it("[FR-RUN-07] a failed build keeps the previous output and leaves nothing half-built", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
+    copyRuntime({ packageDir: fakePackage(), outDir });
+    expect(() =>
+      copyRuntime({ packageDir: fakePackage("314.0.7", RUNTIME_FILES.slice(1)), outDir }),
+    ).toThrow(RuntimeBuildError);
+    expect(readdirSync(outDir)).toEqual(["pyodide"]);
+    expect(readdirSync(join(outDir, "pyodide", "314.0.7"))).toHaveLength(RUNTIME_FILES.length + 1);
+  });
+
+  it("[FR-RUN-07] refuses to write outside the repository, since the output is deleted first", () => {
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/build-runtime.mjs", "--out", mkdtempSync(join(tmpdir(), "outside-"))],
+      { encoding: "utf8" },
+    );
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("--out must be a folder inside the repository");
   });
 
   it("[FR-RUN-07] refuses a package that is not the pinned release", () => {

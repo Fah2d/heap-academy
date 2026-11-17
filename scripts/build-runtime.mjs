@@ -15,10 +15,18 @@
 // Exit codes: 0 built, 1 a check failed, 2 usage error.
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { RUNTIME_VERSION } from "../src/runtime/assets.ts";
@@ -38,6 +46,36 @@ export const BROTLI_BUDGET_BYTES = 6_500_000;
 export class RuntimeBuildError extends Error {
   /** @override */
   name = "RuntimeBuildError";
+}
+
+/** The repository root: the output folder must be inside it, since it is deleted and rewritten. */
+const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * Builds a folder beside `target` and then puts it in place, so a server
+ * reading `target` while another build runs never sees half of it. The
+ * production and development servers of the browser tests both build at
+ * start; whichever finishes second keeps the first's identical output.
+ *
+ * @param {string} target
+ * @param {(folder: string) => void} build
+ */
+function replaceFolder(target, build) {
+  mkdirSync(dirname(target), { recursive: true });
+  const staging = mkdtempSync(`${target}.building-`);
+  try {
+    build(staging);
+    rmSync(target, { recursive: true, force: true });
+    try {
+      renameSync(staging, target);
+    } catch (error) {
+      // Another build put its identical output in place first.
+      const code = error instanceof Error && "code" in error ? error.code : undefined;
+      if (code !== "ENOTEMPTY" && code !== "EEXIST") throw error;
+    }
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -80,27 +118,31 @@ export function copyRuntime({
         `src/runtime/assets.ts expects pyodide ${version}`,
     );
   }
-  const target = join(outDir, "pyodide", version);
-  rmSync(join(outDir, "pyodide"), { recursive: true, force: true });
-  mkdirSync(target, { recursive: true });
-  const files = RUNTIME_FILES.map((name) => {
-    const source = join(packageDir, name);
-    let contents;
-    try {
-      contents = readFileSync(source);
-    } catch {
-      throw new RuntimeBuildError(`the package has no ${name}`);
-    }
-    copyFileSync(source, join(target, name));
-    return { name, ...sizes(contents) };
+  /** @type {{ version: string, files: { name: string, bytes: number, gzipBytes: number, brotliBytes: number }[], totalBytes: number, totalBrotliBytes: number } | undefined} */
+  let manifest;
+  replaceFolder(join(outDir, "pyodide"), (folder) => {
+    const target = join(folder, version);
+    mkdirSync(target);
+    const files = RUNTIME_FILES.map((name) => {
+      const source = join(packageDir, name);
+      let contents;
+      try {
+        contents = readFileSync(source);
+      } catch {
+        throw new RuntimeBuildError(`the package has no ${name}`);
+      }
+      copyFileSync(source, join(target, name));
+      return { name, ...sizes(contents) };
+    });
+    manifest = {
+      version,
+      files,
+      totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
+      totalBrotliBytes: files.reduce((sum, file) => sum + file.brotliBytes, 0),
+    };
+    writeFileSync(join(target, "manifest.json"), `${JSON.stringify(manifest, undefined, 2)}\n`);
   });
-  const manifest = {
-    version,
-    files,
-    totalBytes: files.reduce((sum, file) => sum + file.bytes, 0),
-    totalBrotliBytes: files.reduce((sum, file) => sum + file.brotliBytes, 0),
-  };
-  writeFileSync(join(target, "manifest.json"), `${JSON.stringify(manifest, undefined, 2)}\n`);
+  if (manifest === undefined) throw new RuntimeBuildError("no manifest was written");
   if (manifest.totalBrotliBytes > budgetBytes) {
     throw new RuntimeBuildError(
       `the runtime is ${String(manifest.totalBrotliBytes)} bytes with Brotli; ` +
@@ -116,18 +158,18 @@ export function copyRuntime({
  * @param {{ outDir: string }} options
  */
 export function compileWorker({ outDir }) {
-  const workerDir = join(outDir, "worker");
-  rmSync(workerDir, { recursive: true, force: true });
   const require = createRequire(import.meta.url);
   const tsc = join(dirname(require.resolve("typescript/package.json")), "bin", "tsc");
-  const result = spawnSync(
-    process.execPath,
-    [tsc, "-p", "tsconfig.worker.json", "--outDir", workerDir],
-    { encoding: "utf8" },
-  );
-  if (result.status !== 0) {
-    throw new RuntimeBuildError(`the worker did not compile:\n${result.stdout}${result.stderr}`);
-  }
+  replaceFolder(join(outDir, "worker"), (folder) => {
+    const result = spawnSync(
+      process.execPath,
+      [tsc, "-p", join(REPOSITORY, "tsconfig.worker.json"), "--outDir", folder],
+      { encoding: "utf8" },
+    );
+    if (result.status !== 0) {
+      throw new RuntimeBuildError(`the worker did not compile:\n${result.stdout}${result.stderr}`);
+    }
+  });
 }
 
 /** @param {string[]} argv */
@@ -146,6 +188,17 @@ function main(argv) {
     console.error(error instanceof Error ? error.message : String(error));
     return 2;
   }
+  const out = resolve(values.out);
+  const inside = relative(REPOSITORY, out);
+  if (
+    inside === "" ||
+    inside.startsWith("..") ||
+    inside.startsWith(sep) ||
+    resolve(inside) === inside
+  ) {
+    console.error(`build-runtime: --out must be a folder inside the repository, not ${out}`);
+    return 2;
+  }
   try {
     let packageDir = values["package-dir"];
     if (packageDir === undefined) {
@@ -157,7 +210,7 @@ function main(argv) {
         );
       }
     }
-    const manifest = copyRuntime({ packageDir, outDir: values.out });
+    const manifest = copyRuntime({ packageDir, outDir: out });
     console.log(
       `runtime: pyodide ${manifest.version}, ${String(manifest.totalBytes)} bytes, ` +
         `${String(manifest.totalBrotliBytes)} with Brotli (budget ${String(BROTLI_BUDGET_BYTES)})`,
@@ -168,7 +221,7 @@ function main(argv) {
       );
     }
     if (!values["skip-worker"]) {
-      compileWorker({ outDir: values.out });
+      compileWorker({ outDir: out });
       console.log("runtime: worker compiled");
     }
     return 0;
