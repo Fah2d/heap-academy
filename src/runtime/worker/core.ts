@@ -1,6 +1,7 @@
-import { createOutputCollector } from "../output.ts";
+import { createOutputCollector, head } from "../output.ts";
 import {
   type FatalReason,
+  MESSAGE_LIMIT,
   type OutputStream,
   type PageMessage,
   parsePageMessage,
@@ -198,7 +199,9 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
         ? { kind: "ok" }
         : {
             kind: report.kind,
-            message: report.message,
+            // The run support cuts it already; this keeps the message within
+            // what the page accepts whatever the runtime returned.
+            message: head(report.message, MESSAGE_LIMIT),
             ...(report.line !== undefined && { line: report.line }),
           };
     state = { name: "ready", runtime, run };

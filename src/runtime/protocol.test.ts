@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createRunId,
   isAssetBase,
+  MESSAGE_LIMIT,
   OUTPUT_LIMIT,
   parsePageMessage,
   parseWorkerMessage,
@@ -130,8 +131,19 @@ describe("worker messages", () => {
       "invalid_field",
     ],
     [
-      "output over the cap",
-      { type: "output", runId, stream: "stdout", text: "x".repeat(OUTPUT_LIMIT + 1) },
+      "output longer than the cap can be in UTF-16 units",
+      { type: "output", runId, stream: "stdout", text: "x".repeat(OUTPUT_LIMIT * 2 + 1) },
+      "invalid_field",
+    ],
+    [
+      "an error summary over its limit",
+      {
+        type: "run_done",
+        runId,
+        outcome: { kind: "runtime", message: "x".repeat(MESSAGE_LIMIT * 2 + 1) },
+        truncated: false,
+        durationMs: 1,
+      },
       "invalid_field",
     ],
     ["an unknown stream", { type: "output", runId, stream: "stdlog", text: "" }, "invalid_field"],
@@ -156,5 +168,25 @@ describe("asset base", () => {
     ["javascript:alert(1)/", false],
   ])("[T-01] %s is %s", (value, expected) => {
     expect(isAssetBase(value)).toBe(expected);
+  });
+});
+
+describe("limits in the worker's units", () => {
+  it("[FR-RUN-03] accepts a chunk of 64,000 characters outside the basic plane", () => {
+    const text = "😀".repeat(OUTPUT_LIMIT);
+    expect(text.length).toBe(OUTPUT_LIMIT * 2);
+    expect(parseWorkerMessage({ type: "output", runId, stream: "stdout", text }).ok).toBe(true);
+  });
+
+  it("[FR-RUN-01] accepts an error summary of the longest length the worker sends", () => {
+    const message = "😀".repeat(MESSAGE_LIMIT);
+    const done = {
+      type: "run_done",
+      runId,
+      outcome: { kind: "runtime", message },
+      truncated: false,
+      durationMs: 1,
+    };
+    expect(parseWorkerMessage(done).ok).toBe(true);
   });
 });

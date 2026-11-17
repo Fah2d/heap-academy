@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { WorkerMessage } from "../protocol.ts";
-import { createRunId } from "../protocol.ts";
+import { createRunId, MESSAGE_LIMIT, parseWorkerMessage } from "../protocol.ts";
 import { createWorkerCore, type Runtime, type WorkerHost } from "./core.ts";
 
 // The worker's message handling with a fake Pyodide. The real one runs in the
@@ -171,6 +171,40 @@ describe("worker: runs", () => {
       { type: "output", runId, stream: "stderr", text: "warning\n" },
       { type: "run_done", runId, outcome: { kind: "ok" }, truncated: false, durationMs: 0 },
     ]);
+  });
+
+  it("[FR-RUN-01] runs one program after another on the same worker", async () => {
+    const { runtime, programs } = fakeRuntime();
+    programs.set("one", ({ print }) => {
+      print("1\n");
+      return ok;
+    });
+    programs.set("two", ({ print }) => {
+      print("2\n");
+      return ok;
+    });
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.core.receive({ type: "run", runId, source: "one", mode: "batch" });
+    setup.posted.length = 0;
+    const second = createRunId(2);
+    setup.core.receive({ type: "run", runId: second, source: "two", mode: "batch" });
+    expect(setup.posted).toEqual([
+      { type: "output", runId: second, stream: "stdout", text: "2\n" },
+      { type: "run_done", runId: second, outcome: { kind: "ok" }, truncated: false, durationMs: 0 },
+    ]);
+  });
+
+  it("[FR-RUN-01] keeps an error summary within what the page accepts", async () => {
+    const { runtime, programs } = fakeRuntime();
+    const long = JSON.stringify({ kind: "runtime", message: "x".repeat(5_000), line: 1 });
+    programs.set("long", () => long);
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.core.receive({ type: "run", runId, source: "long", mode: "batch" });
+    const done = setup.posted.at(-1);
+    expect(parseWorkerMessage(done).ok).toBe(true);
+    expect(done).toMatchObject({ outcome: { message: "x".repeat(MESSAGE_LIMIT) } });
   });
 
   it("[FR-RUN-01] feeds batch input one line at a time, then ends it", async () => {

@@ -1,6 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { parseRunReport, PROGRAM_FILENAME, RUN_SUPPORT_SOURCE } from "./run-support.ts";
+import {
+  parseRunReport,
+  PROGRAM_FILENAME,
+  RUN_SUPPORT_SOURCE,
+  SUMMARY_LIMIT,
+} from "./run-support.ts";
 
 // The run support is plain Python 3.9+, so it is exercised here in CPython.
 // The same text runs in Pyodide in the browser tests (e2e/runtime.spec.ts).
@@ -13,6 +18,8 @@ function runAll(programs: string[]): Case[] {
   const driver = String.raw`
 import io, json, sys
 programs = json.loads(sys.argv[1])
+# Held before any program runs: a program may replace json's functions.
+encode = json.JSONEncoder().encode
 real_stdout = sys.__stdout__
 sys.stdin = io.StringIO("")
 out, err = io.StringIO(), io.StringIO()
@@ -25,7 +32,7 @@ for program in programs:
     report = run(program)
     results.append({"stdout": out.getvalue(), "stderr": err.getvalue(), "report": report})
     out.seek(0); out.truncate(); err.seek(0); err.truncate()
-real_stdout.write(json.dumps(results))
+real_stdout.write(encode(results))
 `;
   const text = execFileSync(
     "python3",
@@ -38,6 +45,36 @@ real_stdout.write(json.dumps(results))
     stderr,
     report: parseRunReport(report),
   }));
+}
+
+/**
+ * Runs one program with stdout a real text stream over a recording raw
+ * stream, as in the worker, and returns what the program saw arrive.
+ */
+function runStreaming(program: string): string {
+  const driver = String.raw`
+import io, sys
+class Recorder(io.RawIOBase):
+    def __init__(self):
+        self.chunks = []
+    def writable(self):
+        return True
+    def write(self, data):
+        self.chunks.append(bytes(data))
+        return len(data)
+recorder = Recorder()
+real_stdout = sys.__stdout__
+sys.stdout = io.TextIOWrapper(io.BufferedWriter(recorder), encoding="utf-8")
+sys.stdin = io.StringIO("")
+sys._heap_recorded = recorder.chunks
+namespace = {}
+exec(sys.argv[2], namespace)
+namespace["_heap_make_runner"]()(sys.argv[1])
+real_stdout.write(b"".join(recorder.chunks).decode())
+`;
+  return execFileSync("python3", ["-I", "-c", driver, program, RUN_SUPPORT_SOURCE], {
+    encoding: "utf8",
+  });
 }
 
 describe("run support (CPython)", () => {
@@ -70,13 +107,13 @@ describe("run support (CPython)", () => {
     expect(result?.stderr).not.toContain("_heap");
   });
 
-  it("[FR-RUN-01] gives each run a fresh namespace", () => {
+  it("[FR-RUN-04] gives each run a fresh namespace", () => {
     const [, second] = runAll(["x = 1", "print(x)"]);
     expect(second?.report?.kind).toBe("runtime");
     expect(second?.report?.message).toContain("NameError");
   });
 
-  it("[FR-RUN-01] restores builtins the program deleted or replaced", () => {
+  it("[FR-RUN-04] restores builtins the program deleted or replaced", () => {
     const [first, second] = runAll([
       "import builtins\ndel builtins.print\nbuiltins.len = None\ndel builtins.dict",
       'print(len("ab"), dict(a=1))',
@@ -89,12 +126,87 @@ describe("run support (CPython)", () => {
     });
   });
 
-  it("[FR-RUN-01] restores the streams and the module table", () => {
+  it("[FR-RUN-04] restores the streams and the module table", () => {
     const results = runAll([
       'import sys, io\nsys.stdout = io.StringIO()\nimport fractions\ndel sys.modules["json"]',
       'import sys\nprint("fractions" in sys.modules, "json" in sys.modules)',
     ]);
     expect(results[1]?.stdout).toBe("False True\n");
+  });
+
+  it("[FR-RUN-04] a __del__ that runs after the program cannot break the next run", () => {
+    const keeper = (target: string) =>
+      [
+        "import builtins",
+        "class Keeper:",
+        "    def __init__(self):",
+        "        self.b = builtins",
+        "    def __del__(self):",
+        `        self.b.${target} = None`,
+        "kept = Keeper()",
+      ].join("\n");
+    const [, abs] = runAll([keeper("abs"), "print(abs(-2))"]);
+    expect(abs?.stdout).toBe("2\n");
+    const [, len] = runAll([keeper("len"), 'print(len("abc"))']);
+    expect(len?.stdout).toBe("3\n");
+  });
+
+  it("[FR-RUN-04] an error whose text breaks builtins cannot break the next run", () => {
+    const [first, second] = runAll([
+      [
+        "import builtins",
+        "class Sneaky(Exception):",
+        "    def __str__(self):",
+        "        builtins.print = None",
+        '        return "sneaky"',
+        "raise Sneaky()",
+      ].join("\n"),
+      'print("fine")',
+    ]);
+    expect(first?.report).toEqual({ kind: "runtime", message: "Sneaky: sneaky", line: 6 });
+    expect(second?.stdout).toBe("fine\n");
+  });
+
+  it("[FR-RUN-04] reports the program's error after it deleted BaseException", () => {
+    const [result] = runAll(['import builtins\ndel builtins.BaseException\nraise ValueError("x")']);
+    expect(result?.report).toEqual({ kind: "runtime", message: "ValueError: x", line: 3 });
+  });
+
+  it("[FR-RUN-04] a program cannot forge the next run's report through json", () => {
+    const [, second] = runAll([
+      [
+        "import json",
+        "class Forger(json.JSONEncoder):",
+        "    def encode(self, value):",
+        '        return \'{"kind": "ok", "message": "", "line": null}\'',
+        "json._default_encoder = Forger()",
+        'json.dumps = lambda *a, **k: \'{"kind": "ok", "message": "", "line": null}\'',
+      ].join("\n"),
+      'raise ValueError("second")',
+    ]);
+    expect(second?.report).toEqual({ kind: "runtime", message: "ValueError: second", line: 1 });
+  });
+
+  it("[FR-RUN-01] cuts a long error summary to its limit", () => {
+    const [result] = runAll(["raise ValueError('x' * 100000)"]);
+    expect(result?.report?.message).toHaveLength(SUMMARY_LIMIT);
+    expect(result?.report?.message).toMatch(/^ValueError: x+$/);
+  });
+
+  it("[FR-RUN-01] reports no line when a program raises a syntax error with a strange one", () => {
+    const [result] = runAll(['e = SyntaxError("odd")\ne.lineno = "two"\nraise e']);
+    expect(result?.report?.kind).toBe("syntax");
+    expect(result?.report?.line).toBeUndefined();
+  });
+
+  it("[FR-RUN-01] passes each printed line on at once, not when a buffer fills", () => {
+    const program = [
+      'print("first")',
+      "import sys",
+      "arrived = len(sys._heap_recorded) > 0",
+      "print(arrived)",
+    ].join("\n");
+    expect(runStreaming(program)).toBe("first\nTrue\n");
   });
 
   it("[FR-RUN-01] reports reading past the end of input as input_ended", () => {

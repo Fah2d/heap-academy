@@ -14,8 +14,16 @@
 
 export const PROTOCOL_VERSION = 1;
 
-/** FR-RUN-03: output per run is capped at this many characters. */
+/**
+ * FR-RUN-03: output per run is capped at this many characters, counted as a
+ * reader counts them. A character outside the basic plane is two UTF-16
+ * units, so a chunk may be up to twice as long in `string.length`.
+ */
 export const OUTPUT_LIMIT = 64_000;
+/** The longest error summary the worker reports, in characters. */
+export const MESSAGE_LIMIT = 1_000;
+/** UTF-16 units per character, at most: the parser's limits are in units. */
+const UNITS_PER_CHARACTER = 2;
 /** The longest program a run accepts, in characters. */
 export const SOURCE_LIMIT = 100_000;
 /** The most lines a batch run may carry, and the longest line. */
@@ -169,7 +177,7 @@ function outcome(value: unknown): WorkerOutcome {
     return { kind };
   }
   only(fields, ["kind", "message", "line"]);
-  const message = text(fields, "message", OUTPUT_LIMIT);
+  const message = text(fields, "message", MESSAGE_LIMIT * UNITS_PER_CHARACTER);
   if (!Object.hasOwn(fields, "line")) return { kind, message };
   const line = count(fields, "line");
   if (line < 1) throw new Refused("invalid_field");
@@ -250,7 +258,7 @@ export function parseWorkerMessage(data: unknown): ParseResult<WorkerMessage> {
           type,
           runId: runId(fields),
           stream: oneOf(fields, "stream", ["stdout", "stderr"] as const),
-          text: text(fields, "text", OUTPUT_LIMIT),
+          text: text(fields, "text", OUTPUT_LIMIT * UNITS_PER_CHARACTER),
         };
       }
       case "input_request": {

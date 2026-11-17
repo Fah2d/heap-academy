@@ -3,24 +3,35 @@
 // runtime loads and before any learner code, and returns a `run` function.
 //
 // Everything `run` needs after the learner's program has started is held as a
-// reference first: the program may delete or replace any builtin, and the
-// routine that restores them must not look one up by name (section 14,
-// pitfall 3; found in the prototype, E-06). Only Python syntax is used after
-// the program runs until the builtins are back.
+// reference first: the program may delete or replace any builtin, or any
+// function of a module such as `json`, and the routine that restores them
+// must not look one up by name (section 14, pitfall 3; found in the
+// prototype, E-06).
+//
+// Learner code can still run after its program ends: a `__str__` when its
+// error is formatted, a `__del__` when its objects are freed. So the state is
+// restored after the program, again after its objects are gone, and once more
+// before the next program starts.
 //
 // Written for Python 3.9 and later, so the same text runs in Pyodide (3.14)
 // and in the CPython the unit tests start.
 
+import { MESSAGE_LIMIT } from "../protocol.ts";
+
 /** The file name tracebacks show for the learner's program. */
 export const PROGRAM_FILENAME = "main.py";
+
+/** The longest error summary a run reports, in characters. */
+export const SUMMARY_LIMIT = MESSAGE_LIMIT;
 
 export const RUN_SUPPORT_SOURCE = String.raw`
 def _heap_make_runner():
     import builtins
-    import json
+    import gc
     import linecache
     import sys
     import traceback
+    from json.encoder import encode_basestring_ascii
 
     filename = "${PROGRAM_FILENAME}"
     builtins_dict = builtins.__dict__
@@ -37,11 +48,31 @@ def _heap_make_runner():
     dict_pop = dict.pop
     dict_keys = dict.keys
     to_list = list
+    to_text = str
+    length = len
+    kind_of = type
+    is_instance = isinstance
+    integer = int
+    boolean = bool
     compile_program = compile
     execute = exec
-    dumps = json.dumps
+    collect = gc.collect
+    quote = encode_basestring_ascii
     format_only = traceback.format_exception_only
     format_full = traceback.format_exception
+    base_exception = BaseException
+    system_exit = SystemExit
+    syntax_error = SyntaxError
+    eof_error = EOFError
+    memory_error = MemoryError
+
+    # Text a program prints reaches the page as it is written, not when a
+    # buffer fills (FR-RUN-01: output streams while the program runs).
+    for stream in streams.values():
+        try:
+            stream.reconfigure(line_buffering=True, write_through=True)
+        except base_exception:
+            pass
 
     def restore():
         dict_clear(builtins_dict)
@@ -68,51 +99,78 @@ def _heap_make_runner():
 
     def report(error, tb):
         try:
-            text = "".join(format_full(type(error), error, tb))
+            text = "".join(format_full(kind_of(error), error, tb))
             streams["stderr"].write(text)
             streams["stderr"].flush()
-        except BaseException:
+        except base_exception:
             pass
 
-    def result(kind, message="", line=None):
-        return dumps({"kind": kind, "message": message, "line": line})
+    def flush():
+        for stream in ("stdout", "stderr"):
+            try:
+                streams[stream].flush()
+            except base_exception:
+                pass
+
+    def summarize(error):
+        # The last line names the error ("SyntaxError: invalid syntax"); the
+        # lines before it, for a syntax error, show where.
+        try:
+            text = format_only(kind_of(error), error)[-1].strip()
+        except base_exception:
+            text = kind_of(error).__name__
+        if kind_of(text) is not to_text:
+            return ""
+        return text[:${SUMMARY_LIMIT}]
+
+    def outcome(failure):
+        if failure is None:
+            return "ok", "", None
+        summary = summarize(failure)
+        if is_instance(failure, system_exit):
+            code = failure.code
+            if code is None or (kind_of(code) is integer and code == 0):
+                return "ok", "", None
+            return "runtime", summary, None
+        if is_instance(failure, syntax_error):
+            report(failure, None)
+            return "syntax", summary, failure.lineno
+        tb = learner_frames(failure)
+        report(failure, tb)
+        line = last_line(tb)
+        if is_instance(failure, eof_error):
+            return "input_ended", summary, line
+        if is_instance(failure, memory_error):
+            return "memory", summary, line
+        return "runtime", summary, line
+
+    # Built without json, which the program can change.
+    def result(kind, message, line):
+        if kind_of(line) is not integer or kind_of(line) is boolean or line < 1:
+            line = None
+        line_text = "null" if line is None else to_text(line)
+        return '{"kind": ' + quote(kind) + ', "message": ' + quote(message) + ', "line": ' + line_text + "}"
 
     def run(source):
-        line_cache[filename] = (len(source), None, source.splitlines(True), filename)
+        restore()
+        line_cache[filename] = (length(source), None, source.splitlines(True), filename)
         namespace = {"__name__": "__main__", "__builtins__": builtins}
         failure = None
         try:
             execute(compile_program(source, filename, "exec"), namespace)
-        except BaseException as error:
+        except base_exception as error:
             failure = error
-        finally:
-            restore()
-            namespace.clear()
-        for stream in ("stdout", "stderr"):
-            try:
-                streams[stream].flush()
-            except BaseException:
-                pass
-        if failure is None:
-            return result("ok")
-        # The last line names the error ("SyntaxError: invalid syntax"); the
-        # lines before it, for a syntax error, show where.
-        summary = format_only(type(failure), failure)[-1].strip()
-        if isinstance(failure, SystemExit):
-            if failure.code is None or failure.code == 0:
-                return result("ok")
-            return result("runtime", summary)
-        if isinstance(failure, SyntaxError):
-            report(failure, None)
-            return result("syntax", summary, failure.lineno)
-        tb = learner_frames(failure)
-        report(failure, tb)
-        line = last_line(tb)
-        if isinstance(failure, EOFError):
-            return result("input_ended", summary, line)
-        if isinstance(failure, MemoryError):
-            return result("memory", summary, line)
-        return result("runtime", summary, line)
+        # Builtins back first, so the error can be formatted; the program's
+        # globals stay until then, because its __str__ may read them.
+        restore()
+        flush()
+        kind, message, line = outcome(failure)
+        dict_clear(namespace)
+        namespace = None
+        failure = None
+        collect()
+        restore()
+        return result(kind, message, line)
 
     return run
 
