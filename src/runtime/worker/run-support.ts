@@ -24,8 +24,9 @@ export const PROGRAM_FILENAME = "main.py";
 /** The longest error summary a run reports, in characters. */
 export const SUMMARY_LIMIT = MESSAGE_LIMIT;
 
-export const RUN_SUPPORT_SOURCE = String.raw`
-def _heap_make_runner():
+/** The routine that makes the runner, for the unit tests to call with their own streams. */
+export const RUN_SUPPORT_DEFINITION = String.raw`
+def _heap_make_runner(require_streaming):
     import builtins
     import gc
     import linecache
@@ -75,13 +76,13 @@ def _heap_make_runner():
     def quote(text):
         return '"' + translate(text, escapes) + '"'
 
-    # Text a program prints reaches the page as it is written, not when a
-    # buffer fills (FR-RUN-01: output streams while the program runs).
-    for stream in streams.values():
-        try:
-            stream.reconfigure(line_buffering=True, write_through=True)
-        except base_exception:
-            pass
+    # Each line a program prints reaches the page when it is printed, not
+    # when a buffer fills (FR-RUN-01: output streams while the program runs).
+    # A line without its newline still waits. The worker refuses to start
+    # without this; the unit tests' in-memory streams have nothing to set.
+    if require_streaming:
+        for name in ("stdout", "stderr"):
+            streams[name].reconfigure(line_buffering=True, write_through=True)
 
     def restore():
         dict_clear(builtins_dict)
@@ -141,7 +142,8 @@ def _heap_make_runner():
         cls = kind_of(failure)
         if is_subclass(cls, system_exit):
             code = failure.code
-            if code is None or (kind_of(code) is integer and code == 0):
+            # Python exits with status 0 for None, 0 and False.
+            if code is None or code is False or (kind_of(code) is integer and code == 0):
                 return "ok", "", None
             return "runtime", summary, None
         if is_subclass(cls, syntax_error):
@@ -190,8 +192,11 @@ def _heap_make_runner():
         return result(kind, message, line, length(split_lines(source)))
 
     return run
+`;
 
-_heap_make_runner()
+/** What the worker evaluates: its value is the runner. */
+export const RUN_SUPPORT_SOURCE = `${RUN_SUPPORT_DEFINITION}
+_heap_make_runner(True)
 `;
 
 export type RunReport = {

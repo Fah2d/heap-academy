@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseRunReport,
   PROGRAM_FILENAME,
+  RUN_SUPPORT_DEFINITION,
   RUN_SUPPORT_SOURCE,
   SUMMARY_LIMIT,
 } from "./run-support.ts";
@@ -35,7 +36,7 @@ out, err = io.StringIO(), io.StringIO()
 sys.stdout, sys.stderr = out, err
 namespace = {}
 exec(sys.argv[2], namespace)
-run = namespace["_heap_make_runner"]()
+run = namespace["_heap_make_runner"](False)
 results = []
 for program in programs:
     report = run(program)
@@ -52,7 +53,7 @@ real_stdout.write(encode(results))
       "-c",
       driver,
       JSON.stringify(programs),
-      RUN_SUPPORT_SOURCE,
+      RUN_SUPPORT_DEFINITION,
       withoutJsonAccelerator ? "1" : "0",
     ],
     { encoding: "utf8" },
@@ -87,10 +88,10 @@ sys.stdin = io.StringIO("")
 sys._heap_recorded = recorder.chunks
 namespace = {}
 exec(sys.argv[2], namespace)
-namespace["_heap_make_runner"]()(sys.argv[1])
+namespace["_heap_make_runner"](True)(sys.argv[1])
 real_stdout.write(b"".join(recorder.chunks).decode())
 `;
-  return execFileSync("python3", ["-I", "-c", driver, program, RUN_SUPPORT_SOURCE], {
+  return execFileSync("python3", ["-I", "-c", driver, program, RUN_SUPPORT_DEFINITION], {
     encoding: "utf8",
   });
 }
@@ -167,6 +168,14 @@ describe("run support (CPython)", () => {
     expect(abs?.stdout).toBe("2\n");
     const [, len] = runAll([keeper("len"), 'print(len("abc"))']);
     expect(len?.stdout).toBe("3\n");
+    // In a cycle, the object is freed only by the garbage collector. If the
+    // run support did not collect it, the next run's own collection would
+    // run the __del__ in the middle of that run.
+    const [, cyclic] = runAll([
+      `${keeper("abs")}\nkept.me = kept`,
+      "import gc\ngc.collect()\nprint(abs(-2))",
+    ]);
+    expect(cyclic?.stdout).toBe("2\n");
   });
 
   it("[FR-RUN-04] an error whose text breaks builtins cannot break the next run", () => {
@@ -249,6 +258,21 @@ describe("run support (CPython)", () => {
     ]);
     expect(huge?.report).toMatchObject({ kind: "syntax", line: undefined });
     expect(raising?.report?.kind).toBe("runtime");
+    const property = (name: string, base: string) =>
+      [
+        `class Bad(${base}):`,
+        "    @property",
+        `    def ${name}(self):`,
+        '        raise ValueError("no")',
+        'raise Bad("x")',
+      ].join("\n");
+    const results = runAll([
+      property("__traceback__", "ValueError"),
+      property("code", "SystemExit"),
+      'print("next")',
+    ]);
+    expect(results.map((result) => result.report?.kind)).toEqual(["runtime", "runtime", "ok"]);
+    expect(results[2]?.stdout).toBe("next\n");
   });
 
   it("[FR-RUN-01] cuts a long error summary to its limit", () => {
@@ -273,6 +297,25 @@ describe("run support (CPython)", () => {
     expect(runStreaming(program)).toBe("first\nTrue\n");
   });
 
+  it("[FR-RUN-01] refuses to make the runner when the streams cannot stream", () => {
+    const driver = [
+      "import io, sys",
+      "sys.stdout = io.StringIO()",
+      "namespace = {}",
+      "exec(sys.argv[1], namespace)",
+      "try:",
+      '    namespace["_heap_make_runner"](True)',
+      '    sys.__stdout__.write("made")',
+      "except AttributeError:",
+      '    sys.__stdout__.write("refused")',
+    ].join("\n");
+    const text = execFileSync("python3", ["-I", "-c", driver, RUN_SUPPORT_DEFINITION], {
+      encoding: "utf8",
+    });
+    expect(text).toBe("refused");
+    expect(RUN_SUPPORT_SOURCE.trimEnd().endsWith("_heap_make_runner(True)")).toBe(true);
+  });
+
   it("[FR-RUN-01] reports reading past the end of input as input_ended", () => {
     const [result] = runAll(['name = input()\nprint("hello", name)']);
     expect(result?.report?.kind).toBe("input_ended");
@@ -286,8 +329,13 @@ describe("run support (CPython)", () => {
   });
 
   it("[FR-RUN-01] treats exit(0) as ok and exit(3) as a runtime error", () => {
-    const [zero, three] = runAll(["import sys\nsys.exit(0)", "import sys\nsys.exit(3)"]);
+    const [zero, three, no] = runAll([
+      "import sys\nsys.exit(0)",
+      "import sys\nsys.exit(3)",
+      "import sys\nsys.exit(False)",
+    ]);
     expect(zero?.report?.kind).toBe("ok");
+    expect(no?.report?.kind).toBe("ok");
     expect(three?.report).toEqual({ kind: "runtime", message: "SystemExit: 3", line: undefined });
   });
 });

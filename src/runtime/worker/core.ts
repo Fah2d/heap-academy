@@ -182,8 +182,9 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     try {
       reportText = run(message.source);
     } catch {
-      // The run support catches everything Python raises, so this is the
-      // runtime itself failing. The worker cannot be trusted any more.
+      // The run support catches what the program raises and guards what it
+      // reads from the error afterwards, so this is the runtime itself
+      // failing. The worker cannot be trusted any more.
       output.flush();
       return die("runtime_crashed");
     }
