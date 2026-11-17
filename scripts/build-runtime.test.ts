@@ -70,15 +70,20 @@ describe("runtime build", () => {
     expect(readdirSync(join(outDir, "pyodide", "314.0.7"))).toHaveLength(RUNTIME_FILES.length + 1);
   });
 
-  it("[FR-RUN-07] refuses to write outside the repository, since the output is deleted first", () => {
-    const result = spawnSync(
-      process.execPath,
-      ["scripts/build-runtime.mjs", "--out", mkdtempSync(join(tmpdir(), "outside-"))],
-      { encoding: "utf8" },
-    );
-    expect(result.status).toBe(2);
-    expect(result.stderr).toContain("--out must be a folder inside the repository");
-  });
+  it.each([
+    ["outside the repository", mkdtempSync(join(tmpdir(), "outside-"))],
+    ["a source folder", "src/runtime"],
+    ["public itself", "public"],
+  ])(
+    "[FR-RUN-07] refuses to write to %s, since parts of the output are deleted first",
+    (_name, out) => {
+      const result = spawnSync(process.execPath, ["scripts/build-runtime.mjs", "--out", out], {
+        encoding: "utf8",
+      });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain("--out must be a folder inside public/");
+    },
+  );
 
   it("[FR-RUN-07] refuses a package that is not the pinned release", () => {
     expect(() =>

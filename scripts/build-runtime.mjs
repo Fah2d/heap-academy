@@ -25,7 +25,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { brotliCompressSync, constants, gzipSync } from "node:zlib";
@@ -48,8 +48,9 @@ export class RuntimeBuildError extends Error {
   name = "RuntimeBuildError";
 }
 
-/** The repository root: the output folder must be inside it, since it is deleted and rewritten. */
 const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** The output folder must be inside it, since parts of it are deleted and rewritten. */
+const PUBLIC = join(REPOSITORY, "public");
 
 /**
  * Where a build is put together before it is moved into place: outside
@@ -209,15 +210,12 @@ function main(argv) {
     console.error(error instanceof Error ? error.message : String(error));
     return 2;
   }
+  // The output's pyodide/ and worker/ folders are replaced, so it must be a
+  // folder the server publishes, never one that holds source.
   const out = resolve(values.out);
-  const inside = relative(REPOSITORY, out);
-  if (
-    inside === "" ||
-    inside.startsWith("..") ||
-    inside.startsWith(sep) ||
-    resolve(inside) === inside
-  ) {
-    console.error(`build-runtime: --out must be a folder inside the repository, not ${out}`);
+  const inside = relative(PUBLIC, out);
+  if (inside === "" || inside.startsWith("..") || isAbsolute(inside)) {
+    console.error(`build-runtime: --out must be a folder inside public/, not ${out}`);
     return 2;
   }
   try {

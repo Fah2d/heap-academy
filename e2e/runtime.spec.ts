@@ -143,10 +143,12 @@ test.describe("Python runtime", () => {
         // Pyodide's own network helpers bind fetch and XMLHttpRequest when
         // they are imported; nothing imported them before the lock-down.
         'print("pyodide.http" in sys.modules)',
+        // What counts is that a request fails, however Pyodide refuses it.
         "try:",
         "    import pyodide.http",
-        '    print("imported")',
-        "except ImportError:",
+        '    pyodide.http.open_url("/api/health")',
+        '    print("fetched")',
+        "except Exception:",
         '    print("refused")',
       ].join("\n"),
     );
