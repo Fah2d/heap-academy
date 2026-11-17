@@ -6,10 +6,13 @@
 /** The Pyodide release in package.json; the runtime build refuses any other. */
 export const RUNTIME_VERSION = "314.0.7";
 
-export const RUNTIME_ASSET_BASE_URL = "/_runtime/pyodide/";
+/** Everything the runtime serves is under this path; the page's proxy skips it. */
+export const RUNTIME_ROOT = "/_runtime/";
+
+export const RUNTIME_ASSET_BASE_URL = `${RUNTIME_ROOT}pyodide/`;
 
 /** The worker script, compiled from src/runtime/worker by scripts/build-runtime.mjs. */
-export const WORKER_DIRECTORY = "/_runtime/worker/";
+export const WORKER_DIRECTORY = `${RUNTIME_ROOT}worker/`;
 export const WORKER_URL = `${WORKER_DIRECTORY}worker/python-worker.js`;
 
 /** The folder of this release's files, as the worker's `init` message carries it. */

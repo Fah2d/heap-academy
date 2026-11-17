@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import { runtimeHeaders, SECURITY_HEADERS } from "./src/infrastructure/http/security-headers";
-import { RUNTIME_ASSET_BASE_URL, WORKER_DIRECTORY } from "./src/runtime/assets";
+import { RUNTIME_ASSET_BASE_URL, RUNTIME_ROOT, WORKER_DIRECTORY } from "./src/runtime/assets";
 import {
   parsePublicEnvironment,
   RELEASE_LOCAL,
@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
     return Promise.resolve([
       { source: "/:path*", headers: [...SECURITY_HEADERS] },
       ...runtimeHeaders({
+        runtimeRoot: RUNTIME_ROOT,
         runtimeAssetBase: RUNTIME_ASSET_BASE_URL,
         workerDirectory: WORKER_DIRECTORY,
       }),
