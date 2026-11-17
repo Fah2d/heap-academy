@@ -9,8 +9,8 @@
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/build-runtime.mjs && next dev",
+    "build": "node scripts/build-runtime.mjs && next build",
     "start": "next start",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
