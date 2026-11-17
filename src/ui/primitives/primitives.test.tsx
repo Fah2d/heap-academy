@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button, Dialog, Disclosure, Link, Notice, Progress, Status, Tabs, TextField } from "@/ui";
+import { INVALID_WITHOUT_SENTENCE } from "./text-field";
 
 afterEach(cleanup);
 
@@ -130,12 +131,34 @@ describe("TextField", () => {
   });
 
   it("[ADR-0014] falls back to the field's own validation message when no sentence is given", () => {
-    render(
-      <TextField label="Name" validationBehavior="aria" validate={() => "Enter your name."} />,
-    );
+    render(<TextField label="Name" validate={() => "Enter your name."} />);
     const field = screen.getByRole("textbox", { name: "Name" });
     expect(field.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByRole("textbox", { description: "Enter your name." })).toBe(field);
+  });
+
+  it("[ADR-0014] refuses an invalid field whose sentence is empty", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<TextField label="Email address" isInvalid errorMessage=" " />)).toThrow(
+      INVALID_WITHOUT_SENTENCE,
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("[ADR-0014] never shows the browser's own message for an empty required field", async () => {
+    render(
+      <form>
+        <TextField label="Name" isRequired />
+      </form>,
+    );
+    const field = screen.getByRole("textbox", { name: "Name" });
+    expect(field.getAttribute("aria-required")).toBe("true");
+    expect(field.hasAttribute("required")).toBe(false);
+    await userEvent.type(field, "a");
+    await userEvent.clear(field);
+    await userEvent.tab();
+    expect(field.getAttribute("aria-invalid")).toBeNull();
+    expect(field.getAttribute("aria-describedby")).toBeNull();
   });
 
   it("[ADR-0014] shows no error icon on a valid field", () => {
@@ -271,15 +294,15 @@ describe("Notice", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
-  it("[ADR-0014] puts an announced notice's region in the page before its text", async () => {
+  it("[ADR-0014] puts an announced notice's region in the page before the notice", async () => {
     const notice = (
       <Notice kind="information" kindLabel="Information" announce="polite">
         Your code is saved on this device.
       </Notice>
     );
     const first = renderToStaticMarkup(notice);
-    expect(first).toContain('role="status"');
-    expect(first).not.toContain("Your code is saved");
+    // The region alone: no box, no icon, no words until the next frame.
+    expect(first).toBe('<div role="status"></div>');
     render(notice);
     await waitFor(() => {
       expect(screen.getByRole("status").textContent).toBe(

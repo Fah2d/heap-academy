@@ -10,18 +10,34 @@ import {
 } from "react-aria-components";
 import { ErrorFilled } from "../icons";
 
-type FieldProps = Omit<AriaTextFieldProps, "className" | "style" | "children" | "isInvalid"> & {
+type FieldProps = Omit<
+  AriaTextFieldProps,
+  "className" | "style" | "children" | "isInvalid" | "validate" | "validationBehavior"
+> & {
   /** The visible label. Placeholder text is never the only label. */
   label: string;
   description?: string;
   placeholder?: string;
+  /**
+   * The sentence that says why the value is wrong, or nothing when it is
+   * right. React Aria also accepts `true` (invalid, no reason); this type
+   * does not.
+   */
+  validate?: (value: string) => string | null | undefined;
 };
 
 /**
- * A field marked invalid by its owner carries the sentence that says why, so
- * it is never marked by color and an icon alone. A field made invalid by its
- * own validation (`isRequired`, `validate`) shows that validation's message
- * when `errorMessage` is not given.
+ * An invalid field always carries the sentence that says why, so it is never
+ * marked by color alone (DESIGN.md sections 4.2 and 4.5):
+ *
+ * - A field its owner marks invalid must be given `errorMessage`.
+ * - A field made invalid by `validate` shows the sentence `validate` returns.
+ * - Validation is React Aria's `aria` behavior, never the browser's, so no
+ *   browser-written message ("Please fill out this field.") reaches the page.
+ *   `isRequired` therefore only marks the field required; the sentence for an
+ *   empty required field comes from `validate` or from the owner.
+ *
+ * An invalid field with an empty sentence is a programming error and throws.
  */
 export type TextFieldProps = FieldProps &
   (
@@ -32,6 +48,10 @@ export type TextFieldProps = FieldProps &
         errorMessage: string;
       }
   );
+
+/** Thrown for an invalid field with no sentence; a test names it. */
+export const INVALID_WITHOUT_SENTENCE =
+  "TextField: an invalid field needs a sentence that says why (DESIGN.md section 4.5).";
 
 const input =
   "min-h-target w-full rounded-control border border-border-control bg-bg px-3 text-base text-text transition-colors placeholder:text-text-subtle not-read-only:data-hovered:border-text-muted data-invalid:border-fail data-disabled:border-border data-disabled:bg-surface data-disabled:text-text-muted read-only:border-border read-only:bg-surface";
@@ -44,7 +64,7 @@ export function TextField({
   ...props
 }: TextFieldProps) {
   return (
-    <AriaTextField {...props} className="flex flex-col gap-2">
+    <AriaTextField {...props} validationBehavior="aria" className="flex flex-col gap-2">
       <Label className="text-base font-medium text-text">{label}</Label>
       <Input className={input} {...(placeholder !== undefined && { placeholder })} />
       {description !== undefined && (
@@ -54,9 +74,10 @@ export function TextField({
       )}
       <FieldError className="flex items-start gap-2 text-sm text-fail">
         {({ validationErrors }) => {
-          const sentence = errorMessage ?? validationErrors.join(" ");
-          // No sentence, no icon: a lone icon would say "wrong" without saying why.
-          if (sentence === "") return null;
+          const sentence = (errorMessage ?? validationErrors.join(" ")).trim();
+          // FieldError renders only while the field is invalid, so an empty
+          // sentence here would leave a red border that does not say why.
+          if (sentence === "") throw new Error(INVALID_WITHOUT_SENTENCE);
           return (
             <>
               <span aria-hidden="true" className="inline-flex pbs-1">
