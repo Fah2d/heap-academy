@@ -12,9 +12,8 @@ export type NoticeProps = {
   children: ReactNode;
   /**
    * `polite` or `assertive` when the notice appears after the page loaded and
-   * must be announced. The notice then draws one frame after its region, and
-   * only once scripts run, so a notice present on load is never announced:
-   * leave this unset for it.
+   * must be announced. Leave unset for a notice present on load: an announced
+   * notice is drawn only after scripts run, one frame after its region.
    */
   announce?: "polite" | "assertive";
 };

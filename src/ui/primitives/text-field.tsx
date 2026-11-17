@@ -32,10 +32,12 @@ type FieldProps = Omit<
  *
  * - A field its owner marks invalid must be given `errorMessage`.
  * - A field made invalid by `validate` shows the sentence `validate` returns.
- * - Validation is React Aria's `aria` behavior, never the browser's, so no
- *   browser-written message ("Please fill out this field.") reaches the page.
- *   `isRequired` therefore only marks the field required; the sentence for an
- *   empty required field comes from `validate` or from the owner.
+ * - Validation is React Aria's `aria` behavior, so `isRequired` only marks the
+ *   field required and never adds the browser's message ("Please fill out
+ *   this field."). The sentence for an empty required field comes from
+ *   `validate` or from the owner. The browser still checks `type`, `pattern`
+ *   and `minLength` when a form without `noValidate` is submitted; the form
+ *   primitive that sets it comes with the first form.
  *
  * An invalid field with an empty sentence is a programming error and throws.
  */

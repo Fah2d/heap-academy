@@ -145,6 +145,22 @@ describe("TextField", () => {
     vi.restoreAllMocks();
   });
 
+  it("[ADR-0014] refuses a validation whose sentence is blank", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<TextField label="Name" validate={() => " "} />)).toThrow(
+      INVALID_WITHOUT_SENTENCE,
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("[ADR-0014] refuses a blank sentence even when validation has one", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() =>
+      render(<TextField label="Name" errorMessage=" " validate={() => "Enter your name."} />),
+    ).toThrow(INVALID_WITHOUT_SENTENCE);
+    vi.restoreAllMocks();
+  });
+
   it("[ADR-0014] never shows the browser's own message for an empty required field", async () => {
     render(
       <form>
