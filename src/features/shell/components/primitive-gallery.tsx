@@ -67,9 +67,6 @@ export function PrimitiveGallery() {
           </Button>
         </Example>
         <Example label={m.withIcon}>
-          <Button variant="primary" icon={<Play size={16} />}>
-            {m.run}
-          </Button>
           <Button variant="secondary" icon={<Play size={16} />}>
             {m.run}
           </Button>

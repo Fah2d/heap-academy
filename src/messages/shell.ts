@@ -14,5 +14,7 @@ export const shell = {
  * `<title>` because the metadata API does not reach them.
  */
 export function pageTitle(title: string): string {
-  return shell.titleTemplate.replace("%s", title);
+  // A function, so a "$" in the title is kept as written, not read as a
+  // replacement pattern.
+  return shell.titleTemplate.replace("%s", () => title);
 }

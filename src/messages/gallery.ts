@@ -9,7 +9,7 @@ export const gallery = {
   rest: "At rest",
   disabled: "Disabled",
   withIcon: "With an icon",
-  fullWidth: "Full width, the phone action of a view",
+  fullWidth: "Full width, as on a phone",
   check: "Check",
   run: "Run",
   deleteTestCase: "Delete test case",

@@ -91,6 +91,10 @@ describe("page title", () => {
     expect(pageTitle(errorPage.title)).toBe(`${errorPage.title} | ${shell.productName}`);
     expect(shell.titleTemplate).toContain("%s");
   });
+
+  it("[ADR-0014] keeps a dollar sign in a title as written", () => {
+    expect(pageTitle("Cost: $' and $&")).toBe(`Cost: $' and $& | ${shell.productName}`);
+  });
 });
 
 describe("primitive gallery", () => {
@@ -99,7 +103,9 @@ describe("primitive gallery", () => {
     const withIcon = screen
       .getAllByRole("button", { name: gallery.run })
       .filter((button) => button.querySelector('[aria-hidden="true"] svg') !== null);
-    expect(withIcon).toHaveLength(2);
+    // Run is a secondary action (DESIGN.md section 4.5), so it is shown only as one.
+    expect(withIcon).toHaveLength(1);
+    expect(withIcon[0]?.className.split(/\s+/)).not.toContain("bg-action");
     const fullWidth = screen
       .getAllByRole("button", { name: gallery.check })
       .filter((button) => button.className.split(/\s+/).includes("w-full"));
