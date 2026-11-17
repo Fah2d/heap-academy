@@ -107,16 +107,28 @@ export function createRuntimeController({
   let current: Current | undefined;
   let sequence = 0;
 
-  function finish(outcome: RunOutcome, truncated: boolean, durationMs?: number): void {
+  /** The worker ended the run and says whether the output was cut. */
+  function finishReported(outcome: WorkerOutcome, truncated: boolean, durationMs: number): void {
+    if (current === undefined) return;
+    timers.clearTimeout(current.timer);
+    const result: RunResult = { runId: current.runId, outcome, truncated, durationMs };
+    current = undefined;
+    onEvent({ type: "run_done", result });
+  }
+
+  /**
+   * The page ended the run. A program that caught the write error and kept
+   * going reached the cap without the worker saying so; the cap is still
+   * reported (FR-RUN-03).
+   */
+  function finish(outcome: RunOutcome): void {
     if (current === undefined) return;
     timers.clearTimeout(current.timer);
     const result: RunResult = {
       runId: current.runId,
       outcome,
-      // A program that catches the write error and keeps going ends at the
-      // time limit; the cap it hit is still reported (FR-RUN-03).
-      truncated: truncated || current.received >= OUTPUT_LIMIT,
-      durationMs: durationMs ?? Math.max(0, Math.round(now() - current.started)),
+      truncated: current.received >= OUTPUT_LIMIT,
+      durationMs: Math.max(0, Math.round(now() - current.started)),
     };
     current = undefined;
     onEvent({ type: "run_done", result });
@@ -137,7 +149,7 @@ export function createRuntimeController({
   /** The worker died or gave up. What follows depends on what it was doing. */
   function crashed(): void {
     if (status === "running") {
-      finish({ kind: "crashed" }, false);
+      finish({ kind: "crashed" });
       restart("crashed");
     } else if (status === "ready") {
       restart("crashed");
@@ -182,7 +194,7 @@ export function createRuntimeController({
         return unexpected();
       case "run_done":
         if (current?.runId !== message.runId) return unexpected();
-        finish(message.outcome, message.truncated, message.durationMs);
+        finishReported(message.outcome, message.truncated, message.durationMs);
         // A program that ran out of memory may leave the runtime's memory
         // grown; a new worker gives it back. One stopped at the output cap may
         // leave text in Python's stream buffers, which the next run would
@@ -245,7 +257,7 @@ export function createRuntimeController({
       status = "running";
       const timer = timers.setTimeout(() => {
         if (current?.runId !== runId) return;
-        finish({ kind: "time_limit" }, false);
+        finish({ kind: "time_limit" });
         restart("time_limit");
       }, timeLimitMs);
       current = { runId, started: now(), timer, received: 0 };
@@ -254,7 +266,7 @@ export function createRuntimeController({
     },
     stop() {
       if (status !== "running") return;
-      finish({ kind: "stopped" }, false);
+      finish({ kind: "stopped" });
       restart("stopped");
     },
     dispose() {

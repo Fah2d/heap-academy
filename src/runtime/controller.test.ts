@@ -239,6 +239,24 @@ describe("runtime controller", () => {
     });
   });
 
+  it("[FR-RUN-03] a run that prints exactly the cap and ends is not reported as cut", () => {
+    const setup = started();
+    const request = setup.controller.run("print exactly the cap");
+    if (!request.ok) throw new Error("run refused");
+    const text = "x".repeat(OUTPUT_LIMIT);
+    setup.latest().send({ type: "output", runId: request.runId, stream: "stdout", text });
+    setup.latest().send({
+      type: "run_done",
+      runId: request.runId,
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 3,
+    });
+    expect(setup.events[1]).toMatchObject({
+      result: { outcome: { kind: "ok" }, truncated: false },
+    });
+  });
+
   it("[FR-RUN-02] a run under the cap that reaches the time limit is not reported as cut", () => {
     const setup = started();
     setup.controller.run("loop");
