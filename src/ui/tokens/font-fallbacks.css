@@ -4,17 +4,28 @@
  * each character is as wide as Plex Mono's and each line as tall, so the swap
  * moves nothing.
  *
- * One face per local font, because each needs its own scale. The values come
+ * One family per local font, because each needs its own scale, with a face
+ * for each weight Plex Mono ships (400 and 600), so bold code and labels use
+ * the font's real bold instead of a synthesized one. The bold faces have the
+ * same metrics as the regular ones, so they take the same overrides. The
+ * values come
  * from Next.js's formula (next/font's fallback metrics) applied to:
  *   IBM Plex Mono: 1000 units per em, advance 600, ascent 1025, descent 275,
  *     line gap 0, read from src/ui/fonts/ibm-plex-mono-latin-400-normal.woff2.
- *   Menlo (macOS): 2048 units, advance 1233, ascent 1901, descent 483, gap 0.
- *   Courier New (Windows, macOS): 2048 units, advance 1229, ascent 1705,
+ *   Menlo (macOS), Regular and Bold: 2048 units, advance 1233, ascent 1901,
+ *     descent 483, gap 0.
+ *   Courier New (Windows, macOS), Regular and Bold: 2048 units, advance 1229, ascent 1705,
  *     descent 615, gap 0. Liberation Mono (Linux) is metric-compatible with it.
  * src/ui/tokens/font-fallbacks.test.ts recomputes every value.
+ *
+ * Not covered: Android, which ships none of these fonts and whose Chrome has
+ * no ui-monospace. It falls through to the unmatched system monospace. No
+ * Android font file was at hand to measure, and a face with unmeasured
+ * values would not be matched.
  */
 @font-face {
   font-family: plex-mono-fallback-menlo;
+  font-weight: 400;
   src: local("Menlo Regular"), local("Menlo-Regular");
   size-adjust: 99.66%;
   ascent-override: 102.85%;
@@ -24,8 +35,31 @@
 
 @font-face {
   font-family: plex-mono-fallback-courier;
+  font-weight: 400;
   src:
     local("Courier New"), local("CourierNewPSMT"), local("Liberation Mono"), local("LiberationMono");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: plex-mono-fallback-menlo;
+  font-weight: 600;
+  src: local("Menlo Bold"), local("Menlo-Bold");
+  size-adjust: 99.66%;
+  ascent-override: 102.85%;
+  descent-override: 27.59%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: plex-mono-fallback-courier;
+  font-weight: 600;
+  src:
+    local("Courier New Bold"), local("CourierNewPS-BoldMT"), local("Liberation Mono Bold"),
+    local("LiberationMono-Bold");
   size-adjust: 99.98%;
   ascent-override: 102.52%;
   descent-override: 27.5%;

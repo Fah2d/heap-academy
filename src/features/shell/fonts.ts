@@ -22,6 +22,8 @@ export const plexSans = localFont({
 // preloaded. Next.js generates metric fallbacks for Arial and Times New Roman
 // only, so the mono fallbacks are declared in src/ui/tokens/font-fallbacks.css
 // and come first in the stack, ahead of the unmatched system monospace.
+// Android has none of the matched fonts, so it still swaps from its own
+// monospace (see that file).
 //
 // The WOFF2 files are byte-for-byte the @fontsource/ibm-plex-sans and
 // @fontsource/ibm-plex-mono files of the version in package.json, which are

@@ -15,7 +15,11 @@ type Metrics = {
   lineGap: number;
 };
 
-/** Measured with Next.js's fontkit from the system font files (macOS 26). */
+/**
+ * Measured with Next.js's fontkit from the system font files (macOS 26).
+ * Menlo Bold (in Menlo.ttc) and Courier New Bold measure the same as their
+ * regular faces, so one record covers both weights.
+ */
 const MENLO: Metrics = { unitsPerEm: 2048, advance: 1233, ascent: 1901, descent: -483, lineGap: 0 };
 const COURIER_NEW: Metrics = {
   unitsPerEm: 2048,
@@ -79,11 +83,15 @@ function overrides(main: Metrics, fallback: Metrics) {
 
 const css = readFileSync("src/ui/tokens/font-fallbacks.css", "utf8");
 
-function face(family: string): Record<string, string> {
-  const block = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)]
+function face(family: string, weight: 400 | 600): Record<string, string> {
+  const blocks = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)]
     .map((match) => match[1] ?? "")
-    .find((body) => body.includes(`font-family: ${family};`));
-  expect(block, family).toBeDefined();
+    .filter(
+      (body) =>
+        body.includes(`font-family: ${family};`) && body.includes(`font-weight: ${weight};`),
+    );
+  expect(blocks, `${family} ${weight}`).toHaveLength(1);
+  const block = blocks[0];
   return Object.fromEntries(
     [...(block ?? "").matchAll(/([a-z-]+):\s*([^;]+);/g)].map((match) => [
       match[1],
@@ -93,14 +101,34 @@ function face(family: string): Record<string, string> {
 }
 
 describe("mono fallback", () => {
-  it("[NFR-PERF-01] scales Menlo to Plex Mono's advance and line metrics", () => {
-    expect(numbers(face("plex-mono-fallback-menlo"))).toEqual(overrides(plexMono(400), MENLO));
-  });
+  it.each([400, 600] as const)(
+    "[NFR-PERF-01] scales Menlo to Plex Mono's advance and line metrics at weight %i",
+    (weight) => {
+      expect(numbers(face("plex-mono-fallback-menlo", weight))).toEqual(
+        overrides(plexMono(weight), MENLO),
+      );
+    },
+  );
 
-  it("[NFR-PERF-01] scales Courier New, and Liberation Mono with it, the same way", () => {
-    const courier = face("plex-mono-fallback-courier");
-    expect(numbers(courier)).toEqual(overrides(plexMono(400), COURIER_NEW));
-    expect(courier["src"]).toContain('local("Liberation Mono")');
+  it.each([400, 600] as const)(
+    "[NFR-PERF-01] scales Courier New, and Liberation Mono with it, the same way at weight %i",
+    (weight) => {
+      const courier = face("plex-mono-fallback-courier", weight);
+      expect(numbers(courier)).toEqual(overrides(plexMono(weight), COURIER_NEW));
+      expect(courier["src"]).toContain(
+        weight === 600 ? 'local("Liberation Mono Bold")' : 'local("Liberation Mono")',
+      );
+    },
+  );
+
+  it("[NFR-PERF-01] draws bold code from each font's real bold, not a synthesized one", () => {
+    expect(face("plex-mono-fallback-menlo", 600)["src"]).toBe(
+      'local("Menlo Bold"), local("Menlo-Bold")',
+    );
+    expect(face("plex-mono-fallback-courier", 600)["src"]).toContain(
+      'local("CourierNewPS-BoldMT")',
+    );
+    expect(face("plex-mono-fallback-courier", 400)["src"]).not.toContain("Bold");
   });
 
   it("[NFR-PERF-01] uses Courier New metrics that match Next.js's own font data", () => {
