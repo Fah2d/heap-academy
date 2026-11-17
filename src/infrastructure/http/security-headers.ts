@@ -78,3 +78,55 @@ export const SECURITY_HEADERS: readonly { key: string; value: string }[] = [
     value: DISABLED_FEATURES.map((feature) => `${feature}=()`).join(", "),
   },
 ];
+
+/**
+ * The Python worker script's own policy (section 5.1, threat T-01). A worker
+ * loaded from a URL takes its policy from its own response, not from the page
+ * (architecture section 14, pitfall 7). WebAssembly needs
+ * `'wasm-unsafe-eval'` (E-07); nothing allows `unsafe-eval`, so evaluating
+ * JavaScript from Python is refused. Network requests may only reach the
+ * origin, or the runtime's host when it moves to one.
+ */
+export function workerContentSecurityPolicy(runtimeAssetBase: string): string {
+  const sources = [
+    "'self'",
+    ...(runtimeAssetBase.startsWith("https://") ? [new URL(runtimeAssetBase).origin] : []),
+  ];
+  return [
+    ["default-src", "'none'"],
+    ["script-src", ...sources, "'wasm-unsafe-eval'"],
+    ["connect-src", ...sources],
+    ["report-uri", CSP_REPORT_PATH],
+  ]
+    .map((directive) => directive.join(" "))
+    .join("; ");
+}
+
+/** A year: the runtime files' path carries their version, so they never change. */
+export const IMMUTABLE = "public, max-age=31536000, immutable";
+
+/**
+ * Headers for the runtime's files (section 5.1): the Pyodide files are
+ * immutable, and the worker script carries its own policy and is checked
+ * again on every load, because its path does not change between releases.
+ */
+export function runtimeHeaders({
+  runtimeAssetBase,
+  workerDirectory,
+}: {
+  runtimeAssetBase: string;
+  workerDirectory: string;
+}): { source: string; headers: { key: string; value: string }[] }[] {
+  const worker = {
+    source: `${workerDirectory}:path*`,
+    headers: [
+      { key: "Content-Security-Policy", value: workerContentSecurityPolicy(runtimeAssetBase) },
+      { key: "Cache-Control", value: "no-cache" },
+    ],
+  };
+  if (!runtimeAssetBase.startsWith("/")) return [worker];
+  return [
+    { source: `${runtimeAssetBase}:path*`, headers: [{ key: "Cache-Control", value: IMMUTABLE }] },
+    worker,
+  ];
+}

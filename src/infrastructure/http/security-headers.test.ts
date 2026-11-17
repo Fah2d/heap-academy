@@ -3,8 +3,11 @@ import {
   contentSecurityPolicy,
   createNonce,
   CSP_REPORT_PATH,
+  IMMUTABLE,
   reportingEndpoints,
+  runtimeHeaders,
   SECURITY_HEADERS,
+  workerContentSecurityPolicy,
 } from "./security-headers";
 
 function directives(policy: string): Map<string, string[]> {
@@ -86,5 +89,57 @@ describe("response headers", () => {
     expect(headers.get("Permissions-Policy")).toContain("camera=()");
     expect(headers.get("Permissions-Policy")).toContain("microphone=()");
     expect(headers.get("Permissions-Policy")).toContain("geolocation=()");
+  });
+});
+
+describe("the Python worker's policy", () => {
+  const worker = directives(workerContentSecurityPolicy("/_runtime/pyodide/"));
+
+  it("[T-01] [NFR-SEC-01] allows WebAssembly but never JavaScript evaluation", () => {
+    expect(worker.get("script-src")).toEqual(["'self'", "'wasm-unsafe-eval'"]);
+    expect([...worker.values()].flat()).not.toContain("'unsafe-eval'");
+    expect([...worker.values()].flat()).not.toContain("'unsafe-inline'");
+  });
+
+  it("[T-01] lets requests reach the origin only, and nothing else load", () => {
+    expect(worker.get("connect-src")).toEqual(["'self'"]);
+    expect(worker.get("default-src")).toEqual(["'none'"]);
+    expect(worker.get("report-uri")).toEqual([CSP_REPORT_PATH]);
+  });
+
+  it("[T-01] adds the runtime's host, and only its origin, when the files move there", () => {
+    const moved = directives(workerContentSecurityPolicy("https://runtime.example.com/pyodide/"));
+    expect(moved.get("connect-src")).toEqual(["'self'", "https://runtime.example.com"]);
+    expect(moved.get("script-src")).toEqual([
+      "'self'",
+      "https://runtime.example.com",
+      "'wasm-unsafe-eval'",
+    ]);
+  });
+});
+
+describe("runtime headers", () => {
+  it("[FR-RUN-07] serves the versioned Pyodide files as immutable, and the worker with its own policy", () => {
+    const rules = runtimeHeaders({
+      runtimeAssetBase: "/_runtime/pyodide/",
+      workerDirectory: "/_runtime/worker/",
+    });
+    expect(rules).toEqual([
+      {
+        source: "/_runtime/pyodide/:path*",
+        headers: [{ key: "Cache-Control", value: IMMUTABLE }],
+      },
+      {
+        source: "/_runtime/worker/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: workerContentSecurityPolicy("/_runtime/pyodide/"),
+          },
+          { key: "Cache-Control", value: "no-cache" },
+        ],
+      },
+    ]);
+    expect(IMMUTABLE).toBe("public, max-age=31536000, immutable");
   });
 });

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -92,5 +92,22 @@ describe("proxy", () => {
     expect(response.headers.get("reporting-endpoints")).toBe(
       'csp="https://heap.test/api/csp-report"',
     );
+  });
+});
+
+describe("proxy matcher", () => {
+  const matches = (path: string) =>
+    config.matcher.some((pattern) => new RegExp(`^${pattern}$`).test(path));
+
+  it("[T-01] leaves the runtime's files alone, so the worker keeps its own policy", () => {
+    expect(matches("/_runtime/worker/worker/python-worker.js")).toBe(false);
+    expect(matches("/_runtime/pyodide/314.0.7/pyodide.asm.wasm")).toBe(false);
+  });
+
+  it("[NFR-SEC-02] still runs for pages and route handlers", () => {
+    expect(matches("/")).toBe(true);
+    expect(matches("/dev/runtime")).toBe(true);
+    expect(matches("/api/health")).toBe(true);
+    expect(matches("/_runtimes")).toBe(true);
   });
 });

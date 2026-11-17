@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
-import { SECURITY_HEADERS } from "./src/infrastructure/http/security-headers";
+import { runtimeHeaders, SECURITY_HEADERS } from "./src/infrastructure/http/security-headers";
+import { RUNTIME_ASSET_BASE_URL, WORKER_DIRECTORY } from "./src/runtime/assets";
 import {
   parsePublicEnvironment,
   RELEASE_LOCAL,
@@ -21,9 +22,16 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   env: { HEAP_RELEASE: release },
   // Every response, static files included (docs/spec/06-security-privacy.md
-  // section 5.1). The script policy is per request, in src/proxy.ts.
+  // section 5.1). The page policy is per request, in src/proxy.ts; the Python
+  // worker's own policy and the runtime files' caching are set here.
   headers() {
-    return Promise.resolve([{ source: "/:path*", headers: [...SECURITY_HEADERS] }]);
+    return Promise.resolve([
+      { source: "/:path*", headers: [...SECURITY_HEADERS] },
+      ...runtimeHeaders({
+        runtimeAssetBase: RUNTIME_ASSET_BASE_URL,
+        workerDirectory: WORKER_DIRECTORY,
+      }),
+    ]);
   },
 };
 
