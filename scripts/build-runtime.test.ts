@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseRuntimeManifest } from "../src/runtime/manifest.ts";
 import { WORKER_URL } from "../src/runtime/assets.ts";
@@ -10,6 +10,7 @@ import {
   BROTLI_BUDGET_BYTES,
   compileWorker,
   copyRuntime,
+  replaceFolder,
   RUNTIME_FILES,
   RuntimeBuildError,
 } from "./build-runtime.mjs";
@@ -39,6 +40,16 @@ describe("runtime build", () => {
     expect(manifest.totalBytes).toBe(5 * 2048);
     // Random bytes do not compress: each Brotli size is close to the file's.
     for (const file of manifest.files) expect(file.brotliBytes).toBeGreaterThan(2000);
+  });
+
+  it("[FR-RUN-07] builds in the staging folder, never beside the folder being served", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "runtime-"));
+    replaceFolder(join(outDir, "pyodide"), STAGING_DIR, (folder) => {
+      expect(dirname(folder)).toBe(STAGING_DIR);
+      expect(readdirSync(outDir)).toEqual([]);
+      writeFileSync(join(folder, "file"), "built");
+    });
+    expect(readdirSync(join(outDir, "pyodide"))).toEqual(["file"]);
   });
 
   it("[FR-RUN-07] a rebuild leaves only this release's files, and no half-built folder", () => {
@@ -72,7 +83,8 @@ describe("runtime build", () => {
 
   it.each([
     ["outside the repository", mkdtempSync(join(tmpdir(), "outside-"))],
-    ["a source folder", "src/runtime"],
+    // A path that does not exist, so a regression in the guard deletes nothing.
+    ["a source folder", "src/runtime/not-a-folder"],
     ["public itself", "public"],
   ])(
     "[FR-RUN-07] refuses to write to %s, since parts of the output are deleted first",

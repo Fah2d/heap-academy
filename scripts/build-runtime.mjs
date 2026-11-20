@@ -70,7 +70,7 @@ const STAGING = join(REPOSITORY, "node_modules", ".cache", "heap-runtime");
  * @param {string} stagingDir
  * @param {(folder: string) => void} build
  */
-function replaceFolder(target, stagingDir, build) {
+export function replaceFolder(target, stagingDir, build) {
   mkdirSync(dirname(target), { recursive: true });
   mkdirSync(stagingDir, { recursive: true });
   const staging = mkdtempSync(join(stagingDir, `${basename(target)}-`));
