@@ -1,4 +1,4 @@
-**Merges after #4 and WP-3.1.** #4 itself merges after #3. This branch starts from `wp/3.1-python-worker` at 942ff46, so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** #3 and #4 are merged. `wp/3.1-python-worker`, which now carries `main` at 037c4ad, is merged into this branch (6f0cfe8), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
 
 ## What and why
 
@@ -36,6 +36,23 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 | The development page shows the new `checking` status; it sends no checks. | `src/features/workspace/client/runtime-view.ts`, `src/messages/runtime-dev.ts` |
 
 ## How it was verified
+
+**Up to date with main.** `wp/3.1-python-worker` at a288083 (WP-3.1 with `main` merged in) is merged into this branch (6f0cfe8), with no conflict. `pnpm verify` on 6f0cfe8, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  37 passed (37)
+      Tests  951 passed (951)
+```
+
+`npx playwright test --list --project=runtime-chromium`: "Total: 28 tests in 2 files". The browser tests have not run.
+
+Before the merge:
 
 `pnpm verify` on the review fixes (the last commit of this branch):
 
@@ -186,4 +203,4 @@ gh pr create --draft --base wp/3.1-python-worker --head wp/3.3-grader \
   --body-file docs/reports/pull-requests/WP-3.3.md
 ```
 
-GitHub retargets it when WP-3.1's branch merges and is deleted.
+GitHub retargets it to `main` when WP-3.1's branch merges and is deleted.
