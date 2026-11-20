@@ -94,6 +94,16 @@ describe("merging completions", () => {
     expect(mergeCompletions([at(0, 100, "b")], [at(0, 100, "a")])).toEqual([at(0, 100, "a")]);
   });
 
+  it("[FR-PRG-03] a completion whose time is not a finite number is left out, so order still does not matter", () => {
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const a = [at(0, bad, "x")];
+      const b = [at(0, 100, "y")];
+      expect(mergeCompletions(a, b)).toEqual([at(0, 100, "y")]);
+      expect(mergeCompletions(b, a)).toEqual([at(0, 100, "y")]);
+      expect(mergeCompletions(a)).toEqual([]);
+    }
+  });
+
   it("[FR-PRG-03] lists the result in lesson order and copies nothing but the completion", () => {
     const extra = { ...at(1, 5), synced: true } as DeviceCompletion;
     expect(mergeCompletions([extra, at(0, 9)])).toEqual([at(0, 9), at(1, 5)]);
@@ -120,10 +130,25 @@ describe("applying the account's list", () => {
       for (const entry of applied.filter((item) => !item.synced)) {
         expect(stored.has(entry.lessonId)).toBe(false);
       }
-      const lessons = new Set(applied.map((entry) => entry.lessonId));
-      expect(lessons).toEqual(new Set([...device, ...account].map((entry) => entry.lessonId)));
-      expect(lessons.size).toBe(applied.length);
+      const lessons = applied.map((entry) => entry.lessonId);
+      expect(new Set(lessons)).toEqual(
+        new Set(
+          [...device.filter((entry) => !entry.synced), ...account].map((entry) => entry.lessonId),
+        ),
+      );
+      expect(new Set(lessons).size).toBe(applied.length);
+      expect(lessons).toEqual([...lessons].sort());
     });
+  });
+
+  it("[FR-PRG-06] a completion another account stored is neither kept nor sent to this one", () => {
+    const device: DeviceCompletion[] = [
+      { ...at(0, 100, "learner A's code"), synced: true },
+      { ...at(1, 200, "a guest's code"), synced: false },
+    ];
+    const applied = applyAccount(device, []);
+    expect(applied).toEqual([{ ...at(1, 200, "a guest's code"), synced: false }]);
+    expect(unsynced(applied)).toEqual([at(1, 200, "a guest's code")]);
   });
 
   it("[FR-PRG-06] a completion the server has not stored stays on the device and is sent again", () => {
@@ -131,7 +156,7 @@ describe("applying the account's list", () => {
       const pending = unsynced(applyAccount(device, account));
       const stored = new Set(account.map((entry) => entry.lessonId));
       for (const entry of device) {
-        if (!stored.has(entry.lessonId)) {
+        if (!entry.synced && !stored.has(entry.lessonId)) {
           expect(pending.map((item) => item.lessonId)).toContain(entry.lessonId);
         }
       }

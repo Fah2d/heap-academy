@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseLessonId } from "./ids";
 
 describe("lesson IDs", () => {
-  it("[FR-PRG-07] accepts a lower-case UUID and nothing else", () => {
+  it("accepts a lower-case UUID and nothing else", () => {
     expect(parseLessonId("0b7e3f4a-5c6d-4e8f-9a0b-1c2d3e4f5a6b")).toBe(
       "0b7e3f4a-5c6d-4e8f-9a0b-1c2d3e4f5a6b",
     );

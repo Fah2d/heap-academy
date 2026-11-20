@@ -6,19 +6,23 @@ import type { LessonId } from "./ids";
 //
 // Two rules, one for each question:
 //
-// - `mergeCompletions` combines lists of completions, from the device and
-//   from the account, into one entry per lesson. Where both have a lesson,
-//   the first completion is kept: the earlier time, then the smaller code,
-//   so the result never depends on the order the lists come in. Merging is
-//   idempotent, commutative and associative, and merging twice changes
-//   nothing.
-// - `applyAccount` is what the device keeps once the server has answered a
-//   sync with the account's full list. The database is the authority
-//   (CLAUDE.md rule 8): for a lesson the account has, the account's
-//   completion replaces the device's and is synced; a lesson only the device
-//   has stays, still to be sent.
+// - `applyAccount` is the merge of device and account: what the device keeps
+//   once the server has answered a sync with the account's full list. The
+//   database is the authority (CLAUDE.md rule 8): for a lesson the account
+//   has, the account's completion replaces the device's and is synced; a
+//   lesson only the device has stays, still to be sent, unless the device
+//   already had it stored, which means another account stored it. Applying
+//   the same list twice changes nothing.
+// - `mergeCompletions` combines lists from one source, such as the device's
+//   own entries, into one entry per lesson, keeping the first: the earlier
+//   time, then the smaller code. It is idempotent, commutative and
+//   associative. It is never used to combine the device's list with the
+//   account's, whose rule is the database's ("do nothing on conflict").
 
-/** The record that a learner passed a lesson (charter section 10). */
+/**
+ * The record that a learner passed a lesson (charter section 10). A
+ * completion whose time is not a finite number is left out of every merge.
+ */
 export type Completion = {
   lessonId: LessonId;
   /** Milliseconds since the Unix epoch. */
@@ -45,6 +49,7 @@ export function mergeCompletions(...lists: readonly (readonly Completion[])[]): 
   const first = new Map<LessonId, Completion>();
   for (const list of lists) {
     for (const completion of list) {
+      if (!Number.isFinite(completion.completedAt)) continue;
       const known = first.get(completion.lessonId);
       if (known === undefined || isFirst(completion, known)) {
         first.set(completion.lessonId, {
@@ -60,15 +65,19 @@ export function mergeCompletions(...lists: readonly (readonly Completion[])[]): 
 
 /**
  * The device's completions once the server has returned the account's full
- * list: the account's, synced, and the device's own for lessons the account
- * does not have, not synced. Applying the same list again changes nothing.
+ * list: the account's, synced, and the device's unsynced ones for lessons
+ * the account does not have. A synced entry the account does not have was
+ * stored by another account on this device, so it is dropped and never sent
+ * to this one. Applying the same list again changes nothing.
  */
 export function applyAccount(
   device: readonly DeviceCompletion[],
   account: readonly Completion[],
 ): DeviceCompletion[] {
   const stored = new Set(account.map((completion) => completion.lessonId));
-  const local = mergeCompletions(device.filter((completion) => !stored.has(completion.lessonId)));
+  const local = mergeCompletions(
+    device.filter((completion) => !completion.synced && !stored.has(completion.lessonId)),
+  );
   return [
     ...mergeCompletions(account).map((completion) => ({ ...completion, synced: true })),
     ...local.map((completion) => ({ ...completion, synced: false })),
