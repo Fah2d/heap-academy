@@ -38,6 +38,27 @@ describe("module boundaries", () => {
     expect(await ruleIds(path, code)).toContain(boundary);
   });
 
+  it.each([
+    ["src/domain/ids.ts", "const m = await import(`@/infrastructure/db/client`);"],
+    ["src/domain/ids.ts", "const m = require(`@/infrastructure/db/client`);"],
+    ["src/content/queries.ts", "const m = await import(`@/features/catalog`);"],
+    [
+      "src/features/catalog/components/list.tsx",
+      "const m = await import(`@/infrastructure/db/privileged`);",
+    ],
+  ])(
+    "[T-21] fails lint for a forbidden import() or require() with a backtick string in %s",
+    async (path, code) => {
+      expect(await ruleIds(path, code)).toContain(boundary);
+    },
+  );
+
+  it("[T-21] allows a backtick import() the rules allow", async () => {
+    const from = "src/features/catalog/components/list.tsx";
+    const code = "const m = await import(`@/content`);";
+    expect(await ruleIds(from, code)).not.toContain(boundary);
+  });
+
   it("[NFR-MAINT-05] treats a module's folder import as that module, not as a root file", async () => {
     const from = "src/features/shell/components/view.tsx";
     expect(await ruleIds(from, 'import { Button } from "@/ui";')).not.toContain(boundary);
@@ -161,6 +182,32 @@ describe("module boundaries", () => {
     ["src/domain/streak.ts", 'import { z } from "zod";'],
   ])("[NFR-MAINT-05] allows a permitted import in %s", async (path, code) => {
     expect(await ruleIds(path, code)).not.toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] lets only a test import a test file, so the Node runner cannot be passed on (ADR-0032)", async () => {
+    const code = 'export { x } from "./launder.test";';
+    expect(await ruleIds("src/runtime/controller.ts", code)).toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.test.ts", code)).not.toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] refuses an import whose source is computed", async () => {
+    const name = 'const name = "runner";\n';
+    for (const code of [
+      "void import(`@/grader/node-runner/${name}`);",
+      "void import(name);",
+      "require(name);",
+    ]) {
+      expect(await ruleIds("src/runtime/controller.ts", name + code)).toContain(boundary);
+    }
+    expect(
+      await ruleIds("src/runtime/controller.ts", "void import(`@/content/published`);"),
+    ).toContain(boundary);
+    expect(
+      await ruleIds("src/runtime/worker/python-worker.ts", "void import(String(1));"),
+    ).not.toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.ts", "void import(`./protocol`);")).not.toContain(
+      boundary,
+    );
   });
 
   it.each([
