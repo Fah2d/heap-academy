@@ -1,0 +1,73 @@
+/*
+ * Document-wide rules that every screen shares. Values come from tokens only.
+ */
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    min-block-size: 100dvh;
+    background-color: var(--color-bg);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-weight: var(--font-weight-normal);
+  }
+
+  ::selection {
+    background-color: var(--color-selection);
+    color: var(--color-text);
+  }
+
+  /* One focus ring on every focusable element (DESIGN.md section 6). */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--color-focus);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* Code reads left to right in every interface direction (NFR-I18N-03). */
+  code,
+  kbd,
+  pre,
+  samp {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-family: var(--font-mono);
+  }
+
+  /* Every enabled control shows that it can be used (antislop R-39). */
+  a[href],
+  button:not(:disabled),
+  summary,
+  label[for],
+  select:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  /* MOTION 1 is state changes only, and none of it is essential (NFR-A11Y-08). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+      animation-duration: 0s !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
