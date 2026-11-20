@@ -4,7 +4,21 @@
 # (docs/spec/07-operations.md section 3). Already-applied migrations are
 # skipped, so a re-run is safe. The URL holds a password: it is masked in the
 # workflow log and never printed, and the connection must use TLS.
+#
+# `--include-seed` also runs supabase/seed.sql. Only the staging step passes
+# it: production is never seeded (.claude/rules/database.md). The seed skips
+# itself when the sample course already exists, so a later run changes nothing.
 set -eu
+
+seed=no
+case "${1:-}" in
+  "") ;;
+  --include-seed) seed=yes ;;
+  *)
+    echo "apply-migrations: unknown option $1; the only one is --include-seed." >&2
+    exit 1
+    ;;
+esac
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
   echo "apply-migrations: SUPABASE_DB_URL is not set." >&2
@@ -29,4 +43,8 @@ if ! ls supabase/migrations/*.sql >/dev/null 2>&1; then
   exit 0
 fi
 
-supabase db push --db-url "$SUPABASE_DB_URL"
+if [ "$seed" = yes ]; then
+  supabase db push --db-url "$SUPABASE_DB_URL" --include-seed
+else
+  supabase db push --db-url "$SUPABASE_DB_URL"
+fi

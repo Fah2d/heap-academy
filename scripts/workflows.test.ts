@@ -196,6 +196,17 @@ describe("workflows", () => {
     expect(job(text, "production")).toMatch(/^ {4}environment:\n {6}name: production$/m);
   });
 
+  it("[NFR-SEC-03] staging gets the sample course and production never does", () => {
+    const text = read("deploy.yml");
+    expect(step(job(text, "staging-migrations"), "Apply migrations to staging")).toContain(
+      "run: scripts/apply-migrations.sh --include-seed\n",
+    );
+    expect(step(job(text, "production"), "Apply migrations to production")).toMatch(
+      /^ {8}run: scripts\/apply-migrations\.sh$/m,
+    );
+    expect(job(text, "production")).not.toContain("seed");
+  });
+
   it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, and production waits for it", () => {
     const text = read("deploy.yml");
     expect(job(text, "staging-migrations")).toMatch(/^ {4}if: vars\.DEPLOY_ENABLED == 'true'$/m);

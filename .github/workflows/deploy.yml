@@ -49,10 +49,11 @@ jobs:
           mkdir "$RUNNER_TEMP/bin"
           scripts/install-supabase.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # Staging alone gets the sample course (07-operations.md section 2).
       - name: Apply migrations to staging
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: scripts/apply-migrations.sh
+        run: scripts/apply-migrations.sh --include-seed
 
   production:
     name: production

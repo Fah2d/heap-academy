@@ -2,6 +2,17 @@
 -- (.claude/rules/database.md). One sample course with the example lesson of
 -- docs/spec/04-content-system.md section 7, saved through save_lesson as a
 -- validated lesson so the publish rule holds.
+--
+-- The deploy workflow runs it on staging after every migration push
+-- (scripts/apply-migrations.sh --include-seed). It does nothing when the
+-- sample course already exists, so a second run is safe; a change to this
+-- file reaches a staging database that has it only after the rows are removed.
+
+do $seed$
+begin
+  if exists (select 1 from public.courses where id = '5eed0000-0000-4000-8000-000000000001') then
+    return;
+  end if;
 
 insert into public.courses (id, slug, title, summary) values (
   '5eed0000-0000-4000-8000-000000000001',
@@ -24,7 +35,7 @@ insert into public.lessons (id, course_id, chapter_id, slug, title) values (
   'Say hello by name'
 );
 
-select public.save_lesson(
+perform public.save_lesson(
   '5eed0000-0000-4000-8000-000000000003',
   (select updated_at from public.lessons where id = '5eed0000-0000-4000-8000-000000000003'),
   '5eed0000-0000-4000-8000-000000000002',
@@ -67,3 +78,5 @@ where id = '5eed0000-0000-4000-8000-000000000003';
 
 update public.courses set status = 'published'
 where id = '5eed0000-0000-4000-8000-000000000001';
+end;
+$seed$;
