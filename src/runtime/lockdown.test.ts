@@ -36,6 +36,12 @@ describe("network lock-down", () => {
     for (const name of BLOCKED_NAVIGATOR) expect(name in navigator, name).toBe(false);
   });
 
+  it("[T-01] blocks the navigator's beacon, service workers, and the origin's shared storage and locks", () => {
+    expect(BLOCKED_NAVIGATOR).toEqual(
+      expect.arrayContaining(["sendBeacon", "serviceWorker", "storage", "storageBuckets", "locks"]),
+    );
+  });
+
   it("[T-01] leaves what the runtime still needs", () => {
     const scope = fakeScope();
     lockDown(scope);

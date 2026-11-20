@@ -272,6 +272,9 @@ describe("run support (CPython)", () => {
       'print("next")',
     ]);
     expect(results.map((result) => result.report?.kind)).toEqual(["runtime", "runtime", "ok"]);
+    // A memory error whose attributes raise is still memory, so the worker is replaced.
+    const [memory] = runAll([property("__traceback__", "MemoryError")]);
+    expect(memory?.report?.kind).toBe("memory");
     expect(results[2]?.stdout).toBe("next\n");
   });
 
@@ -279,6 +282,16 @@ describe("run support (CPython)", () => {
     const [result] = runAll(["raise ValueError('x' * 100000)"]);
     expect(result?.report?.message).toHaveLength(SUMMARY_LIMIT);
     expect(result?.report?.message).toMatch(/^ValueError: x+$/);
+  });
+
+  it("[FR-RUN-01] keeps a syntax error's line one past the program's end, and drops one further", () => {
+    // Python 3.10 and later can point one past the last line ("if True:\n").
+    const [onePast, twoPast] = runAll([
+      'e = SyntaxError("x")\ne.lineno = 4\nraise e',
+      'e = SyntaxError("x")\ne.lineno = 5\nraise e',
+    ]);
+    expect(onePast?.report).toMatchObject({ kind: "syntax", line: 4 });
+    expect(twoPast?.report).toMatchObject({ kind: "syntax", line: undefined });
   });
 
   it("[FR-RUN-01] reports no line when a program raises a syntax error with a strange one", () => {

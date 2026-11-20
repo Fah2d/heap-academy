@@ -182,8 +182,10 @@ def _heap_make_runner(require_streaming):
         try:
             kind, message, line = outcome(failure)
         except base_exception:
-            # The error's own attributes raised; it is still the program's error.
-            kind, message, line = "runtime", "", None
+            # The error's own attributes raised; it is still the program's
+            # error. A memory error still ends in a new worker.
+            kind = "memory" if is_subclass(kind_of(failure), memory_error) else "runtime"
+            message, line = "", None
         dict_clear(namespace)
         namespace = None
         failure = None
