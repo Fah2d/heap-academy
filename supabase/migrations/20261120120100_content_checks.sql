@@ -44,7 +44,10 @@ as $$
       and (test_case ->> 'id') ~ '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$'
       and jsonb_typeof(test_case -> 'name') = 'string'
       and char_length(test_case ->> 'name') <= 80
-      and btrim(test_case ->> 'name') <> ''
+      -- Not blank: one character that is not whitespace as JavaScript's
+      -- trim() counts it, which is what src/grader's parser applies.
+      and (test_case ->> 'name')
+        ~ '[^ \t\n\u000b\f\r\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]'
       and jsonb_typeof(test_case -> 'expected') = 'string'
       and char_length(test_case ->> 'expected') <= 5000
       and (not test_case ? 'stdin'
@@ -64,7 +67,7 @@ as $$
 $$;
 
 -- Up to 12 test cases, each valid, with no repeated id. A draft may have none;
--- publishing needs a validation, and validation needs at least one.
+-- a published lesson needs at least one (lessons_published_complete).
 create function private.valid_test_cases(test_cases jsonb)
 returns boolean
 language sql

@@ -3,10 +3,12 @@
 -- docs/spec/04-content-system.md section 7, saved through save_lesson as a
 -- validated lesson so the publish rule holds.
 --
--- The deploy workflow runs it on staging after every migration push
--- (scripts/apply-migrations.sh --include-seed). It does nothing when the
--- sample course already exists, so a second run is safe; a change to this
--- file reaches a staging database that has it only after the rows are removed.
+-- The deploy workflow runs it on staging with the migrations
+-- (scripts/apply-migrations.sh --include-seed). The CLI records the file's
+-- hash and runs it once; when the file changes it only records the new hash.
+-- So a change reaches staging only after the sample rows and the file's row
+-- in supabase_migrations.seed_files are removed by hand. It also does nothing
+-- when the sample course already exists.
 
 do $seed$
 begin

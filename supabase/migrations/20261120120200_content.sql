@@ -47,6 +47,12 @@ create table public.lessons (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (course_id, slug),
+  -- A learner never sees a lesson with no instructions or no test case
+  -- (docs/spec/04-content-system.md section 1.3). A draft or an archived
+  -- lesson may lack both.
+  constraint lessons_published_complete check (
+    status <> 'published' or (char_length(instructions_md) >= 1 and jsonb_array_length(tests) >= 1)
+  ),
   -- The chapter must belong to the course. A chapter with lessons cannot be
   -- deleted.
   foreign key (chapter_id, course_id) references public.chapters (id, course_id)
@@ -76,8 +82,14 @@ revoke all on table public.courses, public.chapters, public.lessons, public.less
   from anon, authenticated;
 grant select on table public.courses, public.chapters, public.lessons to anon;
 grant select, insert, update, delete
-  on table public.courses, public.chapters, public.lessons, public.lesson_solutions
+  on table public.courses, public.chapters, public.lessons
   to authenticated;
+-- A solution stays with its lesson: only its code and wrong answers change,
+-- so no update can move a validated solution to another lesson (T-22).
+grant select, delete on table public.lesson_solutions to authenticated;
+grant insert (lesson_id, solution_code, wrong_answers) on table public.lesson_solutions
+  to authenticated;
+grant update (solution_code, wrong_answers) on table public.lesson_solutions to authenticated;
 
 create policy "everyone selects published courses" on public.courses
   for select to anon, authenticated

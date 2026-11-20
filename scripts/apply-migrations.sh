@@ -6,8 +6,11 @@
 # workflow log and never printed, and the connection must use TLS.
 #
 # `--include-seed` also runs supabase/seed.sql. Only the staging step passes
-# it: production is never seeded (.claude/rules/database.md). The seed skips
-# itself when the sample course already exists, so a later run changes nothing.
+# it: production is never seeded (.claude/rules/database.md). So that a wrong
+# URL in the staging environment cannot seed production, it also needs
+# SEED_PROJECT_REF, the staging project's reference, and refuses a URL that
+# does not name it. The CLI records each seed file it has run and runs it
+# once; the seed also skips itself when the sample course exists.
 set -eu
 
 seed=no
@@ -37,6 +40,20 @@ case "$SUPABASE_DB_URL" in
     exit 1
     ;;
 esac
+
+if [ "$seed" = yes ]; then
+  if [ -z "${SEED_PROJECT_REF:-}" ]; then
+    echo "apply-migrations: --include-seed needs SEED_PROJECT_REF, the staging project's reference." >&2
+    exit 1
+  fi
+  case "$SUPABASE_DB_URL" in
+    *"$SEED_PROJECT_REF"*) ;;
+    *)
+      echo "apply-migrations: SUPABASE_DB_URL does not name the project in SEED_PROJECT_REF; not seeding." >&2
+      exit 1
+      ;;
+  esac
+fi
 
 if ! ls supabase/migrations/*.sql >/dev/null 2>&1; then
   echo "apply-migrations: no migrations in supabase/migrations; nothing to apply."
