@@ -14,6 +14,14 @@
 // ends, in a `__str__` or a `__del__`, so the state is restored after the
 // program, again after its objects are freed, and before the next case.
 //
+// "The state" is what section 5.5 lists, plus the recursion limit and the
+// trace and profile hooks: builtins, the module table, the three streams and
+// a fresh namespace. Changes to a standard library module's attributes are
+// not undone (ADR-0004). Nor is the harness itself protected: a program can
+// reach its closure and change what later test cases on the same worker
+// report, so a check is evidence only for code that is not hostile, and
+// Validate starts a new worker for each program (`freshWorker`).
+//
 // This file must stay erasable TypeScript: the Node runner's thread loads it
 // with Node's own type stripping.
 
@@ -29,6 +37,8 @@ export const HARNESS_TEST_FILENAME = "test.py";
 export const HARNESS_OUTPUT_LIMIT = 64_000;
 /** The longest error summary a result carries, in characters. */
 export const HARNESS_MESSAGE_LIMIT = 1_000;
+/** The longest missing name a result carries; a longer one is left out. */
+export const HARNESS_NAME_LIMIT = 200;
 
 export const HARNESS_DEFINITION = String.raw`
 def _heap_make_grader():
@@ -44,6 +54,7 @@ def _heap_make_grader():
     test_file = "${HARNESS_TEST_FILENAME}"
     output_limit = ${HARNESS_OUTPUT_LIMIT}
     message_limit = ${HARNESS_MESSAGE_LIMIT}
+    name_limit = ${HARNESS_NAME_LIMIT}
 
     builtins_dict = builtins.__dict__
     builtins_snapshot = dict(builtins_dict)
@@ -52,6 +63,12 @@ def _heap_make_grader():
     modules_snapshot = dict(modules)
     sys_snapshot = {name: sys_dict[name] for name in ("modules", "stdin", "stdout", "stderr")}
     line_cache = linecache.cache
+    # Interpreter settings outside sys.__dict__ that a test case could change
+    # for the next one, or use to run its code inside the harness.
+    recursion_limit = sys.getrecursionlimit()
+    set_recursion_limit = sys.setrecursionlimit
+    set_trace = sys.settrace
+    set_profile = sys.setprofile
 
     dict_clear = dict.clear
     dict_update = dict.update
@@ -60,6 +77,7 @@ def _heap_make_grader():
     to_list = list
     to_text = str
     join = str.join
+    plain_text = str.__str__
     translate = str.translate
     split_lines = str.splitlines
     length = len
@@ -94,29 +112,36 @@ def _heap_make_grader():
     class OutputLimit(base_exception):
         pass
 
-    # Standard output of the program and the follow-up code. Past the limit
-    # a write keeps what fits and raises, so a flood stops at its next print.
-    class Capture(string_io):
-        def __init__(self):
-            string_io.__init__(self)
-            self.room = output_limit
-            self.truncated = False
+    # Standard output of the program and the follow-up code, and how much
+    # room is left. Past the limit a write keeps what fits and raises, so a
+    # flood stops at its next print. The count lives in the closure, not on
+    # the stream the program can reach; the result is cut to the limit again
+    # in any case.
+    def make_capture():
+        state = {"room": output_limit, "truncated": False}
 
-        def write(self, text):
-            if kind_of(text) is not to_text:
-                return string_io_write(self, text)
-            room = self.room
-            size = length(text)
-            if size <= room:
-                self.room = room - size
-                return string_io_write(self, text)
-            if room > 0:
-                string_io_write(self, text[:room])
-                self.room = 0
-            self.truncated = True
-            raise OutputLimit()
+        class Capture(string_io):
+            def write(self, text):
+                if not is_subclass(kind_of(text), to_text):
+                    return string_io_write(self, text)
+                text = plain_text(text)
+                room = state["room"]
+                size = length(text)
+                if size <= room:
+                    state["room"] = room - size
+                    return string_io_write(self, text)
+                if room > 0:
+                    string_io_write(self, text[:room])
+                    state["room"] = 0
+                state["truncated"] = True
+                raise OutputLimit()
+
+        return Capture(), state
 
     def restore():
+        set_trace(None)
+        set_profile(None)
+        set_recursion_limit(recursion_limit)
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
@@ -127,6 +152,14 @@ def _heap_make_grader():
 
     def register(name, source):
         line_cache[name] = (length(source), None, split_lines(source, True), name)
+
+    def innermost_file(error):
+        name = None
+        tb = error.__traceback__
+        while tb is not None:
+            name = tb.tb_frame.f_code.co_filename
+            tb = tb.tb_next
+        return name
 
     def program_line(error):
         line = None
@@ -164,20 +197,26 @@ def _heap_make_grader():
         if kind_of(line) is not integer or line < 1 or line > line_count + 1:
             line = None
         # Follow-up code that names something the program did not define:
-        # "This test needs something named area" (section 2.2).
+        # "This test needs something named area" (section 2.2). Only when the
+        # follow-up code itself raised: a typo inside the learner's function
+        # is the learner's error at its line.
         name = None
-        if stage == "after_code" and is_subclass(cls, name_error):
+        if stage == "after_code" and is_subclass(cls, name_error) and innermost_file(error) == test_file:
             name = attribute(error, "name", None)
-            if kind_of(name) is not to_text:
+            if kind_of(name) is not to_text or length(name) > name_limit or name == "":
                 name = None
         return kind, message, line, name
 
-    # Python ends with status 0 for exit(), exit(0) and exit(False).
+    # Python ends with status 0 for exit(), exit(0) and exit(False). An exit
+    # whose code cannot be read did not finish cleanly.
     def finished(error):
-        if not is_subclass(kind_of(error), system_exit):
+        try:
+            if not is_subclass(kind_of(error), system_exit):
+                return False
+            code = attribute(error, "code", None)
+            return code is None or code is False or (kind_of(code) is integer and code == 0)
+        except base_exception:
             return False
-        code = error.code
-        return code is None or code is False or (kind_of(code) is integer and code == 0)
 
     def result(stage, output, truncated, error):
         parts = [
@@ -196,12 +235,25 @@ def _heap_make_grader():
             parts.append(', "name": ' + ("null" if name is None else quote(name)) + "}}")
         return join("", parts)
 
+    # The harness never raises to its caller (section 3.1). Learner code can
+    # still reach the harness's own steps, through a hook or an object the
+    # harness touches; then the test case is the program's runtime error.
     def check(source, stdin, after_code):
+        try:
+            return run_case(source, stdin, after_code)
+        except base_exception:
+            try:
+                restore()
+            except base_exception:
+                pass
+            return result("program", "", False, ("runtime", "", None, None))
+
+    def run_case(source, stdin, after_code):
         restore()
         register(program_file, source)
         register(test_file, after_code)
         line_count = length(split_lines(source))
-        output = Capture()
+        output, state = make_capture()
         sys_dict["stdin"] = string_io(stdin)
         sys_dict["stdout"] = output
         sys_dict["stderr"] = string_io()
@@ -228,7 +280,10 @@ def _heap_make_grader():
             except base_exception:
                 error = ("runtime", "", None, None)
         text = string_io_value(output)
-        truncated = output.truncated is True
+        truncated = state["truncated"] is True
+        if length(text) > output_limit:
+            text = text[:output_limit]
+            truncated = True
         dict_clear(namespace)
         namespace = None
         failure = None

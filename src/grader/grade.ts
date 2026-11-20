@@ -6,7 +6,12 @@
 // bundler (ADR-0033), can import it.
 
 import { matches } from "./compare.ts";
-import { HARNESS_MESSAGE_LIMIT, HARNESS_OUTPUT_LIMIT, HARNESS_VERSION } from "./harness.ts";
+import {
+  HARNESS_MESSAGE_LIMIT,
+  HARNESS_NAME_LIMIT,
+  HARNESS_OUTPUT_LIMIT,
+  HARNESS_VERSION,
+} from "./harness.ts";
 import type { TestCase, TestCaseId } from "./test-case.ts";
 
 /** The errors learner code can end with inside the harness. */
@@ -124,7 +129,7 @@ function parseGradedError(value: unknown, allowMissingName: boolean): GradedErro
     error.line = line;
   }
   if (missingName !== undefined) {
-    if (!allowMissingName || !isTextWithin(missingName, 200) || missingName === "")
+    if (!allowMissingName || !isTextWithin(missingName, HARNESS_NAME_LIMIT) || missingName === "")
       return undefined;
     error.missingName = missingName;
   }
@@ -173,7 +178,8 @@ export function parseHarnessResult(text: unknown): HarnessResult | undefined {
       ...(line !== null && { line }),
       ...(name !== null && { missingName: name }),
     },
-    true,
+    // Only follow-up code can need a name, as on the page (parseTestResult).
+    stage === "after_code",
   );
   if (graded === undefined) return undefined;
   return { version, stage, output, truncated, error: graded };

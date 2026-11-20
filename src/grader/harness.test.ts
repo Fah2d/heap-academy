@@ -1,6 +1,11 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { type HarnessResult, parseHarnessResult } from "./grade.ts";
-import { HARNESS_OUTPUT_LIMIT, HARNESS_VERSION } from "./harness.ts";
+import {
+  HARNESS_DEFINITION,
+  HARNESS_NAME_LIMIT,
+  HARNESS_OUTPUT_LIMIT,
+  HARNESS_VERSION,
+} from "./harness.ts";
 import { type HarnessHost, loadHarness } from "./node-runner/host.ts";
 
 // The harness runs in Pyodide under Node, the same text the browser worker
@@ -142,7 +147,7 @@ describe("the harness", () => {
     expect(run('print(len("abc"), abs(-2))')).toMatchObject({ output: "3 2\n", error: undefined });
   });
 
-  it("[FR-RUN-04] the follow-up code gets the builtins back even when the program deleted them", () => {
+  it("[FR-RUN-04] the follow-up code shares the program's namespace and builtins, and the next test case gets them back", () => {
     expect(
       run("import builtins\ndel builtins.print", { afterCode: 'print("after")' }),
     ).toMatchObject({
@@ -192,5 +197,74 @@ describe("the harness", () => {
 
   it("[FR-GRD-01] a write of something that is not text is the program's error, not the harness's", () => {
     expect(run("import sys\nsys.stdout.write(3)").error).toMatchObject({ kind: "runtime" });
+  });
+
+  it("[FR-GRD-01] never raises: an exit whose code raises is the program's error, and the next test case runs", () => {
+    const source =
+      "class Odd(SystemExit):\n    @property\n    def code(self):\n        raise ValueError('boom')\nraise Odd()";
+    expect(run(source).error).toMatchObject({ kind: "runtime" });
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] never raises: a profile hook that runs inside the harness gives a result, and is removed", () => {
+    // run() throws if the harness raised or returned something that is not a result.
+    expect(run("import sys\nsys.setprofile(lambda *args: print('P'))").stage).toBe("program");
+    expect(run("import sys\nsys.setprofile(lambda *args: 1 / 0)").stage).toBe("program");
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] a misspelled name inside the learner's function is the learner's error, not a name the test needs", () => {
+    expect(
+      run("def area(w, h):\n    return wdth * h", { afterCode: "print(area(3, 4))" }).error,
+    ).toEqual({
+      kind: "runtime",
+      message: "NameError: name 'wdth' is not defined",
+      line: 2,
+    });
+  });
+
+  it("[FR-GRD-01] a missing name that is empty or too long is left out, and the result stays valid", () => {
+    const long = "n".repeat(HARNESS_NAME_LIMIT + 1);
+    expect(run("x = 1", { afterCode: `print(${long})` }).error).not.toHaveProperty("missingName");
+    expect(
+      run("x = 1", { afterCode: "raise NameError('gone', name='')" }).error,
+    ).not.toHaveProperty("missingName");
+  });
+
+  it("[FR-RUN-03] the output limit holds for text subclasses and for a program that edits the stream", () => {
+    const subclass = run(
+      "import sys\nclass S(str):\n    pass\nwhile True:\n    sys.stdout.write(S('x' * 1000))",
+    );
+    expect(subclass).toMatchObject({ error: { kind: "output_limit" }, truncated: true });
+    expect([...subclass.output].length).toBe(HARNESS_OUTPUT_LIMIT);
+    const direct = run(
+      "import io, sys\nfor _ in range(100):\n    io.StringIO.write(sys.stdout, 'x' * 1000)",
+    );
+    expect(direct.truncated).toBe(true);
+    expect([...direct.output].length).toBe(HARNESS_OUTPUT_LIMIT);
+  });
+
+  it("[FR-RUN-04] a builtin added in one test case is gone in the next", () => {
+    run("import builtins\nbuiltins.leftover = 7");
+    expect(run("print(leftover)").error).toMatchObject({
+      message: "NameError: name 'leftover' is not defined",
+    });
+  });
+
+  it("[FR-RUN-04] the recursion limit, trace hook and profile hook come back for the next test case", () => {
+    run("import sys\nsys.setrecursionlimit(40)\nsys.settrace(lambda *args: None)");
+    const deep =
+      "def depth(n):\n    return 0 if n == 0 else 1 + depth(n - 1)\nimport sys\nprint(depth(100), sys.gettrace())";
+    expect(run(deep)).toMatchObject({ output: "100 None\n", error: undefined });
+  });
+
+  it("[FR-GRD-04] the harness version changes with the harness: this hash is updated together with HARNESS_VERSION", () => {
+    // A stale cached worker is refused only if the version moves with the Python.
+    // FNV-1a over the UTF-16 code units: the grader's tests stay free of I/O modules.
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
+      hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
+    }
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "1", hash: 74732271 });
   });
 });

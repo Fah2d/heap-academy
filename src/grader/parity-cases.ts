@@ -1,6 +1,6 @@
 // The parity suite (FR-GRD-04): lessons, programs, and the verdict each test
 // case must get. The Node runner's test and the browser test
-// (e2e/grader-parity.spec.ts) run these same cases, so a verdict that differs
+// (e2e/grader-parity-runtime.spec.ts) run these same cases, so a verdict that differs
 // between Pyodide under Node and a browser engine fails one of them.
 
 import { EXAMPLE_LESSON } from "./example-lesson.ts";

@@ -2,7 +2,8 @@
 // in Pyodide inside a Node worker thread, with the browser's time limit
 // behavior. Each test case gets the limit; at the limit the thread is
 // terminated, that test case fails with `time_limit`, the ones after it are
-// not run, and the next check starts a new thread. The grader's own tests
+// not run, and the next check starts a new thread. After a memory error the
+// thread is replaced too, as the controller replaces the worker. The grader's own tests
 // and the parity suite use it (FR-GRD-04). Tests and scripts only (ADR-0032).
 
 import { Worker } from "node:worker_threads";
@@ -14,6 +15,7 @@ import {
   type TestResult,
   unfinished,
 } from "../grade.ts";
+import { HARNESS_VERSION } from "../harness.ts";
 import { TEST_CASE_TIME_LIMIT_MS, type TestCase } from "../test-case.ts";
 
 export type CheckReport = { results: TestResult[]; summary: CheckSummary };
@@ -102,7 +104,8 @@ export function createNodeRunner({ timeLimitMs = TEST_CASE_TIME_LIMIT_MS } = {})
       thread ??= startThread();
       const outcome = await runCase(await thread, source, testCase, timeLimitMs);
       const parsed = outcome.kind === "text" ? parseHarnessResult(outcome.text) : undefined;
-      if (parsed === undefined) {
+      // As in the worker: a result of another harness version is a broken runtime.
+      if (parsed === undefined || parsed.version !== HARNESS_VERSION) {
         // The clock ran out, or the thread or the harness broke: a new thread
         // for the next check, and nothing more on this one.
         await discard();
@@ -115,6 +118,8 @@ export function createNodeRunner({ timeLimitMs = TEST_CASE_TIME_LIMIT_MS } = {})
         break;
       }
       results.push(grade(testCase, parsed));
+      // As the controller does: a memory error may leave the runtime's memory grown.
+      if (parsed.error?.kind === "memory") await discard();
     }
     return { results, summary: summarize(results) };
   }

@@ -133,7 +133,7 @@ describe("the Node runner", () => {
   );
 
   it(
-    "[FR-RUN-04] a thread that dies during a test case is a crash, and the next check starts a new one",
+    "[FR-RUN-06] a thread that dies during a test case is a crash, and the next check starts a new one",
     async () => {
       const report = await runner.check("import os\nos._exit(1)", [
         one({}),

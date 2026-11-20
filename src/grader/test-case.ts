@@ -33,8 +33,8 @@ export const TEST_CASE_LIMITS = {
   hint: 200,
 } as const;
 
-/** The most test cases one check carries. Section 2.1 sets no number; this bounds a message. */
-export const CHECK_TEST_LIMIT = 50;
+/** A lesson has 1 to 12 test cases (section 1.3), so a check carries at most 12. */
+export const CHECK_TEST_LIMIT = 12;
 
 /** Each test case is its own run, with a run's time limit (section 2.2; FR-RUN-02). */
 export const TEST_CASE_TIME_LIMIT_MS = 5_000;

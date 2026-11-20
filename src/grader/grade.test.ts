@@ -183,7 +183,14 @@ describe("parseHarnessResult", () => {
     ["line 0", harnessText({ error: { kind: "runtime", message: "", line: 0, name: null } })],
     [
       "an empty missing name",
-      harnessText({ error: { kind: "runtime", message: "", line: null, name: "" } }),
+      harnessText({
+        stage: "after_code",
+        error: { kind: "runtime", message: "", line: null, name: "" },
+      }),
+    ],
+    [
+      "a missing name outside the follow-up code",
+      harnessText({ error: { kind: "runtime", message: "", line: null, name: "area" } }),
     ],
     [
       "an extra error field",
