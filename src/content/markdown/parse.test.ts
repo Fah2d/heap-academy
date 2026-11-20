@@ -208,6 +208,69 @@ describe("the Markdown allowlist", () => {
     );
   });
 
+  it("[NFR-SEC-07] a star run opens and closes only a run of its own length", () => {
+    expect(visibleText(parseMarkdown("Use *args and **kwargs in a call."))).toBe(
+      "Use *args and **kwargs in a call.",
+    );
+    expect(walk(parseMarkdown("Use *args and **kwargs in a call.")).inlines).toHaveLength(1);
+    expect(parseMarkdown("*a **b** c*")).toEqual([
+      {
+        kind: "paragraph",
+        children: [
+          {
+            kind: "emphasis",
+            children: [text("a "), { kind: "strong", children: [text("b")] }, text(" c")],
+          },
+        ],
+      },
+    ]);
+    expect(parseMarkdown("***both***")).toEqual([
+      {
+        kind: "paragraph",
+        children: [{ kind: "strong", children: [{ kind: "emphasis", children: [text("both")] }] }],
+      },
+    ]);
+  });
+
+  it("[NFR-SEC-07] a line that starts with an inline tag keeps its paragraph", () => {
+    expect(
+      parseMarkdown("Type your name.\n<name> is what you typed.\nThis line stays.\n\nNext."),
+    ).toEqual([
+      {
+        kind: "paragraph",
+        children: [text("Type your name.\n is what you typed.\nThis line stays.")],
+      },
+      { kind: "paragraph", children: [text("Next.")] },
+    ]);
+    expect(parseMarkdown("<kbd>Enter</kbd> runs the code, and this stays.")).toEqual([
+      { kind: "paragraph", children: [text("Enter runs the code, and this stays.")] },
+    ]);
+  });
+
+  it("[NFR-SEC-07] a line holding only a tag, a comment, or a script-like element drops its block", () => {
+    expect(parseMarkdown("<div>\nhidden\n</div>\n\nShown")).toEqual([
+      { kind: "paragraph", children: [text("Shown")] },
+    ]);
+    expect(parseMarkdown("<!--\nnote\n-->\nShown")).toEqual([
+      { kind: "paragraph", children: [text("Shown")] },
+    ]);
+    expect(parseMarkdown("Text\n<script>\nalert(1)\n</script>\nMore")).toEqual([
+      { kind: "paragraph", children: [text("Text")] },
+      { kind: "paragraph", children: [text("More")] },
+    ]);
+  });
+
+  it("[NFR-SEC-07] only a list starting at 1 interrupts a paragraph", () => {
+    expect(parseMarkdown("In the year\n2024. we started.")).toEqual([
+      { kind: "paragraph", children: [text("In the year\n2024. we started.")] },
+    ]);
+    expect(parseMarkdown("Steps:\n1. one")[1]?.kind).toBe("list");
+  });
+
+  it("[NFR-SEC-07] any ASCII punctuation can be escaped", () => {
+    expect(visibleText(parseMarkdown('a \\= b \\" c \\$ d \\a'))).toBe('a = b " c $ d \\a');
+  });
+
   it("[NFR-SEC-07] a code span keeps markers and tags as text", () => {
     expect(parseMarkdown("`<script>**x**</script>`")).toEqual([
       { kind: "paragraph", children: [{ kind: "code", text: "<script>**x**</script>" }] },
@@ -281,6 +344,12 @@ describe("malicious lessons", () => {
     expect(parseMarkdown("a ![alt text](https://example.com/x.png) b")).toEqual([
       { kind: "paragraph", children: [text("a  b")] },
     ]);
+  });
+
+  it("[T-06] a comment is dropped whole, inline and as a block", () => {
+    expect(visibleText(parseMarkdown("before <!-- <script>alert(1)</script> --> after"))).toBe(
+      "before  after",
+    );
   });
 
   it("[T-06] text joined across dropped markup stays one text node and never a link", () => {
@@ -398,6 +467,49 @@ describe("limits", () => {
     expect(node?.kind).toBe("paragraph");
     const stars = parseMarkdown(`${"*".repeat(500)}x${"*".repeat(500)}`);
     expect(stars).toHaveLength(1);
+  });
+
+  it("[NFR-SEC-07] lists and strong emphasis nest no deeper than the limit", () => {
+    const lists = parseMarkdown(`${"- ".repeat(50)}deep`);
+    let listDepth = 0;
+    let block: Block | undefined = lists[0];
+    while (block?.kind === "list") {
+      listDepth += 1;
+      block = block.items[0]?.[0];
+    }
+    expect(listDepth).toBe(MAX_DEPTH + 1);
+    expect(block?.kind).toBe("paragraph");
+
+    const strong = parseMarkdown(`${"**a ".repeat(50)}x${" b**".repeat(50)}`);
+    let strongDepth = 0;
+    let node: Inline | undefined =
+      strong[0]?.kind === "paragraph" ? strong[0].children[0] : undefined;
+    while (node?.kind === "strong") {
+      strongDepth += 1;
+      node = node.children.find((child) => child.kind === "strong") ?? node.children[0];
+    }
+    expect(strongDepth).toBe(MAX_DEPTH);
+  });
+
+  // Each of these once took seconds to minutes (catastrophic backtracking);
+  // the test fails by its timeout if one comes back.
+  const PATHOLOGICAL: [string, string][] = [
+    ["a heading of mixed spaces and tabs", `## a${" \t".repeat(9_000)}x`],
+    ["a fence of mixed spaces and tabs", `\`\`\`${" \t".repeat(9_000)}x`],
+    ["a delimiter row of mixed spaces and tabs", `|a|\n|-|${" \t".repeat(9_000)}x`],
+    ["a list item of mixed spaces and tabs", `-${" \t".repeat(9_000)}x`],
+    ["a quote of mixed spaces and tabs", `>${" \t".repeat(9_000)}x`],
+  ];
+  it.each(PATHOLOGICAL)("[T-14] [NFR-SEC-07] %s parses at once", (_name, markdown) => {
+    expect(parseMarkdown(markdown)).toHaveLength(1);
+  });
+
+  it("[NFR-SEC-07] the lesson limit counts characters, and never splits one", () => {
+    const emoji = "\u{1F600}".repeat(15_000);
+    expect(visibleText(parseMarkdown(emoji))).toBe(emoji);
+    const cut = visibleText(parseMarkdown(`${"a".repeat(MARKDOWN_LIMIT - 1)}\u{1F600}\u{1F600}`));
+    expect(cut.endsWith("a\u{1F600}")).toBe(true);
+    expect([...cut]).toHaveLength(MARKDOWN_LIMIT);
   });
 
   it("[NFR-SEC-07] a table wider than the limit stays text", () => {

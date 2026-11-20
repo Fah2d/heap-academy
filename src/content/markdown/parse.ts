@@ -54,7 +54,10 @@ const QUOTE = /^ {0,3}> ?(.*)$/;
 const LIST_ITEM = /^( {0,3})([-*+]|(\d{1,9})[.)])([ \t]+(.*))?$/;
 const DELIMITER_CELL = /^:?-+:?$/;
 const THEMATIC_BREAK = /^ {0,3}([-*_])([ \t]*\1){2,}[ \t]*$/;
-const HTML_BLOCK = /^ {0,3}<(?:!--|\/?[A-Za-z][A-Za-z0-9-]*(?:[\s/>]|$)|![A-Za-z]|\?)/;
+/** Raw HTML that starts a block, and may interrupt a paragraph: a comment, a declaration, or a script-like element. */
+const HTML_BLOCK = /^ {0,3}<(?:!--|![A-Za-z]|\?|([A-Za-z][A-Za-z0-9-]*)(?:[\s/>]|$))/;
+/** A line holding one tag and nothing else, which starts a block but cannot interrupt a paragraph. */
+const TAG_LINE = /^ {0,3}<\/?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?\/?>[ \t]*$/;
 const BLANK = /^[ \t]*$/;
 
 /** Elements whose content is dropped with them, not kept as text. */
@@ -86,9 +89,35 @@ function isDelimiterRow(line: string): boolean {
   return line.includes("-") && cells(line).every((cell) => DELIMITER_CELL.test(cell));
 }
 
+/** The first `MARKDOWN_LIMIT` characters, counted as code points, the way the database counts them. */
+function withinLimit(markdown: string): string {
+  if (markdown.length <= MARKDOWN_LIMIT) return markdown;
+  let count = 0;
+  let index = 0;
+  while (index < markdown.length && count < MARKDOWN_LIMIT) {
+    index += (markdown.codePointAt(index) ?? 0) > 0xffff ? 2 : 1;
+    count += 1;
+  }
+  return markdown.slice(0, index);
+}
+
+/** Whether `line` starts raw HTML that interrupts a paragraph. */
+function interruptingHtml(line: string): boolean {
+  const match = HTML_BLOCK.exec(line);
+  if (match === null) return false;
+  const name = match[1];
+  return name === undefined || DROPPED_WITH_CONTENT.test(name);
+}
+
+/** A list item may interrupt a paragraph if it is a bullet or starts at 1. */
+function interruptingItem(line: string): boolean {
+  const match = LIST_ITEM.exec(line);
+  return match !== null && (match[3] === undefined || Number(match[3]) === 1);
+}
+
 /** Parses lesson instructions. Text past the lesson limit is not read. */
 export function parseMarkdown(markdown: string): Block[] {
-  const lines = markdown.slice(0, MARKDOWN_LIMIT).replace(/\r\n?/g, "\n").split("\n");
+  const lines = withinLimit(markdown).replace(/\r\n?/g, "\n").split("\n");
   return blocks(lines, 0);
 }
 
@@ -143,7 +172,7 @@ function blocks(lines: string[], depth: number): Block[] {
       continue;
     }
 
-    if (HTML_BLOCK.test(line)) {
+    if (interruptingHtml(line) || TAG_LINE.test(line)) {
       index = skipHtmlBlock(lines, index);
       continue;
     }
@@ -192,8 +221,8 @@ function blocks(lines: string[], depth: number): Block[] {
         fence(current) !== undefined ||
         HEADING.test(current) ||
         QUOTE.test(current) ||
-        LIST_ITEM.test(current) ||
-        HTML_BLOCK.test(current) ||
+        interruptingItem(current) ||
+        interruptingHtml(current) ||
         THEMATIC_BREAK.test(current)
       ) {
         break;
@@ -265,7 +294,7 @@ function list(lines: string[], start: number, depth: number): { block: Block; ne
         fence(current) !== undefined ||
         HEADING.test(current) ||
         QUOTE.test(current) ||
-        HTML_BLOCK.test(current) ||
+        interruptingHtml(current) ||
         THEMATIC_BREAK.test(current)
       ) {
         break;
@@ -363,58 +392,66 @@ export function allowedHref(href: string): string | undefined {
   return url.href;
 }
 
-const ESCAPABLE = /[\\`*_{}[\]()#+\-.!|<>~]/;
+const ESCAPABLE = /[!-/:-@[-`{-~]/;
 const HTML_TAG = /^<(\/?)([A-Za-z][A-Za-z0-9-]*)(?:\s[^<>]*)?\/?>/;
 const AUTOLINK = /^<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>/;
 const WORD = /[\p{L}\p{N}]/u;
+const SPACE = /\s/;
 
-/** `inLink` is set inside a link's text, where a link may not open. */
+/**
+ * An emphasis run waiting for its closer: its marker, as written, and what
+ * has been read since it. If no closer comes, the marker is kept as text.
+ */
+type Frame = { marker: string; children: Inline[] };
+
+/**
+ * Inline content. Emphasis is matched in one pass with a stack of open runs
+ * (the CommonMark approach, simplified): a run of one, two or three `*` or
+ * `_` closes the nearest open run of the same marker, and the runs opened
+ * after that one are kept as text. A run opens before a non-space and
+ * closes after one; `_` also needs no letter or digit outside it, so
+ * `snake_case_name` stays as written. `inLink` is set inside a link's text,
+ * where a link may not open.
+ */
 function inlines(text: string, depth: number, inLink = false): Inline[] {
-  const out: Inline[] = [];
-  // Where a search for each emphasis marker's closer last failed. A closer
-  // is judged by its own position, so a later opener of the same marker
-  // finds none either; remembering this keeps the parse linear in the text.
-  const unclosed = new Map<string, number>();
-  const closer = (start: number, marker: string): number | undefined => {
-    if (!canOpen(text, start, marker)) return undefined;
-    const failed = unclosed.get(marker);
-    if (failed !== undefined && start >= failed) return undefined;
-    const found = closing(text, start, marker);
-    if (found === undefined) unclosed.set(marker, start);
-    return found;
-  };
+  const root: Frame = { marker: "", children: [] };
+  const frames: Frame[] = [root];
+  // How many frames of each marker are open, so a closer with none to
+  // match costs nothing and the pass stays linear.
+  const open = new Map<string, number>();
   const lastCommentEnd = text.lastIndexOf("-->");
-  let buffer = "";
-  const flush = () => {
-    if (buffer !== "") {
-      const last = out[out.length - 1];
-      if (last?.kind === "text") last.text += buffer;
-      else out.push({ kind: "text", text: buffer });
-      buffer = "";
-    }
+
+  const append = (target: Inline[], node: Inline) => {
+    const last = target[target.length - 1];
+    if (node.kind === "text" && last?.kind === "text") last.text += node.text;
+    else target.push(node.kind === "text" ? { kind: "text", text: node.text } : node);
   };
   const push = (node: Inline) => {
-    flush();
-    if (node.kind === "text") {
-      buffer = node.text;
-      return;
-    }
-    out.push(node);
+    const top = frames[frames.length - 1] ?? root;
+    if (node.kind === "text" && node.text === "") return;
+    append(top.children, node);
+  };
+  /** Ends the top frame without a closer: its marker and content become its parent's. */
+  const unwind = () => {
+    const frame = frames.pop();
+    if (frame === undefined || frame === root) return;
+    open.set(frame.marker, (open.get(frame.marker) ?? 1) - 1);
+    push({ kind: "text", text: frame.marker });
+    for (const child of frame.children) push(child);
   };
 
   let index = 0;
   while (index < text.length) {
     const character = text[index] ?? "";
-    const rest = text.slice(index);
 
     if (character === "\\" && ESCAPABLE.test(text[index + 1] ?? "")) {
-      buffer += text[index + 1];
+      push({ kind: "text", text: text[index + 1] ?? "" });
       index += 2;
       continue;
     }
 
     if (character === "`") {
-      const run = /^`+/.exec(rest)?.[0] ?? "`";
+      const run = /^`+/.exec(text.slice(index))?.[0] ?? "`";
       const close = text.indexOf(run, index + run.length);
       if (close !== -1) {
         let code = text.slice(index + run.length, close).replace(/\n/g, " ");
@@ -424,12 +461,13 @@ function inlines(text: string, depth: number, inLink = false): Inline[] {
         index = close + run.length;
         continue;
       }
-      buffer += run;
+      push({ kind: "text", text: run });
       index += run.length;
       continue;
     }
 
     if (character === "<") {
+      const rest = text.slice(index);
       if (rest.startsWith("<!--")) {
         const end = lastCommentEnd >= index + 4 ? text.indexOf("-->", index + 4) : -1;
         if (end !== -1) {
@@ -477,9 +515,10 @@ function inlines(text: string, depth: number, inLink = false): Inline[] {
     if (character === "[") {
       const parsed = link(text, index);
       if (parsed !== undefined) {
+        const level = depth + frames.length;
         const children =
-          depth < MAX_DEPTH
-            ? inlines(parsed.label, depth + 1, true)
+          level < MAX_DEPTH
+            ? inlines(parsed.label, level, true)
             : [{ kind: "text" as const, text: parsed.label }];
         const href = allowedHref(parsed.href);
         if (href !== undefined && !inLink) push({ kind: "link", href, children });
@@ -490,82 +529,48 @@ function inlines(text: string, depth: number, inLink = false): Inline[] {
     }
 
     if (character === "*" || character === "_") {
-      const strongMarker = character.repeat(2);
-      if (rest.startsWith(strongMarker)) {
-        const close = closer(index, strongMarker);
-        if (close !== undefined) {
-          const inner = text.slice(index + 2, close);
-          push(
-            depth < MAX_DEPTH
-              ? { kind: "strong", children: inlines(inner, depth + 1, inLink) }
-              : { kind: "text", text: inner },
-          );
-          index = close + 2;
-          continue;
-        }
-      }
-      const close = closer(index, character);
-      if (close !== undefined) {
-        const inner = text.slice(index + 1, close);
+      let end = index;
+      while (text[end] === character) end += 1;
+      const marker = text.slice(index, end);
+      const before = text[index - 1] ?? " ";
+      const after = text[end] ?? " ";
+      const underscore = character === "_";
+      const canClose =
+        marker.length <= 3 && !SPACE.test(before) && !(underscore && WORD.test(after));
+      const canOpen =
+        marker.length <= 3 && !SPACE.test(after) && !(underscore && WORD.test(before));
+      index = end;
+
+      if (canClose && (open.get(marker) ?? 0) > 0) {
+        while ((frames[frames.length - 1] ?? root).marker !== marker) unwind();
+        const frame = frames.pop() ?? root;
+        open.set(marker, (open.get(marker) ?? 1) - 1);
+        const children = frame.children;
         push(
-          depth < MAX_DEPTH
-            ? { kind: "emphasis", children: inlines(inner, depth + 1, inLink) }
-            : { kind: "text", text: inner },
+          marker.length === 1
+            ? { kind: "emphasis", children }
+            : marker.length === 2
+              ? { kind: "strong", children }
+              : { kind: "strong", children: [{ kind: "emphasis", children }] },
         );
-        index = close + 1;
         continue;
       }
-    }
-
-    buffer += character;
-    index += 1;
-  }
-  flush();
-  return out;
-}
-
-/**
- * Whether `marker` at `start` may open emphasis. It opens before a non-space;
- * `_` also needs no letter or digit before it, so `snake_case_name` stays as
- * written.
- */
-function canOpen(text: string, start: number, marker: string): boolean {
-  const after = text[start + marker.length] ?? "";
-  const before = text[start - 1] ?? "";
-  if (after === "" || /\s/.test(after)) return false;
-  return !(marker[0] === "_" && WORD.test(before));
-}
-
-/**
- * Where the emphasis opened at `start` by `marker` closes, if it does: after
- * a non-space, and for `_` before no letter or digit.
- */
-function closing(text: string, start: number, marker: string): number | undefined {
-  let index = start + marker.length + 1;
-  while (index <= text.length - marker.length) {
-    if (text[index] === "\\") {
-      index += 2;
+      if (canOpen && depth + frames.length <= MAX_DEPTH) {
+        frames.push({ marker, children: [] });
+        open.set(marker, (open.get(marker) ?? 0) + 1);
+        continue;
+      }
+      push({ kind: "text", text: marker });
       continue;
     }
-    if (text[index] === "`") {
-      const run = /^`+/.exec(text.slice(index))?.[0] ?? "`";
-      const close = text.indexOf(run, index + run.length);
-      if (close !== -1) {
-        index = close + run.length;
-        continue;
-      }
-    }
-    if (text.startsWith(marker, index)) {
-      const previous = text[index - 1] ?? "";
-      const next = text[index + marker.length] ?? "";
-      const doubled = marker.length === 1 && next === marker;
-      if (!/\s/.test(previous) && !doubled && !(marker[0] === "_" && WORD.test(next))) {
-        return index;
-      }
-    }
-    index += 1;
+
+    let plain = index + 1;
+    while (plain < text.length && !/[\\`<![*_]/.test(text[plain] ?? "")) plain += 1;
+    push({ kind: "text", text: text.slice(index, plain) });
+    index = plain;
   }
-  return undefined;
+  while (frames.length > 1) unwind();
+  return root.children;
 }
 
 /**
