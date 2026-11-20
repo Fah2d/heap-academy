@@ -8,7 +8,7 @@ The owner ran the browser suite again at e18643d, outside Claude Code: **39 pass
 
 - Work package: WP-1.4 Design tokens, primitives, and the shell.
 - Requirements: FR-SYS-01, NFR-A11Y-02, NFR-A11Y-03, NFR-A11Y-05, NFR-A11Y-06, NFR-A11Y-07, NFR-A11Y-08, NFR-I18N-01, NFR-I18N-02, NFR-I18N-03; goal G-4; ADR-0014, ADR-0015.
-- Time box 3 hours. Taken: about 3 h 10 min across the first two sessions (15:51 to 19:05 on 2026-11-16), and about 40 min of work in a third session for the screenshots, design reviews 2 to 4, the fixes and the owner's decisions. Total about 3 h 50 min after three sessions. The third session ran from 20:12 to about 23:50 on the clock: about 3 hours of that was a pause on a usage limit, with no work done. A fourth session on 2026-11-20, started after the owner's d48e68f at 13:16, ran design review 5, saved the owner's e2e output, updated this description and started design review 6. Its length is not measured; the total is near the 4.5 hour stop line.
+- Time box 3 hours. Taken: about 3 h 10 min across the first two sessions (15:51 to 19:05 on 2026-11-16), and about 40 min of work in a third session for the screenshots, design reviews 2 to 4, the fixes and the owner's decisions. Total about 3 h 50 min after three sessions. The third session ran from 20:12 to about 23:50 on the clock: about 3 hours of that was a pause on a usage limit, with no work done. A fourth session on 2026-11-20, started after the owner's d48e68f at 13:16, ran design review 5, saved the owner's e2e output, updated this description, and ran design reviews 6 and 7. Its length is not measured; the total is near the 4.5 hour stop line.
 
 ## How it was verified
 
@@ -29,10 +29,10 @@ exit=0
 ```
 
 - **End to end and axe, the owner's second run**, at e18643d on 2026-11-20 13:15, in the owner's terminal outside Claude Code: `playwright test --project=chromium --project=gallery`, **39 passed (16.8s)**. The raw output, as the owner pasted it, is `docs/reports/screens/WP-1.4/e2e-39-passed.txt`.
-  - e18643d's tree holds every code change on this branch. The only commit after it, d48e68f, changes screenshots only.
-  - The run includes `[ADR-0014] the current navigation link shows the text color and the amber marker` (test 37 in the output).
+  - e18643d's tree holds every code change on this branch. The commits after it change only screenshots (d48e68f) and documentation.
+  - The run includes `[ADR-0014] the current navigation link shows the text color and the amber marker`: test 37 in the output, whose line is shortened to `…ion link shows the text color and the amber marker`. That ending matches no other test.
   - 39 matches the spec files: gallery 4 widths × 5 + 1 current-link + 2 motion = 23; shell 4 + 4 × 3 = 16. `playwright test --list --project=chromium --project=gallery` here prints `Total: 39 tests in 2 files`.
-  - The summary line is `39 passed (16.8s)`, with no failed, flaky or skipped line. 34 tests have their own ✓ line. Tests 14, 16, 23, 28 and 33 have none. Matched by name against `--list`, those five are the not-found page's axe and 44 px tests at 768 px, and the gallery's open-dialog axe test at 375, 768 and 1280 px. Their pass rests on the summary line. The open-dialog tests save `gallery-dialog-375.png`, `-768.png` and `-1280.png`, and all three changed in d48e68f.
+  - The summary line is `39 passed (16.8s)`, with no failed, flaky or skipped line. 34 tests have their own ✓ line. Tests 14, 16, 23, 28 and 33 have none. Matched against `--list` by name and by run order (each spec file runs in one worker, in the order it is written; the output's lines are cut short, so the gallery widths come from the order), those five are the not-found page's axe and 44 px tests at 768 px, and the gallery's open-dialog axe test at 375, 768 and 1280 px. Their pass rests on the summary line. Each axe test saves its screenshot only after its check passes: `not-found-768.png` and `gallery-dialog-375.png`, `-768.png` and `-1280.png` all changed in d48e68f.
   - The four `[WebServer] ⨯ Error: The development error page failed on purpose.` blocks are `/dev/error` throwing by design, once for each width's error page test.
 - The owner's first run (head 790f66a) reported 38 passed, without raw output. The second run replaces it as evidence.
 - A browser still cannot start inside this machine's sandbox, so I ran none of this myself.
@@ -75,7 +75,7 @@ antislop Delivery Gate report, antislop active: during (global preference). The 
 Block 1, Hard Gate:
 
 - R-02 PASS: `grep` for an em dash over `src/` and `e2e/` finds none. Design review 2 found none in the screens.
-- R-03 PASS: the 320 and 375 px screenshots are single-column with 16 px gutters and full-width fields. At 320 px the right 16 px gutter is empty on every row except the header hairline. The dialog actions stack at full width, 44 px tall, 12 px apart (`gallery-dialog-320.png`). The sideways-scroll and 44 px tests passed in the 39-test run. Two of them, the not-found page's at 768 px, have no ✓ line of their own (see "How it was verified").
+- R-03 PASS: the 320 and 375 px screenshots are single-column with 16 px gutters and full-width fields. At 320 px the right 16 px gutter is empty on every row except the header hairline. The dialog actions stack at full width, 44 px tall, 12 px apart (`gallery-dialog-320.png`). The sideways-scroll and 44 px tests passed in the 39-test run. One of them, the not-found page's 44 px test at 768 px, has no ✓ line of its own (see "How it was verified").
 - R-17, R-18, R-36, R-38 PASS: no statistics, testimonials or claims. The gallery's "5.5 MB" is the measured Brotli runtime size (E-02, 5.46 MB), as design review 2 confirmed.
 - R-23 PASS: no logo, mark, avatar or illustration created (ADR-0031). The wordmark is text.
 - R-24 ACCEPTED BY THE OWNER until WP-5.1: the wordmark and "Go to the home page" point at `/`, which is a 404 until then (decision 1).
@@ -83,7 +83,7 @@ Block 1, Hard Gate:
 - R-26 PASS: every control has behavior. Retry calls `retry()`, the dialog opens and closes, the tabs switch. The `/` loop is under R-24.
 - R-27 PASS: the primitives carry their empty, disabled, invalid, read-only and error states, seen in the screenshots.
 - R-28 PASS: there is no FAQ.
-- R-32 PARTIAL. The skip-link keyboard test and the not-found keyboard test passed in the 39-test run. React Aria primitives and a 2 px amber focus ring token. No screenshot shows the focus ring, so the amber ring around the amber primary button is NOT VERIFIED.
+- R-32 PARTIAL. The skip-link keyboard test, and the not-found page's 44 px tests, which press Tab, passed in the 39-test run. React Aria primitives and a 2 px amber focus ring token. No screenshot shows the focus ring, so the amber ring around the amber primary button is NOT VERIFIED.
 - R-33 PASS: nothing is patched by an external script.
 - R-34 PASS: there is one theme (ADR-0015) and no toggle.
 - R-35 PARTIAL. The owner's run at e18643d drove the pages in Chromium with every code change on this branch: 39 passed, raw output in `docs/reports/screens/WP-1.4/e2e-39-passed.txt`. Still not done: I have not clicked through the app myself, and Firefox and WebKit were not run.
@@ -137,7 +137,7 @@ The reports are in `docs/reports/reviews/WP-1.4/`.
   - 3, the spec lines that still promise a reference: all four are listed under decision 3.
   - 4, no screenshot of the error page without a reference: listed as NOT VERIFIED under C-4.
 - **design-reviewer (4), of 554aab3: APPROVE PENDING SCREENSHOTS.** No collision or lost declaration. Its one MINOR, two more physical utilities (`focus:top-4`, `scroll-mt-4`), is fixed in 9d3182a; that two-class change was not reviewed again.
-- **design-reviewer (5), of the full diff with the d48e68f screenshots: CHANGES REQUESTED, on this description only.** The screens are right, and every fix from reviews 2 to 4 shows in them. Its four blockers all asked this description to match the new screenshots and the 39-test run. Each is fixed in this commit:
+- **design-reviewer (5), of the full diff with the d48e68f screenshots: CHANGES REQUESTED, on this description only.** The screens are right, and every fix from reviews 2 to 4 shows in them. Its four blockers all asked this description to match the new screenshots and the 39-test run. Each is fixed in 6c30622:
   1. "Screens" and the Gate header are rewritten against d48e68f.
   2. R-03, R-35, Block 3 and C-4 are restated from the new screenshots and the 39-test run. NOT VERIFIED is kept only for what is still unseen.
   3. The raw output of the 39-test run is in `docs/reports/screens/WP-1.4/e2e-39-passed.txt`, and R-25 and R-35 point at it.
@@ -145,7 +145,8 @@ The reports are in `docs/reports/reviews/WP-1.4/`.
   - The review said that once the blockers are fixed it becomes APPROVE WITH NOTES. The notes are under "Still listed, not fixed" and C-4, plus review 1's 12 and 14 and review 2's MINOR 6.
   - Its non-blocking note for WP-4.x: the tests panel should set test case names in Plex Mono (`DESIGN.md` section 2). The generic disclosure in the gallery uses Plex Sans.
   - It left e18643d out of scope: that commit is the owner's own `.claude/settings.json` change, made outside the design review.
-- **What closes the design review:** design review 6, of this description against the d48e68f screenshots and the 39-test run.
+- **design-reviewer (6), of 6c30622: CHANGES REQUESTED, one line.** It confirmed review 5's four blockers fixed and every claim about `e2e-39-passed.txt`. R-03 said two of the sideways-scroll and 44 px tests had no ✓ line; only the 44 px test at 768 px has none. Fixed, with its accuracy notes: the shortened test 37 line, "by name and run order", the commits after e18643d, and the R-32 wording. Report: `design-review-6.md`.
+- **What closes the design review:** design review 7, of the R-03 fix.
 
 ## Decisions
 
@@ -215,7 +216,7 @@ Run these in your own terminal, outside Claude Code, from the repository root:
    pkill -f "next start --hostname 127.0.0.1 --port 3190"
    ```
 
-Design review 6 is the last open item. Its approval is a "Done when" line.
+Design review 7 is the last open item. Its approval is a "Done when" line.
 
 Later, not in this pull request: the `spec-change` pull request (the header nav in WP-5.1, the footer element in WP-6.3, the `shell` module, the four error-reference lines), and the metric-matched mono fallback.
 
@@ -247,7 +248,7 @@ Interface foundation only: no data, no sign-in, nothing deployed. To roll back, 
 
 ## Definition of Done
 
-- [ ] Every "Done when" line is met, with evidence above. **Not met yet:** the design reviewer's approval waits on design review 6 of this description. Met:
+- [ ] Every "Done when" line is met, with evidence above. **Not met yet:** the design reviewer's approval waits on design review 7, of the R-03 fix. Met:
   - Screenshots: the 39-test run at e18643d, committed in d48e68f.
   - axe: the same run.
   - Contrast: met.
@@ -259,5 +260,6 @@ Interface foundation only: no data, no sign-in, nothing deployed. To roll back, 
 - [x] No new tables. No new server actions.
 - [x] Every reviewer blocker is fixed.
   - Design review 2's MAJOR 2 is confirmed on screen (d48e68f) and by test 37 of the 39-test run.
-  - Design review 5's four blockers were about this description and are fixed in this commit. Design review 6 checks them.
-- [x] No AI attribution in any commit or in this description. `git log --format='%an <%ae> | %cn <%ce>' ef7276c..HEAD` shows `Fahad <Fah2d@users.noreply.github.com>` as author and committer on all 36 commits before this description's commit.
+  - Design review 5's four blockers were about this description and are fixed in 6c30622.
+  - Design review 6 confirmed those four and found one wrong line in R-03, fixed in the commit after 6c30622. Design review 7 checks it.
+- [x] No AI attribution in any commit or in this description. `git log --format='%an <%ae> | %cn <%ce>' ef7276c..HEAD` shows `Fahad <Fah2d@users.noreply.github.com>` as author and committer on all 37 commits before the R-03 fix's commit.
