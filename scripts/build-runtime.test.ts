@@ -144,20 +144,24 @@ describe("runtime build", () => {
     compileWorker({ outDir, stagingDir: STAGING_DIR });
     const entry = join(outDir, WORKER_URL.replace(/^\/_runtime\//, ""));
     const files = [
-      "worker/python-worker.js",
-      "worker/core.js",
-      "worker/run-support.js",
-      "protocol.js",
-      "output.js",
-      "lockdown.js",
-      "manifest.js",
+      "runtime/worker/python-worker.js",
+      "runtime/worker/core.js",
+      "runtime/worker/run-support.js",
+      "runtime/protocol.js",
+      "runtime/output.js",
+      "runtime/lockdown.js",
+      "runtime/manifest.js",
+      "grader/harness.js",
+      "grader/grade.js",
+      "grader/compare.js",
+      "grader/test-case.js",
     ];
     for (const file of files) {
       const text = readFileSync(join(outDir, "worker", file), "utf8");
       // Every static import is a relative .js file: no bare package name,
       // which a worker cannot resolve without an import map.
       for (const [, specifier] of text.matchAll(/^import [^;]*? from "([^"]+)";/gm)) {
-        expect(specifier, `${file}: ${String(specifier)}`).toMatch(/^\.\.?\/[\w/-]+\.js$/);
+        expect(specifier, `${file}: ${String(specifier)}`).toMatch(/^(?:\.\.?\/)+[\w/-]+\.js$/);
       }
     }
     expect(readFileSync(entry, "utf8")).toContain('addEventListener("message"');

@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { runtimeDev } from "../src/messages/runtime-dev";
 import { BLOCKED_GLOBALS, BLOCKED_NAVIGATOR } from "../src/runtime/lockdown";
 import { OUTPUT_LIMIT } from "../src/runtime/protocol";
+import { WORKER_URL } from "../src/runtime/assets";
 
 // WP-3.1's "Done when", in Chromium, Firefox and WebKit (the runtime-*
 // projects), against the development-only runtime page. Each program runs
@@ -305,9 +306,7 @@ test.describe("Python runtime files", () => {
   test("[T-01] the worker script carries its own policy, and the page's has no wasm-unsafe-eval", async ({
     page,
   }) => {
-    const workerResponse = page.waitForResponse((response) =>
-      response.url().endsWith("/_runtime/worker/worker/python-worker.js"),
-    );
+    const workerResponse = page.waitForResponse((response) => response.url().endsWith(WORKER_URL));
     const pageResponse = await page.goto("/dev/runtime");
     const policy = (await workerResponse).headers()["content-security-policy"] ?? "";
     expect(policy).toContain("script-src 'self' 'wasm-unsafe-eval'");

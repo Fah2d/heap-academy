@@ -50,6 +50,10 @@ export function reduceView(
       return { ...view, status, result: event.result };
     case "restarting":
       return { ...view, status, restarts: view.restarts + 1, progress: undefined };
+    // This page sends runs only; a check's results belong to the workspace (WP-5.2).
+    case "test_result":
+    case "check_done":
+      return { ...view, status };
     default: {
       const unreachable: never = event;
       return unreachable;

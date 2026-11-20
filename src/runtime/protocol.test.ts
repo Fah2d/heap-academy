@@ -1,3 +1,4 @@
+import { HARNESS_VERSION } from "../grader/harness.ts";
 import { describe, expect, it } from "vitest";
 import {
   createRunId,
@@ -11,18 +12,71 @@ import {
 } from "./protocol.ts";
 
 const runId = createRunId(1);
+const test = {
+  id: "greets-sara",
+  name: "Greets Sara by name",
+  stdin: "Sara\n",
+  afterCode: "",
+  expected: "What is your name? Hello, Sara!",
+  match: "normalized",
+  hint: "",
+};
+const passed = {
+  testCaseId: "greets-sara",
+  status: "passed",
+  actual: "What is your name? Hello, Sara!\n",
+  truncated: false,
+  harnessVersion: HARNESS_VERSION,
+};
+const summary = { total: 1, passed: 1, failed: 0, notRun: 0, allPassed: true, timeLimit: false };
 
 describe("page messages", () => {
   it("[NFR-SEC-01] accepts each message the page sends", () => {
     for (const message of [
-      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/" },
+      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/", harnessVersion: HARNESS_VERSION },
       { type: "run", runId, source: "print(1)", mode: "batch" },
       { type: "run", runId, source: "x = input()", mode: "batch", stdin: ["Ada"] },
       { type: "input", runId, line: "Ada" },
       { type: "input_end", runId },
+      { type: "check", runId, source: "print(1)", tests: [test] },
     ]) {
       expect(parsePageMessage(message)).toEqual({ ok: true, value: message });
     }
+  });
+
+  it.each([
+    [
+      "an init without the harness version",
+      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/" },
+      "missing_field",
+    ],
+    [
+      "a check without test cases",
+      { type: "check", runId, source: "", tests: [] },
+      "invalid_field",
+    ],
+    [
+      "a check whose test case is over a limit",
+      { type: "check", runId, source: "", tests: [{ ...test, hint: "x".repeat(201) }] },
+      "invalid_field",
+    ],
+    [
+      "a check with a null test case",
+      { type: "check", runId, source: "", tests: [null] },
+      "invalid_field",
+    ],
+    [
+      "a check with an extra field",
+      { type: "check", runId, source: "", tests: [test], solution: "" },
+      "unknown_field",
+    ],
+    [
+      "a check over the program limit",
+      { type: "check", runId, source: "x".repeat(SOURCE_LIMIT + 1), tests: [test] },
+      "invalid_field",
+    ],
+  ])("[FR-GRD-01] refuses %s", (_name, message, error) => {
+    expect(parsePageMessage(message)).toEqual({ ok: false, error });
   });
 
   it.each([
@@ -63,7 +117,7 @@ describe("page messages", () => {
     ],
     [
       "an asset base on another site over http",
-      { type: "init", assetBase: "http://example.com/" },
+      { type: "init", assetBase: "http://example.com/", harnessVersion: HARNESS_VERSION },
       "invalid_field",
     ],
   ])("[NFR-SEC-01] refuses %s", (_name, message, error) => {
@@ -87,6 +141,8 @@ describe("worker messages", () => {
         durationMs: 3,
       },
       { type: "fatal", reason: "lockdown_failed" },
+      { type: "test_result", runId, result: passed },
+      { type: "check_done", runId, summary },
     ]) {
       expect(parseWorkerMessage(message)).toEqual({ ok: true, value: message });
     }
@@ -155,6 +211,27 @@ describe("worker messages", () => {
     ],
   ])("[NFR-SEC-01] refuses %s", (_name, message, error) => {
     expect(parseWorkerMessage(message)).toEqual({ ok: false, error });
+  });
+});
+
+describe("check results from the worker", () => {
+  it.each([
+    ["a result that is not one", { type: "test_result", runId, result: { status: "passed" } }],
+    [
+      "a result marked passed and truncated",
+      { type: "test_result", runId, result: { ...passed, truncated: true } },
+    ],
+    ["a null result", { type: "test_result", runId, result: null }],
+    [
+      "a summary whose counts do not add up",
+      { type: "check_done", runId, summary: { ...summary, passed: 2 } },
+    ],
+    [
+      "a summary that says all passed when one failed",
+      { type: "check_done", runId, summary: { ...summary, passed: 0, failed: 1 } },
+    ],
+  ])("[FR-GRD-01] refuses %s", (_name, message) => {
+    expect(parseWorkerMessage(message)).toEqual({ ok: false, error: "invalid_field" });
   });
 });
 

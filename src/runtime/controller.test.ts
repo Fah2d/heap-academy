@@ -1,3 +1,5 @@
+import { HARNESS_VERSION } from "../grader/harness.ts";
+import type { TestCaseId } from "../grader/test-case.ts";
 import { describe, expect, it } from "vitest";
 import {
   type ControllerEvent,
@@ -6,7 +8,7 @@ import {
   TIME_LIMIT_MS,
   type WorkerLike,
 } from "./controller.ts";
-import { OUTPUT_LIMIT, type PageMessage } from "./protocol.ts";
+import { createRunId, OUTPUT_LIMIT, type PageMessage } from "./protocol.ts";
 
 // The controller with a fake worker and a fake clock. The real worker and
 // the real clock are in the browser tests (e2e/runtime.spec.ts).
@@ -93,7 +95,7 @@ describe("runtime controller", () => {
     const setup = setUp();
     setup.controller.start();
     expect(setup.latest().received).toEqual([
-      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/" },
+      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/", harnessVersion: HARNESS_VERSION },
     ]);
     setup.latest().send({ type: "progress", loadedBytes: 5, totalBytes: 10 });
     setup.makeReady();
@@ -335,5 +337,209 @@ describe("runtime controller", () => {
     expect(setup.latest().terminated).toBe(true);
     expect(setup.timers.size).toBe(0);
     expect(setup.controller.status).toBe("disposed");
+  });
+});
+
+describe("runtime controller: checks", () => {
+  const test = (id: string) => ({
+    id: id as TestCaseId,
+    name: id,
+    stdin: "",
+    afterCode: "",
+    expected: "1",
+    match: "normalized" as const,
+    hint: "",
+  });
+  const tests = [test("first"), test("second"), test("third")];
+  const passed = (id: string) => ({
+    testCaseId: id,
+    status: "passed",
+    actual: "1\n",
+    truncated: false,
+    harnessVersion: HARNESS_VERSION,
+  });
+
+  function checking() {
+    const setup = started();
+    const request = setup.controller.check("print(1)", tests);
+    if (!request.ok) throw new Error("check refused");
+    return { ...setup, runId: request.runId };
+  }
+
+  it("[FR-GRD-01] sends a check, passes each result on, and reports the results and the summary", () => {
+    const setup = checking();
+    const { runId } = setup;
+    expect(setup.controller.status).toBe("checking");
+    expect(setup.latest().received.at(-1)).toEqual({
+      type: "check",
+      runId,
+      source: "print(1)",
+      tests,
+    });
+    for (const id of ["first", "second", "third"]) {
+      setup.latest().send({ type: "test_result", runId, result: passed(id) });
+    }
+    const summary = {
+      total: 3,
+      passed: 3,
+      failed: 0,
+      notRun: 0,
+      allPassed: true,
+      timeLimit: false,
+    };
+    setup.latest().send({ type: "check_done", runId, summary });
+    expect(setup.events.map((event) => event.type)).toEqual([
+      "test_result",
+      "test_result",
+      "test_result",
+      "check_done",
+    ]);
+    expect(setup.events.at(-1)).toEqual({
+      type: "check_done",
+      runId,
+      results: ["first", "second", "third"].map(passed),
+      summary,
+    });
+    expect(setup.controller.status).toBe("ready");
+    expect(setup.workers).toHaveLength(1);
+  });
+
+  it("[FR-RUN-02] gives each test case the full time limit", () => {
+    const setup = checking();
+    setup.advance(TIME_LIMIT_MS - 1);
+    setup.latest().send({ type: "test_result", runId: setup.runId, result: passed("first") });
+    setup.advance(TIME_LIMIT_MS - 1);
+    expect(setup.controller.status).toBe("checking");
+    expect(setup.workers).toHaveLength(1);
+  });
+
+  it("[FR-RUN-02] at the limit, the running test case fails, the rest are not run, and a new worker starts", () => {
+    const setup = checking();
+    setup.latest().send({ type: "test_result", runId: setup.runId, result: passed("first") });
+    setup.advance(TIME_LIMIT_MS);
+    const done = setup.events.find((event) => event.type === "check_done");
+    expect(done).toMatchObject({
+      results: [
+        { testCaseId: "first", status: "passed" },
+        { testCaseId: "second", status: "failed", reason: "time_limit" },
+        { testCaseId: "third", status: "not_run" },
+      ],
+      summary: { passed: 1, failed: 1, notRun: 1, allPassed: false, timeLimit: true },
+    });
+    expect(setup.workers[0]?.terminated).toBe(true);
+    expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "time_limit" });
+    expect(setup.controller.status).toBe("restarting");
+  });
+
+  it("[FR-WSP-07] Stop ends a check and starts a new worker", () => {
+    const setup = checking();
+    setup.controller.stop();
+    expect(setup.events.find((event) => event.type === "check_done")).toMatchObject({
+      results: [
+        { status: "failed", reason: "stopped" },
+        { status: "not_run" },
+        { status: "not_run" },
+      ],
+    });
+    expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "stopped" });
+  });
+
+  it("[NFR-REL-03] a worker that dies during a check fails the running test case and is replaced", () => {
+    const setup = checking();
+    setup.latest().fail();
+    expect(setup.events.find((event) => event.type === "check_done")).toMatchObject({
+      results: [
+        { status: "failed", reason: "crashed" },
+        { status: "not_run" },
+        { status: "not_run" },
+      ],
+    });
+    expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "crashed" });
+  });
+
+  it("[NFR-SEC-01] a result out of order, or a summary that disagrees with the results, means the worker is broken", () => {
+    const outOfOrder = checking();
+    outOfOrder
+      .latest()
+      .send({ type: "test_result", runId: outOfOrder.runId, result: passed("second") });
+    expect(outOfOrder.reports).toContainEqual({
+      code: "unexpected_message",
+      messageType: "test_result",
+    });
+    expect(outOfOrder.events.at(-1)).toEqual({ type: "restarting", reason: "crashed" });
+
+    const disagrees = checking();
+    disagrees
+      .latest()
+      .send({ type: "test_result", runId: disagrees.runId, result: passed("first") });
+    disagrees.latest().send({
+      type: "check_done",
+      runId: disagrees.runId,
+      summary: { total: 1, passed: 1, failed: 0, notRun: 0, allPassed: true, timeLimit: false },
+    });
+    expect(disagrees.reports).toContainEqual({
+      code: "unexpected_message",
+      messageType: "check_done",
+    });
+    expect(disagrees.events.find((event) => event.type === "check_done")).toMatchObject({
+      results: [
+        { status: "passed" },
+        { status: "failed", reason: "crashed" },
+        { status: "not_run" },
+      ],
+    });
+  });
+
+  it("[NFR-SEC-01] drops check messages for another run, and run messages during a check", () => {
+    const setup = checking();
+    setup.latest().send({ type: "test_result", runId: createRunId(99), result: passed("first") });
+    setup.latest().send({ type: "output", runId: setup.runId, stream: "stdout", text: "x" });
+    setup.latest().send({
+      type: "run_done",
+      runId: setup.runId,
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 1,
+    });
+    expect(setup.reports).toEqual([
+      { code: "unexpected_message", messageType: "test_result" },
+      { code: "unexpected_message", messageType: "output" },
+      { code: "unexpected_message", messageType: "run_done" },
+    ]);
+    expect(setup.controller.status).toBe("checking");
+  });
+
+  it("[FR-RUN-06] a memory error in a test case starts a new worker after the check", () => {
+    const setup = checking();
+    const memory = {
+      testCaseId: "first",
+      status: "failed",
+      reason: "program_error",
+      actual: "",
+      truncated: false,
+      error: { kind: "memory", message: "MemoryError" },
+      harnessVersion: HARNESS_VERSION,
+    };
+    setup.latest().send({ type: "test_result", runId: setup.runId, result: memory });
+    setup.latest().send({ type: "test_result", runId: setup.runId, result: passed("second") });
+    setup.latest().send({ type: "test_result", runId: setup.runId, result: passed("third") });
+    setup.latest().send({
+      type: "check_done",
+      runId: setup.runId,
+      summary: { total: 3, passed: 2, failed: 1, notRun: 0, allPassed: false, timeLimit: false },
+    });
+    expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "memory" });
+  });
+
+  it("[FR-GRD-01] refuses a check before ready, during a run, or with test cases the worker would refuse", () => {
+    const notStarted = setUp();
+    notStarted.controller.start();
+    expect(notStarted.controller.check("x", tests)).toEqual({ ok: false, error: "not_ready" });
+    const busy = started();
+    busy.controller.run("print(1)");
+    expect(busy.controller.check("x", tests)).toEqual({ ok: false, error: "not_ready" });
+    const invalid = started();
+    expect(invalid.controller.check("x", [])).toEqual({ ok: false, error: "invalid" });
+    expect(invalid.latest().received).toHaveLength(1);
   });
 });

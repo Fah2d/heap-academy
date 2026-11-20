@@ -11,6 +11,8 @@ import {
 import type { LockdownResult } from "../lockdown.ts";
 import { parseRuntimeManifest, type RuntimeManifest } from "../manifest.ts";
 import { parseRunReport, RUN_SUPPORT_SOURCE } from "./run-support.ts";
+import { grade, parseHarnessResult, summarize, type TestResult } from "../../grader/grade.ts";
+import { HARNESS_SOURCE, HARNESS_VERSION } from "../../grader/harness.ts";
 
 // What the Python worker does with each message (architecture sections 5.1
 // to 5.6). The worker's entry file connects this to the real global scope;
@@ -42,11 +44,15 @@ export type WorkerHost = {
 export const PROGRESS_INTERVAL_MS = 50;
 
 type Runner = (source: string) => unknown;
+/** The harness's `check` for one test case (docs/spec/04-content-system.md section 3.1). */
+type Checker = (source: string, stdin: string, afterCode: string) => unknown;
+
+type Loaded = { runtime: Runtime; run: Runner; check: Checker };
 
 type State =
   | { name: "idle" }
   | { name: "loading" }
-  | { name: "ready"; runtime: Runtime; run: Runner }
+  | ({ name: "ready" } & Loaded)
   | { name: "running" }
   | { name: "dead" };
 
@@ -100,6 +106,7 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
 
     let runtime: Runtime;
     let run: Runner;
+    let check: Checker;
     try {
       const loader = await host.importModule(`${assetBase}pyodide.mjs`);
       imported("pyodide.mjs");
@@ -116,8 +123,12 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       if (loaded.version !== manifest.version) return die("version_mismatch");
       const runner: unknown = loaded.runPython(RUN_SUPPORT_SOURCE);
       if (typeof runner !== "function") return die("load_failed");
+      const checker: unknown = loaded.runPython(HARNESS_SOURCE);
+      if (typeof checker !== "function") return die("load_failed");
       runtime = loaded;
       run = (source) => Reflect.apply(runner, undefined, [source]) as unknown;
+      check = (source, stdin, afterCode) =>
+        Reflect.apply(checker, undefined, [source, stdin, afterCode]) as unknown;
     } catch {
       return die("load_failed");
     } finally {
@@ -128,7 +139,7 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     if (!host.lockDown().ok) return die("lockdown_failed");
     loadedBytes = totalBytes;
     report(true);
-    state = { name: "ready", runtime, run };
+    state = { name: "ready", runtime, run, check };
     // Interactive input arrives in WP-3.2; until then every run is batch.
     host.post({
       type: "ready",
@@ -137,11 +148,8 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     });
   }
 
-  function execute(
-    runtime: Runtime,
-    run: Runner,
-    message: Extract<PageMessage, { type: "run" }>,
-  ): void {
+  function execute(loaded: Loaded, message: Extract<PageMessage, { type: "run" }>): void {
+    const { runtime, run } = loaded;
     const { runId } = message;
     const started = host.now();
     const output = createOutputCollector({
@@ -205,7 +213,7 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
             message: head(report.message, MESSAGE_LIMIT),
             ...(report.line !== undefined && { line: report.line }),
           };
-    state = { name: "ready", runtime, run };
+    state = { name: "ready", ...loaded };
     host.post({
       type: "run_done",
       runId,
@@ -213,6 +221,40 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       truncated: output.truncated,
       durationMs: Math.max(0, Math.round(host.now() - started)),
     });
+  }
+
+  /**
+   * Runs each test case in turn with the harness, which captures output and
+   * input itself (section 2.2), and posts each result as it is decided, so
+   * the page's clock restarts for every test case. Checks always use the
+   * test case's input, whatever the input strategy (architecture section 5.3).
+   */
+  function runChecks(loaded: Loaded, message: Extract<PageMessage, { type: "check" }>): void {
+    const { runtime, check } = loaded;
+    const { runId } = message;
+    // Nothing a test case writes past the harness, through sys.__stdout__,
+    // may reach the page as a run's output.
+    const discard = { write: (buffer: Uint8Array) => buffer.length };
+    runtime.setStdout(discard);
+    runtime.setStderr(discard);
+    runtime.setStdin({ stdin: () => undefined });
+    const results: TestResult[] = [];
+    for (const testCase of message.tests) {
+      let text: unknown;
+      try {
+        text = check(message.source, testCase.stdin, testCase.afterCode);
+      } catch {
+        // The harness never raises; the runtime itself failed.
+        return die("runtime_crashed");
+      }
+      const parsed = parseHarnessResult(text);
+      if (parsed === undefined || parsed.version !== HARNESS_VERSION) return die("runtime_crashed");
+      const result = grade(testCase, parsed);
+      results.push(result);
+      host.post({ type: "test_result", runId, result });
+    }
+    state = { name: "ready", ...loaded };
+    host.post({ type: "check_done", runId, summary: summarize(results) });
   }
 
   function receive(data: unknown): void {
@@ -223,6 +265,9 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     switch (message.type) {
       case "init":
         if (state.name !== "idle") return die("unexpected_message");
+        // The page and this worker were built together; a different harness
+        // means a stale cached worker, whose verdicts the page cannot trust.
+        if (message.harnessVersion !== HARNESS_VERSION) return die("version_mismatch");
         state = { name: "loading" };
         void load(message.assetBase);
         return;
@@ -231,9 +276,16 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
         if (state.name !== "ready" || message.mode !== "batch") {
           return die("unexpected_message");
         }
-        const { runtime, run } = state;
+        const loaded = state;
         state = { name: "running" };
-        execute(runtime, run, message);
+        execute(loaded, message);
+        return;
+      }
+      case "check": {
+        if (state.name !== "ready") return die("unexpected_message");
+        const loaded = state;
+        state = { name: "running" };
+        runChecks(loaded, message);
         return;
       }
       case "input":

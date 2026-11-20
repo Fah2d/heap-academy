@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WorkerMessage } from "../protocol.ts";
 import { createRunId, MESSAGE_LIMIT, parseWorkerMessage } from "../protocol.ts";
+import { HARNESS_VERSION } from "../../grader/harness.ts";
 import { createWorkerCore, type Runtime, type WorkerHost } from "./core.ts";
 
 // The worker's message handling with a fake Pyodide. The real one runs in the
@@ -93,7 +94,7 @@ function setUp({
 }
 
 async function ready(setup: ReturnType<typeof setUp>) {
-  setup.core.receive({ type: "init", assetBase: BASE });
+  setup.core.receive({ type: "init", assetBase: BASE, harnessVersion: HARNESS_VERSION });
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
@@ -141,8 +142,13 @@ describe("worker: loading", () => {
 
   it("[NFR-SEC-01] gives up on a malformed message, and then ignores everything", async () => {
     const setup = setUp();
-    setup.core.receive({ type: "init", assetBase: BASE, code: "alert(1)" });
-    setup.core.receive({ type: "init", assetBase: BASE });
+    setup.core.receive({
+      type: "init",
+      assetBase: BASE,
+      harnessVersion: HARNESS_VERSION,
+      code: "alert(1)",
+    });
+    setup.core.receive({ type: "init", assetBase: BASE, harnessVersion: HARNESS_VERSION });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(setup.posted).toEqual([{ type: "fatal", reason: "malformed_message" }]);
   });
@@ -295,5 +301,153 @@ describe("worker: runs", () => {
       stream: "stdout",
       text: "é\n",
     });
+  });
+});
+
+describe("worker: checks", () => {
+  const tests = [
+    {
+      id: "first",
+      name: "Prints 1",
+      stdin: "a\n",
+      afterCode: "",
+      expected: "1",
+      match: "normalized",
+      hint: "",
+    },
+    {
+      id: "second",
+      name: "Prints 2",
+      stdin: "",
+      afterCode: "print(2)",
+      expected: "2",
+      match: "normalized",
+      hint: "",
+    },
+  ] as const;
+  const harness = (output: string) =>
+    JSON.stringify({
+      version: HARNESS_VERSION,
+      stage: "program",
+      output,
+      truncated: false,
+      error: null,
+    });
+
+  it("[FR-GRD-01] runs each test case with the harness, posts each result, then the summary", async () => {
+    const { runtime, programs } = fakeRuntime();
+    const seen: string[] = [];
+    let outputs = ["1\n", "3\n"];
+    programs.set("program", (io) => {
+      seen.push(String(io.input()));
+      const [next, ...rest] = outputs;
+      outputs = rest;
+      return harness(next ?? "");
+    });
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.posted.length = 0;
+    setup.core.receive({ type: "check", runId, source: "program", tests });
+    // The harness reads the test case's input itself; the runtime's stdin is closed.
+    expect(seen).toEqual(["undefined", "undefined"]);
+    expect(setup.posted.map((message) => message.type)).toEqual([
+      "test_result",
+      "test_result",
+      "check_done",
+    ]);
+    expect(setup.posted[0]).toMatchObject({
+      type: "test_result",
+      runId,
+      result: { testCaseId: "first", status: "passed" },
+    });
+    expect(setup.posted[1]).toMatchObject({
+      result: { testCaseId: "second", status: "failed", reason: "mismatch", actual: "3\n" },
+    });
+    expect(setup.posted[2]).toEqual({
+      type: "check_done",
+      runId,
+      summary: { total: 2, passed: 1, failed: 1, notRun: 0, allPassed: false, timeLimit: false },
+    });
+    for (const message of setup.posted) expect(parseWorkerMessage(message).ok).toBe(true);
+  });
+
+  it("[FR-GRD-01] nothing a test case writes past the harness reaches the page", async () => {
+    const { runtime, programs } = fakeRuntime();
+    programs.set("program", (io) => {
+      io.print("leak\n");
+      io.print("leak\n", "stderr");
+      return harness("1\n");
+    });
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.posted.length = 0;
+    setup.core.receive({ type: "check", runId, source: "program", tests: [tests[0]] });
+    expect(setup.posted.some((message) => message.type === "output")).toBe(false);
+  });
+
+  it("[FR-GRD-04] runs again after a check, on the same worker", async () => {
+    const { runtime, programs } = fakeRuntime();
+    programs.set("program", () => harness("1\n"));
+    programs.set("print(1)", (io) => {
+      io.print("1\n");
+      return ok;
+    });
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.core.receive({ type: "check", runId, source: "program", tests: [tests[0]] });
+    setup.posted.length = 0;
+    setup.core.receive({ type: "run", runId: createRunId(2), source: "print(1)", mode: "batch" });
+    expect(setup.posted.at(-1)).toMatchObject({ type: "run_done", outcome: { kind: "ok" } });
+  });
+
+  it.each([
+    ["text that is not a result", () => "garbage"],
+    [
+      "another harness version",
+      () =>
+        JSON.stringify({
+          version: "0",
+          stage: "program",
+          output: "",
+          truncated: false,
+          error: null,
+        }),
+    ],
+    [
+      "a harness that raises",
+      () => {
+        throw new Error("runtime broke");
+      },
+    ],
+  ])("[FR-GRD-01] gives up on %s, since the runtime is broken", async (_label, program) => {
+    const { runtime, programs } = fakeRuntime();
+    programs.set("program", program);
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.core.receive({ type: "check", runId, source: "program", tests: [tests[0]] });
+    expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "runtime_crashed" });
+  });
+
+  it("[FR-GRD-01] gives up on a check before it is ready", () => {
+    const setup = setUp();
+    setup.core.receive({ type: "check", runId, source: "program", tests: [tests[0]] });
+    expect(setup.posted).toEqual([{ type: "fatal", reason: "unexpected_message" }]);
+  });
+
+  it("[FR-GRD-04] refuses a page built with another harness, before loading anything", () => {
+    const setup = setUp();
+    setup.core.receive({ type: "init", assetBase: BASE, harnessVersion: "0" });
+    expect(setup.posted).toEqual([{ type: "fatal", reason: "version_mismatch" }]);
+    expect(setup.calls).toEqual([]);
+  });
+
+  it("[FR-GRD-01] gives up when the harness does not evaluate to a function", async () => {
+    const { runtime } = fakeRuntime();
+    const runners = [runtime.runPython("") as unknown, "not a function"];
+    const setup = setUp({
+      runtime: { ...runtime, runPython: () => runners.shift() },
+    });
+    await ready(setup);
+    expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "load_failed" });
   });
 });

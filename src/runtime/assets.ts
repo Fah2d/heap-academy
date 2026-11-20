@@ -11,9 +11,12 @@ export const RUNTIME_ROOT = "/_runtime/";
 
 export const RUNTIME_ASSET_BASE_URL = `${RUNTIME_ROOT}pyodide/`;
 
-/** The worker script, compiled from src/runtime/worker by scripts/build-runtime.mjs. */
+/**
+ * The worker script, compiled from src by scripts/build-runtime.mjs: the
+ * worker and the grader modules it imports keep their paths under src.
+ */
 export const WORKER_DIRECTORY = `${RUNTIME_ROOT}worker/`;
-export const WORKER_URL = `${WORKER_DIRECTORY}worker/python-worker.js`;
+export const WORKER_URL = `${WORKER_DIRECTORY}runtime/worker/python-worker.js`;
 
 /** The folder of this release's files, as the worker's `init` message carries it. */
 export const runtimeAssetBase = `${RUNTIME_ASSET_BASE_URL}${RUNTIME_VERSION}/`;

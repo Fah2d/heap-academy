@@ -16,6 +16,7 @@ export const runtimeDev = {
     loading: "Starting Python",
     ready: "Ready",
     running: "Running",
+    checking: "Checking",
     restarting: "Starting a new Python",
     failed: "Python could not start",
     disposed: "Closed",

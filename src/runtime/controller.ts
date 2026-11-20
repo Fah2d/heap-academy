@@ -1,3 +1,6 @@
+import { type CheckSummary, summarize, type TestResult, unfinished } from "../grader/grade.ts";
+import { HARNESS_VERSION } from "../grader/harness.ts";
+import type { TestCase } from "../grader/test-case.ts";
 import { characterCount } from "./output.ts";
 import {
   createRunId,
@@ -18,7 +21,10 @@ import {
 // a run is never asked to stop: the worker is terminated and a new one starts.
 // The workspace statechart (WP-3.4) drives this from the interface.
 
-/** FR-RUN-02: seconds of execution a run may take, waiting for input aside. */
+/**
+ * FR-RUN-02: seconds of execution a run may take, waiting for input aside.
+ * Each test case of a check is its own run with this limit.
+ */
 export const TIME_LIMIT_MS = 5_000;
 
 /** The part of a Worker the controller uses, so tests can give it a fake one. */
@@ -54,6 +60,8 @@ export type ControllerEvent =
   | { type: "ready"; runtimeVersion: string; interactiveInput: boolean }
   | { type: "output"; runId: RunId; stream: OutputStream; text: string }
   | { type: "run_done"; result: RunResult }
+  | { type: "test_result"; runId: RunId; result: TestResult }
+  | { type: "check_done"; runId: RunId; results: TestResult[]; summary: CheckSummary }
   | { type: "restarting"; reason: RestartReason }
   | { type: "failed" };
 
@@ -66,7 +74,7 @@ export type ControllerReport =
   | { code: "worker_error" };
 
 export type ControllerStatus =
-  "idle" | "loading" | "ready" | "running" | "restarting" | "failed" | "disposed";
+  "idle" | "loading" | "ready" | "running" | "checking" | "restarting" | "failed" | "disposed";
 
 export type RunRequest = { ok: true; runId: RunId } | { ok: false; error: "not_ready" | "invalid" };
 
@@ -85,13 +93,24 @@ export type RuntimeController = {
   /** Starts the runtime. Does nothing unless it is idle or has failed. */
   start: () => void;
   run: (source: string, stdin?: string[]) => RunRequest;
-  /** Ends the current run, if there is one, and starts a new worker. */
+  /** Runs the test cases against the program (architecture section 5.2, `check`). */
+  check: (source: string, tests: readonly TestCase[]) => RunRequest;
+  /** Ends the current run or check, if there is one, and starts a new worker. */
   stop: () => void;
   dispose: () => void;
 };
 
 /** The run in progress; `received` counts the characters of output that reached the page. */
-type Current = { runId: RunId; started: number; timer: unknown; received: number };
+type Current = { kind: "run"; runId: RunId; started: number; timer: unknown; received: number };
+
+/** The check in progress: its test cases, the results so far, and the current test case's clock. */
+type CurrentCheck = {
+  kind: "check";
+  runId: RunId;
+  tests: readonly TestCase[];
+  results: TestResult[];
+  timer: unknown;
+};
 
 export function createRuntimeController({
   createWorker,
@@ -104,12 +123,12 @@ export function createRuntimeController({
 }: ControllerOptions): RuntimeController {
   let status: ControllerStatus = "idle";
   let worker: WorkerLike | undefined;
-  let current: Current | undefined;
+  let current: Current | CurrentCheck | undefined;
   let sequence = 0;
 
   /** The worker ended the run and says whether the output was cut. */
   function finishReported(outcome: WorkerOutcome, truncated: boolean, durationMs: number): void {
-    if (current === undefined) return;
+    if (current?.kind !== "run") return;
     timers.clearTimeout(current.timer);
     const result: RunResult = { runId: current.runId, outcome, truncated, durationMs };
     current = undefined;
@@ -122,7 +141,7 @@ export function createRuntimeController({
    * reported (FR-RUN-03).
    */
   function finish(outcome: RunOutcome): void {
-    if (current === undefined) return;
+    if (current?.kind !== "run") return;
     timers.clearTimeout(current.timer);
     const result: RunResult = {
       runId: current.runId,
@@ -132,6 +151,34 @@ export function createRuntimeController({
     };
     current = undefined;
     onEvent({ type: "run_done", result });
+  }
+
+  /** Each test case gets the full limit: the clock restarts with every result. */
+  function startCaseClock(check: CurrentCheck): void {
+    timers.clearTimeout(check.timer);
+    check.timer = timers.setTimeout(() => {
+      if (current !== check) return;
+      endCheck("time_limit");
+      restart("time_limit");
+    }, timeLimitMs);
+  }
+
+  function completeCheck(results: TestResult[], summary: CheckSummary): void {
+    if (current?.kind !== "check") return;
+    timers.clearTimeout(current.timer);
+    const { runId } = current;
+    current = undefined;
+    onEvent({ type: "check_done", runId, results, summary });
+  }
+
+  /** The page ended the check: the running test case gets the reason, the rest are not run. */
+  function endCheck(reason: "time_limit" | "stopped" | "crashed"): void {
+    if (current?.kind !== "check") return;
+    const results = [
+      ...current.results,
+      ...unfinished(current.tests.slice(current.results.length), reason),
+    ];
+    completeCheck(results, summarize(results));
   }
 
   function end(): void {
@@ -150,6 +197,9 @@ export function createRuntimeController({
   function crashed(): void {
     if (status === "running") {
       finish({ kind: "crashed" });
+      restart("crashed");
+    } else if (status === "checking") {
+      endCheck("crashed");
       restart("crashed");
     } else if (status === "ready") {
       restart("crashed");
@@ -185,7 +235,7 @@ export function createRuntimeController({
         });
         return;
       case "output":
-        if (current?.runId !== message.runId) return unexpected();
+        if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
         current.received += characterCount(message.text);
         onEvent(message);
         return;
@@ -193,7 +243,7 @@ export function createRuntimeController({
         // Interactive input arrives in WP-3.2; this controller sends batch runs only.
         return unexpected();
       case "run_done":
-        if (current?.runId !== message.runId) return unexpected();
+        if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
         finishReported(message.outcome, message.truncated, message.durationMs);
         // A program that ran out of memory may leave the runtime's memory
         // grown; a new worker gives it back. One stopped at the output cap may
@@ -203,6 +253,40 @@ export function createRuntimeController({
         if (message.outcome.kind === "output_limit") return restart("output_limit");
         status = "ready";
         return;
+      case "test_result": {
+        const check = current;
+        if (check?.kind !== "check" || check.runId !== message.runId) return unexpected();
+        // Results arrive in the order of the test cases, one each.
+        if (message.result.testCaseId !== check.tests[check.results.length]?.id) {
+          report({ code: "unexpected_message", messageType: message.type });
+          return crashed();
+        }
+        check.results.push(message.result);
+        onEvent({ type: "test_result", runId: check.runId, result: message.result });
+        if (check.results.length < check.tests.length) startCaseClock(check);
+        return;
+      }
+      case "check_done": {
+        const check = current;
+        if (check?.kind !== "check" || check.runId !== message.runId) return unexpected();
+        const summary = summarize(check.results);
+        if (
+          check.results.length !== check.tests.length ||
+          JSON.stringify(summary) !== JSON.stringify(message.summary)
+        ) {
+          report({ code: "unexpected_message", messageType: message.type });
+          return crashed();
+        }
+        const results = check.results;
+        completeCheck(results, summary);
+        // As after a run: a memory error may leave the runtime's memory grown.
+        const memory = results.some(
+          (result) => result.status === "failed" && result.error?.kind === "memory",
+        );
+        if (memory) return restart("memory");
+        status = "ready";
+        return;
+      }
       case "fatal":
         report({ code: "fatal", reason: message.reason });
         return crashed();
@@ -229,7 +313,7 @@ export function createRuntimeController({
       report({ code: "worker_error" });
       crashed();
     });
-    next.postMessage({ type: "init", assetBase });
+    next.postMessage({ type: "init", assetBase, harnessVersion: HARNESS_VERSION });
   }
 
   return {
@@ -260,14 +344,31 @@ export function createRuntimeController({
         finish({ kind: "time_limit" });
         restart("time_limit");
       }, timeLimitMs);
-      current = { runId, started: now(), timer, received: 0 };
+      current = { kind: "run", runId, started: now(), timer, received: 0 };
+      worker.postMessage(message);
+      return { ok: true, runId };
+    },
+    check(source, tests) {
+      if (status !== "ready" || worker === undefined) return { ok: false, error: "not_ready" };
+      sequence += 1;
+      const runId = createRunId(sequence);
+      const message: PageMessage = { type: "check", runId, source, tests: [...tests] };
+      if (!parsePageMessage(message).ok) return { ok: false, error: "invalid" };
+      status = "checking";
+      const check: CurrentCheck = { kind: "check", runId, tests, results: [], timer: undefined };
+      current = check;
+      startCaseClock(check);
       worker.postMessage(message);
       return { ok: true, runId };
     },
     stop() {
-      if (status !== "running") return;
-      finish({ kind: "stopped" });
-      restart("stopped");
+      if (status === "running") {
+        finish({ kind: "stopped" });
+        restart("stopped");
+      } else if (status === "checking") {
+        endCheck("stopped");
+        restart("stopped");
+      }
     },
     dispose() {
       if (current !== undefined) timers.clearTimeout(current.timer);
