@@ -146,7 +146,7 @@ The reports are in `docs/reports/reviews/WP-1.4/`.
   - Its non-blocking note for WP-4.x: the tests panel should set test case names in Plex Mono (`DESIGN.md` section 2). The generic disclosure in the gallery uses Plex Sans.
   - It left e18643d out of scope: that commit is the owner's own `.claude/settings.json` change, made outside the design review.
 - **design-reviewer (6), of 6c30622: CHANGES REQUESTED, one line.** It confirmed review 5's four blockers fixed and every claim about `e2e-39-passed.txt`. R-03 said two of the sideways-scroll and 44 px tests had no ✓ line; only the 44 px test at 768 px has none. Fixed, with its accuracy notes: the shortened test 37 line, "by name and run order", the commits after e18643d, and the R-32 wording. Report: `design-review-6.md`.
-- **What closes the design review:** design review 7, of the R-03 fix.
+- **design-reviewer (7), of aade057: APPROVE WITH NOTES.** No blocking findings. R-03 and every line aade057 changed match the evidence. Report: `design-review-7.md`. The design review is closed.
 
 ## Decisions
 
@@ -216,7 +216,7 @@ Run these in your own terminal, outside Claude Code, from the repository root:
    pkill -f "next start --hostname 127.0.0.1 --port 3190"
    ```
 
-Design review 7 is the last open item. Its approval is a "Done when" line.
+The design review is closed: design review 7 approved with notes.
 
 Later, not in this pull request: the `spec-change` pull request (the header nav in WP-5.1, the footer element in WP-6.3, the `shell` module, the four error-reference lines), and the metric-matched mono fallback.
 
@@ -248,7 +248,7 @@ Interface foundation only: no data, no sign-in, nothing deployed. To roll back, 
 
 ## Definition of Done
 
-- [ ] Every "Done when" line is met, with evidence above. **Not met yet:** the design reviewer's approval waits on design review 7, of the R-03 fix. Met:
+- [x] Every "Done when" line is met, with evidence above. Design approval: design review 7, APPROVE WITH NOTES. Met:
   - Screenshots: the 39-test run at e18643d, committed in d48e68f.
   - axe: the same run.
   - Contrast: met.
@@ -261,5 +261,5 @@ Interface foundation only: no data, no sign-in, nothing deployed. To roll back, 
 - [x] Every reviewer blocker is fixed.
   - Design review 2's MAJOR 2 is confirmed on screen (d48e68f) and by test 37 of the 39-test run.
   - Design review 5's four blockers were about this description and are fixed in 6c30622.
-  - Design review 6 confirmed those four and found one wrong line in R-03, fixed in the commit after 6c30622. Design review 7 checks it.
+  - Design review 6 confirmed those four and found one wrong line in R-03, fixed in the commit after 6c30622. Design review 7 confirmed it.
 - [x] No AI attribution in any commit or in this description. `git log --format='%an <%ae> | %cn <%ce>' ef7276c..HEAD` shows `Fahad <Fah2d@users.noreply.github.com>` as author and committer on all 37 commits before the R-03 fix's commit.
