@@ -1,0 +1,165 @@
+# The one way production changes (docs/spec/07-operations.md section 3,
+# runbook docs/runbooks/deploy-and-rollback.md). In order: staging migrations,
+# the owner's approval, production migrations, build, deploy, promote, smoke,
+# roll back on a failed smoke. Vercel's own production deploy from Git is off
+# (vercel.json), so the database always moves first.
+#
+# Rules: .claude/rules/ci.md. These jobs hold credentials, so they restore and
+# save no cache and upload no artifact. Every tool comes from a lockfile or a
+# checksummed release file: the Vercel CLI from tools/vercel-cli, the Supabase
+# CLI from scripts/install-supabase.sh. The Vercel token is in the
+# environment only of the steps that talk to Vercel. That is not a boundary:
+# every step shares the runner, so a build-time dependency could change what
+# a later step runs. Such a dependency already writes the production bundle;
+# a credential-free build job that hands its output on is the stronger form.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+# Never two deploys at once, and never cancel one halfway.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  staging-migrations:
+    name: staging migrations
+    # Off until the owner sets the repository variable DEPLOY_ENABLED to
+    # `true`, the last item of section 7 of the infrastructure-setup runbook.
+    # Until then both jobs are skipped: `production` needs this one.
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Supabase CLI
+        run: |
+          mkdir "$RUNNER_TEMP/bin"
+          scripts/install-supabase.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Apply migrations to staging
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: scripts/apply-migrations.sh
+
+  production:
+    name: production
+    needs: staging-migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Required reviewer: the owner. The job waits here for approval.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    permissions:
+      contents: read
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      # No `cache:`: a job holding production credentials writes no cache.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - name: Install the Vercel CLI
+        run: |
+          npm ci --prefix tools/vercel-cli --ignore-scripts --no-audit --no-fund
+          echo "$GITHUB_WORKSPACE/tools/vercel-cli/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Install the Supabase CLI
+        run: |
+          mkdir "$RUNNER_TEMP/bin"
+          scripts/install-supabase.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Apply migrations to production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: scripts/apply-migrations.sh
+      # The deployment the production address serves now, which is not
+      # always the newest one: after a rollback it is an older one.
+      - name: Remember the deployment production serves
+        id: previous
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        # Only a 404 means "nothing deployed yet". Any other answer stops the
+        # deploy, because going on would leave no rollback target.
+        run: |
+          host=$(node -e 'process.stdout.write(new URL(process.argv[1]).host)' "$PRODUCTION_URL")
+          status=$(curl --silent --show-error --max-time 30 \
+            --output "$RUNNER_TEMP/alias.json" --write-out '%{http_code}' \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v4/aliases/$host")
+          case "$status" in
+            200)
+              id=$(jq --raw-output --exit-status '.deploymentId | strings' "$RUNNER_TEMP/alias.json")
+              ;;
+            404)
+              id=""
+              echo "::warning::$host serves no deployment yet, so a failed deploy cannot be rolled back."
+              ;;
+            *)
+              echo "::error::Vercel answered $status for the production alias. Not deploying without a rollback target."
+              exit 1
+              ;;
+          esac
+          rm "$RUNNER_TEMP/alias.json"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "Production serves: ${id:-nothing yet}"
+      - name: Pull the production settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production
+      - name: Build
+        env:
+          HEAP_RELEASE: ${{ github.sha }}
+        run: vercel build --prod
+      # Covers every server variable `vercel pull` wrote. A Sensitive
+      # variable arrives as a placeholder, so for it this checks the name;
+      # the marker build of the `build` job checks the code path.
+      - name: No server variable in a browser bundle
+        run: node scripts/check-bundle.mjs .vercel/output/static --env-file .vercel/.env.production.local
+      # --skip-domain, then promote: the same two steps whether or not an
+      # earlier rollback turned off the automatic domain assignment, and the
+      # promotion turns it back on.
+      - name: Deploy
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url=$(vercel deploy --prebuilt --prod --skip-domain)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed: $url"
+      - name: Promote
+        id: promote
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT: ${{ steps.deploy.outputs.url }}
+        run: vercel promote "$DEPLOYMENT" --yes
+      # Fails unless the production address serves this commit.
+      - name: Smoke production
+        run: node scripts/infra-verify.mjs --url "$PRODUCTION_URL" --release "$GITHUB_SHA"
+      - name: Roll back to the previous deployment
+        if: (failure() || cancelled()) && steps.promote.outcome != 'skipped' && steps.previous.outputs.id != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PREVIOUS: ${{ steps.previous.outputs.id }}
+        run: |
+          vercel rollback "$PREVIOUS"
+          echo "::error::The deploy or its smoke check failed. Production was rolled back to $PREVIOUS."
