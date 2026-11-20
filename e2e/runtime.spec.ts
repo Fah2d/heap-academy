@@ -127,6 +127,9 @@ test.describe("Python runtime", () => {
   test("[T-01] from Python, network, spawning and shared storage are gone, on the prototype chain too", async ({
     page,
   }) => {
+    // The next test proves this log sees the worker's requests in each engine.
+    const requests: string[] = [];
+    page.context().on("request", (request) => requests.push(request.url()));
     const text = await outputOf(
       page,
       [
@@ -143,19 +146,23 @@ test.describe("Python runtime", () => {
         // Pyodide's own network helpers bind fetch and XMLHttpRequest when
         // they are imported; nothing imported them before the lock-down.
         'print("pyodide.http" in sys.modules)',
-        // What counts is that a request fails, however Pyodide refuses it.
+        // open_url reads XMLHttpRequest from the worker's scope when called.
+        // With it gone, Pyodide 314.0.7 raises NameError (seen under Node,
+        // which has no XMLHttpRequest either). Any other error, or none,
+        // fails the test.
         "try:",
         "    import pyodide.http",
         '    pyodide.http.open_url("/api/health")',
         '    print("fetched")',
-        "except Exception:",
-        '    print("refused")',
+        "except Exception as error:",
+        "    print(type(error).__name__)",
       ].join("\n"),
     );
     const lines = text.trim().split("\n");
     expect(lines.length).toBeGreaterThan(4);
     expect(lines.slice(0, -2).every((line) => line === "[]")).toBe(true);
-    expect(lines.slice(-2)).toEqual(["False", "refused"]);
+    expect(lines.slice(-2)).toEqual(["False", "NameError"]);
+    expect(requests.filter((url) => url.includes("/api/health"))).toEqual([]);
   });
 
   test("[T-01] Pyodide's own loaders cannot reach the network after the lock-down", async ({
@@ -184,20 +191,34 @@ test.describe("Python runtime", () => {
         '    lambda: pyodide_js.loadPackage("micropip"),',
         '    lambda: pyodide_js._api.loadBinaryFile("/api/health"),',
         ")",
+        // loadPackage resolves with the packages it loaded, so a resolved
+        // value is noted with its length: 0 means nothing arrived.
+        "def settled(value):",
+        "    try:",
+        '        note("resolved %d" % len(value))',
+        "    except Exception:",
+        '        note("resolved")',
         "for attempt in attempts:",
         "    try:",
-        '        attempt().then(create_proxy(lambda _: note("loaded")), create_proxy(note))',
+        "        attempt().then(create_proxy(settled), create_proxy(note))",
         "    except Exception as error:",
         "        note(error)",
       ].join("\n"),
     );
+    // loadPackage installs without importing, and each run removes modules
+    // the run imported, so the file system is asked, not sys.modules.
     const probe = await outputOf(
       page,
-      'import sys\nprint(len(sys._heap_probe), "micropip" in sys.modules, sys._heap_probe)',
+      [
+        "import importlib.util, sys",
+        'print(len(sys._heap_probe), importlib.util.find_spec("micropip") is None, sys._heap_probe)',
+      ].join("\n"),
     );
-    // Both settled; a loader may settle without loading, so what counts is
-    // that micropip never arrived and nothing was requested.
-    expect(probe).toMatch(/^2 False /);
+    // Both settled, neither with anything loaded, micropip is not installed,
+    // and nothing was requested.
+    expect(probe).toMatch(/^2 True /);
+    expect(probe).not.toMatch(/resolved [1-9]/);
+    expect(probe).not.toMatch(/'resolved'/);
     expect(requests.filter((url) => /micropip|\/api\/health/.test(url))).toEqual([]);
   });
 
