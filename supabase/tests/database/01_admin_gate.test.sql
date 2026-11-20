@@ -1,12 +1,14 @@
--- The admin gate and the allow-list, as four callers: anonymous, a learner,
--- an admin at aal1 and an admin at aal2 (NFR-SEC-03, NFR-SEC-06; ADR-0025).
+-- The admin gate and the allow-list, as five callers: anonymous, a learner,
+-- a learner at aal2 who is not on the list, an admin at aal1 and an admin at
+-- aal2 (NFR-SEC-03, NFR-SEC-06; ADR-0025).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(30);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000000001', 'learner@example.test'),
-  ('00000000-0000-4000-8000-000000000002', 'admin@example.test');
+  ('00000000-0000-4000-8000-000000000002', 'admin@example.test'),
+  ('00000000-0000-4000-8000-000000000004', 'second-step@example.test');
 insert into public.admins (user_id) values ('00000000-0000-4000-8000-000000000002');
 
 select ok(
@@ -66,6 +68,24 @@ select throws_ok('update public.admins set created_at = now()', '42501', null,
   '[NFR-SEC-06] a learner cannot update admins');
 select throws_ok('delete from public.admins', '42501', null,
   '[NFR-SEC-06] a learner cannot delete from admins');
+reset role;
+
+-- A learner who passed a second step but is not on the list. Any learner can
+-- enroll an authenticator app, so aal2 alone must never make an admin.
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}', true);
+set local role authenticated;
+select is(private.is_admin(), false,
+  '[NFR-SEC-06] a learner at aal2 who is not on the list is not an admin');
+select throws_ok('select * from public.admins', '42501', null,
+  '[NFR-SEC-06] a learner at aal2 cannot select admins');
+select throws_ok(
+  $$insert into public.admins (user_id) values ('00000000-0000-4000-8000-000000000004')$$,
+  '42501', null, '[NFR-SEC-06] a learner at aal2 cannot add themselves to admins');
+select throws_ok('update public.admins set created_at = now()', '42501', null,
+  '[NFR-SEC-06] a learner at aal2 cannot update admins');
+select throws_ok('delete from public.admins', '42501', null,
+  '[NFR-SEC-06] a learner at aal2 cannot delete from admins');
 reset role;
 
 -- An admin at aal1, before the second step.

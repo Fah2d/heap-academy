@@ -1,22 +1,30 @@
--- Profiles, completions and the completion counts, every operation as four
--- callers: anonymous, a learner, an admin at aal1 and an admin at aal2
+-- Profiles, completions and the completion counts, every operation as
+-- anonymous, a learner, an admin at aal1 and an admin at aal2, with the
+-- answers that could differ also asked as a learner at aal2 who is not an admin
 -- (NFR-SEC-03, NFR-SEC-06, FR-PRG-04, FR-ADM-13; T-08, T-10).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(52);
+
+delete from public.lessons;
+delete from public.chapters;
+delete from public.courses;
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000000001', 'learner@example.test'),
   ('00000000-0000-4000-8000-000000000002', 'admin@example.test'),
-  ('00000000-0000-4000-8000-000000000003', 'other@example.test');
+  ('00000000-0000-4000-8000-000000000003', 'other@example.test'),
+  ('00000000-0000-4000-8000-000000000004', 'second-step@example.test');
 insert into public.admins (user_id) values ('00000000-0000-4000-8000-000000000002');
 
 alter table public.courses disable trigger courses_before_write;
 alter table public.lessons disable trigger lessons_before_write;
 insert into public.courses (id, slug, title, summary, status) values
-  ('10000000-0000-4000-8000-000000000001', 'published-course', 'Published course', 'Published.', 'published');
+  ('10000000-0000-4000-8000-000000000001', 'published-course', 'Published course', 'Published.', 'published'),
+  ('10000000-0000-4000-8000-000000000002', 'draft-course', 'Draft course', 'Draft.', 'draft');
 insert into public.chapters (id, course_id, title) values
-  ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Chapter one');
+  ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Chapter one'),
+  ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'Chapter two');
 insert into public.lessons
   (id, course_id, chapter_id, slug, title, xp, instructions_md, tests, status,
    gradable_changed_at, validated_at, published_at)
@@ -31,6 +39,10 @@ values
   ('30000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000001',
    '20000000-0000-4000-8000-000000000001', 'second-lesson', 'Second lesson', 30,
    'Print bye.', '[{"id":"t1","name":"Prints bye","expected":"bye"}]', 'published',
+   now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour'),
+  ('30000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002',
+   '20000000-0000-4000-8000-000000000002', 'lesson-in-draft-course', 'Lesson in a draft course', 10,
+   'Print hi.', '[{"id":"t1","name":"Prints hi","expected":"hi"}]', 'published',
    now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour');
 alter table public.courses enable trigger courses_before_write;
 alter table public.lessons enable trigger lessons_before_write;
@@ -116,6 +128,21 @@ select is(
   '[T-08] the other learner''s profile is unchanged'
 );
 
+-- A learner at aal2 who is not on the list: still only their own rows.
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}', true);
+set local role authenticated;
+select results_eq('select user_id from public.profiles',
+  array['00000000-0000-4000-8000-000000000004'::uuid],
+  '[T-08] a learner at aal2 selects only their own profile');
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id)
+    values ('00000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000004')$$,
+  '42501', null, '[T-08] a learner at aal2 cannot insert a completion for another learner');
+select throws_ok('select * from public.lesson_completion_counts()', '42501', 'not_admin',
+  '[FR-ADM-13] a learner at aal2 who is not an admin cannot read completion counts');
+reset role;
+
 -- An admin at aal1, then at aal2: their own rows, like a learner.
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal1"}', true);
@@ -168,6 +195,10 @@ select throws_ok(
   $$insert into public.completions (user_id, lesson_id)
     values ('00000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000002')$$,
   '42501', null, '[T-10] an admin at aal2 cannot complete a draft lesson');
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id)
+    values ('00000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000003')$$,
+  '42501', null, '[T-10] an admin at aal2 cannot complete a published lesson of a draft course');
 select throws_ok(
   $$insert into public.completions (user_id, lesson_id)
     values ('00000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000004')$$,
