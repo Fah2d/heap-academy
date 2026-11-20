@@ -107,6 +107,13 @@ describe("the Markdown allowlist", () => {
     ]);
   });
 
+  it("[NFR-SEC-07] a heading drops a closing run of # only after a space", () => {
+    expect(parseMarkdown("## Python and C#\n\n### Title ###")).toEqual([
+      { kind: "heading", level: 2, children: [text("Python and C#")] },
+      { kind: "heading", level: 3, children: [text("Title")] },
+    ]);
+  });
+
   it("[NFR-SEC-07] keeps fenced code blocks, with or without a language, exactly as written", () => {
     expect(parseMarkdown("```python\nif x < 1:\n    print('<b>')\n```\n\n~~~\nplain\n~~~")).toEqual(
       [
