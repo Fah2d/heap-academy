@@ -1,4 +1,4 @@
-**Merges after #4 and WP-3.1.** #4 itself merges after #3. This branch starts from `wp/3.1-python-worker` at 942ff46, so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it). It touches files WP-3.3 also changes (`controller.ts`, `core.ts`, the controller tests); whichever merges second needs a rebase.
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** #3 and #4 are merged. `wp/3.1-python-worker`, which now carries `main` at 037c4ad, is merged into this branch (b4f0f11), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it). It touches files WP-3.3 also changes (`controller.ts`, `core.ts`, the controller tests); whichever merges second needs a rebase.
 
 ## What and why
 
@@ -23,6 +23,23 @@ Live input (architecture section 5.3, ADR-0005). Where the browser has WebAssemb
 | Unit tests get stack switching on Node 24, which CI uses, through `--experimental-wasm-jspi`, passed only when `WebAssembly.Suspending` is missing (Node 26 refuses the flag and has the feature). | `vitest.config.ts` |
 
 ## How it was verified
+
+**Up to date with main.** `wp/3.1-python-worker` at a288083 (WP-3.1 with `main` merged in) is merged into this branch (b4f0f11), with no conflict. `pnpm verify` on b4f0f11, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  33 passed (33)
+      Tests  827 passed (827)
+```
+
+`npx playwright test --list --project=runtime-chromium`: "Total: 22 tests in 2 files". The browser tests have not run.
+
+Before the merge:
 
 `pnpm verify` on the review fixes, the last commit of this branch (Node 26.13.1):
 
@@ -150,4 +167,4 @@ gh pr create --draft --base wp/3.1-python-worker --head wp/3.2-live-input \
   --body-file docs/reports/pull-requests/WP-3.2.md
 ```
 
-GitHub retargets it when WP-3.1's branch merges and is deleted.
+GitHub retargets it to `main` when WP-3.1's branch merges and is deleted.
