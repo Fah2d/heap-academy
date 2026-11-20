@@ -33,7 +33,9 @@ create policy "learners insert own completion for published lesson" on public.co
   );
 
 revoke all on table public.completions from anon, authenticated;
-grant select, insert on table public.completions to authenticated;
+-- Insert names no xp column: the trigger below takes it from the lesson.
+grant select on table public.completions to authenticated;
+grant insert (user_id, lesson_id, completed_at, code) on table public.completions to authenticated;
 
 -- XP comes from the lesson whatever the caller sends, and a completion is
 -- never in the future. It reads the lesson as the caller, so a lesson the

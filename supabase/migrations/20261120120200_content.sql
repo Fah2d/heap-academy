@@ -170,10 +170,18 @@ create trigger courses_before_write
   for each row execute function private.courses_before_write();
 
 -- Lessons: the columns only the server sets, then the publish rule of
--- section 7.2. gradable_changed_at moves to now() when the starter or the
--- test cases change, or when the solution trigger below asks for it by
--- setting it to now(); a caller cannot move it back. validated_at changes
--- only through save_lesson, which names the lesson in a transaction setting.
+-- section 7.2.
+--
+-- A gradable change is a change to the starter or the test cases, a change
+-- to the solution or the wrong answers (the solution trigger below names the
+-- lesson in the setting heap.solution_changed), or a caller moving
+-- gradable_changed_at to now(). It moves gradable_changed_at to now(); a
+-- caller cannot move it back.
+--
+-- validated_at is set only through save_lesson, which names the lesson in the
+-- setting heap.validated_lesson, and only to now(). A gradable change outside
+-- that call clears validated_at, so the rule does not depend on now() being
+-- the same for the whole transaction.
 create function private.lessons_before_write()
 returns trigger
 language plpgsql
@@ -182,6 +190,7 @@ as $$
 declare
   validating boolean :=
     coalesce(current_setting('heap.validated_lesson', true), '') = new.id::text;
+  gradable_change boolean;
 begin
   if tg_op = 'INSERT' then
     new.created_at := now();
@@ -192,18 +201,25 @@ begin
     new.published_at := case when new.status = 'published' then now() end;
   else
     new.created_at := old.created_at;
-    if new.starter_code is distinct from old.starter_code
+    gradable_change :=
+      new.starter_code is distinct from old.starter_code
       or new.tests is distinct from old.tests
-      or new.gradable_changed_at = now()
-    then
-      new.gradable_changed_at := now();
-    else
-      new.gradable_changed_at := old.gradable_changed_at;
-    end if;
+      or coalesce(current_setting('heap.solution_changed', true), '') = new.id::text
+      or (new.gradable_changed_at is distinct from old.gradable_changed_at
+        and new.gradable_changed_at = now());
     if new.validated_at is distinct from old.validated_at
+      and new.validated_at is not null
       and not (validating and new.validated_at = now())
     then
       raise exception 'validated_at_set_outside_save_lesson' using errcode = 'P0001';
+    end if;
+    if gradable_change then
+      new.gradable_changed_at := now();
+      if not validating then
+        new.validated_at := null;
+      end if;
+    else
+      new.gradable_changed_at := old.gradable_changed_at;
     end if;
     new.published_at := case
       when new.status = 'published' and old.status is distinct from 'published' then now()
@@ -240,9 +256,15 @@ begin
   then
     return null;
   end if;
+  perform set_config(
+    'heap.solution_changed',
+    (case when tg_op = 'DELETE' then old.lesson_id else new.lesson_id end)::text,
+    true
+  );
   update public.lessons
   set gradable_changed_at = now()
   where id = case when tg_op = 'DELETE' then old.lesson_id else new.lesson_id end;
+  perform set_config('heap.solution_changed', '', true);
   return null;
 end;
 $$;
