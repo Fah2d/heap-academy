@@ -2,17 +2,17 @@
 
 The design foundation every screen builds on: tokens in three tiers from `DESIGN.md`, self-hosted IBM Plex, the primitives (button, link, text field, tabs, dialog with its actions row, disclosure, notice, progress, status), the page frame with skip link and landmarks, the not-found and error pages, a lint rule against raw design values, and a development-only gallery of every primitive.
 
-The owner ran the browser suite once, outside Claude Code: 38 passed. The design review of those screenshots found one primitive state that did not render (the current navigation link). It is fixed in source, and **the fix has not been seen in a browser**: the screenshots need one more run. The steps are under "Owner actions now due".
+The owner ran the browser suite again at e18643d, outside Claude Code: **39 passed**. The raw output is in `docs/reports/screens/WP-1.4/e2e-39-passed.txt`. The screenshots from that run, committed in d48e68f, show every design fix, including the current navigation link's amber marker that the first run did not show. Design review 5 approved the screens and asked only for this description to catch up with them.
 
 ## Work package
 
 - Work package: WP-1.4 Design tokens, primitives, and the shell.
 - Requirements: FR-SYS-01, NFR-A11Y-02, NFR-A11Y-03, NFR-A11Y-05, NFR-A11Y-06, NFR-A11Y-07, NFR-A11Y-08, NFR-I18N-01, NFR-I18N-02, NFR-I18N-03; goal G-4; ADR-0014, ADR-0015.
-- Time box 3 hours. Taken: about 3 h 10 min across the first two sessions (15:51 to 19:05 on 2026-11-16), and about 40 min of work in a third session for the screenshots, design reviews 2 to 4, the fixes and the owner's decisions. Total about 3 h 50 min, under the 4.5 hour stop line. The third session ran from 20:12 to about 23:50 on the clock: about 3 hours of that was a pause on a usage limit, with no work done.
+- Time box 3 hours. Taken: about 3 h 10 min across the first two sessions (15:51 to 19:05 on 2026-11-16), and about 40 min of work in a third session for the screenshots, design reviews 2 to 4, the fixes and the owner's decisions. Total about 3 h 50 min after three sessions. The third session ran from 20:12 to about 23:50 on the clock: about 3 hours of that was a pause on a usage limit, with no work done. A fourth session on 2026-11-20, started after the owner's d48e68f at 13:16, ran design review 5, saved the owner's e2e output, updated this description, and ran design reviews 6 and 7. Its length is not measured; the total is near the 4.5 hour stop line.
 
 ## How it was verified
 
-`pnpm verify` at c66fe45:
+`pnpm verify` at d48e68f with this description's changes (documentation only) on top:
 
 ```
 $ pnpm format:check && pnpm lint && pnpm typecheck && pnpm attribution && pnpm test
@@ -28,8 +28,14 @@ $ vitest run --coverage
 exit=0
 ```
 
-- **End to end and axe, the owner's run** on this branch before this session's commits (head 790f66a; the screenshot code is from b985ccb), outside Claude Code: `pnpm test:e2e --project=chromium --project=gallery`, **38 passed** (chromium and gallery). That count is as the owner reported it; the raw output is not in the repository. The design reviewer checked that 38 matches the spec files (gallery 4 widths × 5 + 2 motion = 22; shell 4 + 4 × 3 = 16).
-- **Not run in a browser:** everything after 8c99179. That includes the new e2e test `[ADR-0014] the current navigation link shows the text color and the amber marker`, so the next run should report 39 tests. A browser still cannot start inside this machine's sandbox.
+- **End to end and axe, the owner's second run**, at e18643d on 2026-11-20 13:15, in the owner's terminal outside Claude Code: `playwright test --project=chromium --project=gallery`, **39 passed (16.8s)**. The raw output, as the owner pasted it, is `docs/reports/screens/WP-1.4/e2e-39-passed.txt`.
+  - e18643d's tree holds every code change on this branch. The commits after it change only screenshots (d48e68f) and documentation.
+  - The run includes `[ADR-0014] the current navigation link shows the text color and the amber marker`: test 37 in the output, whose line is shortened to `…ion link shows the text color and the amber marker`. That ending matches no other test.
+  - 39 matches the spec files: gallery 4 widths × 5 + 1 current-link + 2 motion = 23; shell 4 + 4 × 3 = 16. `playwright test --list --project=chromium --project=gallery` here prints `Total: 39 tests in 2 files`.
+  - The summary line is `39 passed (16.8s)`, with no failed, flaky or skipped line. 34 tests have their own ✓ line. Tests 14, 16, 23, 28 and 33 have none. Matched against `--list` by name and by run order (each spec file runs in one worker, in the order it is written; the output's lines are cut short, so the gallery widths come from the order), those five are the not-found page's axe and 44 px tests at 768 px, and the gallery's open-dialog axe test at 375, 768 and 1280 px. Their pass rests on the summary line. Each axe test saves its screenshot only after its check passes: `not-found-768.png` and `gallery-dialog-375.png`, `-768.png` and `-1280.png` all changed in d48e68f.
+  - The four `[WebServer] ⨯ Error: The development error page failed on purpose.` blocks are `/dev/error` throwing by design, once for each width's error page test.
+- The owner's first run (head 790f66a) reported 38 passed, without raw output. The second run replaces it as evidence.
+- A browser still cannot start inside this machine's sandbox, so I ran none of this myself.
 - The current-link fix started with a unit test that fails on the old `link.tsx` and passes on the new one:
 
   ```
@@ -52,31 +58,37 @@ exit=0
 
 ## Screens
 
-In `docs/reports/screens/WP-1.4/`, from the owner's run before this session's commits, on Chromium. Each axe check saves the state it measured:
+In `docs/reports/screens/WP-1.4/`, from the owner's 39-test run at e18643d, on Chromium, committed in d48e68f. Each axe check saves the state it measured:
 
 - `gallery`, `gallery-dialog`, `error` and `not-found`, each at 320, 375, 768 and 1280 px (16 files).
+- d48e68f changed 13 of them. `error-320.png`, `error-375.png` and `not-found-375.png` show no change in git.
 
-These were taken **before** the fixes in 4ad0b16, fce14cc and 24141ee. They show the current navigation link without its marker, the dialog actions wrapping at 320 px, the development indicator over content, and the system pages off the header's left edge. The next run replaces them; the dialog state is then captured at the viewport's size.
+They show every fix from design reviews 2 to 4. Design review 5 measured them:
 
-antislop Delivery Gate report, antislop active: during (global preference). The lines below are from the owner's e2e run, the 16 screenshots, design review 2's screen review, and source. Where a fix came after the screenshots, the line says so. **Not deliverable until the screenshots are taken again** and show the current navigation marker.
+- **The current navigation link** has its amber `#d4a017` marker, 2 px tall and 58 px wide, under "Buttons": y 814-815, x 16-73 in `gallery-375.png`, and y 736-737, x 80-137 in `gallery-1280.png`. "Buttons" is in the text color `#f2f0ec`; "Links" is `#a9a59d` with no marker.
+- **The dialog actions** at 320 and 375 px stack at full width, 44 px tall each, 12 px apart (rows 468-511 and 524-567 in `gallery-dialog-320.png`). The open dialog is captured at the viewport's size.
+- **No development indicator** appears in any of the 16 files.
+- **The system pages** start at the wordmark's left edge: x 16 at 768 px and x 80 at 1280 px.
+
+antislop Delivery Gate report, antislop active: during (global preference). The lines below come from three sources: the owner's 39-test run at e18643d (`e2e-39-passed.txt`), the 16 screenshots in d48e68f as measured in design review 5, and source. NOT VERIFIED marks only what no run or screenshot shows.
 
 Block 1, Hard Gate:
 
 - R-02 PASS: `grep` for an em dash over `src/` and `e2e/` finds none. Design review 2 found none in the screens.
-- R-03 PASS in your run: the 320 and 375 px screenshots are single-column with 16 px gutters and full-width fields, and the overflow tests passed in the owner's run. The 44 px tests passed in the same run. The dialog actions changed afterwards (they now stack at full width below `md`): NOT VERIFIED on screen.
+- R-03 PASS: the 320 and 375 px screenshots are single-column with 16 px gutters and full-width fields. At 320 px the right 16 px gutter is empty on every row except the header hairline. The dialog actions stack at full width, 44 px tall, 12 px apart (`gallery-dialog-320.png`). The sideways-scroll and 44 px tests passed in the 39-test run. One of them, the not-found page's 44 px test at 768 px, has no ✓ line of its own (see "How it was verified").
 - R-17, R-18, R-36, R-38 PASS: no statistics, testimonials or claims. The gallery's "5.5 MB" is the measured Brotli runtime size (E-02, 5.46 MB), as design review 2 confirmed.
 - R-23 PASS: no logo, mark, avatar or illustration created (ADR-0031). The wordmark is text.
 - R-24 ACCEPTED BY THE OWNER until WP-5.1: the wordmark and "Go to the home page" point at `/`, which is a 404 until then (decision 1).
-- R-25 PASS: every token pair in use passes (contrast.md), and axe, which includes its color-contrast rule, passed on every captured state in the owner's run. Design review 2 measured the rendered colors against the tokens.
+- R-25 PASS: every token pair in use passes (contrast.md). axe, which includes its color-contrast rule, passed on every captured state in the 39-test run (`docs/reports/screens/WP-1.4/e2e-39-passed.txt`). Four of those axe tests have no ✓ line of their own, and their pass rests on the summary line (see "How it was verified"). Design review 2 measured the rendered colors against the tokens.
 - R-26 PASS: every control has behavior. Retry calls `retry()`, the dialog opens and closes, the tabs switch. The `/` loop is under R-24.
 - R-27 PASS: the primitives carry their empty, disabled, invalid, read-only and error states, seen in the screenshots.
 - R-28 PASS: there is no FAQ.
-- R-32 PARTIAL. The skip-link keyboard test and the not-found keyboard test passed in the owner's run. React Aria primitives and a 2 px amber focus ring token. No screenshot shows the focus ring, so the amber ring around the amber primary button is NOT VERIFIED.
+- R-32 PARTIAL. The skip-link keyboard test, and the not-found page's 44 px tests, which press Tab, passed in the 39-test run. React Aria primitives and a 2 px amber focus ring token. No screenshot shows the focus ring, so the amber ring around the amber primary button is NOT VERIFIED.
 - R-33 PASS: nothing is patched by an external script.
 - R-34 PASS: there is one theme (ADR-0015) and no toggle.
-- R-35 PARTIAL. The owner's run drove the pages in Chromium: 38 passed, raw output not committed. I have not clicked through the app myself, and nothing after 8c99179 has run in a browser.
+- R-35 PARTIAL. The owner's run at e18643d drove the pages in Chromium with every code change on this branch: 39 passed, raw output in `docs/reports/screens/WP-1.4/e2e-39-passed.txt`. Still not done: I have not clicked through the app myself, and Firefox and WebKit were not run.
 - R-37 PASS: the direction is the signed `DESIGN.md` (Design Read, dials ENERGY 1 / RHYTHM 1 / MOTION 1).
-- R-39 PASS with an accepted gap. Native or React Aria controls, `lang`, `<title>`, and the `header` and `main` landmarks; reduced motion passed in the owner's run. The `nav` and `footer` landmarks are absent until they have destinations, accepted by the owner (decision 2): the header nav comes with WP-5.1 and the footer element with WP-6.3.
+- R-39 PASS with an accepted gap. Native or React Aria controls, `lang`, `<title>`, and the `header` and `main` landmarks; reduced motion passed in the 39-test run. The `nav` and `footer` landmarks are absent until they have destinations, accepted by the owner (decision 2): the header nav comes with WP-5.1 and the footer element with WP-6.3.
 - R-40 PASS: no media; fonts are self-hosted with `font-display: swap`. Nothing was measured, so no performance number is reported.
 
 Block 2, Purpose-Gate:
@@ -89,12 +101,20 @@ Block 2, Purpose-Gate:
 
 Block 3, Liveliness:
 
-- The dials are set and explicit (`DESIGN.md`): yes. Uniform structure and motion on state changes only: yes, and the system pages now share the header's left edge (fce14cc, NOT VERIFIED on screen). One focal point per screen: yes on the error page; the not-found page's only step is a text link until WP-5.1 (design review 2, MINOR 6). Whitespace from the spacing scale: yes (48 px between sections, 16 px within). The accent is amber only: yes. The identity motif, Plex Mono labels with the amber current-item border: the labels yes; the current-item border did not render in the screenshots and is fixed in 4ad0b16, NOT VERIFIED on screen. A Design Read was declared: yes, `DESIGN.md` line 5.
+- The dials are set and explicit (`DESIGN.md`): yes. Uniform structure and motion on state changes only: yes, and the system pages share the header's left edge (fce14cc; x 16 at 768 px and x 80 at 1280 px in the d48e68f screenshots). One focal point per screen: yes on the error page; the not-found page's only step is a text link until WP-5.1 (design review 2, MINOR 6). Whitespace from the spacing scale: yes (48 px between sections, 16 px within). The accent is amber only: yes. The identity motif, Plex Mono labels with the amber current-item border: yes. The labels are Plex Mono, and the current-item border renders as a 2 px amber bar (4ad0b16; measured in `gallery-375.png` and `gallery-1280.png`, and checked by test 37 of the 39-test run). A Design Read was declared: yes, `DESIGN.md` line 5.
 
 Block 4, Craftsmanship:
 
 - C-1, C-2, C-3, C-5 PASS.
-- C-4 PARTIAL: every breakpoint holds in the screenshots, and the keyboard tests passed. NOT VERIFIED: forced colors, the dialog with the phone keyboard open, hover and press, and the error page without a reference (a browser error, since 24141ee; a unit test covers it, no screenshot does).
+- C-4 PARTIAL: every breakpoint holds in the d48e68f screenshots, and the keyboard tests passed in the 39-test run. NOT VERIFIED, because no run or screenshot shows them:
+  - the focus ring, including focus inside the open dialog;
+  - the skip link while it has focus;
+  - hover and press;
+  - forced colors;
+  - the dialog with the phone keyboard open;
+  - the error page without a reference (a browser error, since 24141ee; a unit test covers it), and a long reference wrapping;
+  - Firefox and WebKit;
+  - real phone emulation (the narrow shots use the "Desktop Chrome" device resized).
 - R-30 PASS: design review 2 judged it neither a template nor a Carbon copy (outlined fields, neutral notices with a full border, centered button labels, line tabs with an amber bar).
 - R-05, R-15, R-16, R-20, R-29, R-31 PASS.
 - R-11 PASS: the progress track has square ends (seen in the screenshots).
@@ -105,7 +125,7 @@ Block 4, Craftsmanship:
 The reports are in `docs/reports/reviews/WP-1.4/`.
 
 - **code-reviewer (1): changes required.** The BLOCKER (nothing took the screenshots) is fixed in b985ccb, and the owner's run produced them. The lint gaps are fixed in b1ca483. MAJOR 1 (the error reference) is decided and done in 24141ee. MAJOR 2 and 4 are decided (decisions 1 and 2). Not run again.
-- **security-reviewer (1): changes required.** MAJOR 1 and 2 are decided (decision 4); the settings change is yours, below. MINOR 3 (a client-chosen request ID shown on the error page) no longer applies after 24141ee: the page shows no request ID. Not run again.
+- **security-reviewer (1): changes required.** MAJOR 1 and 2 are decided (decision 4). The settings change is the owner's own, in e18643d (see "Decisions"). MINOR 3 (a client-chosen request ID shown on the error page) no longer applies after 24141ee: the page shows no request ID. Not run again.
 - **design-reviewer (2), from the screenshots: changes required.**
   - BLOCKER 1, the stale Delivery Gate: rewritten above.
   - MAJOR 2, the current navigation link showed neither the text color nor the amber marker. Both class sets were on the element, and Tailwind's stylesheet order let the resting ones win. Fixed in 4ad0b16, with a unit test and an e2e test.
@@ -117,7 +137,16 @@ The reports are in `docs/reports/reviews/WP-1.4/`.
   - 3, the spec lines that still promise a reference: all four are listed under decision 3.
   - 4, no screenshot of the error page without a reference: listed as NOT VERIFIED under C-4.
 - **design-reviewer (4), of 554aab3: APPROVE PENDING SCREENSHOTS.** No collision or lost declaration. Its one MINOR, two more physical utilities (`focus:top-4`, `scroll-mt-4`), is fixed in 9d3182a; that two-class change was not reviewed again.
-- **What closes the design review:** a fresh screenshot set at 9d3182a or later that matches "What a fresh screenshot set must show" in `design-review-3.md`, and a passing run of the current-link e2e test. Then the verdict becomes APPROVE WITH NOTES. Nothing in the gallery, tabs, header or system pages should differ from what review 3 lists.
+- **design-reviewer (5), of the full diff with the d48e68f screenshots: CHANGES REQUESTED, on this description only.** The screens are right, and every fix from reviews 2 to 4 shows in them. Its four blockers all asked this description to match the new screenshots and the 39-test run. Each is fixed in 6c30622:
+  1. "Screens" and the Gate header are rewritten against d48e68f.
+  2. R-03, R-35, Block 3 and C-4 are restated from the new screenshots and the 39-test run. NOT VERIFIED is kept only for what is still unseen.
+  3. The raw output of the 39-test run is in `docs/reports/screens/WP-1.4/e2e-39-passed.txt`, and R-25 and R-35 point at it.
+  4. "What closes the design review", "Owner actions now due" and the Definition of Done are updated.
+  - The review said that once the blockers are fixed it becomes APPROVE WITH NOTES. The notes are under "Still listed, not fixed" and C-4, plus review 1's 12 and 14 and review 2's MINOR 6.
+  - Its non-blocking note for WP-4.x: the tests panel should set test case names in Plex Mono (`DESIGN.md` section 2). The generic disclosure in the gallery uses Plex Sans.
+  - It left e18643d out of scope: that commit is the owner's own `.claude/settings.json` change, made outside the design review.
+- **design-reviewer (6), of 6c30622: CHANGES REQUESTED, one line.** It confirmed review 5's four blockers fixed and every claim about `e2e-39-passed.txt`. R-03 said two of the sideways-scroll and 44 px tests had no ✓ line; only the 44 px test at 768 px has none. Fixed, with its accuracy notes: the shortened test 37 line, "by name and run order", the commits after e18643d, and the R-32 wording. Report: `design-review-6.md`.
+- **design-reviewer (7), of aade057: APPROVE WITH NOTES.** No blocking findings. R-03 and every line aade057 changed match the evidence. Report: `design-review-7.md`. The design review is closed.
 
 ## Decisions
 
@@ -128,10 +157,12 @@ The owner's decisions on 2026-11-16:
 3. **The error reference: the recommendation, accepted.** The page shows the server's digest only, which Next.js logs with the error (24141ee). A browser error gets no reference until the client error report exists. The request ID context and parser are removed, since nothing else used them. Still to come:
    - WP-1.3 logs the digest together with the request ID, and `proxy.ts` replaces any incoming `x-request-id`. The removed parser used the header `x-request-id` and the format `^[A-Za-z0-9_-]{8,64}$`, for WP-1.3 to keep or change.
    - A `spec-change` so four lines say the error page shows the server's digest, and no reference for a browser error: `01-requirements.md` line 157 (FR-SYS-01) and line 229 (NFR-OBS-01), `03-experience.md` line 90, and `07-operations.md` line 83.
-4. **The sandbox exclusions: accepted.** Browser tests run in your terminal or, from WP-2.2, in the `e2e` CI job, never outside the sandbox from a session. `docs/reports/guardrails.md` line 184 now says so (04d06bf). You edit `.claude/settings.json` yourself; the exact change is below.
+4. **The sandbox exclusions: accepted.** Browser tests run in your terminal or, from WP-2.2, in the `e2e` CI job, never outside the sandbox from a session. `docs/reports/guardrails.md` line 184 now says so (04d06bf). You edit `.claude/settings.json` yourself. You made your own settings change in e18643d, outside the design review. The change proposed below is kept for the record; I have not compared it with e18643d.
 5. **The mono fallback is not metric-matched: accepted.** A follow-up makes it match, as `DESIGN.md` section 5 asks.
 
-### The change to `.claude/settings.json`
+### The change to `.claude/settings.json`, as proposed
+
+The owner's own change is e18643d, made outside the design review. The proposal was:
 
 Replace the `excludedCommands` line, and add seven deny rules after `"Bash(gh pr merge *)"`:
 
@@ -168,37 +199,24 @@ There is no preview: Vercel is not set up yet (WP-1.3).
 
 ## Owner actions now due
 
-Run these in your own terminal, outside Claude Code, from the repository root, in this order:
+Already done: the settings change (e18643d), the 39-test run with its raw output (`e2e-39-passed.txt`), and the new screenshots (d48e68f).
 
-1. Apply the `.claude/settings.json` change under "Decisions", then start a new Claude Code session so it is read.
-2. Stop the production server a session left on port 3190. The sandbox cannot see or stop it:
+Run these in your own terminal, outside Claude Code, from the repository root:
+
+1. Update this pull request's description on GitHub. `gh` cannot reach GitHub from the sandbox:
+
+   ```sh
+   git pull
+   gh pr edit 3 --body-file docs/reports/pull-requests/WP-1.4.md
+   ```
+
+2. If you have not already, stop the production server a session left on port 3190. The sandbox cannot see or stop it, so whether it still runs is not verified:
 
    ```sh
    pkill -f "next start --hostname 127.0.0.1 --port 3190"
    ```
 
-3. Take the screenshots again and run the browser suite. Expect 39 passed:
-
-   ```sh
-   git pull
-   pnpm test:e2e --project=chromium --project=gallery
-   ```
-
-   Paste the output into this pull request.
-4. Commit the new screenshots, or ask me to:
-
-   ```sh
-   git add docs/reports/screens/WP-1.4
-   git commit -m "docs(reports): retake the WP-1.4 screenshots after the design fixes"
-   git push
-   ```
-
-5. Ask for a last `design-reviewer` pass with those screenshots. Its approval is a "Done when" line.
-6. Update this pull request's description on GitHub. `gh` cannot reach GitHub from the sandbox:
-
-   ```sh
-   gh pr edit 3 --body-file docs/reports/pull-requests/WP-1.4.md
-   ```
+The design review is closed: design review 7 approved with notes.
 
 Later, not in this pull request: the `spec-change` pull request (the header nav in WP-5.1, the footer element in WP-6.3, the `shell` module, the four error-reference lines), and the metric-matched mono fallback.
 
@@ -230,11 +248,18 @@ Interface foundation only: no data, no sign-in, nothing deployed. To roll back, 
 
 ## Definition of Done
 
-- [ ] Every "Done when" line is met, with evidence above. **Not met:** the design reviewer's approval waits on a fresh screenshot set that shows the current navigation marker. Screenshots and axe: met by your run, before this session's fixes. Contrast: met. The dev-only page is absent from the production build.
-- [x] Every cited Must requirement has a passing test that names its ID. The new current-link e2e test has not run.
+- [x] Every "Done when" line is met, with evidence above. Design approval: design review 7, APPROVE WITH NOTES. Met:
+  - Screenshots: the 39-test run at e18643d, committed in d48e68f.
+  - axe: the same run.
+  - Contrast: met.
+  - The dev-only page is absent from the production build: test 3 of the same run.
+- [x] Every cited Must requirement has a passing test that names its ID. The current-link e2e test passed in the 39-test run (test 37).
 - [x] `pnpm verify` passes. The CI checks do not exist yet (WP-1.3).
 - [x] Every state of every changed view exists.
 - [x] No stub, dead control, placeholder, commented-out code or invented number. The `/` link is decision 1.
 - [x] No new tables. No new server actions.
-- [ ] Every reviewer blocker is fixed. Fixed in source; design review 2's MAJOR 2 needs your browser run to confirm.
-- [x] No AI attribution in any commit or in this description. `git log --format='%an <%ae> | %cn <%ce>' ef7276c..HEAD` shows `Fahad <Fah2d@users.noreply.github.com>` as author and committer on all 32 commits before this description's commit.
+- [x] Every reviewer blocker is fixed.
+  - Design review 2's MAJOR 2 is confirmed on screen (d48e68f) and by test 37 of the 39-test run.
+  - Design review 5's four blockers were about this description and are fixed in 6c30622.
+  - Design review 6 confirmed those four and found one wrong line in R-03, fixed in the commit after 6c30622. Design review 7 confirmed it.
+- [x] No AI attribution in any commit or in this description. `git log --format='%an <%ae> | %cn <%ce>' ef7276c..HEAD` shows `Fahad <Fah2d@users.noreply.github.com>` as author and committer on all 37 commits before the R-03 fix's commit.

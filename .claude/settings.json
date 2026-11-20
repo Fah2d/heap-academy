@@ -44,16 +44,27 @@
       "Bash(gh pr merge *)",
       "Bash(gh workflow disable *)",
       "Bash(gh repo delete *)",
-      "Bash(gh repo edit --visibility *)"
+      "Bash(gh repo edit --visibility *)",
+      "Bash(gh pr merge)",
+      "Bash(gh extension)",
+      "Bash(gh extension *)",
+      "Bash(gh ext)",
+      "Bash(gh ext *)",
+      "Bash(gh api *merge*)",
+      "Bash(gh api *Merge*)"
     ]
   },
   "sandbox": {
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
-    "excludedCommands": ["gh", "pnpm test:e2e", "pnpm test:e2e *", "npx playwright *"],
+    "excludedCommands": [
+      "gh"
+    ],
     "filesystem": {
-      "allowWrite": ["~/Library/pnpm/store"],
+      "allowWrite": [
+        "~/Library/pnpm/store"
+      ],
       "denyRead": [
         "./.env",
         "./.env.local",

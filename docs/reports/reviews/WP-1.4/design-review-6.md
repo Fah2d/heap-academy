@@ -1,129 +1,75 @@
-antislop active: during (global preference).
+# Design review 6, WP-1.4
 
-APPROVE
+Reviewer: `design-reviewer`, fresh context. Commit 6c30622, which answers the four blockers of review 5. 2026-11-20.
 
-# Design review 6, WP-1.4 follow-ups (re-review of fixes)
+Verdict: **CHANGES REQUESTED**, one line. antislop active: during (global preference).
 
-Reviewer: `design-reviewer`, fresh context. Range `bdabec4..13daf3d` on `wp/1.4-followups`, six commits: da17fe7, 32d00d5, 9969433, 087ba32, e42bc5d and 13daf3d (the saved review 5). 2026-11-17.
+The reviewer is read-only, so the implementer saved this report as the reviewer returned it.
 
-**What this approval covers.** It covers the source of the fix commits and nothing else. There are no screenshots for this range, and nothing has run in a browser. My procedure says a review without screenshots is not a review of screens, so this report approves no screen. The pull request still cannot merge as interface work until the captures listed at the end exist and have been reviewed. Its own R-35 line (FAIL until the owner's browser run, as of round 5) still applies.
+One line is wrong, and fixing it is a one-word change. With it fixed, the verdict becomes APPROVE WITH NOTES.
 
-**How I read the files.** I read every file through git at 13daf3d. I checked them against `DESIGN.md` (signed, revision 2), the experience spec sections 1, 4, 5.6, 6.8, 8, 9 and 10.9, and the antislop core, ui, copywriting, layoutmobile and code skills. I also checked React Aria's installed source (react-aria-components 1.22.1, react-aria 3.53.1).
+## Blocking finding
 
-**What I did not read.** I did not read the draft description at `docs/reports/pull-requests/WP-1.4-followups.md`. It is untracked, and you told me to read nothing from the working tree. So I have not checked the Delivery Gate lines or the proposed `DESIGN.md` wording for round-5 MINOR 3.
+`docs/reports/pull-requests/WP-1.4.md:78`: **problem:** R-03 says that "two of" the sideways-scroll and 44 px tests have no ✓ line, "the not-found page's at 768 px". The raw output disagrees. The sideways-scroll test at 768 px does have a ✓ line: `✓  18 …e not-found page does not scroll sideways at 768 px (92ms)` (`e2e-39-passed.txt:27`). Only one of the two lacks a ✓ line: the 44 px test at 768 px. The other test with no ✓ line at 768 px is the axe test, which R-25 covers. Line 35 of the description already says this correctly, so R-03 contradicts both the evidence file and line 35. Under the line-by-line rule, a Gate line that the evidence contradicts blocks. **Required fix:** change it to "One of them, the not-found page's 44 px test at 768 px, has no ✓ line of its own". Then run `gh pr edit 3 --body-file …` again.
 
-## Findings on the round-5 fixes
+## What I checked
 
-- **MAJOR 1: resolved, for the cases it named.**
-  - `validate` is now typed `(value: string) => string | null | undefined`, so it cannot return `true`.
-  - `validationBehavior` is left out of the props and forced to `"aria"`.
-  - In the installed `useTextField.mjs`, lines 61 and 62 set `required` only when the behavior is native, and `aria-required` only when it is aria. This matches the new test.
-  - React Aria treats a falsy result from `validate` as "valid", so `""` is valid.
-  - A trimmed empty sentence now throws.
-  - One path to a browser-written message is still open. See MINOR 1.
-- **MINOR 1 of round 5 (bold faces): resolved, and I measured it myself.** I ran Next's fontkit on this machine:
-  - `Menlo-Bold` ("Menlo Bold"): upm 2048, ascent 1901, descent -483, gap 0, advance 1233. Same as Regular.
-  - `CourierNewPS-BoldMT` ("Courier New Bold"): upm 2048, ascent 1705, descent -615, gap 0, advance 1229. Same as Regular.
-  - `IBMPlexMono-SemiBold`: upm 1000, ascent 1025, descent -275, gap 0, advance 600. Same as 400.
-  - The `local()` names in the CSS match these full names and PostScript names exactly.
-  - The 400 and 600 descriptors line up with the two Plex Mono faces in `fonts.ts`.
-- **MINOR 2 (Android): resolved as recorded.** Android is named as uncovered in `font-fallbacks.css` and `fonts.ts`, with the reason.
-- **MINOR 3 (`DESIGN.md` section 5): not checked.** It lives in the untracked draft.
-- **MINOR 4 (primary Run): resolved.** Only the secondary Run with `Play` remains, and a test asserts it has no `bg-action`.
-- **MINOR 5 (full-width label): resolved.** The new label, "Full width, as on a phone", is plain.
-- **MINOR 6 (notice drawn in two steps): resolved.** `LiveRegion` is a bare `<div role>`, and the whole box mounts one frame later. The server-markup test asserts exactly `<div role="status"></div>`.
-- **MINOR 7 (375 and 360 px): resolved in source.**
-  - The `phone-375` and `phone-360` projects are added to `SCREENSHOT_PROJECTS`.
-  - The file names carry the width (`phone-gallery-375.png`), so the three projects do not overwrite each other.
-- **MINOR 8 (`$` in page titles): resolved.** `pageTitle` uses a replacer function, and a test covers `$'` and `$&`.
+**1. Review 5's four blockers**
 
-## New findings
+- Blocker 1 is fixed. "Screens" (lines 59-71) and the Gate header (line 73) are rewritten against d48e68f.
+  - The 13-of-16 claim holds. `git show --stat d48e68f` lists 13 PNGs, and `error-320.png`, `error-375.png` and `not-found-375.png` are not among them.
+  - The dialog shots are taken at the viewport size: `sips` reports 320/375/768/1280 × 900, and the spec uses `fullPage: false`.
+- Blocker 2 is fixed apart from the line above. R-03's dialog sentence, R-35, Block 3 and C-4 are restated.
+  - The NOT VERIFIED tags that were dropped cover only what is now seen: the dialog actions, the current-item border and the system-page alignment.
+- Blocker 3 is fixed. The raw output is in `e2e-39-passed.txt`, and R-25 (line 82) and R-35 (line 89) point at it.
+- Blocker 4 is fixed. Lines 148, 199-218 and 248-263 are updated.
+  - Line 263 says "36 commits before this description's commit". That holds: `git rev-list --count ef7276c..6c30622` gives 37, all authored and committed by `Fahad <Fah2d@users.noreply.github.com>`.
 
-### MINOR 1. A browser-written message can still reach the page, through `type`, `pattern` and `minLength`
+**2. Claims about `e2e-39-passed.txt`**
 
-- **Files:** `/Users/fahad/heap-academy/src/ui/primitives/text-field.tsx` (the doc comment: "no browser-written message (\"Please fill out this field.\") reaches the page").
-- **What is wrong:**
-  - In aria mode, `useTextField` still passes `type`, `pattern`, `minLength` and `maxLength` to the `<input>` (`useTextField.mjs` lines 50, 51, 73 and 74).
-  - The browser checks those itself when a form is submitted, unless the form has `noValidate`.
-  - React Aria's `<Form>` sets `noValidate` only when its own `validationBehavior` is not `"native"`, and its default is `"native"` (`Form.mjs` lines 21 and 23). A plain `<form>` never sets it.
-  - Every gallery field is `type="email"`, and sign-in (experience spec 5.4) will put an email field in a form. Submitting "learner.example.com" there would show the browser's "Please include an '@'…" bubble. That text is not from `src/messages`, it may be in another language than the page, and it comes with no red border, because React Aria listens for `invalid` events only in native mode.
-  - Nothing in the product has a form yet, so nothing visible is wrong today.
-- **Fix:**
-  - Before the first form ships, add a `Form` primitive in `src/ui` that always passes `validationBehavior="aria"`, so `noValidate` is always set.
-  - Add a test that a `TextField type="email"` inside it sits in a form with `noValidate`.
-  - Until then, narrow the comment to "`isRequired` never adds the browser's message".
-  - If the draft's Gate line claims that no browser message can appear at all, reword it the same way.
+- The summary line is `39 passed (16.8s)` (line 90). There is no failed, flaky or skipped line.
+- I counted 34 ✓ lines. Tests 14, 16, 23, 28 and 33 have no ✓ line. This matches line 35.
+- There are four `[WebServer] ⨯ Error` blocks, after error tests 17, 26, 31 and 36.
+- Test 37 is the current-link test and test 3 is the dev-only test. Both claims are correct.
+- `--list` prints `Total: 39 tests in 2 files`, as claimed.
+- The mapping holds, but the numbers in the output are the order tests started in, not the `--list` order. There is no `fullyParallel` setting, so each spec file runs in one worker, in the order it is written. Under that order every one of the 34 ✓ names matches:
+  - shell: tests 1, 3-6, 8-10, 12-14, 16 and 18-21
+  - gallery: 2/7/11/15/17 at 320 px, 22-26 at 375, 27-31 at 768, 32-36 at 1280, then 37-39
+- So test 14 is the not-found axe test at 768 px, test 16 is the not-found 44 px test at 768 px, and tests 23, 28 and 33 are the open-dialog tests at 375, 768 and 1280 px. This is what line 35 says.
 
-### MINOR 2. The throw is tested only for `errorMessage`, not for `validate`
+**3. NOT VERIFIED**
 
-- **Files:** `/Users/fahad/heap-academy/src/ui/primitives/text-field.tsx`, `/Users/fahad/heap-academy/src/ui/primitives/primitives.test.tsx`
-- **What is wrong:**
-  - A `validate` that returns `" "` is truthy, so React Aria counts it as an error. The trimmed sentence is then empty, and the field throws while the learner types. No test covers this path.
-  - A blank `errorMessage` on the valid branch (`errorMessage=" "` plus a `validate` that returns a real sentence) also throws. That is because `errorMessage ?? …` keeps the blank string, so it wins over the real sentence.
-  - Both are programming errors, and refusing them is right. But in production the throw replaces the page with the error page, and that loses what the learner typed. So each path should fail in a test, not on a learner's screen.
-- **Fix:** add tests for `validate={() => " "}` and for a blank `errorMessage` combined with `validate`.
+- C-4 (lines 109-117) keeps all nine of review 5's unseen items: focus ring, focus in the dialog, skip link while focused, hover and press, forced colors, dialog with the phone keyboard open, error page without a reference, long reference wrapping, Firefox/WebKit, and real phone emulation.
+- R-32 keeps the amber ring around the primary button as NOT VERIFIED.
+- I found no overclaim.
 
-### MINOR 3. The target-size test's visibility skip is wider than its comment says
+**4. Documentation only**
 
-- **File:** `/Users/fahad/heap-academy/e2e/phone.spec.ts`
-- **What is wrong:**
-  - Playwright's `isVisible()` is false for any element with an empty bounding box. So a control squashed to zero width or zero height is skipped, and that is exactly the failure this test exists to catch.
-  - The comment says a hidden control "is measured where it is shown". No phone test opens the dialog, so its two buttons are never measured on a phone.
-  - Today the skip changes nothing. In the gallery's `main`, the closed disclosure holds only text, and the inactive tab panels and the dialog content are not mounted.
-- **Fix:**
-  - Skip only what is really not drawn: `element.checkVisibility()` is false for `display: none` but true for a box of zero size.
-  - Add a phone test that opens the dialog and measures its buttons, or reword the comment.
+- `git show --stat 6c30622` shows three files, all under `docs/`.
+- `git diff --name-only e18643d 6c30622` lists nothing outside `docs/`.
+- Prettier passes on the two changed Markdown files, and there are no em or en dashes in the description.
 
-### MINOR 4. Comments: broken wrapping, one claim that is wrong, and one header that runs long
+**5. e18643d**
 
-- **Files:**
-  - `/Users/fahad/heap-academy/src/ui/tokens/font-fallbacks.css`
-  - `/Users/fahad/heap-academy/e2e/phone.spec.ts`
-  - `/Users/fahad/heap-academy/src/ui/primitives/notice.tsx`
-- **What is wrong:**
-  - **`font-fallbacks.css`:** the header breaks mid-sentence ("The / values come / from Next.js's formula"), and the Courier New line runs past the wrap. The header is now about 25 lines (antislop-code, "The Over-Explained Comment").
-  - **`phone.spec.ts`:** the header's third line was not rewrapped and runs to about 130 characters.
-  - **`notice.tsx` (`announce`):** the doc says "a notice present on load is never announced". That does not follow from the code. With `announce` set, a notice present on load is missing without scripts. After hydration it mounts into a region that already exists, so a screen reader would probably announce it. The instruction (leave it unset) is right; the reason given is wrong.
-- **Fix:**
-  - Rewrap both headers, and cut the font header down to the overrides' source and the gap on Android.
-  - For `announce`, write: "Leave unset for a notice present on load: an announced notice is drawn only after scripts run, one frame after its region."
+- It changes only `.claude/settings.json`. I did not review it.
 
-## Each fix: what the source shows, and what needs a browser
+## Notes (not blocking)
 
-1. **TextField.**
-   - From source: correct, as described above.
-   - Needs a browser: the invalid-field screenshot again, and the email field inside a form once MINOR 1 is addressed.
-2. **LiveRegion and Notice.**
-   - From source: nothing is half-drawn. Nothing is on screen until the whole box is.
-   - One point to check in a browser: inside a flex or grid container with `gap`, the empty region still takes one gap (12 px in a `gap-3` column) for one frame. So "the layout changes once" holds only outside such containers. This is not a finding until a screenshot or trace shows it.
-   - Needs a screen reader: whether one frame is enough for VoiceOver with Safari and NVDA with Firefox. This is still not verified.
-3. **Mono bold faces.**
-   - From source and my own measurement: correct for macOS and Windows. Liberation Mono Bold is assumed metric-compatible with Courier New and was not measured.
-   - Needs a browser: the swap with Plex Mono blocked and then allowed, for weight 600 text such as keywords and current-item labels.
-4. **Gallery.**
-   - From source: one secondary Run with an icon, and a full-width Check under a plain label. No new icon.
-   - Needs a browser: everything visual.
-5. **Phone projects.**
-   - From source: sound. Pixel 7 keeps `screen` at 412 px while the viewport is 375 or 360. Media queries use the viewport, so this only affects `window.screen`, which the site does not use.
-   - Needs a browser: every run.
-6. **`pageTitle`.** Correct. Nothing is visible to check.
+- **Line 33** quotes the full `[ADR-0014] …` title. The output line is cut short: `✓  37 …ion link shows the text color and the amber marker` (line 86). The ending matches only one test, so the claim holds, but the description should say the line is shortened.
+- **Line 35** says "matched by name against `--list`". The output lines are cut off before the width, so the widths of the three dialog tests come from the run order, not from the names. It should say "by name and run order".
+- **More evidence for line 35:** `not-found-768.png` also changed in d48e68f. The axe test at 768 px (test 14) saves it only after its axe check passes, so it supports that test's pass. The description could cite it.
+- **Line 32:** "the only commit after it, d48e68f" is now out of date, because 6c30622 also comes after it. 6c30622 is docs only, so nothing material changes.
+- **Line 260:** "Every reviewer blocker is fixed" is ticked before review 6 confirmed it, and stays wrong until the R-03 line is fixed.
+- **R-32 (line 86):** "the not-found keyboard test" is really the 44 px test, which presses Tab once (`e2e/shell.spec.ts:66`). This is old wording.
+- **Line 11:** the fourth session's length is not measured, and the description says the total is near the 4.5 h stop line (handbook section 3.4). This is outside design scope; it is for the owner.
+- Carried forward from review 5: its non-verified list, review 1's 12 and 14, review 2's MINOR 6, and the WP-4.x note on the mono face for test case names.
 
-**Words.** The added user-facing string is "Full width, as on a phone". It is plain and short and has no em dash, buzzword or invented number. I found no em dash or en dash in any added line of the range. There is no brand asset, no illustration, and nothing from section 10.9.
+**Not verified:**
 
-## Delivery Gate
-
-Not checked this round. The draft is untracked, and I was told not to read the working tree. Before the owner reads the description, check two things:
-
-- The R-26 and R-27 line should claim what MAJOR 1's fix covers (`true`, a blank sentence, `isRequired`) and should not claim that no browser message can ever appear (MINOR 1).
-- R-35 stays FAIL until the screenshots exist.
+- The GitHub PR body. I did not try `gh`, and review 5 reported a TLS failure in the sandbox.
+- The `pnpm verify` output at lines 17-29. I did not rerun it, because `vitest --coverage` writes files.
+- The owner's run itself. It rests on the pasted output.
 
 ## Screenshots looked at
 
-None. No screenshots exist for this range. These must be captured and reviewed before the screens can be approved:
-
-- `phone-gallery-412.png`, `phone-gallery-375.png`, `phone-gallery-360.png`
-- `phone-not-found-412.png`, `phone-not-found-375.png`, `phone-not-found-360.png`
-- The gallery's buttons (secondary Run with icon, full-width Check) at 375, 768 and 1280 px
-- The invalid text field at 375, 768 and 1280 px
-- The tabs before and after selection at 375 px
-- An announced notice, and an unannounced one, for comparison
+None were opened again. No claim depended on something review 5 did not measure. For the open-dialog shots I checked only their pixel sizes with `sips`: `docs/reports/screens/WP-1.4/gallery-dialog-320.png`, `-375.png`, `-768.png` and `-1280.png`.

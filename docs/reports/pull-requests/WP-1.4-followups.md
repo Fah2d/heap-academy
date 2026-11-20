@@ -135,10 +135,10 @@ antislop Delivery Gate report, antislop active: during (global preference). From
 
 ## Reviews
 
-- design-reviewer, round 5 (source only, at bdabec4): CHANGES REQUIRED, 1 MAJOR and 8 MINOR. Report: `docs/reports/reviews/WP-1.4/design-review-5.md`.
+- design-reviewer, round 5 (source only, at bdabec4): CHANGES REQUIRED, 1 MAJOR and 8 MINOR. Report: `docs/reports/reviews/WP-1.4-followups/design-review-5.md`.
   - Fixed: MAJOR 1 (invalid field with no sentence) in da17fe7; MINOR 1 (bold faces) and MINOR 2 (Android recorded as uncovered, not matched) in 9969433; MINORs 4, 5 and 8 (primary Run, the full-width label, `$` in a title) in 087ba32; MINOR 6 (notice drawn whole) in 32d00d5; MINOR 7 (375 and 360 px, hidden controls) in e42bc5d.
   - Open for you: MINOR 3, the `DESIGN.md` line. See "Needs your decision".
-- design-reviewer, round 6 (source only, at 13daf3d): APPROVE for the source, no screen approved. 4 MINOR, all fixed in 687e42c. Report: `docs/reports/reviews/WP-1.4/design-review-6.md`.
+- design-reviewer, round 6 (source only, at 13daf3d): APPROVE for the source, no screen approved. 4 MINOR, all fixed in 687e42c. Report: `docs/reports/reviews/WP-1.4-followups/design-review-6.md`.
   - MINOR 1: the TextField comment and the Gate line now claim only what is covered. The form primitive that sets `noValidate` is listed for the first form (WP-2.x sign-in).
   - MINOR 2: tests for a blank sentence from `validate`, and a blank `errorMessage` beside a `validate`.
   - MINOR 3: the target-size test skips only `display: none` (`checkVisibility()`), so a squashed box fails; a phone test measures the open dialog's buttons.
