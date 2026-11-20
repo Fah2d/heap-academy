@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { runtimeDev as m } from "@/messages/runtime-dev";
+import { STDIN_LINE_LENGTH_LIMIT } from "@/runtime/protocol";
 import { useRuntime } from "../client/use-runtime";
 
 /**
@@ -14,6 +15,7 @@ export function RuntimeConsole() {
   const [source, setSource] = useState<string>(m.sample);
   const [stdin, setStdin] = useState("");
   const [answer, setAnswer] = useState("");
+  const [refused, setRefused] = useState(false);
   const waiting = view.status === "awaitingInput";
   const result = view.result;
   const output = view.output.map((chunk) => chunk.text).join("");
@@ -76,14 +78,19 @@ export function RuntimeConsole() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            sendInput(answer);
-            setAnswer("");
+            // A refused answer stays in the field, with the reason.
+            const sent = sendInput(answer);
+            setRefused(!sent.ok);
+            if (sent.ok) setAnswer("");
           }}
         >
           <label htmlFor="runtime-answer">{m.answer}</label>
           <input
             id="runtime-answer"
             value={answer}
+            maxLength={STDIN_LINE_LENGTH_LIMIT}
+            aria-invalid={refused}
+            aria-describedby={refused ? "runtime-answer-refused" : undefined}
             autoComplete="off"
             spellCheck={false}
             autoFocus
@@ -91,6 +98,7 @@ export function RuntimeConsole() {
               setAnswer(event.target.value);
             }}
           />
+          {refused && <p id="runtime-answer-refused">{m.answerRefused(STDIN_LINE_LENGTH_LIMIT)}</p>}
           <button type="submit">{m.send}</button>
           <button type="button" onClick={endInput}>
             {m.endInput}

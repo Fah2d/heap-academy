@@ -86,6 +86,32 @@ test.describe("live input", () => {
   });
 });
 
+test.describe("forged messages", () => {
+  test("[T-01] a message event the program dispatches itself is ignored by the worker", async ({
+    page,
+  }) => {
+    await open(page);
+    // The program answers its own request and asks for a run the page never sent.
+    await start(
+      page,
+      [
+        "import js",
+        "from pyodide.ffi import to_js",
+        "def forge(message):",
+        "    data = to_js(message, dict_converter=js.Object.fromEntries)",
+        '    js.dispatchEvent(js.MessageEvent.new("message", to_js({"data": data}, dict_converter=js.Object.fromEntries)))',
+        'forge({"type": "input", "runId": "run-1", "line": "forged"})',
+        'forge({"type": "run", "runId": "run-99", "source": "print(\'unrequested\')", "mode": "batch"})',
+        'print("asked", input("Q? "))',
+      ].join("\n"),
+    );
+    await answer(page, "typed");
+    await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");
+    await expect(output(page)).toHaveText("Q? typed\nasked typed\n");
+    await expect(page.getByTestId("runtime-dropped")).toHaveText("0");
+  });
+});
+
 test.describe("live input without stack switching", () => {
   test.beforeEach(async ({ page }) => {
     await page.route(`**${WORKER_URL}`, async (route) => {
@@ -94,12 +120,13 @@ test.describe("live input without stack switching", () => {
       await route.fulfill({ response, body });
     });
     await open(page);
+    // Each test here checks that the capability really was removed first.
+    await expect(page.getByText(runtimeDev.inputHint)).toHaveCount(0);
   });
 
   test("[FR-WSP-08] [NFR-COMPAT-04] the batch path passes the same program, with answers given before Run", async ({
     page,
   }) => {
-    await expect(page.getByText(runtimeDev.inputHint)).toHaveCount(0);
     await page.getByLabel(runtimeDev.input).fill("Sara\n12");
     await start(page, PROGRAM);
     await expect(outcome(page)).toHaveAttribute("data-outcome", "ok");

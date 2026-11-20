@@ -3,14 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { runtimeAssetBase } from "@/runtime/assets";
 import { createPythonWorker } from "@/runtime/browser";
-import { createRuntimeController, type RuntimeController } from "@/runtime/controller";
+import {
+  createRuntimeController,
+  type InputRequest,
+  type RuntimeController,
+} from "@/runtime/controller";
 import { addReport, INITIAL_VIEW, reduceView, type RuntimeView, startRun } from "./runtime-view";
 
 /** Starts the Python runtime when the page opens and ends it when the page closes. */
 export function useRuntime(): {
   view: RuntimeView;
   run: (source: string, stdin: string[] | undefined) => void;
-  sendInput: (line: string) => void;
+  sendInput: (line: string) => InputRequest;
   endInput: () => void;
   stop: () => void;
 } {
@@ -50,9 +54,11 @@ export function useRuntime(): {
     if (request.ok) setView((previous) => startRun(previous, current.status));
   }, []);
 
-  const sendInput = useCallback((line: string) => {
-    controller.current?.sendInput(line);
-  }, []);
+  const sendInput = useCallback(
+    (line: string): InputRequest =>
+      controller.current?.sendInput(line) ?? { ok: false, error: "not_waiting" },
+    [],
+  );
 
   const endInput = useCallback(() => {
     controller.current?.endInput();

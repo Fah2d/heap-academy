@@ -9,6 +9,8 @@ export const runtimeDev = {
   input: "Input, one line per answer",
   inputHint: "Leave it empty to answer while the program runs.",
   answer: "Answer",
+  answerRefused: (limit: number) =>
+    `This answer could not be sent. An answer is one line of at most ${limit.toLocaleString("en")} characters.`,
   send: "Send",
   endInput: "End input",
   run: "Run",
