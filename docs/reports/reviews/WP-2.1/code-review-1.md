@@ -54,7 +54,7 @@ BEFORE triggers before row level security's check before check constraints; 4250
 | MAJOR 4 | `save_lesson` as a learner and as an admin at `aal1`, then the lesson and solution read unchanged. Only an admin is told the copy is stale; anyone else is told `lesson_not_found`. |
 | MAJOR 5 | Added, with the status, title and XP read back. |
 | MAJOR 6 | `archived-course` with a published lesson, and `archived-lesson`; neither is visible to any caller but the admin at `aal2`. |
-| MINOR 1 | Not changed. Recorded in the progress report as a limit of the design. |
+| MINOR 1 | Fixed with security review 1, MINOR 2: a gradable change outside `save_lesson`'s validated call clears `validated_at`. Tested in the same transaction as a validated save. |
 | MINOR 2 | Added. |
 | MINOR 3 | Read as the learner. |
 | MINOR 4 | Added. |
