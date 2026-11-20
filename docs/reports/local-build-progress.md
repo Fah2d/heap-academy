@@ -16,10 +16,10 @@ Started at 17:30 from `main` at 037c4ad. Time box: 3 hours. This is a start, not
 | `profiles`, its policies and column grants, and the new user trigger | `supabase/migrations/20261120120300_profiles.sql` |
 | `completions` (insert only), the completion values trigger, `lesson_completion_counts()` | `supabase/migrations/20261120120400_completions.sql` |
 | `save_lesson(...)`, security invoker, refusing a stale copy (FR-ADM-10) | `supabase/migrations/20261120120500_save_lesson.sql` |
-| pgTAP tests: 163 assertions in four files. Every table and operation as anonymous, a learner, an admin at `aal1` and an admin at `aal2`; every trigger tried against its rule | `supabase/tests/database/` |
+| pgTAP tests: 212 assertions in four files. Every table and operation as anonymous, a learner, an admin at `aal1` and an admin at `aal2`, and as a learner at `aal2` who is not on the list; every trigger and branch of the publish rule tried against its rule; each file removes the seed inside its own transaction | `supabase/tests/database/` |
 | Seed: one sample course with the example lesson of `04-content-system.md` section 7, saved validated through `save_lesson` | `supabase/seed.sql` |
 | Local stack configuration: only `public` exposed, the seed enabled | `supabase/config.toml` |
-| The `db` CI job: the pinned CLI from `scripts/install-supabase.sh`, `supabase start` on an empty database, `supabase test db`. `scripts/workflows.test.ts` now expects it | `.github/workflows/ci.yml` |
+| The `db` CI job: the pinned CLI from `scripts/install-supabase.sh`, `supabase start` on an empty database, `supabase test db`. `scripts/workflows.test.ts` checks the job's name and its three commands; with `supabase test db` replaced by `true`, that test fails | `.github/workflows/ci.yml` |
 | `pnpm test:db` | `package.json` |
 
 ### Verified
@@ -34,7 +34,7 @@ Started at 17:30 from `main` at 037c4ad. Time box: 3 hours. This is a start, not
 
 ### Commands for you
 
-No package install is needed for this work package. With Docker Desktop running, from the clone at `/private/tmp/claude-501/-Users-fahad-heap-academy/f5fba7f9-a8ad-4cf7-ab98-f96c832e2ec3/scratchpad/ha`, on `wp/2.1-schema-policies`:
+No package install is needed for this work package. With Docker Desktop running, in a checkout of `wp/2.1-schema-policies` with its dependencies installed:
 
 ```sh
 supabase start
@@ -47,13 +47,16 @@ Then paste the output of the first two, or tell me to read it. Every failure fro
 ### Left in this work package
 
 - Fix whatever the first database run finds, and commit the generated types.
-- `code-reviewer` and `security-reviewer` on the SQL, after the tests pass.
+- Reviews. Code review round 1 (of d32a509, by reading only): CHANGES REQUIRED, 3 BLOCKER, 6 MAJOR, 11 MINOR. Fixed since: the seed rows in the test results, no learner at `aal2`, null results from the JSON checks, the untested branches of the publish rule and the course guard, `save_lesson` as callers who are not admins, a title-only save of a live lesson, archived fixtures, the draft-course clause of the completion policy, FR-PRG-07 read through the policy, new-user edge cases, requirement IDs in titles, the `db` job test, and explicit table privileges. The third blocker is this list: nothing has run. Security review round 1 is still running. Both reviews run again after the first database run.
 - The pull request description.
 - **The database check in `/api/health`**, which you approved for WP-2.1 (item 5 of the `spec-change` pull request). It needs a database client, which `08-delivery-plan.md` puts in WP-2.2 with `@supabase/supabase-js` and `@supabase/ssr`. Not started: writing it against packages that are not installed would fail `pnpm verify`. Decision for you: build the clients here, or move the check to WP-2.2.
 - **Staging seed.** The deploy workflow applies migrations with `supabase db push`, which does not run `seed.sql`. Seeding staging needs a step or a runbook line; not done.
 - **The required checks.** `db` is a new job name. Branch protection must list it once it has run (`05-engineering-handbook.md` section 10).
 
 ### Choices to confirm
+
+- **A published course whose last published lesson is archived stays published**, with no lesson to show. Section 8.3 says the trigger refuses *publishing* such a course; section 1.1 reads as a rule that always holds. Which one?
+- **The Postgres major version** is the CLI's default; `config.toml` does not pin it. It should match the hosted projects, whose version is not recorded in the repository.
 
 These limits are not in the spec, so each is a choice:
 
@@ -63,6 +66,8 @@ These limits are not in the spec, so each is a choice:
 - A wrong answer's label: 1 to 80 characters, a test case name's limit.
 - `time_zone`: 1 to 64 characters. It is not checked against the time zone database.
 - A draft lesson may have no test case and empty instructions. Publishing needs a passing validation, and validation needs both.
+
+The publish rule compares two times, and `now()` is fixed for a whole transaction. So a gradable change made later in the same transaction as a `save_lesson` with a validation would still count as validated. Nothing does that today; a pair of version counters would remove the dependence (code review 1, MINOR 1).
 
 How `validated_at` is protected: a trigger refuses any change to it unless `save_lesson` has named the lesson in a transaction setting, in the same statement, at the transaction's time. An admin at `aal2` could set that setting by hand. This guards against a bug in the dashboard, not against the admin, which is the trust model of ADR-0026.
 
