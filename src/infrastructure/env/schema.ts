@@ -31,8 +31,19 @@ export const publicEnvironmentSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
 });
 
+// The release in log lines and in the health answer: the commit SHA, which
+// the deploy workflow sets when it builds. Unset everywhere else, where the
+// release is "local". next.config.ts inlines it at build, because a prebuilt
+// deployment does not see the build's environment at run time.
+export const RELEASE_LOCAL = "local";
+const release = z
+  .string()
+  .regex(/^(?:[0-9a-f]{40}|local)$/, "must be a full commit SHA or local")
+  .optional();
+
 export const serverEnvironmentSchema = z.object({
   RESEND_API_KEY: required,
+  HEAP_RELEASE: release,
 });
 
 export type PublicEnvironment = z.infer<typeof publicEnvironmentSchema>;
@@ -68,7 +79,10 @@ export function parseEnvironment(source: Source): {
       NEXT_PUBLIC_SUPABASE_URL: all.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: all.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     },
-    server: { RESEND_API_KEY: all.RESEND_API_KEY },
+    server: {
+      RESEND_API_KEY: all.RESEND_API_KEY,
+      HEAP_RELEASE: all.HEAP_RELEASE ?? RELEASE_LOCAL,
+    },
   };
 }
 

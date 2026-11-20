@@ -1,0 +1,8 @@
+{
+  "name": "heap-academy-vercel-cli",
+  "private": true,
+  "description": "The Vercel CLI for the deploy workflow, locked with its whole dependency tree (T-13). Installed with npm ci --ignore-scripts.",
+  "dependencies": {
+    "vercel": "65.16.0"
+  }
+}
