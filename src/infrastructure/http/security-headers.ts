@@ -13,7 +13,13 @@ export type PolicyOptions = {
   development: boolean;
   /** Over plain HTTP (the local production server) there is nothing to upgrade to. */
   secure: boolean;
+  /** The sign-in page also frames the bot challenge (section 5.2, FR-AUTH-06). */
+  signInPage?: boolean;
 };
+
+/** Where the bot challenge, Cloudflare Turnstile, serves its frame. */
+export const BOT_CHALLENGE_ORIGIN = "https://challenges.cloudflare.com";
+export const SIGN_IN_PATH = "/sign-in";
 
 /** A nonce of 128 random bits, base64 encoded. */
 export function createNonce(): string {
@@ -21,7 +27,12 @@ export function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function contentSecurityPolicy({ nonce, development, secure }: PolicyOptions): string {
+export function contentSecurityPolicy({
+  nonce,
+  development,
+  secure,
+  signInPage = false,
+}: PolicyOptions): string {
   const directives: string[][] = [
     ["default-src", "'self'"],
     [
@@ -39,6 +50,8 @@ export function contentSecurityPolicy({ nonce, development, secure }: PolicyOpti
     ["font-src", "'self'"],
     ["connect-src", "'self'"],
     ["worker-src", "'self'"],
+    // Its script loads by this request's nonce, like every other script.
+    ...(signInPage ? [["frame-src", BOT_CHALLENGE_ORIGIN]] : []),
     ["object-src", "'none'"],
     ["base-uri", "'none'"],
     ["form-action", "'self'"],

@@ -25,6 +25,16 @@ describe("proxy", () => {
     expect(forwarded(response, "content-security-policy")).toBe(policy);
   });
 
+  it("[NFR-SEC-02] [FR-AUTH-06] frames the bot challenge on the sign-in page only", () => {
+    const policy = (url: string) => run(url).headers.get("content-security-policy") ?? "";
+    expect(policy("https://heap.test/sign-in")).toContain(
+      "frame-src https://challenges.cloudflare.com",
+    );
+    expect(policy("https://heap.test/sign-in?returnTo=/courses")).toContain("frame-src");
+    expect(policy("https://heap.test/courses")).not.toContain("frame-src");
+    expect(policy("https://heap.test/sign-in/other")).not.toContain("frame-src");
+  });
+
   it("[NFR-SEC-02] gives every request a different nonce", () => {
     const first = run("https://heap.test/").headers.get("content-security-policy");
     const second = run("https://heap.test/").headers.get("content-security-policy");

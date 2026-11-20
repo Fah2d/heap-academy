@@ -4,6 +4,7 @@ import {
   contentSecurityPolicy,
   createNonce,
   reportingEndpoints,
+  SIGN_IN_PATH,
 } from "@/infrastructure/http/security-headers";
 import { log } from "@/infrastructure/logging/logger";
 import { logRoute } from "@/infrastructure/logging/route";
@@ -23,6 +24,7 @@ export function proxy(request: NextRequest): NextResponse {
     nonce,
     development: process.env.NODE_ENV === "development",
     secure: request.nextUrl.protocol === "https:",
+    signInPage: request.nextUrl.pathname === SIGN_IN_PATH,
   });
 
   const requestHeaders = new Headers(request.headers);
