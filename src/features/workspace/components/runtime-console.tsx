@@ -10,9 +10,11 @@ import { useRuntime } from "../client/use-runtime";
  * attributes are for the browser tests.
  */
 export function RuntimeConsole() {
-  const { view, run, stop } = useRuntime();
+  const { view, run, sendInput, endInput, stop } = useRuntime();
   const [source, setSource] = useState<string>(m.sample);
   const [stdin, setStdin] = useState("");
+  const [answer, setAnswer] = useState("");
+  const waiting = view.status === "awaitingInput";
   const result = view.result;
   const output = view.output.map((chunk) => chunk.text).join("");
 
@@ -32,27 +34,31 @@ export function RuntimeConsole() {
         }}
       />
 
+      {/* Answers given here make a batch run, the only kind where the runtime cannot pause (section 5.3). */}
       <label htmlFor="runtime-input">{m.input}</label>
       <textarea
         id="runtime-input"
         value={stdin}
         rows={3}
         spellCheck={false}
+        aria-describedby={view.interactiveInput ? "runtime-input-hint" : undefined}
         onChange={(event) => {
           setStdin(event.target.value);
         }}
       />
+      {view.interactiveInput && <p id="runtime-input-hint">{m.inputHint}</p>}
 
       <button
         type="button"
         disabled={view.status !== "ready"}
         onClick={() => {
-          run(source, stdin === "" ? [] : stdin.split("\n"));
+          const lines = stdin === "" ? [] : stdin.split("\n");
+          run(source, view.interactiveInput && stdin === "" ? undefined : lines);
         }}
       >
         {m.run}
       </button>
-      <button type="button" disabled={view.status !== "running"} onClick={stop}>
+      <button type="button" disabled={view.status !== "running" && !waiting} onClick={stop}>
         {m.stop}
       </button>
 
@@ -65,6 +71,32 @@ export function RuntimeConsole() {
 
       <h2>{m.output}</h2>
       <pre data-testid="runtime-output">{output}</pre>
+
+      {waiting && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            sendInput(answer);
+            setAnswer("");
+          }}
+        >
+          <label htmlFor="runtime-answer">{m.answer}</label>
+          <input
+            id="runtime-answer"
+            value={answer}
+            autoComplete="off"
+            spellCheck={false}
+            autoFocus
+            onChange={(event) => {
+              setAnswer(event.target.value);
+            }}
+          />
+          <button type="submit">{m.send}</button>
+          <button type="button" onClick={endInput}>
+            {m.endInput}
+          </button>
+        </form>
+      )}
 
       {result !== undefined && (
         <p data-outcome={result.outcome.kind} data-truncated={String(result.truncated)}>

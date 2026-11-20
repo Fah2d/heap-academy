@@ -9,7 +9,9 @@ import { addReport, INITIAL_VIEW, reduceView, type RuntimeView, startRun } from 
 /** Starts the Python runtime when the page opens and ends it when the page closes. */
 export function useRuntime(): {
   view: RuntimeView;
-  run: (source: string, stdin: string[]) => void;
+  run: (source: string, stdin: string[] | undefined) => void;
+  sendInput: (line: string) => void;
+  endInput: () => void;
   stop: () => void;
 } {
   const [view, setView] = useState<RuntimeView>(INITIAL_VIEW);
@@ -41,16 +43,24 @@ export function useRuntime(): {
     };
   }, []);
 
-  const run = useCallback((source: string, stdin: string[]) => {
+  const run = useCallback((source: string, stdin: string[] | undefined) => {
     const current = controller.current;
     if (current === undefined) return;
     const request = current.run(source, stdin);
     if (request.ok) setView((previous) => startRun(previous, current.status));
   }, []);
 
+  const sendInput = useCallback((line: string) => {
+    controller.current?.sendInput(line);
+  }, []);
+
+  const endInput = useCallback(() => {
+    controller.current?.endInput();
+  }, []);
+
   const stop = useCallback(() => {
     controller.current?.stop();
   }, []);
 
-  return { view, run, stop };
+  return { view, run, sendInput, endInput, stop };
 }
