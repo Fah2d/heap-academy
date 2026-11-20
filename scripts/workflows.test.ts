@@ -187,6 +187,24 @@ describe("workflows", () => {
     expect(job(text, "production")).toMatch(/^ {4}environment:\n {6}name: production$/m);
   });
 
+  it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, and production waits for it", () => {
+    const text = read("deploy.yml");
+    expect(job(text, "staging-migrations")).toMatch(/^ {4}if: vars\.DEPLOY_ENABLED == 'true'$/m);
+    // Skipped with the first job, because it needs it.
+    expect(job(text, "production")).toMatch(/^ {4}needs: staging-migrations$/m);
+    expect(job(text, "production")).not.toMatch(/^ {4}if:/m);
+  });
+
+  it("[NFR-SEC-02] the build fails on any prerendered page", () => {
+    const build = job(read("ci.yml"), "build");
+    expect(step(build, "No prerendered page")).toContain(
+      "run: node scripts/check-static.mjs .next",
+    );
+    expect(build.indexOf("- run: pnpm build")).toBeLessThan(
+      build.indexOf("name: No prerendered page"),
+    );
+  });
+
   it("[T-18] the deploy workflow restores no cache, keeps its order, and never runs twice at once", () => {
     const text = read("deploy.yml");
     expect(text).not.toMatch(/^\s*cache:/m);
