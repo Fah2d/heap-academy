@@ -542,4 +542,111 @@ describe("runtime controller: checks", () => {
     expect(invalid.controller.check("x", [])).toEqual({ ok: false, error: "invalid" });
     expect(invalid.latest().received).toHaveLength(1);
   });
+
+  it("[T-22] [T-23] with freshWorker, a check on a used worker starts a new one first", () => {
+    const setup = started();
+    const first = setup.latest();
+    const request = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!request.ok) throw new Error("check refused");
+    expect(setup.controller.status).toBe("checking");
+    expect(first.received.map((message) => message.type)).toEqual(["init", "check"]);
+    first.send({ type: "test_result", runId: request.runId, result: passed("first") });
+    first.send({ type: "test_result", runId: request.runId, result: passed("second") });
+    first.send({ type: "test_result", runId: request.runId, result: passed("third") });
+    const summary = {
+      total: 3,
+      passed: 3,
+      failed: 0,
+      notRun: 0,
+      allPassed: true,
+      timeLimit: false,
+    };
+    first.send({ type: "check_done", runId: request.runId, summary });
+
+    const second = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!second.ok) throw new Error("check refused");
+    expect(first.terminated).toBe(true);
+    expect(setup.workers).toHaveLength(2);
+    expect(setup.controller.status).toBe("restarting");
+    expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "isolation" });
+    expect(setup.latest().received.map((message) => message.type)).toEqual(["init"]);
+    setup.makeReady();
+    expect(setup.controller.status).toBe("checking");
+    expect(setup.latest().received.at(-1)).toEqual({
+      type: "check",
+      runId: second.runId,
+      source: "print(1)",
+      tests,
+    });
+  });
+
+  it("[T-22] with freshWorker, a worker that has only loaded is used as it is", () => {
+    const setup = started();
+    expect(setup.controller.check("print(1)", tests, { freshWorker: true }).ok).toBe(true);
+    expect(setup.workers).toHaveLength(1);
+    expect(setup.controller.status).toBe("checking");
+  });
+
+  it("[T-22] a run makes the worker used, so the next fresh check replaces it", () => {
+    const setup = started();
+    const run = setup.controller.run("print(1)");
+    if (!run.ok) throw new Error("run refused");
+    setup.latest().send({
+      type: "run_done",
+      runId: run.runId,
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 4,
+    });
+    setup.controller.check("print(1)", tests, { freshWorker: true });
+    expect(setup.workers).toHaveLength(2);
+  });
+
+  it("[FR-RUN-02] Stop while the new worker starts ends the check, and the new worker becomes ready", () => {
+    const setup = started();
+    setup.controller.check("print(1)", tests);
+    const done = () => setup.events.filter((event) => event.type === "check_done");
+    for (const id of ["first", "second", "third"]) {
+      setup.latest().send({ type: "test_result", runId: "run-1", result: passed(id) });
+    }
+    setup.latest().send({
+      type: "check_done",
+      runId: "run-1",
+      summary: { total: 3, passed: 3, failed: 0, notRun: 0, allPassed: true, timeLimit: false },
+    });
+    const request = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!request.ok) throw new Error("check refused");
+    setup.controller.stop();
+    expect(done().at(-1)).toMatchObject({
+      runId: request.runId,
+      summary: { failed: 1, notRun: 2 },
+    });
+    setup.makeReady();
+    expect(setup.controller.status).toBe("ready");
+    expect(setup.latest().received.map((message) => message.type)).toEqual(["init"]);
+  });
+
+  it("[FR-RUN-06] a new worker that fails to start ends the waiting check as crashed", () => {
+    const setup = started();
+    const run = setup.controller.run("print(1)");
+    if (!run.ok) throw new Error("run refused");
+    setup.latest().send({
+      type: "run_done",
+      runId: run.runId,
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 4,
+    });
+    const request = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!request.ok) throw new Error("check refused");
+    setup.latest().fail();
+    expect(setup.events.find((event) => event.type === "check_done")).toMatchObject({
+      runId: request.runId,
+      results: [
+        { status: "failed", reason: "crashed" },
+        { status: "not_run" },
+        { status: "not_run" },
+      ],
+    });
+  });
 });

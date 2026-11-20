@@ -53,7 +53,8 @@ export type RunResult = {
 };
 
 /** Why the controller is starting a new worker. */
-export type RestartReason = "time_limit" | "stopped" | "crashed" | "memory" | "output_limit";
+export type RestartReason =
+  "time_limit" | "stopped" | "crashed" | "memory" | "output_limit" | "isolation";
 
 export type ControllerEvent =
   | { type: "progress"; loadedBytes: number; totalBytes: number }
@@ -88,13 +89,20 @@ export type ControllerOptions = {
   timeLimitMs?: number;
 };
 
+export type CheckOptions = { freshWorker?: boolean };
+
 export type RuntimeController = {
   readonly status: ControllerStatus;
   /** Starts the runtime. Does nothing unless it is idle or has failed. */
   start: () => void;
   run: (source: string, stdin?: string[]) => RunRequest;
-  /** Runs the test cases against the program (architecture section 5.2, `check`). */
-  check: (source: string, tests: readonly TestCase[]) => RunRequest;
+  /**
+   * Runs the test cases against the program (architecture section 5.2,
+   * `check`). With `freshWorker`, on a worker that has run anything, a new
+   * worker starts first: a program can change what later checks on its
+   * worker report, so Validate uses this for every program (T-22, T-23).
+   */
+  check: (source: string, tests: readonly TestCase[], options?: CheckOptions) => RunRequest;
   /** Ends the current run or check, if there is one, and starts a new worker. */
   stop: () => void;
   dispose: () => void;
@@ -124,6 +132,10 @@ export function createRuntimeController({
   let status: ControllerStatus = "idle";
   let worker: WorkerLike | undefined;
   let current: Current | CurrentCheck | undefined;
+  /** Whether the live worker has been sent a run or a check since it started. */
+  let used = false;
+  /** A check waiting for the new worker it asked for. */
+  let pending: PageMessage | undefined;
   let sequence = 0;
 
   /** The worker ended the run and says whether the output was cut. */
@@ -195,6 +207,10 @@ export function createRuntimeController({
 
   /** The worker died or gave up. What follows depends on what it was doing. */
   function crashed(): void {
+    if (pending !== undefined) {
+      pending = undefined;
+      endCheck("crashed");
+    }
     if (status === "running") {
       finish({ kind: "crashed" });
       restart("crashed");
@@ -233,6 +249,12 @@ export function createRuntimeController({
           runtimeVersion: message.runtimeVersion,
           interactiveInput: message.capabilities.interactiveInput,
         });
+        // A check that asked for a new worker goes to it now.
+        if (pending !== undefined && current?.kind === "check") {
+          const check = pending;
+          pending = undefined;
+          send(current, check);
+        }
         return;
       case "output":
         if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
@@ -297,9 +319,18 @@ export function createRuntimeController({
     }
   }
 
+  /** Sends a check to the live worker and starts its first test case's clock. */
+  function send(check: CurrentCheck, message: PageMessage): void {
+    status = "checking";
+    used = true;
+    startCaseClock(check);
+    worker?.postMessage(message);
+  }
+
   function spawn(): void {
     const next = createWorker();
     worker = next;
+    used = false;
     // A terminated worker can still have messages in flight; they are ignored.
     const live = () => worker === next;
     next.addEventListener("message", (event) => {
@@ -339,6 +370,7 @@ export function createRuntimeController({
       // The worker refuses a malformed message by giving up, so it is checked here first.
       if (!parsePageMessage(message).ok) return { ok: false, error: "invalid" };
       status = "running";
+      used = true;
       const timer = timers.setTimeout(() => {
         if (current?.runId !== runId) return;
         finish({ kind: "time_limit" });
@@ -348,20 +380,29 @@ export function createRuntimeController({
       worker.postMessage(message);
       return { ok: true, runId };
     },
-    check(source, tests) {
+    check(source, tests, options = {}) {
       if (status !== "ready" || worker === undefined) return { ok: false, error: "not_ready" };
       sequence += 1;
       const runId = createRunId(sequence);
       const message: PageMessage = { type: "check", runId, source, tests: [...tests] };
       if (!parsePageMessage(message).ok) return { ok: false, error: "invalid" };
-      status = "checking";
       const check: CurrentCheck = { kind: "check", runId, tests, results: [], timer: undefined };
       current = check;
-      startCaseClock(check);
-      worker.postMessage(message);
+      if (options.freshWorker === true && used) {
+        pending = message;
+        restart("isolation");
+      } else {
+        send(check, message);
+      }
       return { ok: true, runId };
     },
     stop() {
+      if (pending !== undefined) {
+        // The new worker is still starting; the check never reached it.
+        pending = undefined;
+        endCheck("stopped");
+        return;
+      }
       if (status === "running") {
         finish({ kind: "stopped" });
         restart("stopped");
@@ -373,6 +414,7 @@ export function createRuntimeController({
     dispose() {
       if (current !== undefined) timers.clearTimeout(current.timer);
       current = undefined;
+      pending = undefined;
       end();
       status = "disposed";
     },
