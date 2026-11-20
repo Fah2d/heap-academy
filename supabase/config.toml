@@ -11,3 +11,31 @@ extra_search_path = ["public", "extensions"]
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]
+
+# Sign-in on the local stack (docs/spec/02-architecture.md section 11.1).
+# Staging and production take the same values in their dashboards
+# (docs/runbooks/infrastructure-setup.md step 10). Google and the bot
+# challenge stay off here: they need keys from outside the repository.
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+otp_length = 6
+# Ten minutes, in seconds; the email says so.
+otp_expiry = 600
+max_frequency = "1m"
+
+# The provider's documentation does not say which template an email code
+# uses for a new address, so both show the code.
+[auth.email.template.magic_link]
+subject = "Your Heap Academy sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Heap Academy sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
