@@ -63,7 +63,7 @@ flowchart LR
 4. Smoke production: the health endpoint, the home page, one lesson page, one runtime file, the response headers.
 5. On failure, promote the previous deployment and alert the owner.
 
-> **Pending owner decision (proposed in WP-1.3, pull request #4):** the owner approves every production deploy, not only one that contains a migration. A GitHub environment's required reviewer applies to every job that names the environment, so approving only migrations needs a fourth environment. Accepting this changes step 2, the diagram, and `.claude/rules/ci.md`; rejecting it means adding the fourth environment.
+> **Approved by the owner on 2026-11-20 (proposed in WP-1.3, pull request #4):** the owner approves every production deploy, not only one that contains a migration. A GitHub environment's required reviewer applies to every job that names the environment, so approving only migrations needs a fourth environment. Accepting this changes step 2, the diagram, and `.claude/rules/ci.md`; rejecting it means adding the fourth environment.
 
 ### 3.1 Database changes
 

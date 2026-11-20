@@ -110,7 +110,7 @@ upgrade-insecure-requests
 ```
 
 - No `unsafe-eval` in production. The development server needs it and gets it only there.
-- **Pending owner decision (proposed in WP-1.3, pull request #4):** `upgrade-insecure-requests` is sent over HTTPS only, so `next start` on a local address and the end-to-end servers still load their files over plain HTTP.
+- **Approved by the owner on 2026-11-20 (proposed in WP-1.3, pull request #4):** `upgrade-insecure-requests` is sent over HTTPS only, so `next start` on a local address and the end-to-end servers still load their files over plain HTTP.
 - No `'unsafe-inline'` for scripts or style elements. Inline `style` attributes are allowed because the interface libraries position overlays with them; WP-1.3 tries the policy without that line and keeps the stricter one if nothing breaks.
 - `'wasm-unsafe-eval'` belongs to the worker script's own policy. WP-3.1 confirms the page policy does not need it. If an engine disagrees, it is added to the routes that load the runtime and nowhere else.
 - The sign-in page additionally allows the bot challenge's frame host.

@@ -80,7 +80,7 @@ brand/               Reserved for brand files the owner may supply later (ADR-00
 
 `features/shell` holds the page frame (skip link, header, and later the header nav and the footer), the not-found and error pages, the fonts, and the development-only primitives page (WP-1.4).
 
-> **Pending owner decision (proposed in WP-1.3, pull request #4):** add `features/system`, which holds the platform routes that belong to no learner feature: `/api/health` and `/api/csp-report`. The `features` line would then end `admin, shell, system`.
+> **Approved by the owner on 2026-11-20 (proposed in WP-1.3, pull request #4):** add `features/system`, which holds the platform routes that belong to no learner feature: `/api/health` and `/api/csp-report`. The `features` line would then end `admin, shell, system`.
 
 ### 4.1 Dependency rules
 

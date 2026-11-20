@@ -88,7 +88,7 @@ Day 1 is done when: the production address serves the shell through the pipeline
 - Covers: NFR-SEC-03, NFR-SEC-06, FR-GRD-05, FR-PRG-04, FR-PRG-07, FR-ADM-09, FR-ADM-14; T-08, T-10, T-20, T-21, T-22.
 - Builds: migrations for every table of `02-architecture.md` section 8; the policies of section 8.2; the functions and triggers of section 8.3; seed data with a sample course for local and staging; generated types; policy and trigger tests; the `db` job.
 - Done when: policy tests cover every table and operation as anonymous, as a learner, as an admin at `aal1`, and as an admin at `aal2`; trigger tests show that a published lesson cannot be saved without validation, that a course cannot be published empty, that a completion's XP comes from the lesson whatever the caller sends, and that a lesson with completions cannot be deleted; every migration applies to an empty database in CI and to staging through the workflow.
-- **Pending owner decision (proposed in WP-1.3, pull request #4):** Builds also the database check in `/api/health` (`02-architecture.md` section 9.2). WP-1.3 reports liveness and the release only, because no database client exists before this package.
+- **Approved by the owner on 2026-11-20 (proposed in WP-1.3, pull request #4):** Builds also the database check in `/api/health` (`02-architecture.md` section 9.2). WP-1.3 reports liveness and the release only, because no database client exists before this package.
 
 **WP-2.2 Sign-in**
 - Time box: 3.5 hours. Depends on: WP-1.4. Needs the `profiles` trigger of WP-2.1 before its pull request opens.

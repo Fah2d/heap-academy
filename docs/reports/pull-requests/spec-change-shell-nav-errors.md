@@ -1,4 +1,4 @@
-Label: `spec-change`. Documentation only: no code, no test, no configuration.
+Label: `spec-change`. Documentation only: no code, no test, no configuration. **Base: `main`.** #3 and #4 are merged, and `main` at 037c4ad is merged into this branch (803943e) with no conflict.
 
 ## What and why
 
@@ -10,19 +10,14 @@ Accepted by you on 2026-11-16 (WP-1.4 decisions 2 and 3, and its `shell` deviati
 2. **The header nav in WP-5.1, the footer element in WP-6.3.** WP-1.4 built the header, skip link, and the `header` and `main` landmarks. A `nav` or `footer` with no destination would be a dead control, so each comes with the package that gives it destinations. WP-1.4's own "Builds" line now says what it built.
 3. **The error reference.** A server error is logged with its digest next to the request ID, and the error page shows the digest. A browser error shows no reference until `/api/client-error` exists (WP-7.3). Changed in `01-requirements.md` FR-SYS-01 and NFR-OBS-01, `03-experience.md` section 5.6 and the `crashed` row of section 6.5, and `07-operations.md` section 4.1.
 
-Pending your decision (proposed in WP-1.3, pull request #4). Each is written into the spec as a quoted note that starts **"Pending owner decision"**. The rule in force does not change until you decide:
+Approved by you on 2026-11-20 (proposed in WP-1.3, pull request #4; recorded under "Your decisions" in `docs/reports/pull-requests/WP-1.3-part-1.md`). Each is written into the spec as a quoted note that starts **"Approved by the owner on 2026-11-20"**:
 
 4. `02-architecture.md` section 4: add `features/system` for `/api/health` and `/api/csp-report`.
 5. `08-delivery-plan.md` WP-2.1: "Builds" also the database check in `/api/health`.
-6. `07-operations.md` section 3: the owner approves every production deploy, not only one with a migration. The alternative is a fourth environment.
+6. `07-operations.md` section 3: the owner approves every production deploy, not only one with a migration. No fourth environment.
 7. `06-security-privacy.md` section 5.2: `upgrade-insecure-requests` over HTTPS only.
 
-To decide one before you merge, edit its note:
-
-- **Accept:** replace the note with the rule text.
-- **Reject:** delete the note.
-
-Or tell me which, and I will push the edit. If you accept 4, the `features` line in section 4 and in `CLAUDE.md` gains `system`. If you accept 6, step 2 of `07-operations.md` section 3, its diagram, and two lines of `.claude/rules/ci.md` change with it.
+Only the marks changed. The notes keep their wording, and the lines they name are not rewritten: the `features` line in section 4 and in `CLAUDE.md` does not yet list `system`, and step 2 of `07-operations.md` section 3, its diagram, and two lines of `.claude/rules/ci.md` still say approval is for a migration.
 
 ## Work package
 
@@ -31,6 +26,21 @@ Or tell me which, and I will push the edit. If you accept 4, the `features` line
 - Time taken: about 20 minutes.
 
 ## How it was verified
+
+`pnpm verify` after the merge with `main` and the approval marks, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  23 passed (23)
+      Tests  650 passed (650)
+```
+
+Before the merge:
 
 `pnpm verify` on this branch:
 
@@ -64,14 +74,14 @@ None required: no code changes (`05-engineering-handbook.md` section 4.4).
 
 ## Owner actions now due
 
-1. Decide items 4 to 7, before or after merging.
+1. Say whether the lines that items 4 and 6 name should be rewritten to match, in this pull request or a later one. By default they stay as they are, and each note states the approved rule.
 2. Make sure the `spec-change` label exists. If it does not, `gh label create spec-change` first.
 
 ## Deviations from the plan or the spec
 
 - **"Keep `docs/spec/` in sync with the copies the repo keeps of the project spec."** I read the copies as every file in the repository that restates a spec line: `CLAUDE.md`'s module list, `.claude/rules/`, the ADRs, and the plan lines of finished packages.
   - Changed: `CLAUDE.md` and WP-1.4's plan line.
-  - Not changed: `.claude/rules/ci.md`. It restates the approval rule, which stays in force until you decide item 6.
+  - Not changed: `.claude/rules/ci.md`. It restates the approval rule. Item 6 is approved; whether to rewrite these lines is under Owner actions.
   - `docs/later/` is not touched: it is archived.
   - If you meant something else, such as a copy outside the repository, say where.
 - **`CLAUDE.md` was writable**, so its line is edited here rather than sent to you as text.
