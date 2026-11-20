@@ -32,8 +32,8 @@ export type HarnessResult = {
 };
 
 /**
- * Why a test case failed. `time_limit` and `crashed` are decided by whoever
- * owns the clock and the worker: the page, or the Node runner.
+ * Why a test case failed. `time_limit`, `stopped` and `crashed` are decided
+ * by whoever owns the clock and the worker: the page, or the Node runner.
  */
 export const FAILURE_REASONS = [
   "mismatch",
@@ -41,6 +41,7 @@ export const FAILURE_REASONS = [
   "after_code_error",
   "output_limit",
   "time_limit",
+  "stopped",
   "crashed",
 ] as const;
 export type FailureReason = (typeof FAILURE_REASONS)[number];
@@ -199,12 +200,12 @@ export function grade(testCase: TestCase, result: HarnessResult): TestResult {
 }
 
 /**
- * The result for the test case that was running when the clock ran out or
- * the worker died, and `not_run` for each one after it.
+ * The result for the test case that was running when the clock ran out, the
+ * learner pressed Stop, or the worker died, and `not_run` for each one after it.
  */
 export function unfinished(
   testCases: readonly TestCase[],
-  reason: "time_limit" | "crashed",
+  reason: "time_limit" | "stopped" | "crashed",
 ): TestResult[] {
   return testCases.map((testCase, index) =>
     index === 0
