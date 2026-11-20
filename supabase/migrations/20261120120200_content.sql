@@ -69,6 +69,16 @@ alter table public.chapters enable row level security;
 alter table public.lessons enable row level security;
 alter table public.lesson_solutions enable row level security;
 
+-- Privileges are written out rather than left to the platform's defaults.
+-- Anonymous may only read, and only what the policies below allow. Signed-in
+-- callers get the four operations; the policies give them to admins only.
+revoke all on table public.courses, public.chapters, public.lessons, public.lesson_solutions
+  from anon, authenticated;
+grant select on table public.courses, public.chapters, public.lessons to anon;
+grant select, insert, update, delete
+  on table public.courses, public.chapters, public.lessons, public.lesson_solutions
+  to authenticated;
+
 create policy "everyone selects published courses" on public.courses
   for select to anon, authenticated
   using (status = 'published');
@@ -124,8 +134,6 @@ create policy "admins update lesson solutions" on public.lesson_solutions
   using ((select private.is_admin())) with check ((select private.is_admin()));
 create policy "admins delete lesson solutions" on public.lesson_solutions
   for delete to authenticated using ((select private.is_admin()));
-
-revoke all on table public.lesson_solutions from anon;
 
 -- Triggers.
 

@@ -6,7 +6,13 @@
 -- changed after the editor loaded it. When the server action reports that this
 -- exact content passed validation, validated_at is set in the same statement
 -- that writes the content, so a published lesson is never left unvalidated.
--- Returns the lesson's new updated_at, the editor's next copy.
+-- Returns the lesson's new updated_at, the editor's next copy. The server
+-- action passes that value back unchanged, as the text Postgres returned: a
+-- JavaScript Date keeps only milliseconds, so it would fail to match whenever
+-- the stored time has microseconds.
+--
+-- A caller who may not change the lesson matches no row and is told the
+-- lesson was not found; only an admin is told the copy is stale.
 
 create function public.save_lesson(
   p_lesson_id uuid,
@@ -52,7 +58,7 @@ begin
 
   if saved_at is null then
     perform set_config('heap.validated_lesson', '', true);
-    if exists (select 1 from public.lessons where id = p_lesson_id) then
+    if private.is_admin() and exists (select 1 from public.lessons where id = p_lesson_id) then
       raise exception 'lesson_changed_since_loaded' using errcode = 'P0001';
     end if;
     raise exception 'lesson_not_found' using errcode = 'P0001';
