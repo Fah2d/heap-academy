@@ -12,6 +12,73 @@ Everything that needs Vercel, Supabase, Resend, Google, the domain, or repositor
 
 This is a **draft**. The work package is done only when one real page is live through the pipeline with every check green.
 
+## Up to date with main
+
+`main` at 6eb66a5 (WP-1.4, #3) is merged into this branch in a merge commit. No rebase, no force push. Only `next.config.ts` conflicted, and it is resolved as "Merge note" describes. The merge was made in a clone under `$TMPDIR`: in the main checkout `git merge` stopped on `error: unable to unlink old '.claude/settings.json': Operation not permitted`, because the sandbox keeps that file read-only, and aborted before changing anything.
+
+`pnpm verify` on the merge, exit 0:
+
+```
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm attribution && pnpm test
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  22 passed (22)
+      Tests  639 passed (639)
+```
+
+`pnpm build` with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567`, `RESEND_API_KEY=re_ci_marker_not_a_real_key` and the fake `.env.example` values, exit 0:
+
+```
+Route (app)
+┌ ○ /_not-found
+├ ƒ /api/csp-report
+└ ƒ /api/health
+```
+
+Bundle check: `No server variable (RESEND_API_KEY, HEAP_RELEASE) in 20 files under .next/static.`
+
+`pnpm infra:verify` against `next start` on 127.0.0.1:3151, exit 1:
+
+```
+$ node scripts/infra-verify.mjs --url http://127.0.0.1:3151 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
+PASS  page /no-such-page is HTML: 404 text/html; charset=utf-8
+PASS  Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-LYvyq+cfiZPIeHgzoA8igg==' 'strict-dynamic'; style-src 'self' 'nonce-LYvyq+cfiZPIeHgzoA8igg=='; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp
+FAIL  every script carries the nonce: 0 of 15 scripts; without: <script src="/_next/static/chunks/2e1oolumncpmt.js" async=""> <script src="/_next/static/chunks/12vpz3n5v0-8f.js" async=""> <script src="/_next/static/chunks/turbopack-2u1d16houkiyo.js" async="">
+PASS  a new nonce per request: LYvyq+cfiZPIeHgzoA8igg== then rWNV32y0SCNHhZRqOoIApA==
+PASS  X-Content-Type-Options: nosniff
+PASS  Referrer-Policy: strict-origin-when-cross-origin
+PASS  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=(), browsing-topics=()
+SKIP  Strict-Transport-Security: not applicable over plain HTTP (sent: max-age=63072000; includeSubDomains)
+PASS  a static file carries the security headers: 200 /_next/static/chunks/2e1oolumncpmt.js
+PASS  a request ID per request: 9557f1d1-52f3-4d62-a16c-ca72cd50d757 then 37a5df30-72fb-4907-a304-0f49c106ed38
+PASS  a client-sent request ID is replaced: 9557f1d1-52f3-4d62-a16c-ca72cd50d757
+PASS  /api/health answers ok: 200 {"status":"ok","release":"0123456789abcdef0123456789abcdef01234567"}
+PASS  the address serves the expected release: 0123456789abcdef0123456789abcdef01234567, expected 0123456789abcdef0123456789abcdef01234567
+PASS  /api/health is not cached: no-store
+PASS  /api/health carries nosniff: nosniff
+PASS  /api/csp-report accepts a report: 204
+PASS  /api/csp-report refuses a malformed report: 400
+PASS  /api/csp-report caps the size: 413
+PASS  /api/csp-report refuses GET: 405
+
+1 of 19 checks failed.
+```
+
+**The 18 of 18 from the earlier throwaway merge does not hold.** That merge, at 1a129a9, built `ƒ /_not-found`, because WP-1.4's root layout then read the request headers. WP-1.4 dropped that read before it merged (24141ee, "show a reference only for server errors"), so `main` has no page rendered per request, and Next.js cannot put a nonce on a prerendered page (E-21). There are 19 checks, not 18, because the second reviews added "a static file carries the security headers".
+
+So the first deploy's smoke would fail on the nonce line. With nothing deployed before it, there is no rollback target, and production would keep a build whose scripts the policy blocks. Decision A under Reviews.
+
+## If this merges before the accounts exist
+
+- `CI` runs on the push to `main`: `static`, `unit` and `build`. They use no secrets.
+- `Deploy` runs too. Its first job, `staging migrations`, names the `staging` environment. GitHub creates a missing environment the first time a workflow references it, and "the newly created environment will not have any protection rules or secrets configured" ([GitHub Docs, Managing environments for deployment](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)). `scripts/apply-migrations.sh` then stops with `apply-migrations: SUPABASE_DB_URL is not set.` and the job fails. `production` needs that job, so it is skipped.
+- Nothing reaches Vercel or Supabase, and nothing is deployed. What it leaves: a failed `Deploy` run on every push to `main` until setup, and an empty, unprotected `staging` environment, which runbook step 4 then configures.
+
+Not verified: no workflow has run in Actions, and `gh` cannot reach GitHub from the sandbox. Decision B under Reviews.
+
 ## Work package
 
 - Work package: WP-1.3 Pipeline, first deploy, and the script policy. Part 1 of 2.
@@ -67,7 +134,7 @@ Exit 0. Every `pnpm` run here also prints `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOC
 
 After the second reviews, the mutations they found surviving each fail a test too, and the fake server has a broken variant for every smoke check: no policy, a widened policy, no script, a fixed request ID, health without nosniff, a report endpoint answering 200, a GET answering 200, a page that is not HTML, and a static file without the headers. `scripts/workflows.test.ts` now pins the exact rollback condition, the deploy and promote lines, the alias lookup's 404 branch, each job's environment, and the order of the base-commit checks before `pnpm install`.
 
-**`pnpm infra:verify` on this branch alone, at 53e8ab0.** Built with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567` and the fake `.env.example` values, then `next start` on 127.0.0.1:3141. Main has no page yet: the only page is Next's built-in not-found, which is prerendered static, so it cannot carry a nonce (E-21). **Merge WP-1.4 first**, or the first deploy's smoke fails on this line.
+**`pnpm infra:verify` on this branch alone, at 53e8ab0.** Built with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567` and the fake `.env.example` values, then `next start` on 127.0.0.1:3141. Main has no page yet: the only page is Next's built-in not-found, which is prerendered static, so it cannot carry a nonce (E-21). Merging WP-1.4 was expected to fix this line; on the merge with `main` it does not (see "Up to date with main").
 
 ```
 $ node scripts/infra-verify.mjs --url http://127.0.0.1:3141 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
@@ -96,7 +163,7 @@ PASS  /api/csp-report refuses GET: 405
 
 Then `curl http://127.0.0.1:3141/ada@example.com/x`. The server log has 0 lines containing `ada@`; the request is logged as `"route":"GET /:param/:param"`.
 
-**That server is still running.** `pkill` answered "Cannot get process list" inside the sandbox, which hides processes from later commands. Stop it from your terminal: `pkill -f "next start --hostname 127.0.0.1 --port 3141"`.
+**That server is still running.** `pkill` answered "Cannot get process list" inside the sandbox, which hides processes from later commands. Stop it from your terminal: `pkill -f "next start --hostname 127.0.0.1 --port 3141"`. The server of the merge run is also still running, for the same reason: `pkill -f "next start --hostname 127.0.0.1 --port 3151"`.
 
 **`pnpm infra:verify` on a throwaway merge of this branch with `wp/1.4-tokens-primitives-shell`, at 1a129a9, before the second reviews' fixes; not run again since.** WP-1.4's root layout reads the request headers, so every page renders per request (`ƒ /_not-found` in the build output). The merge was made in a separate clone under `$TMPDIR`, with the `next.config.ts` resolution described under "Merge note". Nothing was committed. On the merge: `tsc` and `eslint` clean, `vitest run` `Test Files 20 passed (20)`, `Tests 602 passed (602)`.
 
@@ -182,7 +249,10 @@ Open, for you:
 
 - **The spec text** (choices 1, 2, 5 and 7, and the 8 kB report cap now matches the spec). Proposed in the `spec-change` pull request, `wp/spec-change-shell-nav-errors`, each marked "pending owner decision".
 - **The Vercel CLI's audit result** (choice 12; code MAJOR 5c, security MINOR 4).
-- **A deny rule for `gh api -X PUT .../merge`** (security MINOR 11). `.claude/settings.json` is yours.
+- **A. The nonce on a static page.** `main` has no page rendered per request, so the first deploy's smoke fails and cannot roll back (see "Up to date with main"). Recommended: before the first deploy, a small pull request that makes the root layout render per request, with the build check that fails on any static page (security MINOR 7).
+- **B. The deploy before setup.** Merging this before the accounts exist gives a failed `Deploy` run on every push to `main` and creates an unprotected `staging` environment (see "If this merges before the accounts exist"). Recommended: `if: vars.DEPLOY_ENABLED == 'true'` on `staging migrations`, so both deploy jobs are skipped until you set that repository variable at the end of runbook step 4. It changes `.github/workflows/`, so you push it (choice 8). The alternative is to keep this pull request open until setup is done.
+
+Closed since round 2: the deny rule for merges through `gh api` (security MINOR 11) is on `main` in e18643d, as `Bash(gh api *merge*)` and `Bash(gh api *Merge*)`.
 
 Open, for part 2 or later:
 
@@ -237,9 +307,9 @@ After that, WP-1.3 part 2 can do the rest of the "Done when":
 
 ## Merge note
 
-**Merge WP-1.4 first.** On `main` alone the only page is static, so the first deploy's smoke would fail the nonce check and roll back.
+WP-1.4 is merged, and `main` is merged into this branch. Its only page is still static, so the first deploy's smoke would fail the nonce check (decision A).
 
-This branch and WP-1.4 both change `next.config.ts`, so this one will conflict after WP-1.4 merges. The resolution keeps WP-1.4's function form (`agentRules`, the `.dev.tsx` page extensions, the poll option). Inside it, it adds this branch's release parsing at the top, `env: { HEAP_RELEASE: release }` after `reactStrictMode`, and `headers()`. That resolved file passed `prettier`, `tsc` and `eslint`, built, and passed all 18 `infra:verify` checks.
+This branch and WP-1.4 both change `next.config.ts`. The resolution, now committed in the merge, keeps WP-1.4's function form (`agentRules`, the `.dev.tsx` page extensions, the poll option). Inside it, it adds this branch's release parsing at the top, `env: { HEAP_RELEASE: release }` after `reactStrictMode`, and `headers()`. On the throwaway merge that file passed all 18 `infra:verify` checks of the time. On the committed merge it passes `pnpm verify` and builds, and `infra:verify` fails 1 of 19 checks, for the reason above.
 
 ## Risks and rollback
 
@@ -253,7 +323,7 @@ The Vercel token is in the environment of the Vercel steps only, but that is not
 
 - [ ] Every "Done when" line is met. **Not met:** most lines need accounts (see above). This is part 1.
 - [x] Every cited Must requirement has a passing test that names its ID, apart from the e2e lines, which have not run.
-- [x] `pnpm verify` passes. CI has not run yet.
+- [x] `pnpm verify` passes, on the merge with `main` too. CI has not run yet.
 - [x] No stub, dead control, placeholder or invented number. `/api/health` reports what exists today.
 - [x] No new tables. No new server actions.
 - [x] Every reviewer blocker is fixed: there were none in either round. The MAJORs are fixed or listed as open under Reviews. The reviewers have not seen the round-2 fixes.
