@@ -83,6 +83,15 @@ describe("workflows", () => {
     expect(text).toMatch(/types: \[opened, synchronize, reopened, edited\]/);
   });
 
+  it("[NFR-SEC-03] the db job installs the pinned CLI, starts an empty database and runs the policy tests", () => {
+    const text = job(read("ci.yml"), "db");
+    expect(step(text, "Install the Supabase CLI")).toContain(
+      'scripts/install-supabase.sh "$RUNNER_TEMP/bin"',
+    );
+    expect(text).toMatch(/^ {8}run: supabase start$/m);
+    expect(text).toMatch(/^ {8}run: supabase test db$/m);
+  });
+
   it.each(files)(
     "[T-13] %s puts no expression inside a script, so no event text can run",
     (name) => {
