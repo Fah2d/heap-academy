@@ -110,6 +110,7 @@ No credential is a repository-level secret (ADR-0029, ADR-0030). Each lives in e
    - **Environment variables** (not secrets): `VERCEL_ORG_ID` = `orgId`; `VERCEL_PROJECT_ID` = `projectId`; `PRODUCTION_URL` = `https://<domain>`.
 3. [ ] **New environment** `production-backup`. Deployment branches: `main` only. Leave it empty; WP-7.3 fills it (ADR-0030).
 4. [ ] Repository **Settings → Secrets and variables → Actions → Repository secrets** stays empty.
+5. [ ] Last, once steps 1 to 4 of this section and sections 1 to 6 are done: set DEPLOY_ENABLED=true. **Settings → Secrets and variables → Actions → Variables → New repository variable**, name `DEPLOY_ENABLED`, value `true`. It is a variable, not a secret. Until it exists, the deploy workflow skips both of its jobs on every push to `main`.
 
 Where every secret lives, in one table:
 

@@ -4,6 +4,7 @@
 import { logicalProperties } from "./logical-properties.mjs";
 import { moduleBoundaries } from "./module-boundaries.mjs";
 import { noInlineStrings } from "./no-inline-strings.mjs";
+import { noRawCssValues, noRawValues } from "./no-raw-values.mjs";
 
 export { CSS_ALLOWED_PROPERTIES, CSS_ALLOWED_UNITS } from "./logical-properties.mjs";
 
@@ -14,6 +15,8 @@ export const heapPlugin = {
     "module-boundaries": moduleBoundaries,
     "no-inline-strings": noInlineStrings,
     "logical-properties": logicalProperties,
+    "no-raw-values": noRawValues,
+    "no-raw-css-values": noRawCssValues,
   },
 };
 

@@ -4,9 +4,11 @@ import { defineConfig, devices } from "@playwright/test";
 // screen (docs/spec/05-engineering-handbook.md section 8). Chromium runs on
 // every pull request; Firefox and WebKit on main and before launch.
 const port = 3100;
-// Development-only pages, such as the Python runtime page (WP-3.1), exist
-// only under the development server, so their tests run against it.
+// The primitive gallery, the error page and the Python runtime page (WP-3.1)
+// exist only on the development server, so e2e/gallery.spec.ts and the runtime
+// tests run against one beside the production build.
 const developmentPort = 3101;
+const gallery = /gallery\.spec\.ts$/;
 const runtime = /runtime\.spec\.ts$/;
 
 const engines = [
@@ -14,6 +16,15 @@ const engines = [
   ["firefox", devices["Desktop Firefox"]],
   ["webkit", devices["Desktop Safari"]],
 ] as const;
+// The servers under test get the fake values of .env.example unless the
+// environment sets real ones. None of them is a secret, and no test reaches
+// Supabase or Resend.
+const environment = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "http://127.0.0.1:54321",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+    process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ?? "sb_publishable_example",
+  RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "re_example_not_a_real_key",
+};
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,7 +35,16 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    ...engines.map(([name, device]) => ({ name, testIgnore: runtime, use: { ...device } })),
+    ...engines.map(([name, device]) => ({
+      name,
+      testIgnore: [gallery, runtime],
+      use: { ...device },
+    })),
+    {
+      name: "gallery",
+      testMatch: gallery,
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
     // The runtime's "Done when" names all three engines (WP-3.1).
     ...engines.map(([name, device]) => ({
       name: `runtime-${name}`,
@@ -32,15 +52,21 @@ export default defineConfig({
       use: { ...device, baseURL: `http://127.0.0.1:${developmentPort}` },
     })),
   ],
+  // In order: the production build must finish before the development server
+  // starts writing beside it.
   webServer: [
     {
-      command: `pnpm build && pnpm start --port ${port}`,
-      url: `http://127.0.0.1:${port}`,
+      command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`,
+      // Readiness by port: the site has no page at "/" until WP-5.1, and
+      // Playwright does not count a 404 there as ready.
+      port,
+      env: environment,
       reuseExistingServer: !process.env["CI"],
     },
     {
       command: `pnpm dev --hostname 127.0.0.1 --port ${developmentPort}`,
       url: `http://127.0.0.1:${developmentPort}/dev/runtime`,
+      env: environment,
       reuseExistingServer: !process.env["CI"],
       timeout: 180_000,
     },

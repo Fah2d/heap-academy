@@ -1,4 +1,4 @@
-**Merges after #4.** #4 itself merges after #3. This branch starts from `wp/1.3-pipeline-deploy-csp` at c792dd8. This is a **draft** until the browser tests run: no browser can start in the sandbox that built it. `pyodide@314.0.7` is now installed, `pnpm build` passes, and the worker core has run against real Pyodide under Node. See "Owner actions now due".
+**Base: `main`.** #3 and #4 are merged, and `main` is merged into this branch (f617391). This is a **draft** until the browser tests run: no browser can start in the sandbox that built it. `pyodide@314.0.7` is now installed, `pnpm build` passes, and the worker core has run against real Pyodide under Node. See "Owner actions now due".
 
 ## What and why
 
@@ -38,6 +38,30 @@ The Python worker of architecture section 5: learner code runs in a module worke
 | Development-only page `/dev/runtime`. It has a program, an input field, Run, Stop, a status line, the output, the outcome, and counts of restarts and dropped messages. Copy is in `src/messages/runtime-dev.ts`. | `src/app/dev/runtime/page.dev.tsx`, `src/features/workspace/` |
 | Browser tests for the "Done when" lines: 15 tests in each of three projects, `runtime-chromium`, `runtime-firefox` and `runtime-webkit`, against the development server on port 3101. Also 4 header tests on the production server, in the existing `chromium`, `firefox` and `webkit` projects. | `e2e/runtime.spec.ts`, `e2e/runtime-headers.spec.ts`, `playwright.config.ts` |
 | ADR-0033, proposed, with the probe that found the classic-worker behavior. | `docs/adr/0033-python-worker-compiled-outside-the-bundler.md` |
+
+## Up to date with main
+
+`main` at 037c4ad (#3 and #4) is merged in f617391. Four files conflicted:
+
+- `next.config.ts`: `main`'s function form (`agentRules`, the `.dev.tsx` page extensions, the poll option), with this branch's `runtimeHeaders` added to `headers()`.
+- `playwright.config.ts`: one development server on port 3101, as the deviation below asks. It keeps `main`'s `environment` and this branch's 180 s start budget, and waits for `/dev/runtime`. The three engine projects ignore both the gallery and the runtime tests; the `gallery` project and the `runtime-*` projects run against port 3101.
+- `package.json`: `main`'s dependencies plus `pyodide`.
+- `pnpm-lock.yaml`: `main`'s lockfile plus this branch's pyodide entries (`pyodide`, `@types/emscripten`, `ws`), the same added lines as before. `pnpm install --frozen-lockfile` accepts it.
+
+`pnpm verify` on f617391, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  32 passed (32)
+      Tests  788 passed (788)
+```
+
+Not run on the merge: `pnpm build` and the browser tests.
 
 ## How it was verified
 
@@ -339,9 +363,7 @@ On the development server, once #3's development-only page mechanism is merged:
 `gh` cannot reach GitHub from the sandbox. From your terminal in the repository root:
 
 ```sh
-gh pr create --draft --base wp/1.3-pipeline-deploy-csp --head wp/3.1-python-worker \
+gh pr create --draft --base main --head wp/3.1-python-worker \
   --title "feat(runtime): WP-3.1 the Python worker" \
   --body-file docs/reports/pull-requests/WP-3.1.md
 ```
-
-GitHub retargets it to `main` when #4 merges and its branch is deleted.
