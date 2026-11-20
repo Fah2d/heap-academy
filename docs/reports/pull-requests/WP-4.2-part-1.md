@@ -21,6 +21,21 @@ The allowlist of `04-content-system.md` section 5 (NFR-SEC-07, T-06), as a parse
 
 ## How it was verified
 
+**Up to date with main.** Base: `main`. `main` at 037c4ad (#3 and #4) is merged into this branch (1074bcf), with no conflict. `pnpm verify` on 1074bcf, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  24 passed (24)
+      Tests  726 passed (726)
+```
+
+Before the merge:
+
 `pnpm verify` at the docs commit (the code is that of efc8284 plus one test):
 
 ```
