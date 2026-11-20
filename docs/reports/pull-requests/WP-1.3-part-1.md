@@ -12,49 +12,78 @@ Everything that needs Vercel, Supabase, Resend, Google, the domain, or repositor
 
 This is a **draft**. The work package is done only when one real page is live through the pipeline with every check green.
 
+## Your decisions
+
+Recorded 2026-11-20.
+
+| Question | Decision | Where it lands |
+|---|---|---|
+| A new module `src/features/system` (choice 1) | Approved | The `spec-change` pull request still marks it "pending owner decision" |
+| Approval on every production deploy, or a fourth environment (choice 2) | Keep approval on every production deploy | same |
+| `upgrade-insecure-requests` over HTTPS only (choice 5) | Approved | same |
+| The database check in `/api/health` moves to WP-2.1 (choice 7) | Approved | same |
+| The Vercel CLI's 38 audit advisories (choice 12) | Accepted as they are | No change |
+| A. No page rendered per request on `main` | Fix it in this pull request: the root layout renders per request, and the build fails on any prerendered page. `infra:verify` must pass 19 of 19 | Done; see "Decision A" |
+| B. The deploy runs before the accounts exist | Add the `DEPLOY_ENABLED` gate in this pull request, and "set DEPLOY_ENABLED=true" as the last item of setup step 4 | Done; see "Decision B" |
+
+The `spec-change` pull request (`wp/spec-change-shell-nav-errors`) is not touched here. Its four "pending owner decision" marks need updating there.
+
 ## Up to date with main
 
 `main` at 6eb66a5 (WP-1.4, #3) is merged into this branch in a merge commit. No rebase, no force push. Only `next.config.ts` conflicted, and it is resolved as "Merge note" describes. The merge was made in a clone under `$TMPDIR`: in the main checkout `git merge` stopped on `error: unable to unlink old '.claude/settings.json': Operation not permitted`, because the sandbox keeps that file read-only, and aborted before changing anything.
 
-`pnpm verify` on the merge, exit 0:
+On the merge alone, before decision A, `pnpm verify` passed and `infra:verify` failed 1 of 19 checks:
 
 ```
-$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm attribution && pnpm test
-All matched files use Prettier code style!
-$ eslint --max-warnings=0 .
-$ tsc --noEmit
-$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
-$ vitest run --coverage
- Test Files  22 passed (22)
-      Tests  639 passed (639)
+FAIL  every script carries the nonce: 0 of 15 scripts; without: <script src="/_next/static/chunks/2e1oolumncpmt.js" async=""> <script src="/_next/static/chunks/12vpz3n5v0-8f.js" async=""> <script src="/_next/static/chunks/turbopack-2u1d16houkiyo.js" async="">
 ```
 
-`pnpm build` with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567`, `RESEND_API_KEY=re_ci_marker_not_a_real_key` and the fake `.env.example` values, exit 0:
+The earlier throwaway merge, at 1a129a9, built `ƒ /_not-found`, because WP-1.4's root layout then read the request headers. WP-1.4 dropped that read before it merged (24141ee, "show a reference only for server errors"), so `main` had no page rendered per request, and Next.js cannot put a nonce on a prerendered page (E-21). There are 19 checks, not 18, because the second reviews added "a static file carries the security headers".
+
+## Decision A: every page renders per request
+
+- `src/app/layout.tsx` awaits `connection()` from `next/server`, which the Next.js 16.4.6 guide "Content Security Policy", section "Forcing dynamic rendering", gives for nonces (read in `node_modules/next/dist/docs`). Every page under the root layout now renders per request. Nothing on the page changes.
+- `scripts/check-static.mjs` reads `.next/prerender-manifest.json` and fails on any prerendered page, in `routes` or `dynamicRoutes`. Route handlers are left out: they send no scripts. A missing manifest fails too. The `build` job runs it after the bundle check, as the step `No prerendered page`.
+- **One page is allowed: `/_global-error`.** Next.js 16.4.6 always prerenders it. `app/global-error.tsx` is a client component that replaces the root layout, so `connection()` does not reach it. I tried `export const dynamic = "force-dynamic"` in it: the build still listed `/_global-error` in the manifest. I reverted that. What the visitor gets when the root layout fails was measured with a temporary throw in the layout, not committed: `HTTP/1.1 500`, with `scripts: 12 with nonce: 12`, so that page renders per request with the nonce. Not verified: when Next.js serves the prerendered copy, which it also writes to `.next/server/pages/500.html`. If it ever does, the policy blocks that page's scripts, and the static error text still shows.
+
+The build with the fix, with `HEAP_RELEASE=0123456789abcdef0123456789abcdef01234567`, `RESEND_API_KEY=re_ci_marker_not_a_real_key` and the fake `.env.example` values, exit 0:
 
 ```
 Route (app)
-┌ ○ /_not-found
+┌ ƒ /_not-found
 ├ ƒ /api/csp-report
 └ ƒ /api/health
 ```
 
-Bundle check: `No server variable (RESEND_API_KEY, HEAP_RELEASE) in 20 files under .next/static.`
+```
+$ node scripts/check-bundle.mjs .next/static
+No server variable (RESEND_API_KEY, HEAP_RELEASE) in 20 files under .next/static.
+$ node scripts/check-static.mjs .next
+No prerendered page in .next, apart from /_global-error, which Next.js always prerenders.
+```
 
-`pnpm infra:verify` against `next start` on 127.0.0.1:3151, exit 1:
+The same check on a build with the layout as it is on `main`, exit 1:
 
 ```
-$ node scripts/infra-verify.mjs --url http://127.0.0.1:3151 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
+/_not-found
+These pages are prerendered, so their scripts carry no nonce and the policy blocks them (NFR-SEC-02).
+```
+
+`pnpm infra:verify` against `next start` on 127.0.0.1:3153, exit 0: 18 PASS and 1 SKIP, HSTS, which does not apply over plain HTTP.
+
+```
+$ node scripts/infra-verify.mjs --url http://127.0.0.1:3153 --page /no-such-page --release 0123456789abcdef0123456789abcdef01234567
 PASS  page /no-such-page is HTML: 404 text/html; charset=utf-8
-PASS  Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-LYvyq+cfiZPIeHgzoA8igg==' 'strict-dynamic'; style-src 'self' 'nonce-LYvyq+cfiZPIeHgzoA8igg=='; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp
-FAIL  every script carries the nonce: 0 of 15 scripts; without: <script src="/_next/static/chunks/2e1oolumncpmt.js" async=""> <script src="/_next/static/chunks/12vpz3n5v0-8f.js" async=""> <script src="/_next/static/chunks/turbopack-2u1d16houkiyo.js" async="">
-PASS  a new nonce per request: LYvyq+cfiZPIeHgzoA8igg== then rWNV32y0SCNHhZRqOoIApA==
+PASS  Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-8pebpuer5mME/U1L1foicQ==' 'strict-dynamic'; style-src 'self' 'nonce-8pebpuer5mME/U1L1foicQ=='; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; report-uri /api/csp-report; report-to csp
+PASS  every script carries the nonce: 17 of 17 scripts
+PASS  a new nonce per request: 8pebpuer5mME/U1L1foicQ== then isRrObnroX+KRllLOgUvBw==
 PASS  X-Content-Type-Options: nosniff
 PASS  Referrer-Policy: strict-origin-when-cross-origin
 PASS  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=(), browsing-topics=()
 SKIP  Strict-Transport-Security: not applicable over plain HTTP (sent: max-age=63072000; includeSubDomains)
 PASS  a static file carries the security headers: 200 /_next/static/chunks/2e1oolumncpmt.js
-PASS  a request ID per request: 9557f1d1-52f3-4d62-a16c-ca72cd50d757 then 37a5df30-72fb-4907-a304-0f49c106ed38
-PASS  a client-sent request ID is replaced: 9557f1d1-52f3-4d62-a16c-ca72cd50d757
+PASS  a request ID per request: bbc1c7b1-b74f-4917-a746-c4e5e82e27bf then e5827bf8-2b1d-4bfd-9fe4-5c37514f1290
+PASS  a client-sent request ID is replaced: bbc1c7b1-b74f-4917-a746-c4e5e82e27bf
 PASS  /api/health answers ok: 200 {"status":"ok","release":"0123456789abcdef0123456789abcdef01234567"}
 PASS  the address serves the expected release: 0123456789abcdef0123456789abcdef01234567, expected 0123456789abcdef0123456789abcdef01234567
 PASS  /api/health is not cached: no-store
@@ -64,20 +93,34 @@ PASS  /api/csp-report refuses a malformed report: 400
 PASS  /api/csp-report caps the size: 413
 PASS  /api/csp-report refuses GET: 405
 
-1 of 19 checks failed.
+All 19 checks passed or do not apply.
 ```
 
-**The 18 of 18 from the earlier throwaway merge does not hold.** That merge, at 1a129a9, built `ƒ /_not-found`, because WP-1.4's root layout then read the request headers. WP-1.4 dropped that read before it merged (24141ee, "show a reference only for server errors"), so `main` has no page rendered per request, and Next.js cannot put a nonce on a prerendered page (E-21). There are 19 checks, not 18, because the second reviews added "a static file carries the security headers".
+Then `curl http://127.0.0.1:3153/ada@example.com/x`: the server log has 0 lines containing `ada@`, and 0 `csp-violation` lines after the run.
 
-So the first deploy's smoke would fail on the nonce line. With nothing deployed before it, there is no rollback target, and production would keep a build whose scripts the policy blocks. Decision A under Reviews.
+## Decision B: the deploy waits for `DEPLOY_ENABLED`
 
-## If this merges before the accounts exist
+- `staging migrations` in `.github/workflows/deploy.yml` runs only `if: vars.DEPLOY_ENABLED == 'true'`. `production` needs it, so both jobs are skipped until you set the repository variable. A job-level `if` can read repository variables, not environment ones, so it is a repository variable.
+- `docs/runbooks/infrastructure-setup.md` section 7, "GitHub: environments", which is setup step 4 below, ends with a new item 5: set DEPLOY_ENABLED=true, as a repository variable, once items 1 to 4 of that section and sections 1 to 6 are done.
+- If this pull request merges before setup: `CI` runs on the push to `main` (`static`, `unit` and `build`, no secrets), and `Deploy` starts and skips both jobs. Neither job runs, so neither names an environment. GitHub creates a missing environment only when "a workflow that references an environment that does not exist" runs ([GitHub Docs, Managing environments for deployment](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)); whether a skipped job counts is not documented there.
+- The deploy runs on a push to `main` only. If this merges before setup, setting the variable deploys nothing by itself: the first deploy comes with the next merge to `main`. Runbook section 12 assumes this pull request is that merge.
 
-- `CI` runs on the push to `main`: `static`, `unit` and `build`. They use no secrets.
-- `Deploy` runs too. Its first job, `staging migrations`, names the `staging` environment. GitHub creates a missing environment the first time a workflow references it, and "the newly created environment will not have any protection rules or secrets configured" ([GitHub Docs, Managing environments for deployment](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)). `scripts/apply-migrations.sh` then stops with `apply-migrations: SUPABASE_DB_URL is not set.` and the job fails. `production` needs that job, so it is skipped.
-- Nothing reaches Vercel or Supabase, and nothing is deployed. What it leaves: a failed `Deploy` run on every push to `main` until setup, and an empty, unprotected `staging` environment, which runbook step 4 then configures.
+Not verified: no workflow has run in Actions, and `gh` cannot reach GitHub from the sandbox.
 
-Not verified: no workflow has run in Actions, and `gh` cannot reach GitHub from the sandbox. Decision B under Reviews.
+`pnpm verify` with decisions A and B, exit 0:
+
+```
+$ pnpm format:check && pnpm lint && pnpm typecheck && pnpm attribution && pnpm test
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  23 passed (23)
+      Tests  650 passed (650)
+```
+
+New tests: `scripts/check-static.test.ts` (9), and two in `scripts/workflows.test.ts` that pin the gate and the build step. Each of these mutations, one at a time, fails at least one test: counting route handlers as pages; dropping the `/_global-error` allowance; skipping `routes`; deleting the `if:` line from `deploy.yml`.
 
 ## Work package
 
@@ -91,11 +134,11 @@ Not verified: no workflow has run in Actions, and `gh` cannot reach GitHub from 
 |---|---|
 | `static`, `unit`, `build` jobs. Actions pinned by commit, `permissions: {}`, a timeout on every job, frozen lockfile, no secrets, runs on `edited` | `.github/workflows/ci.yml` |
 | `static`: attribution in the commits, the title and description, and the files; gitleaks over the range; then format, lint, types and `pnpm audit --audit-level high`. The attribution script, the gitleaks rules, its ignore file and its installer come from the base commit, and they run before any step runs the pull request's code. `gitleaks:allow` comments are ignored. What a pull request can still change is the workflow file itself; a change to it is pushed by you (choice 8) | same |
-| `build`: production build, then the bundle secret check | same, `scripts/check-bundle.mjs` |
-| Deploy: staging migrations, approval, production migrations, note the served deployment, `vercel build`, the bundle check on the production build, `deploy --prebuilt --prod --skip-domain`, `promote`, smoke that the address serves this commit, rollback on failure or cancel. Only a 404 for the alias means "nothing to roll back to"; any other answer stops the deploy. One concurrency group; no cache in credentialed jobs; the token is in the environment of the steps that talk to Vercel only, which is not a boundary (see Risks) | `.github/workflows/deploy.yml`, `scripts/apply-migrations.sh` |
+| `build`: production build, the bundle secret check, then the static page check, which fails on any prerendered page (decision A) | same, `scripts/check-bundle.mjs`, `scripts/check-static.mjs` |
+| Deploy: off until the repository variable `DEPLOY_ENABLED` is `true` (decision B); then staging migrations, approval, production migrations, note the served deployment, `vercel build`, the bundle check on the production build, `deploy --prebuilt --prod --skip-domain`, `promote`, smoke that the address serves this commit, rollback on failure or cancel. Only a 404 for the alias means "nothing to roll back to"; any other answer stops the deploy. One concurrency group; no cache in credentialed jobs; the token is in the environment of the steps that talk to Vercel only, which is not a boundary (see Risks) | `.github/workflows/deploy.yml`, `scripts/apply-migrations.sh` |
 | Every deploy tool locked: the Vercel CLI from its own npm lockfile, the Supabase CLI from its release archive checked by SHA-256 | `tools/vercel-cli/`, `scripts/install-supabase.sh` |
 | Vercel's own production deploy from Git turned off | `vercel.json` |
-| The nonce policy of `06-security-privacy.md` section 5.2, set on the request (where Next.js reads the nonce) and on the response | `src/proxy.ts`, `src/infrastructure/http/security-headers.ts` |
+| The nonce policy of `06-security-privacy.md` section 5.2, set on the request (where Next.js reads the nonce) and on the response. Every page renders per request, so every page gets the nonce (decision A) | `src/proxy.ts`, `src/infrastructure/http/security-headers.ts`, `src/app/layout.tsx` |
 | HSTS, nosniff, referrer policy and permissions policy on every response, static files included | `next.config.ts` |
 | Request IDs on every request. A client-sent ID is replaced, which closes WP-1.4's security MINOR 3. JSON logs with a closed set of fields: request ID, route, outcome code, duration, release. The line is built from those fields and each is checked at run time; the route is the method and a path pattern (`GET /:param`), so a path the client chose never reaches the log. Each server error is logged with its digest next to the request ID (WP-1.4 decision 3) | `src/infrastructure/http/request-id.ts`, `src/infrastructure/logging/`, `src/instrumentation.ts` |
 | `GET /api/health` (liveness and the release) and `POST /api/csp-report` (both report formats, 8 kB cap as `07-operations.md` section 7 says, at most 10 log lines a request, only a known directive name and a kind code logged, no address) | `src/features/system/server`, `src/app/api` |
@@ -245,19 +288,18 @@ Round 2, fixed in 4c09c2e..fc9aef9:
 - **The promotion timeout race** (code MINOR): the runbook says to check which deployment is Current after a timed-out promotion. The workflow itself does not wait on `vercel promote status`: not built, because I could not check the CLI's options here.
 - **The server error digest** (WP-1.4 decision 3): logged with the request ID.
 
-Open, for you:
+Decided 2026-11-20 (see "Your decisions"):
 
-- **The spec text** (choices 1, 2, 5 and 7, and the 8 kB report cap now matches the spec). Proposed in the `spec-change` pull request, `wp/spec-change-shell-nav-errors`, each marked "pending owner decision".
-- **The Vercel CLI's audit result** (choice 12; code MAJOR 5c, security MINOR 4).
-- **A. The nonce on a static page.** `main` has no page rendered per request, so the first deploy's smoke fails and cannot roll back (see "Up to date with main"). Recommended: before the first deploy, a small pull request that makes the root layout render per request, with the build check that fails on any static page (security MINOR 7).
-- **B. The deploy before setup.** Merging this before the accounts exist gives a failed `Deploy` run on every push to `main` and creates an unprotected `staging` environment (see "If this merges before the accounts exist"). Recommended: `if: vars.DEPLOY_ENABLED == 'true'` on `staging migrations`, so both deploy jobs are skipped until you set that repository variable at the end of runbook step 4. It changes `.github/workflows/`, so you push it (choice 8). The alternative is to keep this pull request open until setup is done.
+- **The spec text** (choices 1, 2, 5 and 7): approved, with approval on every production deploy kept. The `spec-change` pull request still needs its marks updated.
+- **The Vercel CLI's audit result** (choice 12; code MAJOR 5c, security MINOR 4): accepted.
+- **A build check that fails on any static page** (security MINOR 7): built, with decision A.
+- **The deploy before setup**: gated by `DEPLOY_ENABLED`, decision B.
 
 Closed since round 2: the deny rule for merges through `gh api` (security MINOR 11) is on `main` in e18643d, as `Bash(gh api *merge*)` and `Bash(gh api *Merge*)`.
 
 Open, for part 2 or later:
 
 - **The three-engine run and the trial without `style-src-attr`** (code MAJOR 5b). Needs a browser.
-- **A build check that fails on any static page** (security MINOR 7). Not built: on this branch alone it would fail `build` until WP-1.4 merges.
 - **Hobby rollback eligibility after an earlier rollback** (code MINOR). The first deploys show it.
 - **A rate limit on `/api/csp-report`** (code MINOR). The spec sets none; noted for WP-7.x.
 - **The duplicated request ID helper** (code MINOR). Follow-up after both merge.
@@ -265,7 +307,7 @@ Open, for part 2 or later:
 ## Choices I made while you were away
 
 1. **A new module `src/features/system`** (`spec-change`). `src/app` may import only `features` and `messages`, and neither route belongs to an existing feature.
-2. **Approval on every production deploy, not only those with a migration.** A GitHub environment's required reviewer applies to every job that names it. Approving only when there is a migration would need a fourth environment. This is stricter than the spec; say if you want the fourth environment instead.
+2. **Approval on every production deploy, not only those with a migration.** A GitHub environment's required reviewer applies to every job that names it. Approving only when there is a migration would need a fourth environment. This is stricter than the spec. Decided: keep it.
 3. **Migrations use a database URL per environment** (`SUPABASE_DB_URL` in `staging` and in `production`), not a Supabase access token. A Supabase personal access token reaches every project on the account, which would mix staging and production credentials.
 4. **Deploy, promote, roll back.** Before deploying, the workflow asks `GET /v4/aliases/{host}` which deployment the production address serves (`deploymentId`). It deploys with `--skip-domain`, then runs `vercel promote`. The two steps are the same whether or not an earlier rollback turned off the automatic domain assignment, and promoting turns it back on. If the promotion or the smoke fails, or the run is cancelled, it runs `vercel rollback <that id>`. On Hobby, only the previous deployment is eligible.
 5. **`upgrade-insecure-requests` is left out over plain HTTP.** It applies on `https:` only, so `next start` on 127.0.0.1 and the e2e servers still load their files.
@@ -275,10 +317,10 @@ Open, for part 2 or later:
 9. **gitleaks is downloaded in CI and checked against its published SHA-256** (`scripts/install-gitleaks.sh`), because the unit tests run the real binary too.
 10. **The request ID helpers are in `src/infrastructure/http/request-id.ts`.** They duplicate the header name and format in WP-1.4's `src/features/shell/request-id.ts`. When both are merged, a follow-up can make one import the other.
 11. **CI runs all three jobs on every event, `edited` included.** A job skipped on `edited` would report success for the same commit and could hide an earlier failure.
-12. **The Vercel CLI has its own npm lockfile** (`tools/vercel-cli`), because `pnpm add` is blocked in this sandbox. It is installed with `npm ci --ignore-scripts`, outside the app's dependency tree. `npm audit` on it reports 38 advisories: 1 critical (`tar`), 21 high (`undici`, `path-to-regexp`, `minimatch`, `js-yaml`, `zod`, `smol-toml`, and Vercel's own packages that pin them), 16 moderate. All of them sit inside Vercel's dependencies of `vercel@65.16.0`, which is the latest release (published 2026-11-14). Nothing passes untrusted input to them; they process our own build. `pnpm dlx` would resolve the same pinned versions without a lock. No audit gate runs on this lockfile, because it would fail every run. Your choice: accept it as is (recommended), or move the CLI into `devDependencies` from your machine with `pnpm add -D --save-exact vercel@65.16.0`, which puts it under `pnpm audit --audit-level high` and fails `static` today.
+12. **The Vercel CLI has its own npm lockfile** (`tools/vercel-cli`), because `pnpm add` is blocked in this sandbox. It is installed with `npm ci --ignore-scripts`, outside the app's dependency tree. `npm audit` on it reports 38 advisories: 1 critical (`tar`), 21 high (`undici`, `path-to-regexp`, `minimatch`, `js-yaml`, `zod`, `smol-toml`, and Vercel's own packages that pin them), 16 moderate. All of them sit inside Vercel's dependencies of `vercel@65.16.0`, which is the latest release (published 2026-11-14). Nothing passes untrusted input to them; they process our own build. `pnpm dlx` would resolve the same pinned versions without a lock. No audit gate runs on this lockfile, because it would fail every run. Decided: accepted as it is.
 13. **The release is the commit SHA**, set by the deploy workflow as `HEAP_RELEASE` at build, parsed by the environment schema (a full SHA or `local`), and inlined by `next.config.ts`. A prebuilt deployment does not see the build's environment at run time.
 
-**Spec changes to approve** (the reviewers asked for them). They are written into the `spec-change` pull request on `wp/spec-change-shell-nav-errors`, each marked "pending owner decision"; this branch does not edit the spec:
+**Spec changes, approved 2026-11-20** (the reviewers asked for them). They are written into the `spec-change` pull request on `wp/spec-change-shell-nav-errors`, which still marks each "pending owner decision"; this branch does not edit the spec:
 
 - `02-architecture.md` section 4: add `features/system`, which holds the platform routes: health and the policy report.
 - `08-delivery-plan.md` WP-2.1 "Builds": add "the database check in `/api/health`".
@@ -292,7 +334,7 @@ Do these in order, from `docs/runbooks/infrastructure-setup.md`. Steps 1, 3 and 
 1. The domain, and Resend domain verification. Start both first; they can take hours.
 2. Two Supabase Free projects, and the Google sign-in client.
 3. The Vercel Hobby project: variables, deployment protection, Git Fork Protection, the deploy token. The Supabase session-pooler URLs end with `?sslmode=require`. Also try a shareable link on one preview and record whether it works. Vercel's documentation says shareable links are on all plans, with one link per Hobby account.
-4. The GitHub environments `staging`, `production` and `production-backup`, each with its secrets, and `main` only.
+4. The GitHub environments `staging`, `production` and `production-backup`, each with its secrets, and `main` only. Last: the repository variable `DEPLOY_ENABLED` = `true` (runbook section 7, item 5).
 5. The fine-grained token for me, without Workflows. Then branch protection with `static`, `unit` and `build`.
 6. The history scan again, then make the repository public, with the settings in runbook step 11. Check them with `pnpm infra:verify --url https://<domain> --repo Fah2d/heap-academy`.
 
@@ -307,9 +349,9 @@ After that, WP-1.3 part 2 can do the rest of the "Done when":
 
 ## Merge note
 
-WP-1.4 is merged, and `main` is merged into this branch. Its only page is still static, so the first deploy's smoke would fail the nonce check (decision A).
+WP-1.4 is merged, and `main` is merged into this branch. With decision A every page renders per request, and `infra:verify` passes 19 of 19.
 
-This branch and WP-1.4 both change `next.config.ts`. The resolution, now committed in the merge, keeps WP-1.4's function form (`agentRules`, the `.dev.tsx` page extensions, the poll option). Inside it, it adds this branch's release parsing at the top, `env: { HEAP_RELEASE: release }` after `reactStrictMode`, and `headers()`. On the throwaway merge that file passed all 18 `infra:verify` checks of the time. On the committed merge it passes `pnpm verify` and builds, and `infra:verify` fails 1 of 19 checks, for the reason above.
+This branch and WP-1.4 both change `next.config.ts`. The resolution, now committed in the merge, keeps WP-1.4's function form (`agentRules`, the `.dev.tsx` page extensions, the poll option). Inside it, it adds this branch's release parsing at the top, `env: { HEAP_RELEASE: release }` after `reactStrictMode`, and `headers()`. On the throwaway merge that file passed all 18 `infra:verify` checks of the time. On the committed merge alone it failed 1 of 19, for the reason under "Up to date with main"; with decision A it passes 19 of 19.
 
 ## Risks and rollback
 
@@ -323,7 +365,7 @@ The Vercel token is in the environment of the Vercel steps only, but that is not
 
 - [ ] Every "Done when" line is met. **Not met:** most lines need accounts (see above). This is part 1.
 - [x] Every cited Must requirement has a passing test that names its ID, apart from the e2e lines, which have not run.
-- [x] `pnpm verify` passes, on the merge with `main` too. CI has not run yet.
+- [x] `pnpm verify` passes, with the merge and decisions A and B. CI has not run yet.
 - [x] No stub, dead control, placeholder or invented number. `/api/health` reports what exists today.
 - [x] No new tables. No new server actions.
 - [x] Every reviewer blocker is fixed: there were none in either round. The MAJORs are fixed or listed as open under Reviews. The reviewers have not seen the round-2 fixes.
