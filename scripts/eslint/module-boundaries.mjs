@@ -71,7 +71,10 @@ function locate(srcRoot, file) {
     .join("/")
     .replace(/\.(?:[cm]?[jt]sx?)$/, "");
   const segments = path.split("/");
-  const area = segments.length === 1 ? "root" : (segments[0] ?? "root");
+  const first = segments[0] ?? "";
+  // `@/ui` is the `ui` module's index, not a file directly in `src/`.
+  const isModuleIndex = segments.length === 1 && Object.hasOwn(ALLOWED, first) && first !== "root";
+  const area = segments.length === 1 && !isModuleIndex ? "root" : first;
   return { module: area, path };
 }
 
