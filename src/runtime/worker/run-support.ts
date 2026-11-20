@@ -35,7 +35,7 @@ export const RUN_SUPPORT_DEFINITION = String.raw`
 def _heap_make_runner(require_streaming, wait=None, can_wait=None):
     import builtins
     import gc
-    import io
+    import _io
     import linecache
     import sys
     import traceback
@@ -78,7 +78,9 @@ def _heap_make_runner(require_streaming, wait=None, can_wait=None):
     syntax_error = SyntaxError
     eof_error = EOFError
     memory_error = MemoryError
-    text_base = io.TextIOBase
+    # The C base class, which a program cannot change; io.TextIOBase is a
+    # Python class whose methods a program could replace to see later answers.
+    text_base = _io._TextIOBase
     text_find = str.find
 
     # JSON string escapes, held here: json's own escaping reads module state a
@@ -99,9 +101,11 @@ def _heap_make_runner(require_streaming, wait=None, can_wait=None):
         for name in ("stdout", "stderr"):
             streams[name].reconfigure(line_buffering=True, write_through=True)
 
-    # The learner's standard input in an interactive run. Its state lives in
-    # the closure, so a program cannot reach the page's function through it
-    # by an attribute, and nothing it does looks a builtin up by name. A line
+    # The learner's standard input in an interactive run. Nothing it does
+    # looks a builtin up by name. Its state is in a closure, which a program
+    # can still reach (__closure__); what it finds there is this run's
+    # request_line, and calling it without waiting asks the page nothing
+    # (core.ts). A line
     # the page sends has no newline; the reader adds it. End of input, or a
     # read where the run cannot wait, gives "" from then on, so input()
     # raises EOFError and the run ends with input_ended.

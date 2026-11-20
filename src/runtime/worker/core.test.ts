@@ -84,6 +84,9 @@ function setUp({
         calls.push("counting stopped");
       };
     },
+    later: (callback) => {
+      setTimeout(callback, 0);
+    },
     lockDown: () => {
       calls.push("lockdown");
       return lockdownOk ? { ok: true } : { ok: false, remaining: ["fetch"] };

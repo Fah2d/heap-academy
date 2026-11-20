@@ -38,6 +38,9 @@ async function startCore() {
     importModule: (url) => import(url),
     countFetchedBytes: () => () => undefined,
     lockDown: () => ({ ok: true, remaining: [] }),
+    later: (callback) => {
+      setTimeout(callback, 0);
+    },
   });
   const ready = new Promise<WorkerMessage>((resolve) => {
     listener = (message) => {
@@ -168,12 +171,65 @@ describe("interactive input in Pyodide", () => {
   it("[FR-RUN-02] an old run's reader, kept by the program, gives the end of input and posts no request", async () => {
     // Standard library attributes survive a run (ADR-0004), so a program can keep its reader.
     await runtime.run("import sys, math\nmath.kept = sys.stdin");
+    for (const mode of ["interactive", "batch"] as const) {
+      const { end, transcript } = await runtime.run(
+        "import math\nprint(repr(math.kept.readline()))",
+        { mode },
+      );
+      expect(transcript).toEqual(["''\n"]);
+      expect(end).toMatchObject({ outcome: { kind: "ok" } });
+    }
+  });
+
+  it("[FR-RUN-02] a program that takes request_line from the reader and keeps computing asks the page nothing", async () => {
     const { end, transcript } = await runtime.run(
-      "import math\nprint(repr(math.kept.readline()))",
+      [
+        "import sys",
+        "readline = type(sys.stdin).readline",
+        'fill = readline.__closure__[readline.__code__.co_freevars.index("fill")].cell_contents',
+        'request_line = fill.__closure__[fill.__code__.co_freevars.index("request_line")].cell_contents',
+        "request_line()",
+        "n = 0",
+        "while n < 100_000:",
+        "    n += 1",
+        'print("kept running", n)',
+      ].join("\n"),
+    );
+    expect(transcript).toEqual(["kept running 100000\n"]);
+    expect(end).toMatchObject({ outcome: { kind: "ok" } });
+  });
+
+  it("[FR-WSP-08] a prompt written without input() reaches the page before the request", async () => {
+    const { transcript } = await runtime.run(
+      'import sys\nsys.stdout.write("Q? ")\nprint("got", sys.stdin.readline().strip())',
+      { answers: ["7"] },
+    );
+    expect(transcript).toEqual(["Q? ", "<input>", "got 7\n"]);
+  });
+
+  it("[FR-WSP-08] every line printed before input() reaches the page before the request", async () => {
+    const { transcript } = await runtime.run(
+      'for n in range(40):\n    print(n)\nprint(input("Q? "))',
+      { answers: ["done"] },
+    );
+    const request = transcript.indexOf("<input>");
+    expect(transcript.slice(0, request).join("")).toBe(
+      `${Array.from({ length: 40 }, (_, n) => `${String(n)}\n`).join("")}Q? `,
+    );
+    expect(transcript.slice(request + 1)).toEqual(["done\n"]);
+  });
+
+  it("[FR-RUN-04] a program that changes io.TextIOBase does not see a later run's answers", async () => {
+    await runtime.run(
+      "import io, math\nmath.seen = []\nio.TextIOBase.__init__ = lambda self, *args: math.seen.append(self)\nio.TextIOBase.readline = lambda self, *args: math.seen.append(self)",
       { mode: "batch" },
     );
-    expect(transcript).toEqual(["''\n"]);
-    expect(end).toMatchObject({ outcome: { kind: "ok" } });
+    const { transcript } = await runtime.run('print(input("A? "))', { answers: ["secret"] });
+    expect(transcript).toEqual(["A? ", "<input>", "secret\n"]);
+    const { transcript: seen } = await runtime.run("import math\nprint(len(math.seen))", {
+      mode: "batch",
+    });
+    expect(seen).toEqual(["0\n"]);
   });
 
   it("[FR-RUN-02] an answer for a run that is not waiting is dropped", async () => {

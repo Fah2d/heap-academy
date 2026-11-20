@@ -41,6 +41,12 @@ export type WorkerHost = {
   /** Counts the bytes every fetch receives until the returned function is called. */
   countFetchedBytes: (onBytes: (bytes: number) => void) => () => void;
   lockDown: () => LockdownResult;
+  /**
+   * Runs the callback as a task of its own, after whatever runs now. A
+   * program that does not suspend never yields, so a task it queued runs
+   * only after the run has ended.
+   */
+  later: (callback: () => void) => void;
 };
 
 /** The interval between progress messages while loading, as for output. */
@@ -57,7 +63,12 @@ type Runner = {
 };
 
 /** Where an interactive run's answer goes when it arrives. */
-type Waiting = { runId: string; answer: (line: string | undefined) => void };
+type Waiting = {
+  runId: string;
+  /** Whether the page has been asked; an answer before that is not one. */
+  posted: boolean;
+  answer: (line: string | undefined) => void;
+};
 
 type State =
   | { name: "idle" }
@@ -233,23 +244,35 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     });
 
     // One request at a time: a second call while one waits gets the end of
-    // input, and posts nothing, so the page's clock pauses only for a real wait.
+    // input and posts nothing. The request is posted from a task of its own,
+    // which the worker runs only once Python has suspended on this wait; a
+    // program that takes `request_line` out of the reader's closure and keeps
+    // computing never yields, so nothing is posted and the page's clock keeps
+    // running (WP-3.2 reviews). The prompt is flushed in that task, so it
+    // arrives before the request.
     const requestLine: RequestLine = () => {
       if (running.waiting !== undefined || state !== running) return Promise.resolve(undefined);
-      output.write("stdout", stdout.decoder.decode());
-      output.write("stderr", stderr.decoder.decode());
-      output.flush();
-      const asked = host.now();
       return new Promise((resolve) => {
-        running.waiting = {
+        let asked: number | undefined;
+        const waiting: Waiting = {
           runId,
+          posted: false,
           answer: (line) => {
             running.waiting = undefined;
-            waitedMs += Math.max(0, host.now() - asked);
+            if (asked !== undefined) waitedMs += Math.max(0, host.now() - asked);
             resolve(line);
           },
         };
-        host.post({ type: "input_request", runId });
+        running.waiting = waiting;
+        host.later(() => {
+          if (state !== running || running.waiting !== waiting) return;
+          output.write("stdout", stdout.decoder.decode());
+          output.write("stderr", stderr.decoder.decode());
+          output.flush();
+          asked = host.now();
+          waiting.posted = true;
+          host.post({ type: "input_request", runId });
+        });
       });
     };
 
@@ -324,6 +347,7 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
         // An answer to a request that is no longer waiting is dropped: the
         // page may answer as the run ends.
         if (state.name !== "running" || state.waiting?.runId !== message.runId) return;
+        if (!state.waiting.posted) return;
         state.waiting.answer(message.type === "input" ? message.line : undefined);
         return;
       }

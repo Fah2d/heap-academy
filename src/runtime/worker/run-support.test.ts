@@ -446,7 +446,7 @@ describe("the interactive reader", () => {
     expect(result.restored).toBe(true);
   });
 
-  it("[FR-RUN-04] the reader keeps its state out of reach of attributes, and works after builtins are deleted", () => {
+  it("[FR-RUN-04] the reader has no instance attributes, and works after builtins are deleted", () => {
     const result = runInteractive(
       "import sys, builtins\nprint(sorted(vars(sys.stdin)))\ndel builtins.len, builtins.type, builtins.isinstance\nprint(sys.stdin.readline().strip())",
       ["after"],

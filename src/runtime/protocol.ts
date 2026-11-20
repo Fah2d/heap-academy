@@ -217,7 +217,10 @@ export function parsePageMessage(data: unknown): ParseResult<PageMessage> {
       }
       case "input": {
         only(fields, ["type", "runId", "line"]);
-        return { type, runId: runId(fields), line: text(fields, "line", STDIN_LINE_LENGTH_LIMIT) };
+        const line = text(fields, "line", STDIN_LINE_LENGTH_LIMIT);
+        // One answer is one line, as in batch input.
+        if (line.includes("\n")) throw new Refused("invalid_field");
+        return { type, runId: runId(fields), line };
       }
       case "input_end": {
         only(fields, ["type", "runId"]);
