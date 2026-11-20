@@ -53,6 +53,7 @@ jobs:
       - name: Apply migrations to staging
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SEED_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
         run: scripts/apply-migrations.sh --include-seed
 
   production:

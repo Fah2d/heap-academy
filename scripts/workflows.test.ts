@@ -196,11 +196,11 @@ describe("workflows", () => {
     expect(job(text, "production")).toMatch(/^ {4}environment:\n {6}name: production$/m);
   });
 
-  it("[NFR-SEC-03] staging gets the sample course and production never does", () => {
+  it("[T-22] staging gets the sample course and production never does", () => {
     const text = read("deploy.yml");
-    expect(step(job(text, "staging-migrations"), "Apply migrations to staging")).toContain(
-      "run: scripts/apply-migrations.sh --include-seed\n",
-    );
+    const staging = step(job(text, "staging-migrations"), "Apply migrations to staging");
+    expect(staging).toContain("run: scripts/apply-migrations.sh --include-seed\n");
+    expect(staging).toContain("SEED_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}");
     expect(step(job(text, "production"), "Apply migrations to production")).toMatch(
       /^ {8}run: scripts\/apply-migrations\.sh$/m,
     );
