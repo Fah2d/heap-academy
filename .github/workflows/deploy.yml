@@ -31,6 +31,10 @@ env:
 jobs:
   staging-migrations:
     name: staging migrations
+    # Off until the owner sets the repository variable DEPLOY_ENABLED to
+    # `true`, the last item of section 7 of the infrastructure-setup runbook.
+    # Until then both jobs are skipped: `production` needs this one.
+    if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: staging
