@@ -31,8 +31,16 @@ describe("environment schema", () => {
         NEXT_PUBLIC_SUPABASE_URL: valid.NEXT_PUBLIC_SUPABASE_URL,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       },
-      server: { RESEND_API_KEY: valid.RESEND_API_KEY },
+      server: { RESEND_API_KEY: valid.RESEND_API_KEY, HEAP_RELEASE: "local" },
     });
+  });
+
+  it("[NFR-OBS-01] takes the release from the deploy, and refuses anything but a commit SHA", () => {
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+    expect(parseEnvironment({ ...valid, HEAP_RELEASE: sha }).server.HEAP_RELEASE).toBe(sha);
+    expect(() => parseEnvironment({ ...valid, HEAP_RELEASE: "v1; rm -rf" })).toThrow(
+      /HEAP_RELEASE/,
+    );
   });
 
   it("[NFR-SEC-04] stops with the name of a missing variable and not its value", () => {
