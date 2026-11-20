@@ -22,6 +22,21 @@ FR-PRG-05's streak and FR-PRG-04's XP total, as pure functions in `src/domain` (
 
 ## How it was verified
 
+**Up to date with main.** Base: `main`. `main` at 037c4ad (#3 and #4) is merged into this branch (61eac99), with no conflict. `pnpm verify` on 61eac99, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  24 passed (24)
+      Tests  666 passed (666)
+```
+
+Before the merge:
+
 `pnpm verify` at the docs commit:
 
 ```
