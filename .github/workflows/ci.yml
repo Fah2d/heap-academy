@@ -1,0 +1,167 @@
+# The pull request pipeline (docs/spec/07-operations.md section 2.1). The job
+# names are the required checks of docs/spec/05-engineering-handbook.md
+# section 10: renaming one is a spec change. `db` arrives with the first
+# migration (WP-2.1) and `e2e` with the journeys.
+#
+# Rules: .claude/rules/ci.md. Actions pinned by commit, no permissions by
+# default, a timeout on every job, the frozen lockfile, no secrets.
+name: CI
+
+on:
+  pull_request:
+    # `edited`: the attribution check must see the final title and description.
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The fake values of .env.example. The build validates the public ones; no
+  # job reaches Supabase or Resend.
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_example
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  static:
+    name: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The attribution check and the secret scan read every commit in range.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # Every check that must not be loosened by the pull request it checks
+      # runs here, before any step runs the pull request's own code
+      # (`pnpm install`, lint): that code could put a fake `node` or
+      # `gitleaks` on the path of every later step. The checks, the secret
+      # scan's rules and ignore file, and the gitleaks installer come from the
+      # base commit. Only a file that does not exist yet on the base is taken
+      # from the pull request. What stays with the pull request is this
+      # workflow file itself: a change to it is pushed by the owner.
+      - name: The commit range
+        id: range
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          if [ -n "$PR_BASE" ]; then
+            echo "range=$PR_BASE..$PR_HEAD" >> "$GITHUB_OUTPUT"
+          elif [ "$PUSH_BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "range=$PUSH_AFTER" >> "$GITHUB_OUTPUT"
+          else
+            echo "range=$PUSH_BEFORE..$PUSH_AFTER" >> "$GITHUB_OUTPUT"
+          fi
+      - name: The checks from the base commit
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base=${PR_BASE:-$PUSH_BEFORE}
+          mkdir "$RUNNER_TEMP/checks" "$RUNNER_TEMP/checks/ignore" "$RUNNER_TEMP/bin"
+          for file in scripts/check-attribution.mjs .gitleaks.toml scripts/install-gitleaks.sh; do
+            if git cat-file -e "$base:$file" 2>/dev/null; then source=$base; else source=HEAD; fi
+            echo "$file from $source"
+            git show "$source:$file" > "$RUNNER_TEMP/checks/$(basename "$file")"
+          done
+          # The ignore file only ever comes from the base: a pull request
+          # that adds one cannot silence a finding in itself.
+          if git cat-file -e "$base:.gitleaksignore" 2>/dev/null; then
+            git show "$base:.gitleaksignore" > "$RUNNER_TEMP/checks/ignore/.gitleaksignore"
+          fi
+      - name: Attribution in the commits
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: node "$RUNNER_TEMP/checks/check-attribution.mjs" --range "$RANGE"
+      - name: Attribution in the pull request title and description
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s\n\n%s\n' "$TITLE" "$BODY" | node "$RUNNER_TEMP/checks/check-attribution.mjs" --stdin
+      - name: Attribution in the files
+        run: node "$RUNNER_TEMP/checks/check-attribution.mjs" --files
+      - name: Install gitleaks
+        run: sh "$RUNNER_TEMP/checks/install-gitleaks.sh" "$RUNNER_TEMP/bin"
+      # `--ignore-gitleaks-allow`: a `gitleaks:allow` comment in the pull
+      # request does not hide its own secret.
+      - name: Secret scan of the commits
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: >-
+          "$RUNNER_TEMP/bin/gitleaks" git --log-opts="$RANGE" --redact --no-banner
+          --config "$RUNNER_TEMP/checks/.gitleaks.toml"
+          --gitleaks-ignore-path "$RUNNER_TEMP/checks/ignore"
+          --ignore-gitleaks-allow
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Dependency audit
+        run: pnpm audit --audit-level high
+
+  unit:
+    name: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The secret-scan and Git hook tests run the real gitleaks binary.
+      - name: Install gitleaks
+        run: |
+          scripts/install-gitleaks.sh "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - run: pnpm test
+
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      # A marker, so the bundle check can prove a server value never reaches
+      # the browser. Not a real key.
+      RESEND_API_KEY: re_ci_marker_not_a_real_key
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: No server variable in a browser bundle
+        run: node scripts/check-bundle.mjs .next/static
+      # A prerendered page carries no nonce, so the policy blocks its scripts.
+      - name: No prerendered page
+        run: node scripts/check-static.mjs .next
