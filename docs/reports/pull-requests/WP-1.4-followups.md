@@ -1,4 +1,23 @@
-**Merges after #3.** This branch starts from `wp/1.4-tokens-primitives-shell` at a4d8ac9. Once #3 is merged, GitHub shows only this branch's own commits.
+**Base: `main`.** #3 is merged, and `main` at 037c4ad is merged into this branch (d750ae5), so GitHub shows only this branch's own commits.
+
+## Up to date with main
+
+Two files conflicted: `main` (#3) and this branch each added a different `docs/reports/reviews/WP-1.4/design-review-5.md` and `design-review-6.md`. `main`'s keep their paths. This branch's two move to `docs/reports/reviews/WP-1.4-followups/`, and the links under Reviews point there. Nothing else conflicted.
+
+`pnpm verify` on d750ae5, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  24 passed (24)
+      Tests  670 passed (670)
+```
+
+The browser suite has not run on the merge.
 
 ## What and why
 
@@ -213,12 +232,10 @@ Interface primitives only. Revert the merge to roll back. The changes in behavio
 
 ## Opening this pull request
 
-`gh` cannot reach GitHub from the sandbox. After #3 is merged, from your terminal in the repository root:
+`gh` cannot reach GitHub from the sandbox. From your terminal in the repository root:
 
 ```sh
 gh pr create --base main --head wp/1.4-followups \
   --title "fix(ui): WP-1.4 follow-ups: the mono fallback, invalid fields, live notices, tab widths" \
   --body-file docs/reports/pull-requests/WP-1.4-followups.md
 ```
-
-To open it now, before #3 merges, use `--base wp/1.4-tokens-primitives-shell` instead. GitHub then retargets it to `main` when #3 merges and its branch is deleted.
