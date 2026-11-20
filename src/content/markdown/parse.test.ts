@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { forAll, textFrom } from "../../../scripts/testing/property";
-import { type Block, type Inline, isAllowedHref, MAX_DEPTH, parseMarkdown } from "./parse";
+import {
+  allowedHref,
+  type Block,
+  type Inline,
+  MARKDOWN_LIMIT,
+  MAX_DEPTH,
+  MAX_TABLE_COLUMNS,
+  parseMarkdown,
+} from "./parse";
 
 // The allowlist (docs/spec/04-content-system.md section 5) and the malicious
 // fixtures of T-06. Every node in the tree is one of the allowed kinds by
@@ -63,6 +71,9 @@ function links(tree: Block[]): string[] {
 
 const text = (value: string): Inline => ({ kind: "text", text: value });
 
+/** A link the parser kept holds an address already in its checked, normal form. */
+const isKept = (href: string): boolean => allowedHref(href) === href;
+
 describe("the Markdown allowlist", () => {
   it("[NFR-SEC-07] keeps paragraphs, emphasis, strong emphasis, inline code and https links", () => {
     expect(
@@ -103,6 +114,19 @@ describe("the Markdown allowlist", () => {
         { kind: "code_block", language: undefined, text: "plain" },
       ],
     );
+  });
+
+  it("[NFR-SEC-07] a fence with an info string takes its first word as the language", () => {
+    expect(parseMarkdown('```python title="x"\nprint(1)\n```\n\nAfter')).toEqual([
+      { kind: "code_block", language: "python", text: "print(1)" },
+      { kind: "paragraph", children: [text("After")] },
+    ]);
+    expect(parseMarkdown("```<script>\nx\n```")).toEqual([
+      { kind: "code_block", language: undefined, text: "x" },
+    ]);
+    expect(parseMarkdown("``` a`b\nx")).toEqual([
+      { kind: "paragraph", children: [text("``` a`b\nx")] },
+    ]);
   });
 
   it("[NFR-SEC-07] an unclosed fence runs to the end", () => {
@@ -159,7 +183,7 @@ describe("the Markdown allowlist", () => {
     ]);
   });
 
-  it("[NFR-SEC-07] keeps tables with their alignment, an escaped pipe, and missing cells", () => {
+  it("[NFR-SEC-07] keeps tables with their alignment, an escaped pipe, and a short row", () => {
     expect(parseMarkdown("| Name | Value |\n|:-----|------:|\n| `a\\|b` | **1** |\n| c |")).toEqual(
       [
         {
@@ -168,7 +192,7 @@ describe("the Markdown allowlist", () => {
           head: [[text("Name")], [text("Value")]],
           rows: [
             [[{ kind: "code", text: "a|b" }], [{ kind: "strong", children: [text("1")] }]],
-            [[text("c")], []],
+            [[text("c")]],
           ],
         },
       ],
@@ -223,12 +247,17 @@ const MALICIOUS: [string, string][] = [
 ];
 
 describe("malicious lessons", () => {
+  // For these fixtures nothing tag-like is left in the text. That is a check
+  // on these inputs, not the guarantee: dropping markup can join the text on
+  // either side into something that looks like a tag (see below), so the
+  // guarantee is the closed set of node kinds, checked https addresses, and
+  // the renderer showing every text as text, never as HTML.
   it.each(MALICIOUS)("[T-06] [NFR-SEC-07] neutralizes %s", (_name, markdown) => {
     const tree = parseMarkdown(markdown);
     const { inlines, blocks } = walk(tree);
     for (const block of blocks) expect(BLOCK_KINDS.has(block.kind)).toBe(true);
     for (const node of inlines) expect(INLINE_KINDS.has(node.kind)).toBe(true);
-    for (const href of links(tree)) expect(isAllowedHref(href)).toBe(true);
+    for (const href of links(tree)) expect(isKept(href)).toBe(true);
     const visible = visibleText(tree);
     expect(visible).not.toMatch(/<\/?[A-Za-z]/);
     expect(visible).not.toMatch(/on\w+\s*=/i);
@@ -251,6 +280,65 @@ describe("malicious lessons", () => {
     ]);
     expect(parseMarkdown("a ![alt text](https://example.com/x.png) b")).toEqual([
       { kind: "paragraph", children: [text("a  b")] },
+    ]);
+  });
+
+  it("[T-06] text joined across dropped markup stays one text node and never a link", () => {
+    expect(parseMarkdown("<scr<!-- -->ipt>x")).toEqual([
+      { kind: "paragraph", children: [text("<script>x")] },
+    ]);
+    expect(parseMarkdown("<scr<b>ipt>alert(1)</scr<b>ipt>")).toEqual([
+      { kind: "paragraph", children: [text("<script>alert(1)</script>")] },
+    ]);
+    expect(links(parseMarkdown("[x](java<!-- -->script:alert(1))"))).toEqual([]);
+  });
+
+  it("[T-06] a link label holds no link", () => {
+    expect(
+      parseMarkdown("[<https://inner.example> and [b](https://b.example)](https://outer.example)"),
+    ).toEqual([
+      {
+        kind: "paragraph",
+        children: [
+          text("["),
+          {
+            kind: "link",
+            href: "https://inner.example/",
+            children: [text("https://inner.example")],
+          },
+          text(" and "),
+          { kind: "link", href: "https://b.example/", children: [text("b")] },
+          text("](https://outer.example)"),
+        ],
+      },
+    ]);
+    const [paragraph] = parseMarkdown("[<https://inner.example>](https://outer.example)");
+    expect(paragraph).toEqual({
+      kind: "paragraph",
+      children: [
+        {
+          kind: "link",
+          href: "https://outer.example/",
+          children: [text("https://inner.example")],
+        },
+      ],
+    });
+  });
+
+  it("[T-06] keeps an https autolink, with its address as its text", () => {
+    expect(parseMarkdown("See <https://docs.python.org/3/>.")).toEqual([
+      {
+        kind: "paragraph",
+        children: [
+          text("See "),
+          {
+            kind: "link",
+            href: "https://docs.python.org/3/",
+            children: [text("https://docs.python.org/3/")],
+          },
+          text("."),
+        ],
+      },
     ]);
   });
 
@@ -292,9 +380,7 @@ describe("malicious lessons", () => {
       const { inlines, blocks } = walk(tree);
       expect(blocks.every((block) => BLOCK_KINDS.has(block.kind))).toBe(true);
       expect(inlines.every((node) => INLINE_KINDS.has(node.kind))).toBe(true);
-      expect(links(tree).every(isAllowedHref)).toBe(true);
-      // An escaped "\<" is text the author asked for; React shows it as text.
-      if (!markdown.includes("\\")) expect(visibleText(tree)).not.toMatch(/<script/i);
+      expect(links(tree).every(isKept)).toBe(true);
     });
   });
 });
@@ -314,15 +400,102 @@ describe("limits", () => {
     expect(stars).toHaveLength(1);
   });
 
+  it("[NFR-SEC-07] a table wider than the limit stays text", () => {
+    const columns = MAX_TABLE_COLUMNS + 1;
+    const tree = parseMarkdown(
+      `${"|a".repeat(columns)}|\n${"|-".repeat(columns)}|\n${"|b".repeat(columns)}|`,
+    );
+    expect(walk(tree).blocks.map((block) => block.kind)).toEqual(["paragraph"]);
+    const widest = parseMarkdown(
+      `${"|a".repeat(MAX_TABLE_COLUMNS)}|\n${"|-".repeat(MAX_TABLE_COLUMNS)}|`,
+    );
+    expect(widest[0]?.kind).toBe("table");
+  });
+
+  it("[NFR-SEC-07] a table row keeps only the cells it has, up to the header's width", () => {
+    expect(parseMarkdown("| a | b |\n|---|---|\n| 1 |\n| 1 | 2 | 3 | 4 |")).toEqual([
+      {
+        kind: "table",
+        align: [undefined, undefined],
+        head: [[text("a")], [text("b")]],
+        rows: [[[text("1")]], [[text("1")], [text("2")]]],
+      },
+    ]);
+  });
+
+  // The tree's size is bounded by the input's: the widest table, many short
+  // rows, deep nesting and dense markup at the lesson limit each give a tree
+  // whose JSON is at most this many times the input.
+  const SIZE_FACTOR = 40;
+  const fill = (unit: string) => unit.repeat(Math.floor(MARKDOWN_LIMIT / unit.length));
+  const head = `${"|a".repeat(MAX_TABLE_COLUMNS)}|\n${"|-".repeat(MAX_TABLE_COLUMNS)}|\n`;
+  const SHAPES: [string, string][] = [
+    ["a table of empty rows", head + fill("|\n")],
+    ["a table of full empty rows", head + fill(`${"|".repeat(MAX_TABLE_COLUMNS + 1)}\n`)],
+    ["a 2,499-column table", `${"|a".repeat(2499)}|\n${"|-".repeat(2499)}|\n${fill("|\n")}`],
+    ["list items", fill("- a\n")],
+    ["nested list items", fill("- - - - - - - - - a\n")],
+    ["quotes", fill(">a\n\n")],
+    ["nested quotes", fill(">>>>>>>>>a\n\n")],
+    ["emphasis", fill("*a*")],
+    ["nested emphasis", fill("***a***")],
+    ["code spans", fill("`a`")],
+    ["links", fill("[a](https://x.y)")],
+    ["headings", fill("## a\n")],
+  ];
+  it.each(SHAPES)(
+    "[NFR-SEC-07] %s at the lesson limit give a tree of bounded size",
+    (_name, markdown) => {
+      const size = JSON.stringify(parseMarkdown(markdown)).length;
+      expect(size).toBeLessThanOrEqual(SIZE_FACTOR * Math.min(markdown.length, MARKDOWN_LIMIT));
+    },
+  );
+
   it("[NFR-SEC-07] reads at most the lesson limit", () => {
     const tree = parseMarkdown(`${"a".repeat(20_000)}TAIL`);
     expect(visibleText(tree)).not.toContain("TAIL");
   });
 
-  it("[NFR-SEC-07] https links only, checked as an address", () => {
-    expect(isAllowedHref("https://example.com/a?b=c#d")).toBe(true);
-    for (const href of ["http://x.y", "HTTPS://x.y", "https:/x", "https://", "javascript:x", ""]) {
-      expect(isAllowedHref(href)).toBe(false);
-    }
+  it("[NFR-SEC-07] https links only, kept in the form the address parser gives", () => {
+    expect(allowedHref("https://example.com/a?b=c#d")).toBe("https://example.com/a?b=c#d");
+    expect(allowedHref("https://Example.COM")).toBe("https://example.com/");
+    expect(allowedHref("https://\\evil.example")).toBe("https://evil.example/");
+    expect(parseMarkdown("[a](https://\\evil.example)")).toEqual([
+      {
+        kind: "paragraph",
+        children: [{ kind: "link", href: "https://evil.example/", children: [text("a")] }],
+      },
+    ]);
+  });
+
+  it("[NFR-SEC-07] refuses other schemes, malformed addresses and addresses with credentials", () => {
+    const refused = [
+      "http://x.y",
+      "HTTPS://x.y",
+      "HtTpS://x.y",
+      "https:/x",
+      "https:evil",
+      "https:/evil",
+      "https:\\\\evil",
+      "https:\t//evil",
+      "\0https://x.y",
+      "https://ev\0il",
+      "https://evil\u2028",
+      "\u200bhttps://x.y",
+      "https://a\u00a0b",
+      "https://evil\u007f",
+      "https%3A//x.y",
+      "https&#58;//x.y",
+      "\\https://x.y",
+      "https://",
+      "javascript:x",
+      "",
+      "https://trusted.example@evil.example/",
+      "https://user:pass@x.y/",
+      "https://javascript:alert(1)@evil",
+    ];
+    for (const href of refused) expect(allowedHref(href), JSON.stringify(href)).toBeUndefined();
+    expect(links(parseMarkdown("[a](https://trusted.example@evil.example/)"))).toEqual([]);
+    expect(links(parseMarkdown("<https://a b>"))).toEqual([]);
   });
 });

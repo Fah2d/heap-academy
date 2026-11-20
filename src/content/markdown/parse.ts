@@ -41,11 +41,18 @@ export const MAX_DEPTH = 8;
 /** The longest instructions a lesson has (section 1.3), and so the most this reads. */
 export const MARKDOWN_LIMIT = 20_000;
 
-const FENCE = /^ {0,3}(`{3,}|~{3,})[ \t]*([A-Za-z0-9_+#.-]{0,30})[ \t]*$/;
-const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*#*[ \t]*$/;
+/**
+ * A table with more columns than this stays as text. Rows keep only the cells
+ * they have, so the tree grows with the input, not with columns times rows.
+ */
+export const MAX_TABLE_COLUMNS = 20;
+
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const LANGUAGE = /^[A-Za-z0-9_+#.-]{1,30}$/;
+const HEADING = /^ {0,3}(#{1,6})(?:[ \t](.*))?$/;
 const QUOTE = /^ {0,3}> ?(.*)$/;
 const LIST_ITEM = /^( {0,3})([-*+]|(\d{1,9})[.)])([ \t]+(.*))?$/;
-const TABLE_DELIMITER = /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
+const DELIMITER_CELL = /^:?-+:?$/;
 const THEMATIC_BREAK = /^ {0,3}([-*_])([ \t]*\1){2,}[ \t]*$/;
 const HTML_BLOCK = /^ {0,3}<(?:!--|\/?[A-Za-z][A-Za-z0-9-]*(?:[\s/>]|$)|![A-Za-z]|\?)/;
 const BLANK = /^[ \t]*$/;
@@ -53,6 +60,31 @@ const BLANK = /^[ \t]*$/;
 /** Elements whose content is dropped with them, not kept as text. */
 const DROPPED_WITH_CONTENT =
   /^(?:script|style|iframe|textarea|title|noscript|template|xmp|svg|math|object)$/i;
+
+/** An opening fence: its marker, and the first word of its info string if it names a language. */
+function fence(line: string): { marker: string; language: string | undefined } | undefined {
+  const match = FENCE.exec(line);
+  if (match === null) return undefined;
+  const marker = match[1] ?? "```";
+  const info = match[2] ?? "";
+  if (marker.startsWith("`") && info.includes("`")) return undefined;
+  const word = info.trim().split(/[ \t]/)[0] ?? "";
+  return { marker, language: LANGUAGE.test(word) ? word : undefined };
+}
+
+/** A heading's level and text, without the closing run of `#` the author may add. */
+function heading(line: string): { level: number; text: string } | undefined {
+  const match = HEADING.exec(line);
+  if (match === null) return undefined;
+  let text = (match[2] ?? "").trim();
+  const closing = /(?:^|[ \t])#+$/.exec(text);
+  if (closing !== null) text = text.slice(0, closing.index).trim();
+  return { level: match[1]?.length ?? 0, text };
+}
+
+function isDelimiterRow(line: string): boolean {
+  return line.includes("-") && cells(line).every((cell) => DELIMITER_CELL.test(cell));
+}
 
 /** Parses lesson instructions. Text past the lesson limit is not read. */
 export function parseMarkdown(markdown: string): Block[] {
@@ -70,10 +102,9 @@ function blocks(lines: string[], depth: number): Block[] {
       continue;
     }
 
-    const fence = FENCE.exec(line);
-    if (fence !== null) {
-      const marker = fence[1] ?? "```";
-      const language = fence[2] === "" ? undefined : fence[2];
+    const opening = fence(line);
+    if (opening !== undefined) {
+      const { marker, language } = opening;
       const body: string[] = [];
       index += 1;
       while (index < lines.length) {
@@ -94,10 +125,10 @@ function blocks(lines: string[], depth: number): Block[] {
       continue;
     }
 
-    const heading = HEADING.exec(line);
-    if (heading !== null) {
-      const level = heading[1]?.length ?? 0;
-      const children = inlines(heading[2] ?? "", depth);
+    const title = heading(line);
+    if (title !== undefined) {
+      const { level } = title;
+      const children = inlines(title.text, depth);
       out.push(
         level === 2 || level === 3
           ? { kind: "heading", level, children }
@@ -142,7 +173,7 @@ function blocks(lines: string[], depth: number): Block[] {
     }
 
     const next = lines[index + 1];
-    if (line.includes("|") && next !== undefined && TABLE_DELIMITER.test(next)) {
+    if (line.includes("|") && next !== undefined && isDelimiterRow(next)) {
       const parsed = table(lines, index, depth);
       if (parsed !== undefined) {
         out.push(parsed.block);
@@ -158,7 +189,7 @@ function blocks(lines: string[], depth: number): Block[] {
       const current = lines[index] ?? "";
       if (
         BLANK.test(current) ||
-        FENCE.test(current) ||
+        fence(current) !== undefined ||
         HEADING.test(current) ||
         QUOTE.test(current) ||
         LIST_ITEM.test(current) ||
@@ -231,7 +262,7 @@ function list(lines: string[], start: number, depth: number): { block: Block; ne
       // A line that starts nothing new continues the item's paragraph.
       if (
         LIST_ITEM.test(current) ||
-        FENCE.test(current) ||
+        fence(current) !== undefined ||
         HEADING.test(current) ||
         QUOTE.test(current) ||
         HTML_BLOCK.test(current) ||
@@ -289,7 +320,7 @@ function table(
 ): { block: Block; next: number } | undefined {
   const head = cells(lines[start] ?? "");
   const delimiter = cells(lines[start + 1] ?? "");
-  if (head.length !== delimiter.length) return undefined;
+  if (head.length !== delimiter.length || head.length > MAX_TABLE_COLUMNS) return undefined;
   const align: Alignment[] = delimiter.map((cell) => {
     const left = cell.startsWith(":");
     const right = cell.endsWith(":");
@@ -301,7 +332,7 @@ function table(
     const current = lines[index] ?? "";
     if (BLANK.test(current) || !current.includes("|")) break;
     const row = cells(current);
-    rows.push(head.map((_, column) => inlines(row[column] ?? "", depth)));
+    rows.push(row.slice(0, head.length).map((cell) => inlines(cell, depth)));
     index += 1;
   }
   return {
@@ -315,24 +346,44 @@ function table(
   };
 }
 
-/** Whether `href` is an `https` address, and so a link that may be kept. */
-export function isAllowedHref(href: string): boolean {
-  if (!href.startsWith("https://")) return false;
+/**
+ * The address a link keeps: an `https` address with no user name or password,
+ * in the form the URL parser gives, which is what a browser will follow.
+ * Anything else gives no link.
+ */
+export function allowedHref(href: string): string | undefined {
+  if (!href.startsWith("https://")) return undefined;
+  let url: URL;
   try {
-    return new URL(href).protocol === "https:";
+    url = new URL(href);
   } catch {
-    return false;
+    return undefined;
   }
+  if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return undefined;
+  return url.href;
 }
 
 const ESCAPABLE = /[\\`*_{}[\]()#+\-.!|<>~]/;
 const HTML_TAG = /^<(\/?)([A-Za-z][A-Za-z0-9-]*)(?:\s[^<>]*)?\/?>/;
-const HTML_COMMENT = /^<!--[\s\S]*?-->/;
 const AUTOLINK = /^<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>/;
 const WORD = /[\p{L}\p{N}]/u;
 
-function inlines(text: string, depth: number): Inline[] {
+/** `inLink` is set inside a link's text, where a link may not open. */
+function inlines(text: string, depth: number, inLink = false): Inline[] {
   const out: Inline[] = [];
+  // Where a search for each emphasis marker's closer last failed. A closer
+  // is judged by its own position, so a later opener of the same marker
+  // finds none either; remembering this keeps the parse linear in the text.
+  const unclosed = new Map<string, number>();
+  const closer = (start: number, marker: string): number | undefined => {
+    if (!canOpen(text, start, marker)) return undefined;
+    const failed = unclosed.get(marker);
+    if (failed !== undefined && start >= failed) return undefined;
+    const found = closing(text, start, marker);
+    if (found === undefined) unclosed.set(marker, start);
+    return found;
+  };
+  const lastCommentEnd = text.lastIndexOf("-->");
   let buffer = "";
   const flush = () => {
     if (buffer !== "") {
@@ -379,18 +430,26 @@ function inlines(text: string, depth: number): Inline[] {
     }
 
     if (character === "<") {
-      const comment = HTML_COMMENT.exec(rest);
-      if (comment !== null) {
-        index += comment[0].length;
-        continue;
+      if (rest.startsWith("<!--")) {
+        const end = lastCommentEnd >= index + 4 ? text.indexOf("-->", index + 4) : -1;
+        if (end !== -1) {
+          index = end + 3;
+          continue;
+        }
       }
-      // An autolink names a scheme; raw HTML is dropped, and so is an
-      // autolink, since a link needs text the author wrote.
+      // An https autolink is kept as a link whose text is its address; one
+      // with any other scheme is dropped. Inside a link's text it is text.
       const autolink = AUTOLINK.exec(rest);
       if (autolink !== null) {
-        const href = autolink[0].slice(1, -1);
-        if (isAllowedHref(href))
-          push({ kind: "link", href, children: [{ kind: "text", text: href }] });
+        const written = autolink[0].slice(1, -1);
+        const href = allowedHref(written);
+        if (href !== undefined) {
+          push(
+            inLink
+              ? { kind: "text", text: written }
+              : { kind: "link", href, children: [{ kind: "text", text: written }] },
+          );
+        }
         index += autolink[0].length;
         continue;
       }
@@ -420,9 +479,10 @@ function inlines(text: string, depth: number): Inline[] {
       if (parsed !== undefined) {
         const children =
           depth < MAX_DEPTH
-            ? inlines(parsed.label, depth + 1)
+            ? inlines(parsed.label, depth + 1, true)
             : [{ kind: "text" as const, text: parsed.label }];
-        if (isAllowedHref(parsed.href)) push({ kind: "link", href: parsed.href, children });
+        const href = allowedHref(parsed.href);
+        if (href !== undefined && !inLink) push({ kind: "link", href, children });
         else for (const child of children) push(child);
         index = parsed.end;
         continue;
@@ -432,24 +492,24 @@ function inlines(text: string, depth: number): Inline[] {
     if (character === "*" || character === "_") {
       const strongMarker = character.repeat(2);
       if (rest.startsWith(strongMarker)) {
-        const close = closing(text, index, strongMarker);
+        const close = closer(index, strongMarker);
         if (close !== undefined) {
           const inner = text.slice(index + 2, close);
           push(
             depth < MAX_DEPTH
-              ? { kind: "strong", children: inlines(inner, depth + 1) }
+              ? { kind: "strong", children: inlines(inner, depth + 1, inLink) }
               : { kind: "text", text: inner },
           );
           index = close + 2;
           continue;
         }
       }
-      const close = closing(text, index, character);
+      const close = closer(index, character);
       if (close !== undefined) {
         const inner = text.slice(index + 1, close);
         push(
           depth < MAX_DEPTH
-            ? { kind: "emphasis", children: inlines(inner, depth + 1) }
+            ? { kind: "emphasis", children: inlines(inner, depth + 1, inLink) }
             : { kind: "text", text: inner },
         );
         index = close + 1;
@@ -465,15 +525,22 @@ function inlines(text: string, depth: number): Inline[] {
 }
 
 /**
- * Where the emphasis opened at `start` by `marker` closes, if it does. It
- * opens before a non-space and closes after one; `_` also needs no letter or
- * digit outside it, so `snake_case_name` stays as written.
+ * Whether `marker` at `start` may open emphasis. It opens before a non-space;
+ * `_` also needs no letter or digit before it, so `snake_case_name` stays as
+ * written.
  */
-function closing(text: string, start: number, marker: string): number | undefined {
+function canOpen(text: string, start: number, marker: string): boolean {
   const after = text[start + marker.length] ?? "";
   const before = text[start - 1] ?? "";
-  if (after === "" || /\s/.test(after)) return undefined;
-  if (marker[0] === "_" && WORD.test(before)) return undefined;
+  if (after === "" || /\s/.test(after)) return false;
+  return !(marker[0] === "_" && WORD.test(before));
+}
+
+/**
+ * Where the emphasis opened at `start` by `marker` closes, if it does: after
+ * a non-space, and for `_` before no letter or digit.
+ */
+function closing(text: string, start: number, marker: string): number | undefined {
   let index = start + marker.length + 1;
   while (index <= text.length - marker.length) {
     if (text[index] === "\\") {
