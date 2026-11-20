@@ -53,6 +53,11 @@ export type ControllerEvent =
   | { type: "progress"; loadedBytes: number; totalBytes: number }
   | { type: "ready"; runtimeVersion: string; interactiveInput: boolean }
   | { type: "output"; runId: RunId; stream: OutputStream; text: string }
+  /** The program is waiting for a line (interactive runs only). */
+  | { type: "input_request"; runId: RunId }
+  /** The page sent a line, or the end of input, for the console to echo. */
+  | { type: "input"; runId: RunId; line: string }
+  | { type: "input_end"; runId: RunId }
   | { type: "run_done"; result: RunResult }
   | { type: "restarting"; reason: RestartReason }
   | { type: "failed" };
@@ -66,9 +71,11 @@ export type ControllerReport =
   | { code: "worker_error" };
 
 export type ControllerStatus =
-  "idle" | "loading" | "ready" | "running" | "restarting" | "failed" | "disposed";
+  "idle" | "loading" | "ready" | "running" | "awaitingInput" | "restarting" | "failed" | "disposed";
 
 export type RunRequest = { ok: true; runId: RunId } | { ok: false; error: "not_ready" | "invalid" };
+
+export type InputRequest = { ok: true } | { ok: false; error: "not_waiting" | "invalid" };
 
 export type ControllerOptions = {
   createWorker: () => WorkerLike;
@@ -84,14 +91,38 @@ export type RuntimeController = {
   readonly status: ControllerStatus;
   /** Starts the runtime. Does nothing unless it is idle or has failed. */
   start: () => void;
+  /** Whether the live worker can pause a program for input, as it said at `ready`. */
+  readonly interactiveInput: boolean;
+  /**
+   * Runs a program. With `stdin`, or where the worker cannot pause a program,
+   * it is a batch run that reads those lines; otherwise it is interactive and
+   * asks for each line (architecture section 5.3).
+   */
   run: (source: string, stdin?: string[]) => RunRequest;
+  /** Answers the program's request for a line, and its clock starts again. */
+  sendInput: (line: string) => InputRequest;
+  /** Tells the program there is no more input. */
+  endInput: () => InputRequest;
   /** Ends the current run, if there is one, and starts a new worker. */
   stop: () => void;
   dispose: () => void;
 };
 
-/** The run in progress; `received` counts the characters of output that reached the page. */
-type Current = { runId: RunId; started: number; timer: unknown; received: number };
+/**
+ * The run in progress. `received` counts the characters of output that
+ * reached the page. The clock counts only execution: `spentMs` before the
+ * current stretch, which began at `resumed`; while the program waits for
+ * input there is no stretch and no timer (section 5.4).
+ */
+type Current = {
+  runId: RunId;
+  timer: unknown;
+  received: number;
+  spentMs: number;
+  resumed: number | undefined;
+  /** Whether the run may ask for input. */
+  interactive: boolean;
+};
 
 export function createRuntimeController({
   createWorker,
@@ -106,6 +137,32 @@ export function createRuntimeController({
   let worker: WorkerLike | undefined;
   let current: Current | undefined;
   let sequence = 0;
+  let interactiveInput = false;
+
+  function spent(run: Current): number {
+    return run.spentMs + (run.resumed === undefined ? 0 : Math.max(0, now() - run.resumed));
+  }
+
+  /** Starts a stretch of execution with what is left of the time limit. */
+  function resume(run: Current): void {
+    run.resumed = now();
+    const { runId } = run;
+    run.timer = timers.setTimeout(
+      () => {
+        if (current?.runId !== runId) return;
+        finish({ kind: "time_limit" });
+        restart("time_limit");
+      },
+      Math.max(0, timeLimitMs - run.spentMs),
+    );
+  }
+
+  /** The program asked for input: its clock stops until the answer. */
+  function pause(run: Current): void {
+    timers.clearTimeout(run.timer);
+    run.spentMs = spent(run);
+    run.resumed = undefined;
+  }
 
   /** The worker ended the run and says whether the output was cut. */
   function finishReported(outcome: WorkerOutcome, truncated: boolean, durationMs: number): void {
@@ -128,7 +185,7 @@ export function createRuntimeController({
       runId: current.runId,
       outcome,
       truncated: current.received >= OUTPUT_LIMIT,
-      durationMs: Math.max(0, Math.round(now() - current.started)),
+      durationMs: Math.round(spent(current)),
     };
     current = undefined;
     onEvent({ type: "run_done", result });
@@ -148,7 +205,7 @@ export function createRuntimeController({
 
   /** The worker died or gave up. What follows depends on what it was doing. */
   function crashed(): void {
-    if (status === "running") {
+    if (status === "running" || status === "awaitingInput") {
       finish({ kind: "crashed" });
       restart("crashed");
     } else if (status === "ready") {
@@ -178,6 +235,7 @@ export function createRuntimeController({
       case "ready":
         if (status !== "loading" && status !== "restarting") return unexpected();
         status = "ready";
+        interactiveInput = message.capabilities.interactiveInput;
         onEvent({
           type: "ready",
           runtimeVersion: message.runtimeVersion,
@@ -190,8 +248,15 @@ export function createRuntimeController({
         onEvent(message);
         return;
       case "input_request":
-        // Interactive input arrives in WP-3.2; this controller sends batch runs only.
-        return unexpected();
+        // Only a running interactive run asks; a second request while one
+        // waits would stop a clock that is already stopped.
+        if (current?.runId !== message.runId || status !== "running" || !current.interactive) {
+          return unexpected();
+        }
+        pause(current);
+        status = "awaitingInput";
+        onEvent(message);
+        return;
       case "run_done":
         if (current?.runId !== message.runId) return unexpected();
         finishReported(message.outcome, message.truncated, message.durationMs);
@@ -232,9 +297,25 @@ export function createRuntimeController({
     next.postMessage({ type: "init", assetBase });
   }
 
+  /** Sends the answer or the end of input, and the program's clock runs again. */
+  function answer(message: PageMessage, event: ControllerEvent): InputRequest {
+    if (status !== "awaitingInput" || current === undefined || worker === undefined) {
+      return { ok: false, error: "not_waiting" };
+    }
+    if (!parsePageMessage(message).ok) return { ok: false, error: "invalid" };
+    status = "running";
+    resume(current);
+    worker.postMessage(message);
+    onEvent(event);
+    return { ok: true };
+  }
+
   return {
     get status() {
       return status;
+    },
+    get interactiveInput() {
+      return interactiveInput;
     },
     start() {
       if (status !== "idle" && status !== "failed") return;
@@ -245,27 +326,38 @@ export function createRuntimeController({
       if (status !== "ready" || worker === undefined) return { ok: false, error: "not_ready" };
       sequence += 1;
       const runId = createRunId(sequence);
-      const message: PageMessage = {
-        type: "run",
-        runId,
-        source,
-        mode: "batch",
-        ...(stdin !== undefined && { stdin }),
-      };
+      const interactive = interactiveInput && stdin === undefined;
+      const message: PageMessage = interactive
+        ? { type: "run", runId, source, mode: "interactive" }
+        : { type: "run", runId, source, mode: "batch", ...(stdin !== undefined && { stdin }) };
       // The worker refuses a malformed message by giving up, so it is checked here first.
       if (!parsePageMessage(message).ok) return { ok: false, error: "invalid" };
       status = "running";
-      const timer = timers.setTimeout(() => {
-        if (current?.runId !== runId) return;
-        finish({ kind: "time_limit" });
-        restart("time_limit");
-      }, timeLimitMs);
-      current = { runId, started: now(), timer, received: 0 };
+      const run: Current = {
+        runId,
+        timer: undefined,
+        received: 0,
+        spentMs: 0,
+        resumed: undefined,
+        interactive,
+      };
+      current = run;
+      resume(run);
       worker.postMessage(message);
       return { ok: true, runId };
     },
+    sendInput(line) {
+      const runId = current?.runId;
+      if (runId === undefined) return { ok: false, error: "not_waiting" };
+      return answer({ type: "input", runId, line }, { type: "input", runId, line });
+    },
+    endInput() {
+      const runId = current?.runId;
+      if (runId === undefined) return { ok: false, error: "not_waiting" };
+      return answer({ type: "input_end", runId }, { type: "input_end", runId });
+    },
     stop() {
-      if (status !== "running") return;
+      if (status !== "running" && status !== "awaitingInput") return;
       finish({ kind: "stopped" });
       restart("stopped");
     },
