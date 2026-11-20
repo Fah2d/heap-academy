@@ -22,6 +22,21 @@ The progress merge of FR-PRG-03 and ADR-0011, as pure functions in `src/domain`,
 
 ## How it was verified
 
+**Up to date with main.** Base: `main`. `main` at 037c4ad (#3 and #4) is merged into this branch (42b3708), with no conflict. `pnpm verify` on 42b3708, exit 0:
+
+```
+$ prettier --check .
+All matched files use Prettier code style!
+$ eslint --max-warnings=0 .
+$ tsc --noEmit
+$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
+$ vitest run --coverage
+ Test Files  25 passed (25)
+      Tests  665 passed (665)
+```
+
+Before the merge:
+
 `pnpm verify` at the docs commit:
 
 ```
