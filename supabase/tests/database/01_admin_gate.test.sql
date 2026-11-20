@@ -3,7 +3,7 @@
 -- aal2 (NFR-SEC-03, NFR-SEC-06; ADR-0025).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(33);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000000001', 'learner@example.test'),
@@ -37,6 +37,28 @@ select is(
   false,
   '[NFR-SEC-06] anonymous has no access to the private schema'
 );
+
+select set_eq(
+  $$select n.nspname || '.' || p.proname from pg_proc as p
+    join pg_namespace as n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private') and p.prosecdef$$,
+  array['private.is_admin', 'private.create_profile', 'public.lesson_completion_counts'],
+  '[T-20] only is_admin, create_profile and lesson_completion_counts run with the owner''s rights'
+);
+select ok(
+  (select bool_and(p.proconfig @> array['search_path=""']) from pg_proc as p
+   join pg_namespace as n on n.oid = p.pronamespace
+   where n.nspname in ('public', 'private') and p.prosecdef),
+  '[T-20] every function with the owner''s rights pins an empty search path'
+);
+
+-- An admin whose session carries no assurance level is at aal1.
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+set local role authenticated;
+select is(private.is_admin(), false,
+  '[NFR-SEC-06] an admin whose session has no assurance level is not an admin');
+reset role;
 
 -- Anonymous.
 select set_config('request.jwt.claims', '{"role":"anon"}', true);

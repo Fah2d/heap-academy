@@ -3,7 +3,7 @@
 -- FR-PRG-07, FR-PRF-02; T-20, T-22).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(54);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -12,7 +12,8 @@ delete from public.courses;
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-4000-8000-000000000001', 'learner@example.test', '{}'),
   ('00000000-0000-4000-8000-000000000002', 'admin@example.test', '{}'),
-  ('00000000-0000-4000-8000-000000000003', 'other@example.test', '{"full_name":"  Sara Ahmed  "}');
+  ('00000000-0000-4000-8000-000000000003', 'other@example.test', '{"full_name":"  Sara Ahmed  "}'),
+  ('00000000-0000-4000-8000-000000000004', 'second-step@example.test', '{}');
 insert into public.admins (user_id) values ('00000000-0000-4000-8000-000000000002');
 
 alter table public.courses disable trigger courses_before_write;
@@ -87,6 +88,29 @@ select is(
   '[FR-PRF-02] a user with no name and no email is named by their ID');
 
 -- save_lesson as callers who are not admins: nothing changes (T-20).
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+set local role anon;
+select throws_ok(
+  $$select public.save_lesson(
+      '30000000-0000-4000-8000-000000000001', now(),
+      '20000000-0000-4000-8000-000000000001', 'published-lesson', 'Taken', 0, 50,
+      'Taken.', '[]', 'print("taken")',
+      '[{"id":"t1","name":"Prints hi","expected":"hi"}]', 'print("taken")', '[]', true)$$,
+  '42501', null,
+  '[T-20] anonymous cannot call save_lesson');
+reset role;
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000004","role":"authenticated","aal":"aal2"}', true);
+set local role authenticated;
+select throws_ok(
+  $$select public.save_lesson(
+      '30000000-0000-4000-8000-000000000001', now(),
+      '20000000-0000-4000-8000-000000000001', 'published-lesson', 'Taken', 0, 50,
+      'Taken.', '[]', 'print("taken")',
+      '[{"id":"t1","name":"Prints hi","expected":"hi"}]', 'print("taken")', '[]', true)$$,
+  'P0001', 'lesson_not_found',
+  '[T-20] a learner at aal2 who is not an admin cannot save a lesson');
+reset role;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal1"}', true);
 set local role authenticated;
@@ -116,7 +140,7 @@ select results_eq(
     from public.lessons as l join public.lesson_solutions as s on s.lesson_id = l.id
     where l.id = '30000000-0000-4000-8000-000000000001'$$,
   $$values ('Published lesson'::text, 20, ''::text, 'print("hi")'::text)$$,
-  '[T-20] the lesson and its solution are unchanged after both attempts');
+  '[T-20] the lesson and its solution are unchanged after every attempt');
 
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000000002","role":"authenticated","aal":"aal2"}', true);
@@ -258,6 +282,16 @@ select is(
   current_setting('heap.validated_lesson', true),
   '',
   '[T-22] save_lesson clears its validation mark before it returns');
+select throws_ok(
+  $$update public.lessons set tests = '[{"id":"t9","name":"Prints nothing","expected":""}]'
+    where id = '30000000-0000-4000-8000-000000000001'$$,
+  'P0001', 'lesson_not_validated',
+  '[T-22] a test case change later in the same transaction as a validated save is not validated');
+select throws_ok(
+  $$update public.lesson_solutions set solution_code = 'print("unvalidated")'
+    where lesson_id = '30000000-0000-4000-8000-000000000001'$$,
+  'P0001', 'lesson_not_validated',
+  '[T-22] a solution change later in the same transaction as a validated save is not validated');
 select lives_ok(
   $$select public.save_lesson(
       '30000000-0000-4000-8000-000000000002',
@@ -288,17 +322,19 @@ select lives_ok(
   '[FR-ADM-03] a course with a published lesson can be published');
 
 -- Deletion and archiving (FR-ADM-09, FR-PRG-07).
-select throws_ok(
+-- Postgres 18 reports ON DELETE RESTRICT as 23001 and earlier versions as
+-- 23503; the message names the foreign key in both.
+select throws_like(
   $$delete from public.lessons where id = '30000000-0000-4000-8000-000000000001'$$,
-  '23503', null,
+  '%violates %foreign key constraint "completions_lesson_id_fkey"%',
   '[FR-ADM-09] a lesson with completions cannot be deleted');
 select lives_ok(
   $$update public.lessons set status = 'archived'
     where id = '30000000-0000-4000-8000-000000000001'$$,
   '[FR-ADM-09] a lesson with completions can be archived');
-select throws_ok(
+select throws_like(
   $$delete from public.chapters where id = '20000000-0000-4000-8000-000000000001'$$,
-  '23503', null,
+  '%violates %foreign key constraint "lessons_chapter_id_course_id_fkey"%',
   '[FR-ADM-09] a chapter with lessons cannot be deleted');
 reset role;
 

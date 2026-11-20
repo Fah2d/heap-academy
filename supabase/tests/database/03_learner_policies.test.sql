@@ -4,7 +4,7 @@
 -- (NFR-SEC-03, NFR-SEC-06, FR-PRG-04, FR-ADM-13; T-08, T-10).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(52);
+select plan(57);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -21,10 +21,12 @@ alter table public.courses disable trigger courses_before_write;
 alter table public.lessons disable trigger lessons_before_write;
 insert into public.courses (id, slug, title, summary, status) values
   ('10000000-0000-4000-8000-000000000001', 'published-course', 'Published course', 'Published.', 'published'),
-  ('10000000-0000-4000-8000-000000000002', 'draft-course', 'Draft course', 'Draft.', 'draft');
+  ('10000000-0000-4000-8000-000000000002', 'draft-course', 'Draft course', 'Draft.', 'draft'),
+  ('10000000-0000-4000-8000-000000000003', 'archived-course', 'Archived course', 'Archived.', 'archived');
 insert into public.chapters (id, course_id, title) values
   ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Chapter one'),
-  ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'Chapter two');
+  ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'Chapter two'),
+  ('20000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000003', 'Chapter three');
 insert into public.lessons
   (id, course_id, chapter_id, slug, title, xp, instructions_md, tests, status,
    gradable_changed_at, validated_at, published_at)
@@ -42,6 +44,14 @@ values
    now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour'),
   ('30000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000002',
    '20000000-0000-4000-8000-000000000002', 'lesson-in-draft-course', 'Lesson in a draft course', 10,
+   'Print hi.', '[{"id":"t1","name":"Prints hi","expected":"hi"}]', 'published',
+   now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour'),
+  ('30000000-0000-4000-8000-000000000005', '10000000-0000-4000-8000-000000000001',
+   '20000000-0000-4000-8000-000000000001', 'archived-lesson', 'Archived lesson', 10,
+   'Print hi.', '[{"id":"t1","name":"Prints hi","expected":"hi"}]', 'archived',
+   now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour'),
+  ('30000000-0000-4000-8000-000000000006', '10000000-0000-4000-8000-000000000003',
+   '20000000-0000-4000-8000-000000000003', 'lesson-in-archived-course', 'Lesson in an archived course', 10,
    'Print hi.', '[{"id":"t1","name":"Prints hi","expected":"hi"}]', 'published',
    now() - interval '2 hours', now() - interval '1 hour', now() - interval '1 hour');
 alter table public.courses enable trigger courses_before_write;
@@ -114,6 +124,14 @@ select throws_ok(
   $$insert into public.completions (user_id, lesson_id)
     values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002')$$,
   'P0001', 'lesson_not_found', '[T-10] a learner cannot complete a draft lesson');
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id)
+    values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000005')$$,
+  'P0001', 'lesson_not_found', '[T-10] a learner cannot complete an archived lesson');
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id)
+    values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000006')$$,
+  'P0001', 'lesson_not_found', '[T-10] a learner cannot complete a lesson of an archived course');
 select throws_ok('update public.completions set xp = 50', '42501', null,
   '[T-10] a learner cannot update a completion');
 select throws_ok('delete from public.completions', '42501', null,
@@ -201,6 +219,14 @@ select throws_ok(
   '42501', null, '[T-10] an admin at aal2 cannot complete a published lesson of a draft course');
 select throws_ok(
   $$insert into public.completions (user_id, lesson_id)
+    values ('00000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000005')$$,
+  '42501', null, '[T-10] an admin at aal2 cannot complete an archived lesson');
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id)
+    values ('00000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000006')$$,
+  '42501', null, '[T-10] an admin at aal2 cannot complete a lesson of an archived course');
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id)
     values ('00000000-0000-4000-8000-000000000003', '30000000-0000-4000-8000-000000000004')$$,
   '42501', null, '[T-08] an admin at aal2 cannot insert a completion for a learner');
 select throws_ok('update public.completions set xp = 50', '42501', null,
@@ -217,18 +243,22 @@ reset role;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000000001","role":"authenticated","aal":"aal1"}', true);
 set local role authenticated;
+select throws_ok(
+  $$insert into public.completions (user_id, lesson_id, xp)
+    values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000004', 50)$$,
+  '42501', null, '[FR-PRG-04] a learner cannot send XP with a completion');
 select lives_ok(
-  $$insert into public.completions (user_id, lesson_id, xp, completed_at)
+  $$insert into public.completions (user_id, lesson_id, completed_at)
     values ('00000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000004',
-            50, now() + interval '1 day')$$,
-  '[FR-PRG-04] a learner sends XP and a future time with a completion');
+            now() + interval '1 day')$$,
+  '[T-10] a learner sends a future time with a completion');
 reset role;
 select is(
   (select xp from public.completions
    where user_id = '00000000-0000-4000-8000-000000000001'
      and lesson_id = '30000000-0000-4000-8000-000000000004'),
   30,
-  '[FR-PRG-04] the completion''s XP is the lesson''s, not the one sent'
+  '[FR-PRG-04] the completion''s XP is the lesson''s'
 );
 select ok(
   (select completed_at <= now() from public.completions
