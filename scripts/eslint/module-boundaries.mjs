@@ -43,6 +43,9 @@ const FRAMEWORK_PACKAGES = /^(?:react|react-dom|next|server-only|@supabase\/.*)(
 const NODE_BUILTINS = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
 
 const PRIVILEGED_CLIENT = "infrastructure/db/privileged";
+// The grader's test-only Node runner (ADR-0032): exempt from purity, and
+// imported only by itself, tests, and scripts.
+const NODE_RUNNER = /^grader\/node-runner(?:\/|$)/;
 // The account deletion use case is the only caller (CLAUDE.md rule 8).
 const PRIVILEGED_CALLER = "features/profile/server/delete-account";
 
@@ -92,6 +95,8 @@ export const moduleBoundaries = {
         "The privileged database client may be imported only by the account deletion use case (CLAUDE.md rule 8).",
       impure:
         "`{{from}}` must stay pure: it may not import `{{source}}` (docs/spec/02-architecture.md section 4.1).",
+      nodeRunner:
+        "The grader's Node runner is a test tool: only tests and scripts may import it (ADR-0032).",
       serverOnly:
         'A module in this folder runs only on the server and must start with `import "server-only"` (docs/spec/02-architecture.md section 4.1).',
     },
@@ -110,6 +115,7 @@ export const moduleBoundaries = {
           statement.expression.value === "use client",
       );
     const mustBeServerOnly = SERVER_FOLDER.test(importer.path) && !TEST_FILE.test(importer.path);
+    const isPure = PURE.has(importer.module) && !NODE_RUNNER.test(importer.path);
 
     /**
      * @param {import("estree").Node} node
@@ -118,10 +124,7 @@ export const moduleBoundaries = {
     const check = (node, source) => {
       const isProject = source.startsWith("@/") || source.startsWith(".");
       if (!isProject) {
-        if (
-          PURE.has(importer.module) &&
-          (FRAMEWORK_PACKAGES.test(source) || NODE_BUILTINS.has(source))
-        ) {
+        if (isPure && (FRAMEWORK_PACKAGES.test(source) || NODE_BUILTINS.has(source))) {
           context.report({ node, messageId: "impure", data: { from: importer.module, source } });
         }
         if (isClient && source === "server-only") {
@@ -135,6 +138,14 @@ export const moduleBoundaries = {
       const target = locate(srcRoot, absolute);
       if (target === undefined) return;
 
+      if (
+        NODE_RUNNER.test(target.path) &&
+        !NODE_RUNNER.test(importer.path) &&
+        !TEST_FILE.test(importer.path)
+      ) {
+        context.report({ node, messageId: "nodeRunner" });
+        return;
+      }
       if (target.path === PRIVILEGED_CLIENT && importer.path !== PRIVILEGED_CALLER) {
         context.report({ node, messageId: "privileged" });
         return;

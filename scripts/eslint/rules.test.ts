@@ -152,6 +152,28 @@ describe("module boundaries", () => {
     expect(await ruleIds(path, code)).not.toContain(boundary);
   });
 
+  it("[NFR-MAINT-05] exempts only the grader's Node runner from purity (ADR-0032)", async () => {
+    const io =
+      'import { Worker } from "node:worker_threads";\nsetTimeout(() => new Worker("x"), 1);';
+    expect(await ruleIds("src/grader/node-runner/runner.ts", io)).toEqual([]);
+    const elsewhere = await ruleIds("src/grader/harness.ts", io);
+    expect(elsewhere).toContain(boundary);
+    expect(elsewhere).toContain("no-restricted-globals");
+  });
+
+  it("[NFR-MAINT-05] lets only tests and the runner itself import the grader's Node runner (ADR-0032)", async () => {
+    const code = 'import { createNodeRunner } from "@/grader/node-runner/runner";';
+    expect(await ruleIds("src/grader/parity.test.ts", code)).not.toContain(boundary);
+    expect(
+      await ruleIds("src/grader/node-runner/thread.ts", 'import { x } from "./host";'),
+    ).not.toContain(boundary);
+    expect(await ruleIds("src/grader/grade.ts", code)).toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.ts", code)).toContain(boundary);
+    expect(
+      await ruleIds("src/features/admin/server/validate.ts", `import "server-only";\n${code}`),
+    ).toContain(boundary);
+  });
+
   it.each([
     ["Date.now()", "const t = Date.now();"],
     ["new Date()", "const t = new Date();"],

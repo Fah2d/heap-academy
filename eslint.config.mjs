@@ -115,10 +115,11 @@ export default defineConfig([
     rules: { "heap/logical-properties": ["error", { allStrings: true }] },
   },
 
-  // src/domain and src/grader are pure.
+  // src/domain and src/grader are pure, except the grader's test-only Node
+  // runner (ADR-0032).
   {
     files: ["src/domain/**/*.{ts,tsx}", "src/grader/**/*.{ts,tsx}"],
-    ignores: TESTS,
+    ignores: [...TESTS, "src/grader/node-runner/**"],
     rules: {
       "no-restricted-syntax": ["error", ...RAW_HTML_SELECTORS, ...PURITY_SELECTORS],
       "no-restricted-globals": ["error", ...IO_GLOBALS],
