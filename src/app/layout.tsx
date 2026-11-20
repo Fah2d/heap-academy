@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { fontVariables, SiteShell } from "@/features/shell";
 import { documentAttributes, LOCALE } from "@/messages/locale";
@@ -14,7 +15,12 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// Every page renders per request, because the script policy's nonce exists
+// only at request time and a prerendered page carries none
+// (docs/spec/06-security-privacy.md section 5.2). scripts/check-static.mjs
+// fails the build on any page that is still prerendered.
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  await connection();
   const { lang, dir } = documentAttributes(LOCALE);
   return (
     <html lang={lang} dir={dir} className={fontVariables}>

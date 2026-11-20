@@ -162,3 +162,6 @@ jobs:
       - run: pnpm build
       - name: No server variable in a browser bundle
         run: node scripts/check-bundle.mjs .next/static
+      # A prerendered page carries no nonce, so the policy blocks its scripts.
+      - name: No prerendered page
+        run: node scripts/check-static.mjs .next
