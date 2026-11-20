@@ -4,9 +4,12 @@ import { localDay, parseTimeZone, streak, type TimeZone, totalXp } from "./strea
 
 // Day boundaries and daylight saving (FR-PRG-05). Zones chosen for their
 // shifts: New York and London move an hour on different dates, Lord Howe
-// moves half an hour, Santiago and Sydney are in the southern hemisphere,
-// Kolkata has no daylight saving and a half-hour offset, Kiritimati is 14
-// hours ahead of UTC, and Pago Pago 11 hours behind.
+// moves half an hour, Santiago moves at midnight and is in the southern
+// hemisphere with Sydney, Kolkata has no daylight saving and a half-hour
+// offset, Kiritimati is 14 hours ahead of UTC, and Pago Pago 11 hours
+// behind. Every daylight saving change of these zones in 2026 is swept
+// below, and the streak is checked against an independent oracle at
+// instants near local midnight.
 
 const ZONES = [
   "America/New_York",
@@ -47,15 +50,71 @@ const nearNoon: Generator<{ zone: TimeZone; base: number }> = (random) => {
   return { zone, base };
 };
 
+const MINUTE = 60_000;
+
+/**
+ * The oracle for a local date, written apart from the code under test: the
+ * platform's own date string for the zone, read back as a day number.
+ */
+const oracleDay = (instant: number, zone: TimeZone) => {
+  const [year, month, day] = new Date(instant)
+    .toLocaleDateString("en-CA", { timeZone: zone, calendar: "gregory", numberingSystem: "latn" })
+    .split("-")
+    .map(Number);
+  return Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1) / DAY;
+};
+
+/** Local wall-clock time in minutes since local midnight, and the zone's offset in minutes. */
+const wallClock = (instant: number, zone: TimeZone) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+  }).formatToParts(new Date(instant));
+  const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value);
+  const local = Date.UTC(
+    part("year"),
+    part("month") - 1,
+    part("day"),
+    part("hour"),
+    part("minute"),
+  );
+  const offset = Math.round((local - Math.floor(instant / MINUTE) * MINUTE) / MINUTE);
+  return { minutes: part("hour") * 60 + part("minute"), offset };
+};
+
+/** The instants in 2026 at which `zone` changes its offset, found hour by hour. */
+function changes(zone: TimeZone): number[] {
+  const found: number[] = [];
+  let previous = wallClock(Date.UTC(2026, 0, 1), zone).offset;
+  for (let instant = Date.UTC(2026, 0, 1) + HOUR; instant < Date.UTC(2027, 0, 1); instant += HOUR) {
+    const { offset } = wallClock(instant, zone);
+    if (offset !== previous) found.push(instant);
+    previous = offset;
+  }
+  return found;
+}
+
+/**
+ * An instant within 14 hours of a UTC midnight in 2026 or 2027: so within
+ * reach of local midnight in every zone, from UTC-11 to UTC+14.
+ */
+const nearMidnight = (random: Parameters<Generator<number>>[0], dayIndex: number) =>
+  Date.UTC(2026, 0, 1) + dayIndex * DAY + random.int(-14 * 60, 14 * 60) * MINUTE;
+
 /** A set of day offsets, the reference model's input. */
 const offsets: Generator<number[]> = (random) => {
   const count = random.int(0, 25);
   return [...new Set(Array.from({ length: count }, () => random.int(0, 40)))];
 };
 
-/** The definition, on whole day numbers. */
+/** The definition, on whole day numbers; a day after today counts as today. */
 function model(days: number[], today: number) {
-  const sorted = [...new Set(days.filter((day) => day <= today))].sort((a, b) => a - b);
+  const sorted = [...new Set(days.map((day) => Math.min(day, today)))].sort((a, b) => a - b);
   let longest = 0;
   let run = 0;
   for (let index = 0; index < sorted.length; index += 1) {
@@ -100,6 +159,35 @@ describe("local days", () => {
     );
   });
 
+  it("[FR-PRG-05] across every daylight saving change in 2026, the day moves on once, at local midnight", () => {
+    const shifting = [
+      "America/New_York",
+      "Europe/London",
+      "Australia/Lord_Howe",
+      "America/Santiago",
+      "Australia/Sydney",
+    ];
+    for (const zone of ZONES) {
+      const found = changes(zone);
+      if (shifting.includes(zone)) expect(found.length, zone).toBe(2);
+      for (const change of found) {
+        const step = 5 * MINUTE;
+        for (let instant = change - 26 * HOUR; instant < change + 26 * HOUR; instant += step) {
+          const moved = localDay(instant + step, zone) - localDay(instant, zone);
+          expect([0, 1], `${zone} at ${instant}`).toContain(moved);
+          if (moved === 1) {
+            const before = wallClock(instant, zone);
+            const after = wallClock(instant + step, zone);
+            const atMidnight = after.minutes < 5;
+            const skippedMidnight = after.offset !== before.offset;
+            expect(atMidnight || skippedMidnight, `${zone} at ${instant}`).toBe(true);
+          }
+          expect(localDay(instant, zone)).toBe(oracleDay(instant, zone));
+        }
+      }
+    }
+  });
+
   it("[FR-PRG-05] the same instant can be two different days in two zones", () => {
     const instant = Date.UTC(2026, 5, 1, 12, 0);
     const ahead = parseTimeZone("Pacific/Kiritimati") as TimeZone;
@@ -107,15 +195,47 @@ describe("local days", () => {
     expect(localDay(instant, ahead) - localDay(instant, behind)).toBe(1);
   });
 
-  it("[FR-PRG-05] refuses a time zone the platform does not know", () => {
-    for (const value of ["Mars/Olympus", "", "UTC+3", 3, null, undefined]) {
-      expect(parseTimeZone(value)).toBeUndefined();
+  it("[FR-PRG-05] refuses a time zone the platform does not know, and a fixed offset", () => {
+    for (const value of [
+      "Mars/Olympus",
+      "",
+      "UTC+3",
+      "+03:00",
+      "+0530",
+      "-11",
+      3,
+      null,
+      undefined,
+    ]) {
+      expect(parseTimeZone(value), String(value)).toBeUndefined();
     }
+  });
+
+  it("[FR-PRG-05] gives each zone in one canonical spelling", () => {
     expect(parseTimeZone("Europe/London")).toBe("Europe/London");
+    expect(parseTimeZone("europe/london")).toBe("Europe/London");
+    expect(parseTimeZone("EUROPE/LONDON")).toBe("Europe/London");
   });
 });
 
 describe("streak", () => {
+  it("[FR-PRG-05] matches the definition on oracle days, for completions near local midnight in any zone", () => {
+    forAll(
+      (random) => {
+        const zone = random.pick(ZONES);
+        const first = random.int(0, 690);
+        const days = offsets(random);
+        const completedAt = days.map((day) => nearMidnight(random, first + day));
+        const now = nearMidnight(random, first + random.int(0, 45));
+        return { zone, completedAt, now };
+      },
+      ({ zone, completedAt, now }) => {
+        const days = completedAt.map((instant) => oracleDay(Math.min(instant, now), zone));
+        expect(streak(completedAt, now, zone)).toEqual(model(days, oracleDay(now, zone)));
+      },
+    );
+  });
+
   it("[FR-PRG-05] matches the definition for any set of days, in any zone, across daylight saving", () => {
     forAll(
       (random) => ({
@@ -179,13 +299,19 @@ describe("streak", () => {
     });
   });
 
-  it("[FR-PRG-05] a completion later than now is not counted, nor is a time that is not a number", () => {
+  it("[FR-PRG-05] a completion later than now counts as now, as the database stores it", () => {
+    const newYork = parseTimeZone("America/New_York") as TimeZone;
+    const now = Date.UTC(2026, 5, 10, 16, 0);
+    expect(streak([now - DAY, now + 3_000], now, newYork)).toEqual({ current: 2, longest: 2 });
+    expect(streak([now + 3 * DAY], now, newYork)).toEqual({ current: 1, longest: 1 });
+  });
+
+  it("[FR-PRG-05] a time that is not a number or is outside the date range is not counted", () => {
     const utc = parseTimeZone("UTC") as TimeZone;
     const now = Date.UTC(2026, 5, 10, 12, 0);
-    expect(streak([now + DAY, Number.NaN, Number.POSITIVE_INFINITY], now, utc)).toEqual({
-      current: 0,
-      longest: 0,
-    });
+    const bad = [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, -1e16, 1e16];
+    expect(streak(bad, now, utc)).toEqual({ current: 0, longest: 0 });
+    expect(streak([...bad, now], now, utc)).toEqual({ current: 1, longest: 1 });
   });
 });
 

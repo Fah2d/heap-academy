@@ -9,12 +9,13 @@
 
 declare const timeZoneBrand: unique symbol;
 
-/** An IANA time zone the platform knows, such as `Europe/London`. */
+/** An IANA time zone the platform knows, in its canonical spelling, such as `Europe/London`. */
 export type TimeZone = string & { readonly [timeZoneBrand]: true };
 
-const formatters = new Map<string, Intl.DateTimeFormat>();
+/** Keyed by canonical zone, so the map holds at most one entry per zone the platform knows. */
+const formatters = new Map<TimeZone, Intl.DateTimeFormat>();
 
-function formatterFor(timeZone: string): Intl.DateTimeFormat {
+function formatterFor(timeZone: TimeZone): Intl.DateTimeFormat {
   let formatter = formatters.get(timeZone);
   if (formatter === undefined) {
     formatter = new Intl.DateTimeFormat("en-US", {
@@ -30,18 +31,26 @@ function formatterFor(timeZone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
-/** The time zone if the platform knows it; anything else is not one. */
+/**
+ * The time zone, in the platform's canonical spelling, if the platform knows
+ * it as a named zone. A fixed offset such as `+03:00` is not one: it never
+ * follows daylight saving.
+ */
 export function parseTimeZone(value: unknown): TimeZone | undefined {
-  if (typeof value !== "string" || value === "") return undefined;
+  if (typeof value !== "string" || !/^[A-Za-z]/.test(value)) return undefined;
+  let canonical: string;
   try {
-    formatterFor(value);
+    canonical = new Intl.DateTimeFormat("en-US", { timeZone: value }).resolvedOptions().timeZone;
   } catch {
     return undefined;
   }
-  return value as TimeZone;
+  return canonical as TimeZone;
 }
 
 const DAY_MS = 86_400_000;
+
+/** The largest distance from the epoch a `Date` can hold, in milliseconds. */
+const DATE_RANGE_MS = 8.64e15;
 
 /**
  * The local calendar day of an instant, as a count of days since 1970-01-01.
@@ -65,15 +74,17 @@ export type Streak = {
 /**
  * The learner's streak from the times of their completions (milliseconds
  * since the epoch), in their time zone, at `now`. A completion later than
- * `now` (a device clock that was ahead) is not counted.
+ * `now` counts as made at `now`, as the database stores it (architecture
+ * section 8.3), so a device clock a little behind the server's loses
+ * nothing. A time outside the range of a date is not counted.
  */
 export function streak(completedAt: readonly number[], now: number, timeZone: TimeZone): Streak {
   const today = localDay(now, timeZone);
   const days = [
     ...new Set(
       completedAt
-        .filter((instant) => Number.isFinite(instant) && instant <= now)
-        .map((instant) => localDay(instant, timeZone)),
+        .filter((instant) => Math.abs(instant) <= DATE_RANGE_MS)
+        .map((instant) => localDay(Math.min(instant, now), timeZone)),
     ),
   ].sort((a, b) => a - b);
 
