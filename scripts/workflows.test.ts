@@ -75,8 +75,8 @@ describe("workflows", () => {
 
   it("[NFR-SEC-04] the pull request workflow names the required checks and holds no secret", () => {
     const text = read("ci.yml");
-    expect(jobs(text)).toEqual(["static", "unit", "build"]);
-    for (const id of ["static", "unit", "build"]) {
+    expect(jobs(text)).toEqual(["static", "unit", "build", "db"]);
+    for (const id of ["static", "unit", "build", "db"]) {
       expect(job(text, id)).toContain(`    name: ${id}\n`);
     }
     expect(text).not.toMatch(/\$\{\{\s*secrets\./);
