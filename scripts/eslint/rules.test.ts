@@ -101,6 +101,28 @@ describe("module boundaries", () => {
     ).not.toContain(boundary);
   });
 
+  it("[T-21] lets content read only through the session-less client", async () => {
+    const file = "src/content/published.ts";
+    const read = (code: string) => ruleIds(file, `import "server-only";\n${code}`);
+    expect(await read('import { x } from "@/infrastructure/db/session-client";')).toContain(
+      boundary,
+    );
+    expect(await read('import { x } from "@/infrastructure/auth/claims";')).toContain(boundary);
+    expect(await read('import { cookies } from "next/headers";')).toContain(boundary);
+    expect(await read('const h = await import("next/headers");')).toContain(boundary);
+    expect(await read('import { x } from "@/infrastructure/db/public-client";')).not.toContain(
+      boundary,
+    );
+    expect(await read('import { x } from "@/infrastructure/env/schema";')).not.toContain(boundary);
+    // Other modules may still use a session.
+    expect(
+      await ruleIds(
+        "src/features/admin/server/courses.ts",
+        'import "server-only";\nimport { x } from "@/infrastructure/db/session-client";',
+      ),
+    ).not.toContain(boundary);
+  });
+
   it("[NFR-MAINT-05] treats a feature's client folder as client code without the directive", async () => {
     const hook = "src/features/workspace/client/use-save.ts";
     expect(await ruleIds(hook, 'import { x } from "@/infrastructure/db/client";')).toContain(
@@ -152,7 +174,7 @@ describe("module boundaries", () => {
       'import "server-only";\nimport { x } from "../../../grader/compare";',
     ],
     ["src/runtime/controller.ts", 'import { x } from "@/grader/compare";'],
-    ["src/content/queries.ts", 'import { x } from "@/infrastructure/db/public";'],
+    ["src/content/queries.ts", 'import { x } from "@/infrastructure/db/public-client";'],
     ["src/infrastructure/db/client.ts", 'import "server-only";\nimport { x } from "@/domain/ids";'],
     ["src/app/page.tsx", 'import { x } from "@/features/catalog";'],
     ["src/app/layout.tsx", 'import "@/ui/tokens.css";'],

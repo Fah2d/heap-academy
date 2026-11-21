@@ -1,7 +1,10 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { z } from "zod";
+import { SLUG_PATTERN } from "@/domain/admin/course-details";
 import { createPublicClient, type PublicClient } from "@/infrastructure/db/public-client";
+import { log } from "@/infrastructure/logging/logger";
+import { contentLogRoute } from "@/infrastructure/logging/route";
 
 // Published content for public pages (docs/spec/02-architecture.md sections
 // 7.3 and 12; FR-ADM-11). Read with the session-less client, so row level
@@ -127,19 +130,39 @@ const cachedCourse = unstable_cache(
 );
 
 // A failed read throws inside the cache, so it is never kept; the page gets
-// a failure it can show honestly.
-async function settle<Value>(read: () => Promise<Value>): Promise<ContentResult<Value>> {
+// a failure it can show honestly, and the server logs it (02-architecture.md
+// section 13: no silent catch).
+async function settle<Value>(
+  query: "published-courses" | "published-course",
+  read: () => Promise<Value>,
+): Promise<ContentResult<Value>> {
   try {
     return { ok: true, value: await read() };
   } catch {
+    log({
+      level: "error",
+      requestId: "none",
+      route: contentLogRoute(query),
+      outcome: "content-read-failed",
+    });
     return { ok: false };
   }
 }
 
+/** The longest course address (docs/spec/04-content-system.md section 1.1). */
+const MAX_SLUG = 60;
+
 export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary[]>> {
-  return settle(cachedCourses);
+  return settle("published-courses", cachedCourses);
 }
 
+/**
+ * One published course by its address. An address that no course can have
+ * is answered at once, so a made-up one costs no query and no cache entry.
+ */
 export function publishedCourse(slug: string): Promise<ContentResult<PublishedCourse | null>> {
-  return settle(() => cachedCourse(slug));
+  if (slug.length > MAX_SLUG || !SLUG_PATTERN.test(slug)) {
+    return Promise.resolve({ ok: true, value: null });
+  }
+  return settle("published-course", () => cachedCourse(slug));
 }
