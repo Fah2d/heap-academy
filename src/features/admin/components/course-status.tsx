@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { type ContentStatus, statusMoves } from "@/domain/admin/structure";
 import { courseEditor as words, structure } from "@/messages/admin";
 import { Button, Dialog, DialogActions, Notice } from "@/ui";
@@ -41,6 +41,15 @@ export function CourseStatusPanel({
   const [changed, setChanged] = useState<ContentStatus | null>(null);
   const [pending, startTransition] = useTransition();
   const courseStatusId = useId();
+  // The pressed button is gone after a move, so focus goes to the sentence
+  // that says the new status.
+  const statusLine = useRef<HTMLParagraphElement>(null);
+  const focusStatus = useRef(false);
+  useEffect(() => {
+    if (!focusStatus.current) return;
+    focusStatus.current = false;
+    statusLine.current?.focus();
+  }, [status]);
 
   function move(to: ContentStatus) {
     setFailure(null);
@@ -54,6 +63,7 @@ export function CourseStatusPanel({
         return;
       }
       setChanged(to);
+      focusStatus.current = true;
       onChanged(to, outcome.value.updatedAt);
     });
   }
@@ -63,7 +73,7 @@ export function CourseStatusPanel({
       <h2 id={courseStatusId} className="text-lg font-semibold text-text">
         {words.statusHeading}
       </h2>
-      <p className="text-base text-text">
+      <p ref={statusLine} tabIndex={-1} className="text-base text-text">
         {words.statusNow(words.statusName[status])} {words.statusExplain[status]}
       </p>
       {failure !== null && (
@@ -80,7 +90,11 @@ export function CourseStatusPanel({
           )}
         </div>
       )}
-      <p role="status" className="text-sm text-text-muted">
+      {/* Kept in the page for the live region, and out of the layout while empty. */}
+      <p
+        role="status"
+        className={pending || changed !== null ? "text-sm text-text-muted" : "sr-only"}
+      >
         {pending
           ? words.changingStatus
           : changed === null
@@ -93,7 +107,7 @@ export function CourseStatusPanel({
           const label = words.statusAction[to];
           if (!asks(status, to)) {
             return (
-              <Button key={to} variant={variant} isDisabled={pending} onPress={() => move(to)}>
+              <Button key={to} variant={variant} isPending={pending} onPress={() => move(to)}>
                 {label}
               </Button>
             );
@@ -107,7 +121,7 @@ export function CourseStatusPanel({
               key={to}
               title={title}
               trigger={
-                <Button variant={variant} isDisabled={pending}>
+                <Button variant={variant} isPending={pending}>
                   {label}
                 </Button>
               }

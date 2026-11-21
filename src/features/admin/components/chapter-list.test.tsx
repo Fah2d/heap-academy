@@ -22,9 +22,16 @@ const chapters: EditorChapter[] = [
     id: ONE,
     title: "Basics",
     summary: "Printing and names.",
+    loadedAt: "2026-11-21T08:00:00.000001+00:00",
     lessons: [{ id: LESSON, title: "Hello", status: "published" }],
   },
-  { id: TWO, title: "Loops", summary: "", lessons: [] },
+  {
+    id: TWO,
+    title: "Loops",
+    summary: "",
+    loadedAt: "2026-11-21T08:00:00.000002+00:00",
+    lessons: [],
+  },
 ];
 
 const ok = <Value,>(value: Value) => Promise.resolve({ ok: true as const, value });
@@ -64,7 +71,7 @@ describe("ChapterList [FR-ADM-03]", () => {
     await user.click(screen.getByRole("button", { name: words.addChapter }));
     expect(screen.getByText(words.chapterTitleInvalid)).toBeTruthy();
     expect(all.saveChapter).not.toHaveBeenCalled();
-    await user.type(screen.getByLabelText(words.chapterTitleLabel), "  Basics ");
+    await user.type(screen.getByLabelText(words.newChapterTitleLabel), "  Basics ");
     await user.click(screen.getByRole("button", { name: words.addChapter }));
     expect(all.saveChapter).toHaveBeenCalledWith({
       courseId: COURSE,
@@ -73,7 +80,10 @@ describe("ChapterList [FR-ADM-03]", () => {
     });
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status").textContent).toBe(words.chapterAdded);
-    expect(screen.getByLabelText<HTMLInputElement>(words.chapterTitleLabel).value).toBe("");
+    const title = screen.getByLabelText<HTMLInputElement>(words.newChapterTitleLabel);
+    expect(title.value).toBe("");
+    // Focus goes back to the empty title, for the next chapter.
+    expect(document.activeElement).toBe(title);
   });
 
   it("renames a chapter in place, and Cancel leaves it as it was", async () => {
@@ -81,10 +91,17 @@ describe("ChapterList [FR-ADM-03]", () => {
     const user = userEvent.setup();
     render(<ChapterList courseId={COURSE} chapters={chapters} refresh={vi.fn()} {...all} />);
     await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
+    // The rename field takes focus, with a name apart from the new chapter's field.
+    const opened = screen.getByLabelText<HTMLInputElement>(words.renameTitleLabel("Loops"));
+    expect(document.activeElement).toBe(opened);
     await user.click(screen.getByRole("button", { name: words.cancel }));
     expect(all.saveChapter).not.toHaveBeenCalled();
+    // Focus goes back to Rename.
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: words.renameChapter("Loops") }),
+    );
     await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
-    const field = screen.getAllByLabelText<HTMLInputElement>(words.chapterTitleLabel)[0]!;
+    const field = screen.getByLabelText<HTMLInputElement>(words.renameTitleLabel("Loops"));
     expect(field.value).toBe("Loops");
     await user.clear(field);
     await user.type(field, "Repeating");
@@ -92,10 +109,89 @@ describe("ChapterList [FR-ADM-03]", () => {
     expect(all.saveChapter).toHaveBeenCalledWith({
       courseId: COURSE,
       id: TWO,
+      loadedAt: "2026-11-21T08:00:00.000002+00:00",
       title: "Repeating",
       summary: "",
     });
     expect(screen.queryByRole("button", { name: words.saveChapter })).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: words.renameChapter("Loops") }),
+    );
+  });
+
+  it("[FR-ADM-10] refuses a rename over a newer chapter, with a prompt to reload", async () => {
+    const refresh = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChapterList
+        courseId={COURSE}
+        chapters={chapters}
+        refresh={refresh}
+        {...actions({ saveChapter: () => Promise.resolve({ ok: false, error: "stale" }) })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
+    await user.type(screen.getByLabelText(words.renameTitleLabel("Loops")), " again");
+    await user.click(screen.getByRole("button", { name: words.saveChapter }));
+    expect(screen.getByRole("alert").textContent).toContain(structure.failure.stale);
+    expect(screen.getByRole("button", { name: structure.reload })).toBeTruthy();
+    // The typed title stays, so it can be copied before reloading.
+    expect(screen.getByLabelText<HTMLInputElement>(words.renameTitleLabel("Loops")).value).toBe(
+      "Loops again",
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("[FR-ADM-10] reports typed chapter text that is not saved, and clears it once saved", async () => {
+    const reported: boolean[] = [];
+    const user = userEvent.setup();
+    render(
+      <ChapterList
+        courseId={COURSE}
+        chapters={chapters}
+        refresh={vi.fn()}
+        onUnsavedChange={(unsaved) => reported.push(unsaved)}
+        {...actions()}
+      />,
+    );
+    expect(reported.at(-1)).toBe(false);
+    await user.type(screen.getByLabelText(words.newChapterTitleLabel), "Lists");
+    expect(reported.at(-1)).toBe(true);
+    await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
+    await user.type(screen.getByLabelText(words.renameTitleLabel("Loops")), "!");
+    await user.click(screen.getByRole("button", { name: words.addChapter }));
+    // The rename still holds text.
+    expect(reported.at(-1)).toBe(true);
+    await user.click(screen.getByRole("button", { name: words.cancel }));
+    expect(reported.at(-1)).toBe(false);
+  });
+
+  it("keeps focus on a pressed button while its change is saved", async () => {
+    let finish: (value: { ok: true; value: null }) => void = () => undefined;
+    const user = userEvent.setup();
+    render(
+      <ChapterList
+        courseId={COURSE}
+        chapters={chapters}
+        refresh={vi.fn()}
+        {...actions({
+          reorder: () =>
+            new Promise((resolve) => {
+              finish = resolve;
+            }),
+        })}
+      />,
+    );
+    const down = screen.getByRole("button", { name: structure.moveDown("Basics") });
+    await user.click(down);
+    // Pending, not disabled: the button stays focusable and ignores presses.
+    expect(down.hasAttribute("disabled")).toBe(false);
+    expect(down.hasAttribute("data-pending")).toBe(true);
+    expect(document.activeElement).toBe(down);
+    await act(async () => {
+      finish({ ok: true, value: null });
+      await Promise.resolve();
+    });
   });
 
   it("deletes an empty chapter only after the question", async () => {

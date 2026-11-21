@@ -210,11 +210,41 @@ describe("course structure actions for an admin [FR-ADM-03, FR-ADM-10, FR-ADM-11
       [{ course_id: COURSE, title: "Basics", summary: "", position: 0 }],
     ]);
     state.db.answer({ data: { id: CHAPTER } });
-    expect(
-      await actions.saveChapter({ courseId: COURSE, id: CHAPTER, title: "Start", summary: "S" }),
-    ).toEqual({ ok: true, value: { id: CHAPTER } });
+    const rename = {
+      courseId: COURSE,
+      id: CHAPTER,
+      loadedAt: LOADED,
+      title: "Start",
+      summary: "S",
+    };
+    expect(await actions.saveChapter(rename)).toEqual({ ok: true, value: { id: CHAPTER } });
     expect(state.db.calls[2]?.chain).toContainEqual(["eq", ["course_id", COURSE]]);
+    expect(state.db.calls[2]?.chain).toContainEqual(["eq", ["updated_at", LOADED]]);
     expect(state.changed).toHaveBeenCalledTimes(2);
+  });
+
+  it("[FR-ADM-10] refuses a rename without the loaded version, or over a newer chapter", async () => {
+    asAdmin();
+    expect(
+      await actions.saveChapter({ courseId: COURSE, id: CHAPTER, title: "Start", summary: "" }),
+    ).toEqual({ ok: false, error: "invalid_input" });
+    // No row at the loaded version, but the chapter exists: stale.
+    state.db.answer({ data: null }, { data: { id: CHAPTER } });
+    const rename = { courseId: COURSE, id: CHAPTER, loadedAt: LOADED, title: "Start", summary: "" };
+    expect(await actions.saveChapter(rename)).toEqual({ ok: false, error: "stale" });
+    // No row at all: gone.
+    state.db.answer({ data: null }, { data: null });
+    expect(await actions.saveChapter(rename)).toEqual({ ok: false, error: "not_found" });
+    expect(state.changed).not.toHaveBeenCalled();
+  });
+
+  it("says a course is gone when a chapter is added to a course deleted meanwhile", async () => {
+    asAdmin();
+    state.db.answer({ data: null }, { error: { code: "23503" } });
+    expect(await actions.saveChapter({ courseId: COURSE, title: "Basics", summary: "" })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
   });
 
   it("refuses to delete a chapter that still has lessons", async () => {

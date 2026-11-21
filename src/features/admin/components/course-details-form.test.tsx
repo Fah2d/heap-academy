@@ -69,8 +69,14 @@ describe("CourseDetailsForm [FR-ADM-03, FR-ADM-10]", () => {
     await user.type(screen.getByLabelText(words.slugLabel), "taken");
     await user.type(screen.getByLabelText(words.summaryLabel), "S");
     await user.click(screen.getByRole("button", { name: words.create }));
-    expect(screen.getByRole("alert").textContent).toContain(structure.failure.slug_taken);
-    expect(screen.getByLabelText<HTMLInputElement>(words.slugLabel).value).toBe("taken");
+    // The Address field's own error, with focus on it.
+    const slug = screen.getByLabelText<HTMLInputElement>(words.slugLabel);
+    expect(slug.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText(structure.failure.slug_taken)).toBeTruthy();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement).toBe(slug);
+    expect(slug.value).toBe("taken");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("saves an edit over the loaded version and reports it", async () => {
@@ -129,6 +135,9 @@ describe("CourseDetailsForm [FR-ADM-03, FR-ADM-10]", () => {
       <CourseDetailsForm course={{ id: ID, loadedAt: LOADED }} initial={initial} save={never} />,
     );
     await user.click(screen.getByRole("button", { name: words.save }));
-    expect(screen.getByRole("button", { name: words.saving })).toHaveProperty("disabled", true);
+    // Pending keeps the button focusable, so focus does not fall to the page.
+    const saving = screen.getByRole("button", { name: words.saving });
+    expect(saving.hasAttribute("data-pending")).toBe(true);
+    expect(document.activeElement).toBe(saving);
   });
 });

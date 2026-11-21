@@ -60,12 +60,15 @@ const editorRow = z.object({
       title: z.string(),
       summary: z.string(),
       position: z.number().int(),
+      updated_at: z.string(),
       lessons: z.array(lessonRow),
     }),
   ),
 });
 
-const byPosition = (a: { position: number }, b: { position: number }) => a.position - b.position;
+/** In position order; two rows that share a position stay in one order, by ID, as the moves read them. */
+const byPosition = (a: { position: number; id: string }, b: { position: number; id: string }) =>
+  a.position - b.position || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 export function editorCourse(row: unknown): EditorCourseResult {
   if (row === null) return { ok: true, course: null };
@@ -86,6 +89,7 @@ export function editorCourse(row: unknown): EditorCourseResult {
         id: chapter.id,
         title: chapter.title,
         summary: chapter.summary,
+        loadedAt: chapter.updated_at,
         lessons: [...chapter.lessons]
           .sort(byPosition)
           .map((lesson) => ({ id: lesson.id, title: lesson.title, status: lesson.status })),
@@ -99,7 +103,7 @@ export async function courseForEditor(db: SessionClient, id: string): Promise<Ed
   const { data, error } = await db
     .from("courses")
     .select(
-      "id, slug, title, summary, outcomes, status, updated_at, chapters(id, title, summary, position, lessons(id, title, status, position))",
+      "id, slug, title, summary, outcomes, status, updated_at, chapters(id, title, summary, position, updated_at, lessons(id, title, status, position))",
     )
     .eq("id", id)
     .maybeSingle();

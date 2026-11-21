@@ -41,7 +41,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
 
   // Two chapters, then the second moved above the first.
   for (const title of ["First", "Second"]) {
-    await page.getByLabel(courseEditor.chapterTitleLabel).fill(title);
+    await page.getByLabel(courseEditor.newChapterTitleLabel).fill(title);
     await page.getByRole("button", { name: courseEditor.addChapter }).click();
     await expect(page.getByRole("heading", { level: 3, name: title })).toBeVisible();
   }

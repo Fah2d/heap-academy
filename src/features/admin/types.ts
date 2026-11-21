@@ -30,7 +30,14 @@ export type AdminCourse = {
 export type AdminCourses = { ok: true; courses: AdminCourse[] } | { ok: false };
 
 export type EditorLesson = { id: string; title: string; status: CourseStatus };
-export type EditorChapter = { id: string; title: string; summary: string; lessons: EditorLesson[] };
+export type EditorChapter = {
+  id: string;
+  title: string;
+  summary: string;
+  /** The chapter's version: a rename names it, and is refused if the chapter is newer (FR-ADM-10). */
+  loadedAt: string;
+  lessons: EditorLesson[];
+};
 
 /** One course as its editor shows it (docs/spec/03-experience.md section 7.3). */
 export type EditorCourse = {

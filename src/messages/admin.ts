@@ -68,7 +68,7 @@ export const structure = {
   failure: {
     slug_taken: "Another course already uses this address. Choose a different one.",
     stale:
-      "This was changed somewhere else after you opened it, so your change was not saved. Reload the page to see the newer version.",
+      "This was changed somewhere else after you opened it, so your change was not saved. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
     no_published_lesson:
       "A course needs at least one published lesson before it can be published. Publish a lesson in this course first.",
     status_not_allowed:
@@ -76,9 +76,9 @@ export const structure = {
     chapter_has_lessons:
       "This chapter still has lessons. Move or delete them before deleting the chapter.",
     cannot_move: "The order changed since this page loaded. Reload the page and try again.",
-    not_found: "This item no longer exists. Reload the page.",
+    not_found: "The course or chapter you changed no longer exists. Reload the page.",
     unavailable: "The change could not be saved right now. Try again in a minute.",
-    invalid_input: "Some of the values are not allowed. Check the fields marked below.",
+    invalid_input: "Some of the values were not accepted. Check them and save again.",
   },
   reload: "Reload the page",
   moved: "Order saved.",
@@ -117,7 +117,7 @@ export const courseEditor = {
   statusNow: (status: string) => `This course is ${status}.`,
   statusAction: { draft: "Move back to draft", published: "Publish", archived: "Archive" },
   statusExplain: {
-    draft: "Only you can see it, in the dashboard.",
+    draft: "Only admins can see it, in the dashboard.",
     published: "Everyone can see it on the site.",
     archived: "It is gone from the site. Learners keep their completions.",
   },
@@ -138,8 +138,13 @@ export const courseEditor = {
   chaptersEmpty: "This course has no chapters yet. Add the first one below.",
   chapterLessonsEmpty: "No lessons in this chapter yet.",
   lessonStatus: { draft: "Draft", published: "Published", archived: "Archived" },
-  chapterTitleLabel: "Chapter title",
-  chapterSummaryLabel: "Chapter summary (optional)",
+  newChapterTitleLabel: "Title of the new chapter",
+  newChapterSummaryLabel: "Summary of the new chapter (optional)",
+  renameTitleLabel: (title: string) => `New title for ${title}`,
+  renameSummaryLabel: (title: string) => `New summary for ${title} (optional)`,
+  /** The numbers learners see beside a chapter and a lesson: 2, and 2.3. */
+  chapterNumber: (chapter: number) => String(chapter),
+  lessonNumber: (chapter: number, lesson: number) => `${String(chapter)}.${String(lesson)}`,
   chapterTitleInvalid: "Enter a chapter title of 1 to 60 characters.",
   addChapterHeading: "Add a chapter",
   addChapter: "Add chapter",
@@ -153,7 +158,7 @@ export const courseEditor = {
   deleteShort: "Delete",
   deleteConfirmTitle: "Delete this chapter?",
   deleteConfirmBody: (title: string) =>
-    `The chapter "${title}" will be removed. This cannot be undone.`,
+    `Deleting removes the chapter "${title}". You cannot undo this.`,
   deleteConfirm: "Delete chapter",
   chapterSaved: "Chapter saved.",
   chapterAdded: "Chapter added.",

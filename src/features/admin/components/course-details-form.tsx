@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useRef, useState, useTransition } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState, useTransition } from "react";
 import {
   type CourseDetails,
   type CourseField,
@@ -34,6 +34,11 @@ export type CourseDetailsFormProps = {
   onSaved?: (updatedAt: string) => void;
   /** A course was created: open its editor. */
   onCreated?: (id: string) => void;
+  /**
+   * Reports unsaved changes to a page that asks before leaving for all its
+   * forms at once. Without it, the form asks by itself.
+   */
+  onUnsavedChange?: (unsaved: boolean) => void;
 };
 
 /** The five outcome lines the form shows, filled from the saved outcomes. */
@@ -61,6 +66,7 @@ export function CourseDetailsForm({
   save,
   onSaved,
   onCreated,
+  onUnsavedChange,
 }: CourseDetailsFormProps) {
   const start = { ...initial, outcomes: outcomeLines(initial.outcomes) };
   const [fields, setFields] = useState<CourseFields>(start);
@@ -68,12 +74,17 @@ export function CourseDetailsForm({
   const [invalid, setInvalid] = useState<Invalid>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
+  const [slugTaken, setSlugTaken] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
   const form = useRef<HTMLFormElement>(null);
+  const outcomesHintId = useId();
 
   const unsaved = !sameFields(fields, savedFields);
-  const leave = useLeaveWarning(unsaved, words.unsavedWarning);
+  const leave = useLeaveWarning(onUnsavedChange === undefined && unsaved, words.unsavedWarning);
+  useEffect(() => {
+    onUnsavedChange?.(unsaved);
+  }, [unsaved, onUnsavedChange]);
 
   const isInvalid = (field: CourseField, index?: number) =>
     invalid.some((entry) => entry.field === field && entry.index === index);
@@ -87,6 +98,7 @@ export function CourseDetailsForm({
     event.preventDefault();
     setFailure(null);
     setStale(false);
+    setSlugTaken(false);
     setSaved(false);
     const checked = checkCourseFields(fields);
     if (!checked.ok) {
@@ -104,6 +116,14 @@ export function CourseDetailsForm({
         save(course === undefined ? { details } : { ...course, details }),
       );
       if (!outcome.ok) {
+        if (outcome.error === "slug_taken") {
+          // The Address field's own error, where the owner fixes it.
+          setSlugTaken(true);
+          requestAnimationFrame(() =>
+            form.current?.querySelector<HTMLInputElement>("input[aria-invalid='true']")?.focus(),
+          );
+          return;
+        }
         setStale(outcome.error === "stale");
         setFailure(structureFailureText(outcome.error));
         return;
@@ -137,9 +157,12 @@ export function CourseDetailsForm({
         label={words.slugLabel}
         description={words.slugHint}
         value={fields.slug}
-        onChange={(slug) => edit({ slug })}
-        isInvalid={isInvalid("slug")}
-        errorMessage={words.fieldInvalid.slug}
+        onChange={(slug) => {
+          setSlugTaken(false);
+          edit({ slug });
+        }}
+        isInvalid={slugTaken || isInvalid("slug")}
+        errorMessage={slugTaken ? structure.failure.slug_taken : words.fieldInvalid.slug}
       />
       <TextField
         label={words.summaryLabel}
@@ -149,9 +172,11 @@ export function CourseDetailsForm({
         isInvalid={isInvalid("summary")}
         errorMessage={words.fieldInvalid.summary}
       />
-      <fieldset className="flex flex-col gap-4">
+      <fieldset aria-describedby={outcomesHintId} className="flex flex-col gap-4">
         <legend className="pbe-1 text-base font-medium text-text">{words.outcomesLabel}</legend>
-        <p className="text-sm text-text-muted">{words.outcomesHint}</p>
+        <p id={outcomesHintId} className="text-sm text-text-muted">
+          {words.outcomesHint}
+        </p>
         {fields.outcomes.map((line, index) => (
           <TextField
             // The five lines never move, so their place is their identity.
@@ -180,11 +205,12 @@ export function CourseDetailsForm({
           )}
         </div>
       )}
-      <p role="status" className="text-sm text-text-muted">
+      {/* Kept in the page for the live region, and out of the layout while empty. */}
+      <p role="status" className={saved ? "text-sm text-text-muted" : "sr-only"}>
         {saved ? words.saved : ""}
       </p>
       <div>
-        <Button type="submit" variant="primary" isDisabled={pending}>
+        <Button type="submit" variant="primary" isPending={pending}>
           {submitLabel(creating, pending)}
         </Button>
       </div>
