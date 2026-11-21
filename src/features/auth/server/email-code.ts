@@ -18,7 +18,10 @@ export type EmailCodeProvider = {
   sendEmailCode: (email: string, challengeToken: string) => Promise<SendOutcome>;
   /** Checks the code and, when it is right, sets the session cookies. */
   verifyEmailCode: (email: string, code: string) => Promise<VerifyOutcome>;
-  /** Ends the session on this device (FR-AUTH-05). */
+  /**
+   * Ends the session on this device only (FR-AUTH-05), and clears its cookies
+   * even when the provider cannot be told.
+   */
   signOut: () => Promise<SignOutOutcome>;
 };
 
@@ -32,16 +35,21 @@ const code = z
   .max(32)
   .transform((value) => value.replace(/\s/g, ""))
   .pipe(z.string().regex(/^\d{6}$/));
-// Any string is accepted and made safe, so a bad return path never blocks sign-in.
-const returnTo = z.string().max(2048).optional();
+// Up to safeReturnPath's limit; any such string is accepted and made safe,
+// so a bad return path never blocks sign-in.
+const returnTo = z.string().max(512).optional();
 
 export const requestEmailCodeInput = z.strictObject({ email, challengeToken });
 export const verifyEmailCodeInput = z.strictObject({ email, code, returnTo });
 export const signOutInput = z.strictObject({});
 
-/** The largest JSON form of each input, with room for the field names. */
-export const MAX_REQUEST_BYTES = 254 + 2048 + 256;
-export const MAX_VERIFY_BYTES = 254 + 32 + 2048 + 256;
+// The largest JSON form of an input within the field limits. A limit counts
+// UTF-16 units, and JSON spends at most six bytes on one ("\u0000"), plus
+// room for the field names.
+const jsonLimit = (...lengths: number[]) =>
+  6 * lengths.reduce((sum, length) => sum + length, 0) + 256;
+export const MAX_REQUEST_BYTES = jsonLimit(254, 2048);
+export const MAX_VERIFY_BYTES = jsonLimit(254, 32, 512);
 export const MAX_SIGN_OUT_BYTES = 16;
 
 export type RequestEmailCodeFailure = "rate_limited" | "challenge_failed" | "unavailable";

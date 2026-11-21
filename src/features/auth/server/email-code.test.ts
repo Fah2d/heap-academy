@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   type EmailCodeProvider,
+  MAX_REQUEST_BYTES,
+  MAX_VERIFY_BYTES,
   requestEmailCode,
   requestEmailCodeInput,
   signOut,
@@ -55,6 +57,43 @@ describe("verifyEmailCodeInput", () => {
       ).toBe(false);
     },
   );
+});
+
+// 254 characters: a 64-character local part and a domain of labels within
+// the 63-character label limit.
+const LONGEST_EMAIL = `${"a".repeat(64)}@${["b".repeat(60), "c".repeat(61), "d".repeat(61)].join(".")}.test`;
+
+describe("input limits", () => {
+  it("[FR-AUTH-02] the longest address used below is 254 characters and valid", () => {
+    expect(LONGEST_EMAIL).toHaveLength(254);
+    expect(requestEmailCodeInput.shape.email.safeParse(LONGEST_EMAIL).success).toBe(true);
+  });
+
+  it("[FR-AUTH-04] [T-14] a return path at its limit fits the verify limit, whatever its characters", () => {
+    const worst = {
+      email: LONGEST_EMAIL,
+      code: " ".repeat(26) + "123456",
+      returnTo: `/${"\u0001".repeat(511)}`,
+    };
+    expect(verifyEmailCodeInput.safeParse(worst).success).toBe(true);
+    expect(new TextEncoder().encode(JSON.stringify(worst)).length).toBeLessThanOrEqual(
+      MAX_VERIFY_BYTES,
+    );
+    expect(
+      verifyEmailCodeInput.safeParse({ ...worst, returnTo: `/${"a".repeat(512)}` }).success,
+    ).toBe(false);
+  });
+
+  it("[FR-AUTH-06] [T-14] a challenge token at its limit fits the request limit", () => {
+    const worst = {
+      email: LONGEST_EMAIL,
+      challengeToken: "\u0001".repeat(2048),
+    };
+    expect(requestEmailCodeInput.safeParse(worst).success).toBe(true);
+    expect(new TextEncoder().encode(JSON.stringify(worst)).length).toBeLessThanOrEqual(
+      MAX_REQUEST_BYTES,
+    );
+  });
 });
 
 describe("signOutInput", () => {

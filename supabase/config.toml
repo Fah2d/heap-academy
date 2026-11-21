@@ -14,8 +14,9 @@ sql_paths = ["./seed.sql"]
 
 # Sign-in on the local stack (docs/spec/02-architecture.md section 11.1).
 # Staging and production take the same values in their dashboards
-# (docs/runbooks/infrastructure-setup.md step 10). Google and the bot
-# challenge stay off here: they need keys from outside the repository.
+# (docs/runbooks/infrastructure-setup.md step 10). Google stays off here: it
+# needs a client from outside the repository. The bot challenge stays off
+# until WP-2.2 part 2 turns it on with Cloudflare's published test keys.
 [auth]
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
@@ -24,14 +25,21 @@ enable_anonymous_sign_ins = false
 
 [auth.email]
 enable_signup = true
-enable_confirmations = false
+# On, so a password sign-up through the public auth endpoint stays
+# unconfirmed and cannot sign in. The auth service clears an unconfirmed
+# account's password when its owner asks for a code, so nobody can hold a
+# password to an address before its owner signs in (T-11). A refusal of every
+# password in the database would break sign-in: the auth service gives each
+# new code account a random password (internal/api/magic_link.go, read
+# 2026-11-21).
+enable_confirmations = true
 otp_length = 6
 # Ten minutes, in seconds; the email says so.
 otp_expiry = 600
 max_frequency = "1m"
 
-# The provider's documentation does not say which template an email code
-# uses for a new address, so both show the code.
+# A new address gets the confirmation email and a known one the magic link
+# email (internal/api/magic_link.go), so both show the code.
 [auth.email.template.magic_link]
 subject = "Your Heap Academy sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
