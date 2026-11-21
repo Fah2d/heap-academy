@@ -41,6 +41,8 @@ export const runtimeDev = {
     stopped: "after Stop",
     time_limit: "after the time limit",
     crashed: "after Python stopped unexpectedly",
+    memory: "after the program ran out of memory",
+    output_limit: "after the program reached the output limit",
   },
   lesson: "Lesson",
   lessonState: { untouched: "Not started", inProgress: "In progress", passed: "Passed" },

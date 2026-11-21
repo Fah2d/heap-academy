@@ -61,14 +61,17 @@ export function reduceView(
     case "input":
       // The answer is echoed where the program asked for it (FR-WSP-08).
       return { ...view, status, output: append(view.output, "input", `${event.line}\n`) };
+    // The controller reports the end before it sets its own status, so the
+    // status it shows at this moment is still the busy one. A worker
+    // replacement that follows arrives as `restarting` and corrects it.
     case "run_done":
-      return { ...view, status, result: event.result };
+      return { ...view, status: "ready", result: event.result };
     case "restarting":
       return { ...view, status, restarts: view.restarts + 1, progress: undefined };
     case "test_result":
       return { ...view, status, tests: [...view.tests, event.result] };
     case "check_done":
-      return { ...view, status, tests: event.results, summary: event.summary };
+      return { ...view, status: "ready", tests: event.results, summary: event.summary };
     default: {
       const unreachable: never = event;
       return unreachable;

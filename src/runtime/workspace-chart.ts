@@ -15,7 +15,15 @@
 export type Intent = "run" | "check";
 
 /** Why the runtime is restarting, for the explanation the learner sees (FR-WSP-07). */
-export type RestartReason = "stopped" | "time_limit" | "crashed";
+export type RestartReason = "stopped" | "time_limit" | "crashed" | ReplaceReason;
+
+/**
+ * Why the controller replaced a worker that was still alive, after a run or
+ * check that ran out of memory or reached the output cap (section 5.4). The
+ * diagram draws this as CRASH from `ready`; the reason keeps the learner's
+ * explanation true. Recorded as a proposed spec change in the WP-3.4 description.
+ */
+export type ReplaceReason = "memory" | "output_limit";
 
 export type RuntimeState =
   | { name: "idle" }
@@ -47,7 +55,8 @@ export type WorkspaceEvent =
   | { type: "CHECK_DONE"; allPassed: boolean }
   | { type: "STOP" }
   | { type: "TIME_LIMIT" }
-  | { type: "CRASH" }
+  /** `reason`: set when the controller replaced a live worker on purpose. */
+  | { type: "CRASH"; reason?: ReplaceReason }
   /** The learner changed the code. Only the lesson region listens. */
   | { type: "CODE_EDITED" };
 
@@ -130,12 +139,21 @@ function target(from: RuntimeStateName, event: WorkspaceEventType): RuntimeState
   return RUNTIME_TRANSITIONS.find(([state, type]) => state === from && type === event)?.[2];
 }
 
-function lessonAfter(lesson: LessonState, event: WorkspaceEvent, checked: boolean): LessonState {
+/**
+ * `taken`: the runtime region accepted the event or kept it as the pending
+ * intent. A Run or Check it refused (while failed, running, and so on) does
+ * not count as working on the lesson.
+ */
+function lessonAfter(
+  lesson: LessonState,
+  event: WorkspaceEvent,
+  checked: boolean,
+  taken: boolean,
+): LessonState {
   if (lesson === "passed") return "passed";
   if (event.type === "CHECK_DONE" && checked && event.allPassed) return "passed";
-  if (event.type === "CODE_EDITED" || event.type === "RUN" || event.type === "CHECK") {
-    return "inProgress";
-  }
+  if (event.type === "CODE_EDITED") return "inProgress";
+  if ((event.type === "RUN" || event.type === "CHECK") && taken) return "inProgress";
   return lesson;
 }
 
@@ -145,21 +163,24 @@ export function transition(state: WorkspaceState, event: WorkspaceEvent): Transi
   const effects: Effect[] = [];
   let runtime: RuntimeState = from;
   let checked = false;
+  let taken = false;
 
   if (
     (from.name === "loading" || from.name === "restarting") &&
     isRemembered(from.name, event.type)
   ) {
+    taken = true;
     runtime = { ...from, pending: event.type === "RUN" ? "run" : "check" };
   } else {
     const to = target(from.name, event.type);
     if (to !== undefined) {
+      taken = true;
       checked = from.name === "checking" && event.type === "CHECK_DONE";
       runtime = enter(to, from, event, effects);
     }
   }
 
-  const lesson = lessonAfter(state.lesson, event, checked);
+  const lesson = lessonAfter(state.lesson, event, checked, taken);
   if (lesson === "passed" && state.lesson !== "passed") effects.push("completeLesson");
 
   if (runtime === from && lesson === state.lesson && effects.length === 0) {
@@ -180,7 +201,10 @@ function enter(
       return { name: "loading", pending: null };
     case "restarting": {
       effects.push("restartRuntime");
-      const reason = RESTART_REASON[event.type];
+      const reason =
+        event.type === "CRASH" && event.reason !== undefined
+          ? event.reason
+          : RESTART_REASON[event.type];
       if (reason === undefined) throw new Error(`No restart reason for ${event.type}`);
       return { name: "restarting", pending: null, reason };
     }

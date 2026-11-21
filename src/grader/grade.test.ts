@@ -225,10 +225,18 @@ describe("parseTestResult and parseCheckSummary", () => {
     ...unfinished([testCase, testCase], "time_limit"),
   ];
 
-  it("[FR-GRD-01] reads back every kind of result", () => {
-    for (const sample of samples)
+  it("[FR-GRD-01] reads back every kind of result a worker sends", () => {
+    for (const sample of samples.filter((_sample, index) => index !== 4))
       expect(parseTestResult(JSON.parse(JSON.stringify(sample)))).toEqual(sample);
   });
+
+  it.each(["time_limit", "stopped", "crashed"])(
+    "[FR-RUN-02] refuses %s from a worker: only the page decides it",
+    (reason) => {
+      expect(samples[4]).toMatchObject({ status: "failed", reason: "time_limit" });
+      expect(parseTestResult({ ...samples[4], reason })).toBeUndefined();
+    },
+  );
 
   it.each([
     ["null", null],

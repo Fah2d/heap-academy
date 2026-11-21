@@ -45,28 +45,35 @@ export function chartEventFor(
           return unreachable;
         }
       }
-    case "check_done": {
-      // A check the page ended reports its first unfinished test case's reason.
-      const ended = event.results.find(
-        (result) =>
-          result.status === "failed" &&
-          (result.reason === "time_limit" ||
-            result.reason === "stopped" ||
-            result.reason === "crashed"),
-      );
-      const reason = ended?.status === "failed" ? ended.reason : undefined;
-      if (reason === "time_limit") return { type: "TIME_LIMIT" };
-      if (reason === "crashed") return { type: "CRASH" };
-      if (reason === "stopped") return undefined;
-      return { type: "CHECK_DONE", allPassed: event.summary.allPassed };
-    }
+    case "check_done":
+      // Only the controller sets `ended`; the test results came from the
+      // worker and never decide how a check ended.
+      switch (event.ended) {
+        case "time_limit":
+          return { type: "TIME_LIMIT" };
+        case "crashed":
+          return { type: "CRASH" };
+        // The learner's STOP already moved the chart.
+        case "stopped":
+          return undefined;
+        case undefined:
+          return { type: "CHECK_DONE", allPassed: event.summary.allPassed };
+        default: {
+          const unreachable: never = event.ended;
+          return unreachable;
+        }
+      }
     case "restarting":
       // A new worker while the chart is at rest: the worker died while idle,
-      // or the controller replaced it after a run that ran out of memory or
-      // reached the output cap. Section 6 names every such end CRASH. In any
-      // other state the chart has already moved, or, for a check that asked
-      // for a fresh worker, the controller holds the check until it is ready.
-      return state.runtime.name === "ready" ? { type: "CRASH" } : undefined;
+      // or the controller replaced it after a run or check that ran out of
+      // memory or reached the output cap. The diagram draws both as CRASH;
+      // the reason tells them apart. In any other state the chart has already
+      // moved, or, for a check that asked for a fresh worker, the controller
+      // holds the check until it is ready.
+      if (state.runtime.name !== "ready") return undefined;
+      return event.reason === "memory" || event.reason === "output_limit"
+        ? { type: "CRASH", reason: event.reason }
+        : { type: "CRASH" };
     case "progress":
     case "output":
     case "test_result":

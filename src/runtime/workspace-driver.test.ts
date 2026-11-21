@@ -36,7 +36,10 @@ const summary = (allPassed: boolean) => ({
   allPassed,
   timeLimit: false,
 });
-const failedBy = (reason: "time_limit" | "stopped" | "crashed" | "mismatch") => ({
+const failedBy = (
+  reason: "time_limit" | "stopped" | "crashed" | "mismatch",
+  ended?: "time_limit" | "stopped" | "crashed",
+) => ({
   type: "check_done" as const,
   runId,
   results: [
@@ -50,6 +53,7 @@ const failedBy = (reason: "time_limit" | "stopped" | "crashed" | "mismatch") => 
     },
   ],
   summary: summary(false),
+  ...(ended === undefined ? {} : { ended }),
 });
 
 describe("chartEventFor [FR-WSP-07]", () => {
@@ -90,14 +94,29 @@ describe("chartEventFor [FR-WSP-07]", () => {
       type: "CHECK_DONE",
       allPassed: false,
     });
-    expect(chartEventFor(failedBy("time_limit"), s)).toEqual({ type: "TIME_LIMIT" });
-    expect(chartEventFor(failedBy("crashed"), s)).toEqual({ type: "CRASH" });
-    expect(chartEventFor(failedBy("stopped"), s)).toBeUndefined();
+    expect(chartEventFor(failedBy("time_limit", "time_limit"), s)).toEqual({
+      type: "TIME_LIMIT",
+    });
+    expect(chartEventFor(failedBy("crashed", "crashed"), s)).toEqual({ type: "CRASH" });
+    expect(chartEventFor(failedBy("stopped", "stopped"), s)).toBeUndefined();
+  });
+
+  it("[FR-RUN-02] reads how a check ended only from the controller, never from a result", () => {
+    const s = at("checking");
+    for (const reason of ["time_limit", "stopped", "crashed"] as const) {
+      expect(chartEventFor(failedBy(reason), s)).toEqual({ type: "CHECK_DONE", allPassed: false });
+    }
   });
 
   it("reads a new worker as CRASH only when the chart is at rest", () => {
-    for (const reason of ["crashed", "memory", "output_limit"] as const) {
-      expect(chartEventFor({ type: "restarting", reason }, at("ready"))).toEqual({ type: "CRASH" });
+    expect(chartEventFor({ type: "restarting", reason: "crashed" }, at("ready"))).toEqual({
+      type: "CRASH",
+    });
+    for (const reason of ["memory", "output_limit"] as const) {
+      expect(chartEventFor({ type: "restarting", reason }, at("ready"))).toEqual({
+        type: "CRASH",
+        reason,
+      });
     }
     expect(
       chartEventFor({ type: "restarting", reason: "isolation" }, at("checking")),
@@ -344,7 +363,7 @@ describe("the chart driving the controller [FR-WSP-07, FR-WSP-17]", () => {
       truncated: false,
       durationMs: 3,
     });
-    expect(w.state().runtime).toEqual({ name: "restarting", pending: null, reason: "crashed" });
+    expect(w.state().runtime).toEqual({ name: "restarting", pending: null, reason: "memory" });
     w.ready();
     expect(w.state().runtime.name).toBe("ready");
     expect(w.refusals).toEqual([]);

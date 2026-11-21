@@ -67,7 +67,14 @@ export type ControllerEvent =
   | { type: "input_end"; runId: RunId }
   | { type: "run_done"; result: RunResult }
   | { type: "test_result"; runId: RunId; result: TestResult }
-  | { type: "check_done"; runId: RunId; results: TestResult[]; summary: CheckSummary }
+  | {
+      type: "check_done";
+      runId: RunId;
+      results: TestResult[];
+      summary: CheckSummary;
+      /** Set when the page ended the check: its clock ran out, Stop, or the worker died. */
+      ended?: "time_limit" | "stopped" | "crashed";
+    }
   | { type: "restarting"; reason: RestartReason }
   | { type: "failed" };
 
@@ -241,12 +248,20 @@ export function createRuntimeController({
     }, timeLimitMs);
   }
 
-  function completeCheck(results: TestResult[], summary: CheckSummary): void {
+  function completeCheck(
+    results: TestResult[],
+    summary: CheckSummary,
+    ended?: "time_limit" | "stopped" | "crashed",
+  ): void {
     if (current?.kind !== "check") return;
     timers.clearTimeout(current.timer);
     const { runId } = current;
     current = undefined;
-    onEvent({ type: "check_done", runId, results, summary });
+    onEvent(
+      ended === undefined
+        ? { type: "check_done", runId, results, summary }
+        : { type: "check_done", runId, results, summary, ended },
+    );
   }
 
   /** The page ended the check: the running test case gets the reason, the rest are not run. */
@@ -256,7 +271,7 @@ export function createRuntimeController({
       ...current.results,
       ...unfinished(current.tests.slice(current.results.length), reason),
     ];
-    completeCheck(results, summarize(results));
+    completeCheck(results, summarize(results), reason);
   }
 
   function end(): void {

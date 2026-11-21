@@ -95,7 +95,9 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
       },
       now: () => performance.now(),
       onEvent: (event) => {
-        setView((current) => reduceView(current, event, created.status));
+        // Read the status now: React may run the updater later.
+        const status = created.status;
+        setView((current) => reduceView(current, event, status));
         const chartEvent = chartEventFor(event, chartRef.current);
         if (chartEvent !== undefined) dispatch(chartEvent);
       },
