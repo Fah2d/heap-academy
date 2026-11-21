@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { Button, Link } from "@/ui";
 
@@ -9,8 +9,10 @@ const SIGN_IN = "/sign-in";
 /** "Sign in", carrying the page the visitor is on, so sign-in returns there (FR-AUTH-04). */
 export function SignInLink({ label }: { label: string }) {
   const pathname = usePathname();
+  const query = useSearchParams().toString();
   const current = pathname === SIGN_IN;
-  const href = current ? SIGN_IN : `${SIGN_IN}?${new URLSearchParams({ returnTo: pathname })}`;
+  const returnTo = query === "" ? pathname : `${pathname}?${query}`;
+  const href = current ? SIGN_IN : `${SIGN_IN}?${new URLSearchParams({ returnTo })}`;
   return (
     <Link href={href} variant="nav" current={current}>
       {label}

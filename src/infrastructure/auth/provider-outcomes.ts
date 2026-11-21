@@ -15,11 +15,10 @@ export type SignOutOutcome = "signed_out" | "unavailable";
 
 const RATE_LIMITED = new Set(["over_email_send_rate_limit", "over_request_rate_limit"]);
 // The documentation names `otp_expired` for an expired code and gives no code
-// for a wrong one, so either name counts as a rejected code. Whether the
-// provider can tell a wrong code from an expired one is checked against the
-// local stack in WP-2.2 part 2; until then the sign-in view cannot show the
-// two states of 03-experience.md section 8 apart (a proposed spec change in
-// the WP-2.2 pull request).
+// for a wrong one, so either name counts as a rejected code, and the sign-in
+// view shows one message for both. Whether the provider tells them apart is
+// checked against the local stack by the owner (the WP-2.2 pull request,
+// with a proposed change to 03-experience.md section 8).
 const CODE_REJECTED = new Set(["otp_expired", "invalid_credentials"]);
 
 function rateLimited(error: ProviderError): boolean {

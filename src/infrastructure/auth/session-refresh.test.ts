@@ -10,7 +10,9 @@ const SESSION = [{ name: "sb-abcdef-auth-token", value: "x" }];
 const NEW_COOKIE = { name: "sb-abcdef-auth-token", value: "new", options: { path: "/" } };
 const NO_STORE = { "cache-control": "private, no-cache, no-store, must-revalidate, max-age=0" };
 
-function client(getClaims: (cookies: CookieMethodsServer) => Promise<unknown>) {
+type Claims = { data: { claims: unknown } | null; error: unknown };
+
+function client(getClaims: (cookies: CookieMethodsServer) => Promise<Claims>) {
   const created: CookieMethodsServer[] = [];
   return {
     created,
@@ -35,7 +37,7 @@ describe("hasSessionCookie", () => {
 
 describe("refreshSession", () => {
   it("[FR-AUTH-05] creates no client without a session cookie", async () => {
-    const fake = client(() => Promise.resolve(null));
+    const fake = client(() => Promise.resolve({ data: null, error: null }));
     const result = await refreshSession([{ name: "theme", value: "dark" }], {
       createClient: fake.createClient,
       timeoutMs: 1000,
@@ -57,6 +59,19 @@ describe("refreshSession", () => {
     expect(result).toEqual({ status: "checked", cookies: [NEW_COOKIE], headers: NO_STORE });
   });
 
+  it("[FR-AUTH-05] a session with no claims passes on the cleared cookies and says so", async () => {
+    const cleared = { name: "sb-abcdef-auth-token", value: "", options: { maxAge: 0 } };
+    const fake = client(async (cookies) => {
+      await cookies.setAll?.([cleared], NO_STORE);
+      return { data: null, error: null };
+    });
+    const result = await refreshSession(SESSION, {
+      createClient: fake.createClient,
+      timeoutMs: 1000,
+    });
+    expect(result).toEqual({ status: "no-claims", cookies: [cleared], headers: NO_STORE });
+  });
+
   it("[FR-AUTH-05] a failed call leaves the cookies alone", async () => {
     const fake = client(() => Promise.reject(new Error("network down")));
     const result = await refreshSession(SESSION, {
@@ -74,7 +89,7 @@ describe("refreshSession", () => {
         new Promise((resolve) => {
           late = async () => {
             await cookies.setAll?.([NEW_COOKIE], NO_STORE);
-            resolve(null);
+            resolve({ data: null, error: null });
           };
         }),
     );

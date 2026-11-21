@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { refreshSession, SESSION_REFRESH_TIMEOUT_MS } from "@/infrastructure/auth/session-refresh";
+import { refreshSession } from "@/infrastructure/auth/session-refresh";
 import { parsePublicEnvironment } from "@/infrastructure/env/schema";
+import { AUTH_TIMEOUT_MS, fetchWithin } from "@/infrastructure/http/fetch-within";
 import { createRequestId, REQUEST_ID_HEADER } from "@/infrastructure/http/request-id";
 import {
   contentSecurityPolicy,
@@ -15,7 +16,7 @@ import { logRoute } from "@/infrastructure/logging/route";
 // Runs before every page and route handler (docs/spec/02-architecture.md
 // sections 11.1 and 12). Its only network work is the session refresh, for a
 // request that carries a session cookie, and that never holds a page longer
-// than SESSION_REFRESH_TIMEOUT_MS (07-operations.md section 10).
+// than AUTH_TIMEOUT_MS (07-operations.md section 10).
 //
 // The script policy carries a fresh nonce per request (ADR-0028). Next.js
 // reads the nonce from the policy on the request and puts it on its own
@@ -40,11 +41,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
         environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
         {
           cookies,
-          global: { fetch: fetchWithin(SESSION_REFRESH_TIMEOUT_MS) },
+          global: { fetch: fetchWithin(AUTH_TIMEOUT_MS) },
         },
       );
     },
-    timeoutMs: SESSION_REFRESH_TIMEOUT_MS,
+    timeoutMs: AUTH_TIMEOUT_MS,
   });
   // The page reads the refreshed token from the request's cookies.
   for (const { name, value } of refresh.cookies) request.cookies.set(name, value);
@@ -66,7 +67,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   const route = logRoute(request.method, request.nextUrl.pathname);
   log({ level: "info", requestId, route, outcome: "request" });
-  if (refresh.status === "timed-out" || refresh.status === "failed") {
+  if (refresh.status !== "no-session" && refresh.status !== "checked") {
     log({
       level: "warn",
       requestId,
@@ -76,15 +77,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     });
   }
   return response;
-}
-
-/** A fetch that gives up after `milliseconds`, so a slow auth service frees its connection. */
-function fetchWithin(milliseconds: number): typeof fetch {
-  return (input, init) => {
-    const timeout = AbortSignal.timeout(milliseconds);
-    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
-    return fetch(input, { ...init, signal });
-  };
 }
 
 export const config = {

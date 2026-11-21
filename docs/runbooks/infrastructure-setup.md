@@ -79,7 +79,7 @@ A Hobby project cannot connect to a repository owned by a GitHub organization (E
    |---|---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | production Project URL | staging Project URL |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | production publishable key | staging publishable key |
-   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | the Turnstile site key of section 10 step 7 | the same site key |
+   | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | the Turnstile site key of section 10 step 7 | `1x00000000000000000000AA` (Cloudflare's test key, section 10 step 7) |
    | `RESEND_API_KEY` (mark **Sensitive**) | production Resend key | staging Resend key |
 
    Do not tick **Development**; local development uses the local stack.
@@ -176,7 +176,7 @@ Do this for each project, with that project's own values.
 4. [ ] **Authentication → Sign In / Providers → Google**: on, with the Google client ID and secret of step 4 (one client for both projects for now).
 5. [ ] **Authentication → Sign In / Providers → Email**: email provider on, **Allow new users to sign up** on (an unknown address must get the same answer as a known one, T-11), **Confirm email** on (a password sign-up through the public endpoint then stays unconfirmed and cannot sign in; a person who signs in with a code confirms the address by typing it), **Email OTP expiration** `600` seconds, **Email OTP length** `6`.
 6. [ ] **Authentication → Emails → Templates**: in both **Magic link** and **Confirm signup**, set the subject to `Your Heap Academy sign-in code` and replace the body with the contents of `supabase/templates/sign-in-code.html`. The body must show `{{ .Token }}` and no link (FR-AUTH-02).
-7. [ ] **Bot challenge**: at dash.cloudflare.com, **Turnstile → Add widget**, name `heap-academy`, hostnames `heapacademy.dev`, `localhost`, and `vercel.app`, mode **Managed**. Copy the **site key** (not secret) and the **secret key** (**secret** `Turnstile secret key`). Then in each Supabase project, **Authentication → Attack Protection → Enable Captcha protection**: provider **Turnstile by Cloudflare**, the secret key. Put the site key in Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for Production and Preview (section 5 step 3). The build fails without it.
+7. [ ] **Bot challenge**: at dash.cloudflare.com, **Turnstile → Add widget**, name `heap-academy`, hostname `heapacademy.dev` only, mode **Managed**. Copy the **site key** (not secret) and the **secret key** (**secret** `Turnstile secret key`). In the **production** Supabase project, **Authentication → Attack Protection → Enable Captcha protection**: provider **Turnstile by Cloudflare**, the secret key. Put the site key in Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` for **Production** (section 5 step 3). Previews and staging use Cloudflare's published test keys instead, because a widget hostname cannot name each preview address without covering all of `vercel.app` (`07-operations.md` section 1): Vercel **Preview** gets `NEXT_PUBLIC_TURNSTILE_SITE_KEY` = `1x00000000000000000000AA`, and the **staging** Supabase project's captcha secret is `1x0000000000000000000000000000000AA`. Those always pass, so staging relies on the provider's rate limits alone. The build fails without the variable.
 
 Check: request a code for your own address on the staging project with **Authentication → Users → Send magic link**, and see a six-digit code from `signin@heapacademy.dev`, not a link.
 

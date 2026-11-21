@@ -36,7 +36,7 @@ Learning never depends on sign-in. A guest keeps learning, and progress waits on
 1. [ ] The code works for 10 minutes and only for the last one sent. Ask yourself whether the learner used an older email.
 2. [ ] Supabase → **Authentication → Sign In / Providers → Email**: **Email OTP expiration** is `600`, **Email OTP length** is `6`. A length other than 6 breaks the form, which accepts six digits.
 3. [ ] **Authentication → Emails → Templates**: both **Magic link** and **Confirm signup** show `{{ .Token }}`. If one shows a link instead, paste `supabase/templates/sign-in-code.html` again.
-4. [ ] `error:rate-limited` on `verify-email-code` means too many tries from one network address in five minutes. It clears by itself.
+4. [ ] `error:rate-limited` on `verify-email-code` means Supabase refused more checks for a while. Every code request and check reaches Supabase from the app's server (ADR-0027), so Supabase may count all learners as one caller and one learner's wrong codes may limit everyone (not yet measured; a decision in the WP-2.2 pull request). It clears by itself within five minutes. If it repeats, raise **Authentication → Rate Limits → Token verifications** and record the new value in this runbook.
 
 ## 5. Supabase Auth is down
 

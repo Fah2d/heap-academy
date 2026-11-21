@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SESSION_REFRESH_TIMEOUT_MS } from "@/infrastructure/auth/session-refresh";
+import { AUTH_TIMEOUT_MS } from "@/infrastructure/http/fetch-within";
 import { proxy } from "./proxy";
 
 afterEach(() => {
@@ -160,7 +160,7 @@ describe("proxy session refresh", () => {
         },
       }),
     );
-    await vi.advanceTimersByTimeAsync(SESSION_REFRESH_TIMEOUT_MS + 10);
+    await vi.advanceTimersByTimeAsync(AUTH_TIMEOUT_MS + 10);
     const response = await pending;
     expect(response.headers.get("content-security-policy")).toContain("nonce-");
     expect(response.headers.get("set-cookie")).toBeNull();

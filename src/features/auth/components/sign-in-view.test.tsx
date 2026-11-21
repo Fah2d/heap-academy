@@ -236,4 +236,53 @@ describe("sign-in view", () => {
     const form = screen.getByRole("button", { name: words.sendCode }).closest("form");
     expect(form?.contains(alert)).toBe(true);
   });
+
+  it("[FR-AUTH-02] says it is sending, and holds the button, until the server answers", async () => {
+    let answer: (value: { ok: true; value: null }) => void = () => undefined;
+    view(
+      {},
+      actions({
+        requestEmailCode: () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          }),
+      }),
+    );
+    await sendCodeTo("ada@example.test");
+    const button = await screen.findByRole("button", { name: words.sending });
+    expect(button.hasAttribute("disabled")).toBe(true);
+    await act(async () => {
+      answer({ ok: true, value: null });
+    });
+    expect(await screen.findByText(words.codeSentTo("ada@example.test"))).toBeTruthy();
+  });
+
+  it("[FR-AUTH-02] says it is checking the code, and holds the button, until the server answers", async () => {
+    let answer: (value: { ok: false; error: string }) => void = () => undefined;
+    view(
+      {},
+      actions({
+        verifyEmailCode: () =>
+          new Promise((resolve) => {
+            answer = resolve;
+          }),
+      }),
+    );
+    await sendCodeTo("ada@example.test");
+    await userEvent.type(await screen.findByRole("textbox", { name: words.codeLabel }), "123456");
+    await userEvent.click(screen.getByRole("button", { name: words.verify }));
+    const button = await screen.findByRole("button", { name: words.verifying });
+    expect(button.hasAttribute("disabled")).toBe(true);
+    await act(async () => {
+      answer({ ok: false, error: "code_rejected" });
+    });
+    expect((await screen.findByRole("alert")).textContent).toContain(words.codeRejected);
+    expect(screen.getByRole("button", { name: words.verify }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("[FR-AUTH-02] an action that cannot be reached shows the provider-down notice, not the error page", async () => {
+    view({}, actions({ requestEmailCode: () => Promise.reject(new Error("network")) }));
+    await sendCodeTo("ada@example.test");
+    expect((await screen.findByRole("alert")).textContent).toContain(words.unavailable);
+  });
 });

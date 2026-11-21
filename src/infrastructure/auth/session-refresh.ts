@@ -11,9 +11,6 @@ import type { CookieMethodsServer, CookieOptions } from "@supabase/ssr";
 //   as it would be for a signed-out visitor. It never waits longer than the
 //   timeout.
 
-/** How long a page waits for the auth service before it is served anyway. */
-export const SESSION_REFRESH_TIMEOUT_MS = 1500;
-
 // The provider's session cookie, `sb-<project ref>-auth-token`, split into
 // numbered chunks when it is long.
 const SESSION_COOKIE = /^sb-[A-Za-z0-9-]+-auth-token(?:\.\d+)?$/;
@@ -24,22 +21,33 @@ export type CookieToSet = { name: string; value: string; options: CookieOptions 
 export type RefreshStatus =
   /** No session cookie: nothing was asked of the auth service. */
   | "no-session"
-  /** The auth service answered, with a session or without one. */
+  /** The auth service answered, and the session holds verified claims. */
   | "checked"
+  /**
+   * The call finished with no claims: the session was ended, or the auth
+   * service could not be reached (the client reports both the same way).
+   */
+  | "no-claims"
   /** No answer within the timeout. */
   | "timed-out"
-  /** The call failed. */
+  /** The call threw. */
   | "failed";
 
 export type RefreshResult = {
   status: RefreshStatus;
-  /** Cookies to set on the request and the response. Empty unless `checked`. */
+  /**
+   * Cookies to set on the request and the response: those the provider wrote
+   * before the call finished, such as a cleared session. Empty after a
+   * timeout or a throw.
+   */
   cookies: CookieToSet[];
   /** Headers the provider asks for with new cookies, such as `cache-control`. */
   headers: Record<string, string>;
 };
 
-export type AuthClient = { auth: { getClaims: () => Promise<unknown> } };
+export type AuthClient = {
+  auth: { getClaims: () => Promise<{ data: { claims: unknown } | null; error: unknown }> };
+};
 
 export type RefreshDependencies = {
   createClient: (cookies: CookieMethodsServer) => AuthClient;
@@ -77,8 +85,9 @@ export async function refreshSession(
   try {
     status = await Promise.race([
       client.auth.getClaims().then(
-        () => "checked" as const,
-        () => "failed" as const,
+        ({ data, error }): RefreshStatus =>
+          error === null && data !== null ? "checked" : "no-claims",
+        (): RefreshStatus => "failed",
       ),
       timeout,
     ]);
@@ -86,5 +95,7 @@ export async function refreshSession(
     clearTimeout(timer);
     open = false;
   }
-  return status === "checked" ? { status, ...written } : { status, cookies: [], headers: {} };
+  return status === "checked" || status === "no-claims"
+    ? { status, ...written }
+    : { status, cookies: [], headers: {} };
 }

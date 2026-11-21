@@ -72,6 +72,19 @@ function verifyFailureText(error: string): string {
   }
 }
 
+/**
+ * An action that could not be reached at all (the network dropped, or the
+ * server failed) shows the provider-down notice instead of replacing the
+ * page with the error page.
+ */
+async function settle<Value>(call: Promise<ActionOutcome<Value>>): Promise<ActionOutcome<Value>> {
+  try {
+    return await call;
+  } catch {
+    return { ok: false, error: "unavailable" };
+  }
+}
+
 const noticeLabel = {
   error: words.errorLabel,
   information: words.informationLabel,
@@ -122,7 +135,7 @@ export function SignInView({
     setToken(null);
     setPendingKind("send");
     startTransition(async () => {
-      const result = await actions.requestEmailCode({ email: address, challengeToken });
+      const result = await settle(actions.requestEmailCode({ email: address, challengeToken }));
       setChallengeReset((count) => count + 1);
       setPendingKind(null);
       if (result.ok) {
@@ -163,7 +176,9 @@ export function SignInView({
     setCodeInvalid(false);
     setPendingKind("verify");
     startTransition(async () => {
-      const result = await actions.verifyEmailCode({ email: step.email, code: digits, returnTo });
+      const result = await settle(
+        actions.verifyEmailCode({ email: step.email, code: digits, returnTo }),
+      );
       setPendingKind(null);
       if (result.ok) {
         navigate(result.value.returnTo);
