@@ -3,11 +3,14 @@ import type { ReactNode } from "react";
 import { shell } from "@/messages/shell";
 
 // The frame every page shares (docs/spec/03-experience.md section 4). The
-// header shows only destinations that exist: Courses and the account control
-// join it with the pages they open (WP-5.1, WP-2.2), and the footer arrives
-// with the privacy and terms pages (WP-6.3). Until then neither has a link to
-// show, so neither renders (antislop R-24).
-export function SiteShell({ children }: { children: ReactNode }) {
+// header shows only destinations that exist: Courses joins it with the course
+// list (WP-5.1), and the footer arrives with the privacy and terms pages
+// (WP-6.3). Until then neither has a link to show, so neither renders
+// (antislop R-24).
+//
+// `account` is the account control, which the layout passes in so this frame
+// does not depend on sign-in.
+export function SiteShell({ account, children }: { account: ReactNode; children: ReactNode }) {
   return (
     <>
       <a
@@ -17,13 +20,14 @@ export function SiteShell({ children }: { children: ReactNode }) {
         {shell.skipLink}
       </a>
       <header className="border-be border-border">
-        <div className="mx-auto flex min-h-target max-w-page items-center px-gutter py-3">
+        <div className="mx-auto flex min-h-target max-w-page items-center justify-between gap-4 px-gutter py-3">
           <NextLink
             href="/"
             className="inline-flex min-h-target items-center text-lg font-semibold text-text underline-offset-(--link-underline-offset) hover:underline"
           >
             {shell.productName}
           </NextLink>
+          <nav aria-label={shell.accountNavigation}>{account}</nav>
         </div>
       </header>
       <main id="main" tabIndex={-1} className="flex-1 outline-none">

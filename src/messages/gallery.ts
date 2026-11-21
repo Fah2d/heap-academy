@@ -80,3 +80,27 @@ export const gallery = {
   failed: "Failed",
   notRun: "Not run",
 } as const;
+
+// The development-only page that shows the admin area's states the J-12
+// journey cannot reach on the local stack (WP-2.3).
+export const adminGallery = {
+  title: "Admin states",
+  intro:
+    "The dashboard's and the second step's states that the sign-in journey cannot reach. The actions here are fakes that answer at once, or never.",
+  courseListEmpty: "Course list with no course",
+  courseListFailed: "Course list that could not load",
+  courseListRows: "Course list with courses",
+  sampleCourse: "Sample course",
+  secondCourse: "Second course",
+  sampleSummary: "A first look at Python, one short program at a time.",
+  sampleChapter: "First chapter",
+  secondChapter: "Second chapter",
+  sampleLesson: "Sample lesson",
+  editorRefusing:
+    "Course editor whose changes are refused: Publish (no published lesson), Save details (changed somewhere else), and the order (changed meanwhile)",
+  editorEmpty: "Course editor of a draft course with no chapter",
+  newCourse: "New course form, whose create never answers",
+  setupFailed: "Setup whose QR code could not be made",
+  codeLimited: "Code form after too many tries",
+  codeChecking: "Code form while a code is checked",
+} as const;

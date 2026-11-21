@@ -18,12 +18,15 @@
     "typecheck": "tsc --noEmit",
     "attribution": "node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files",
     "test": "vitest run --coverage",
+    "test:db": "supabase test db",
     "test:e2e": "playwright test",
     "infra:verify": "node scripts/infra-verify.mjs",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm attribution && pnpm test"
   },
   "dependencies": {
     "@carbon/icons-react": "11.92.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.2",
     "@tailwindcss/postcss": "4.3.5",
     "next": "16.4.6",
     "postcss": "8.5.33",

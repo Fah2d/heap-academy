@@ -1,0 +1,208 @@
+import { describe, expect, it, vi } from "vitest";
+import { type MfaApi, supabaseSecondStep } from "./second-step";
+import { confirmOutcome, enrollOutcome } from "./second-step-outcomes";
+
+vi.mock("server-only", () => ({}));
+
+type FactorRow = {
+  id: string;
+  status: "verified" | "unverified";
+  factor_type: string;
+  created_at: string;
+};
+
+const factor = (
+  id: string,
+  status: FactorRow["status"],
+  created_at = "2026-11-21T00:00:00Z",
+  factor_type = "totp",
+): FactorRow => ({
+  id,
+  status,
+  factor_type,
+  created_at,
+});
+
+function fakeMfa(options: {
+  factors?: FactorRow[] | "error";
+  enrollError?: { code?: string; status?: number };
+  unenrollError?: boolean;
+  verifyError?: { code?: string; status?: number };
+}) {
+  const calls = {
+    unenroll: [] as string[],
+    enroll: [] as unknown[],
+    verify: [] as { factorId: string; code: string }[],
+  };
+  const api = {
+    listFactors: async () =>
+      options.factors === "error"
+        ? { data: null, error: { code: "unexpected_failure", status: 500 } }
+        : { data: { all: options.factors ?? [], totp: [], phone: [], webauthn: [] }, error: null },
+    unenroll: async ({ factorId }: { factorId: string }) => {
+      calls.unenroll.push(factorId);
+      return options.unenrollError === true
+        ? { data: null, error: { code: "unexpected_failure", status: 500 } }
+        : { data: { id: factorId }, error: null };
+    },
+    enroll: async (params: unknown) => {
+      calls.enroll.push(params);
+      return options.enrollError !== undefined
+        ? { data: null, error: options.enrollError }
+        : {
+            data: {
+              id: "new",
+              type: "totp",
+              totp: { qr_code: "<svg/>", secret: "SECRET", uri: "otpauth://x" },
+            },
+            error: null,
+          };
+    },
+    challengeAndVerify: async (params: { factorId: string; code: string }) => {
+      calls.verify.push(params);
+      return options.verifyError !== undefined
+        ? { data: null, error: options.verifyError }
+        : { data: {}, error: null };
+    },
+  };
+  return { mfa: api as unknown as MfaApi, calls };
+}
+
+describe("confirmOutcome [FR-ADM-02]", () => {
+  it("maps the provider's answers", () => {
+    expect(confirmOutcome(null)).toBe("verified");
+    expect(confirmOutcome({ code: "mfa_verification_failed", status: 422 })).toBe("code_rejected");
+    expect(confirmOutcome({ code: "mfa_challenge_expired" })).toBe("code_rejected");
+    expect(confirmOutcome({ code: "over_request_rate_limit", status: 429 })).toBe("rate_limited");
+    expect(confirmOutcome({ status: 429 })).toBe("rate_limited");
+    expect(confirmOutcome({ code: "mfa_factor_not_found" })).toBe("setup_replaced");
+    expect(confirmOutcome({ code: "unexpected_failure", status: 500 })).toBe("unavailable");
+    expect(confirmOutcome({})).toBe("unavailable");
+    // The challenge and the verification came from different server addresses,
+    // or the project turned TOTP off: nothing the admin can fix with a new code.
+    expect(confirmOutcome({ code: "mfa_ip_address_mismatch", status: 422 })).toBe("unavailable");
+    expect(confirmOutcome({ code: "mfa_totp_verify_not_enabled", status: 422 })).toBe(
+      "unavailable",
+    );
+  });
+
+  it("maps enrolment refusals", () => {
+    expect(enrollOutcome({ code: "insufficient_aal" })).toBe("already_enrolled");
+    expect(enrollOutcome({ code: "too_many_enrolled_mfa_factors" })).toBe("unavailable");
+  });
+});
+
+describe("supabaseSecondStep [FR-ADM-02, T-19]", () => {
+  it("says whether a verified TOTP factor exists, and null when the service cannot say", async () => {
+    expect(
+      await supabaseSecondStep(
+        fakeMfa({ factors: [factor("a", "verified")] }).mfa,
+      ).hasVerifiedFactor(),
+    ).toBe(true);
+    expect(
+      await supabaseSecondStep(
+        fakeMfa({ factors: [factor("a", "unverified")] }).mfa,
+      ).hasVerifiedFactor(),
+    ).toBe(false);
+    expect(
+      await supabaseSecondStep(
+        fakeMfa({ factors: [factor("p", "verified", undefined, "phone")] }).mfa,
+      ).hasVerifiedFactor(),
+    ).toBe(false);
+    expect(
+      await supabaseSecondStep(fakeMfa({ factors: "error" }).mfa).hasVerifiedFactor(),
+    ).toBeNull();
+  });
+
+  it("removes unfinished setups before creating one factor, and returns its QR code and key", async () => {
+    const { mfa, calls } = fakeMfa({
+      factors: [factor("old1", "unverified"), factor("old2", "unverified")],
+    });
+    const result = await supabaseSecondStep(mfa).startEnrollment("Heap Academy");
+    expect(result).toEqual({ ok: true, qrCodeSvg: "<svg/>", secret: "SECRET" });
+    expect(calls.unenroll).toEqual(["old1", "old2"]);
+    expect(calls.enroll).toEqual([{ factorType: "totp", issuer: "Heap Academy" }]);
+  });
+
+  it("refuses setup when a verified factor exists, without touching factors", async () => {
+    const { mfa, calls } = fakeMfa({
+      factors: [factor("v", "verified"), factor("u", "unverified")],
+    });
+    expect(await supabaseSecondStep(mfa).startEnrollment("Heap Academy")).toEqual({
+      ok: false,
+      reason: "already_enrolled",
+    });
+    expect(calls.unenroll).toEqual([]);
+    expect(calls.enroll).toEqual([]);
+  });
+
+  it("reports the service down when factors cannot be listed or removed, or enrolment fails", async () => {
+    expect(
+      await supabaseSecondStep(fakeMfa({ factors: "error" }).mfa).startEnrollment("x"),
+    ).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    const stuck = fakeMfa({ factors: [factor("u", "unverified")], unenrollError: true });
+    expect(await supabaseSecondStep(stuck.mfa).startEnrollment("x")).toEqual({
+      ok: false,
+      reason: "unavailable",
+    });
+    expect(stuck.calls.enroll).toEqual([]);
+    expect(
+      await supabaseSecondStep(
+        fakeMfa({ enrollError: { code: "insufficient_aal", status: 403 } }).mfa,
+      ).startEnrollment("x"),
+    ).toEqual({ ok: false, reason: "already_enrolled" });
+  });
+
+  it("confirms setup against the newest unfinished factor", async () => {
+    const { mfa, calls } = fakeMfa({
+      factors: [
+        factor("newer", "unverified", "2026-11-21T00:02:00Z"),
+        factor("older", "unverified", "2026-11-21T00:01:00Z"),
+      ],
+    });
+    expect(await supabaseSecondStep(mfa).confirmEnrollment("123456")).toBe("verified");
+    expect(calls.verify).toEqual([{ factorId: "newer", code: "123456" }]);
+  });
+
+  it("says setup was replaced when there is no unfinished factor to confirm", async () => {
+    const { mfa, calls } = fakeMfa({ factors: [] });
+    expect(await supabaseSecondStep(mfa).confirmEnrollment("123456")).toBe("setup_replaced");
+    expect(calls.verify).toEqual([]);
+  });
+
+  it("verifies against the verified factor only", async () => {
+    const { mfa, calls } = fakeMfa({
+      factors: [factor("u", "unverified"), factor("v", "verified")],
+    });
+    expect(await supabaseSecondStep(mfa).verify("654321")).toBe("verified");
+    expect(calls.verify).toEqual([{ factorId: "v", code: "654321" }]);
+  });
+
+  it("reports the service down when there is no verified factor or factors cannot be listed", async () => {
+    expect(await supabaseSecondStep(fakeMfa({ factors: [] }).mfa).verify("654321")).toBe(
+      "unavailable",
+    );
+    expect(await supabaseSecondStep(fakeMfa({ factors: "error" }).mfa).verify("654321")).toBe(
+      "unavailable",
+    );
+    expect(
+      await supabaseSecondStep(fakeMfa({ factors: "error" }).mfa).confirmEnrollment("654321"),
+    ).toBe("unavailable");
+  });
+
+  it("passes on a wrong code and a rate limit", async () => {
+    const wrong = fakeMfa({
+      factors: [factor("v", "verified")],
+      verifyError: { code: "mfa_verification_failed", status: 422 },
+    });
+    expect(await supabaseSecondStep(wrong.mfa).verify("000000")).toBe("code_rejected");
+    const limited = fakeMfa({
+      factors: [factor("v", "verified")],
+      verifyError: { code: "over_request_rate_limit", status: 429 },
+    });
+    expect(await supabaseSecondStep(limited.mfa).verify("000000")).toBe("rate_limited");
+  });
+});
