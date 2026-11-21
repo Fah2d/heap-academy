@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { refreshSession } from "@/infrastructure/auth/session-refresh";
+import { AUTH_UNAVAILABLE_HEADER, refreshSession } from "@/infrastructure/auth/session-refresh";
 import { parsePublicEnvironment } from "@/infrastructure/env/schema";
 import { AUTH_TIMEOUT_MS, fetchWithin } from "@/infrastructure/http/fetch-within";
 import { createRequestId, REQUEST_ID_HEADER } from "@/infrastructure/http/request-id";
@@ -53,6 +53,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(REQUEST_ID_HEADER, requestId);
   requestHeaders.set("content-security-policy", policy);
+  // Never the client's value: only this proxy decides it.
+  requestHeaders.delete(AUTH_UNAVAILABLE_HEADER);
+  if (refresh.status === "timed-out" || refresh.status === "failed") {
+    requestHeaders.set(AUTH_UNAVAILABLE_HEADER, "1");
+  }
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   for (const { name, value, options } of refresh.cookies) {

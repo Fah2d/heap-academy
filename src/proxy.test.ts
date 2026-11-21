@@ -126,6 +126,11 @@ describe("proxy session refresh", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
   });
 
+  it("[FR-AUTH-05] never passes on a client's own auth-unavailable marker", async () => {
+    const response = await run("https://heap.test/courses", { "x-heap-auth-unavailable": "1" });
+    expect(forwarded(response, "x-heap-auth-unavailable")).toBeNull();
+  });
+
   it("[FR-AUTH-05] a request with a session cookie asks the auth service, and the page is served", async () => {
     stubSupabaseEnvironment();
     const fetchSpy = vi.fn<typeof fetch>(() =>
@@ -166,6 +171,7 @@ describe("proxy session refresh", () => {
     expect(response.headers.get("set-cookie")).toBeNull();
     const outcomes = write.mock.calls.map(([line]) => JSON.parse(String(line)).outcome as string);
     expect(outcomes).toContain("session-refresh:timed-out");
+    expect(forwarded(response, "x-heap-auth-unavailable")).toBe("1");
   });
 });
 

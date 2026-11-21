@@ -33,6 +33,26 @@ test("[FR-AUTH-01] [FR-AUTH-02] offers Google and the email code, and is not ind
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 });
 
+test("[T-11] a server action posted from another site is refused", async ({ request }) => {
+  // Next.js compares a server action's Origin with the host; a forged
+  // cross-site form post cannot carry this site's origin.
+  const response = await request.post("/sign-in", {
+    headers: { origin: "https://evil.example", "next-action": "0".repeat(40) },
+    data: "[]",
+  });
+  expect(response.status()).toBeGreaterThanOrEqual(400);
+});
+
+test("[FR-AUTH-01] [T-11] a callback without this browser's PKCE verifier goes back to sign-in", async ({
+  request,
+}) => {
+  const response = await request.get("/auth/callback?code=forced-from-another-account", {
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(303);
+  expect(response.headers()["location"]).toMatch(/\/sign-in\?failed=google/);
+});
+
 test("[FR-AUTH-01] says when Google sign-in did not finish", async ({ page }) => {
   await page.goto("/sign-in?failed=google&returnTo=%2Fcourses");
   await expect(page.getByText(signIn.googleFailed)).toBeVisible();

@@ -75,9 +75,10 @@ const startGoogleAction = defineAction({
 });
 
 /**
- * The Google button's form action. It works without JavaScript: the form
- * posts, and the browser is redirected to Google. On failure the form shows
- * a notice.
+ * The Google button's form action: the browser is sent to Google, or the
+ * form shows a notice. It needs JavaScript, like the rest of the page: the
+ * page policy's `form-action 'self'` stops a plain form post from following
+ * the redirect to another origin.
  */
 export async function startGoogleSignIn(
   _previous: StartGoogleState,
@@ -96,11 +97,22 @@ export async function startGoogleSignIn(
   redirect(result.value.url);
 }
 
-/** This site's origin as the browser sees it, from the request's own host. */
+/**
+ * This site's origin as the browser sees it. The host comes from the
+ * request; the auth provider sends a callback that is not on its allow-list
+ * to the site address instead, so a forged host can only misdirect the
+ * forger's own browser. Only the first value of a forwarded list counts, and
+ * a malformed one falls back to the `host` header.
+ */
 async function requestOrigin(): Promise<string> {
   const list = await headers();
-  const host = list.get("x-forwarded-host") ?? list.get("host");
-  const protocol = list.get("x-forwarded-proto") ?? "https";
-  if (host === null) throw new Error("A request without a host header reached a server action.");
-  return `${protocol}://${host}`;
+  const first = (name: string) => list.get(name)?.split(",")[0]?.trim() || undefined;
+  const protocol = first("x-forwarded-proto") === "http" ? "http" : "https";
+  for (const host of [first("x-forwarded-host"), first("host")]) {
+    if (host !== undefined && URL.canParse(`${protocol}://${host}`)) {
+      const origin = new URL(`${protocol}://${host}`);
+      if (origin.host === host.toLowerCase()) return origin.origin;
+    }
+  }
+  throw new Error("A server action request without a usable host header.");
 }

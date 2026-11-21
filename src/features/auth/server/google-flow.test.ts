@@ -95,6 +95,23 @@ describe("startGoogleSignIn", () => {
     expect(store.set.mock.calls[0]?.[1]).toBe("/courses");
   });
 
+  it("[FR-AUTH-01] [T-11] takes the first forwarded host, and falls back to the host header when it is malformed", async () => {
+    auth.signInWithOAuth.mockResolvedValue({ data: { url: "https://g.test" }, error: null });
+    store.headers = new Headers({
+      host: "heap.test",
+      "x-forwarded-host": "first.test, second.test",
+    });
+    await redirectOf(startGoogleSignIn({ failed: false }, form("/courses")));
+    expect(auth.signInWithOAuth.mock.calls[0]?.[0].options.redirectTo).toBe(
+      "https://first.test/auth/callback",
+    );
+    store.headers = new Headers({ host: "heap.test", "x-forwarded-host": "bad host/x" });
+    await redirectOf(startGoogleSignIn({ failed: false }, form("/courses")));
+    expect(auth.signInWithOAuth.mock.calls[1]?.[0].options.redirectTo).toBe(
+      "https://heap.test/auth/callback",
+    );
+  });
+
   it("[FR-AUTH-01] says so when Google cannot start, and sets no cookie", async () => {
     auth.signInWithOAuth.mockResolvedValue({
       data: { url: null },

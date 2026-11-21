@@ -2,8 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { detectInAppBrowser } from "@/domain/auth/in-app-browser";
 import { safeReturnPath } from "@/domain/auth/return-path";
-import { verifiedIdentity } from "@/infrastructure/auth/verified-identity";
-import { createSessionClient } from "@/infrastructure/db/session-client";
+import { pageIdentity } from "@/infrastructure/auth/page-identity";
 import { parsePublicEnvironment } from "@/infrastructure/env/schema";
 import { requestEmailCode, startGoogleSignIn, verifyEmailCode } from "../server/actions";
 import { SIGN_IN_FAILED_GOOGLE } from "../server/google";
@@ -22,7 +21,7 @@ function single(value: string | string[] | undefined): string | undefined {
 export async function SignInPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const returnTo = safeReturnPath(single(params["returnTo"]));
-  if ((await verifiedIdentity(await createSessionClient("read-only"))) !== null) {
+  if ((await pageIdentity()) !== null) {
     redirect(returnTo);
   }
   const userAgent = (await headers()).get("user-agent");

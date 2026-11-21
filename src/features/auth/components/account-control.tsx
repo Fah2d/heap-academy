@@ -1,5 +1,4 @@
-import { verifiedIdentity } from "@/infrastructure/auth/verified-identity";
-import { createSessionClient } from "@/infrastructure/db/session-client";
+import { pageIdentity } from "@/infrastructure/auth/page-identity";
 import { account } from "@/messages/sign-in";
 import { signOut } from "../server/actions";
 import { SignInLink, SignOutButton } from "./account-buttons";
@@ -10,7 +9,7 @@ import { SignInLink, SignOutButton } from "./account-buttons";
  * The profile page joins it in WP-6.3.
  */
 export async function AccountControl() {
-  const identity = await verifiedIdentity(await createSessionClient("read-only"));
+  const identity = await pageIdentity();
   if (identity === null) return <SignInLink label={account.signIn} />;
   return (
     <form action={signOut}>

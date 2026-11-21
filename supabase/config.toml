@@ -25,11 +25,11 @@ enable_anonymous_sign_ins = false
 [auth.email]
 enable_signup = true
 # On, so a password sign-up through the public auth endpoint stays
-# unconfirmed and cannot sign in. The auth service clears an unconfirmed
-# account's password when its owner asks for a code, so nobody can hold a
-# password to an address before its owner signs in (T-11). A refusal of every
-# password in the database would break sign-in: the auth service gives each
-# new code account a random password (internal/api/magic_link.go, read
+# unconfirmed and cannot sign in, and the database clears its password when
+# the address's owner confirms it by signing in
+# (20261121030000_clear_password_on_confirm.sql, T-11). Refusing every
+# password outright would break code sign-in: the auth service gives each new
+# code account a random password (internal/api/magic_link.go, read
 # 2026-11-21).
 enable_confirmations = true
 otp_length = 6

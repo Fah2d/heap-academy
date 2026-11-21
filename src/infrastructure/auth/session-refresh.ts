@@ -15,6 +15,14 @@ import type { CookieMethodsServer, CookieOptions } from "@supabase/ssr";
 // numbered chunks when it is long.
 const SESSION_COOKIE = /^sb-[A-Za-z0-9-]+-auth-token(?:\.\d+)?$/;
 
+/**
+ * Set by proxy.ts on the request the app sees when the auth service did not
+ * answer in time or failed. Pages then treat the visitor as signed out
+ * without asking the auth service again, so a slow service costs one wait,
+ * and no page refreshes a token whose new cookies it could not keep.
+ */
+export const AUTH_UNAVAILABLE_HEADER = "x-heap-auth-unavailable";
+
 export type RequestCookie = { name: string; value: string };
 export type CookieToSet = { name: string; value: string; options: CookieOptions };
 
