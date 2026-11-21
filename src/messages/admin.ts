@@ -42,7 +42,10 @@ export const secondStep = {
 
 export const dashboard = {
   title: "Courses",
-  empty: "There are no courses yet.",
+  empty:
+    "There are no courses yet. Start with New course: give it a title, an address and a summary, then add its chapters.",
+  newCourse: "New course",
+  columnOrder: "Order",
   loadFailed: "The courses could not be loaded. Reload the page to try again.",
   tableCaption: "Every course, with its status and lessons",
   columnCourse: "Course",
@@ -51,4 +54,89 @@ export const dashboard = {
   columnDrafts: "Draft lessons",
   status: { draft: "Draft", published: "Published", archived: "Archived" },
   errorLabel: "Error",
+} as const;
+
+/** Words shared by the structure editors (docs/spec/03-experience.md section 7.3). */
+export const structure = {
+  moveUp: (name: string) => `Move ${name} up`,
+  moveDown: (name: string) => `Move ${name} down`,
+  moveUpShort: "Move up",
+  moveDownShort: "Move down",
+  errorLabel: "Error",
+  savedLabel: "Saved",
+  failure: {
+    slug_taken: "Another course already uses this address. Choose a different one.",
+    stale:
+      "This was changed somewhere else after you opened it, so your change was not saved. Reload the page to see the newer version.",
+    no_published_lesson:
+      "A course needs at least one published lesson before it can be published. Publish a lesson in this course first.",
+    status_not_allowed:
+      "The course cannot move to that status from its current one. Reload the page.",
+    chapter_has_lessons:
+      "This chapter still has lessons. Move or delete them before deleting the chapter.",
+    cannot_move: "The order changed since this page loaded. Reload the page and try again.",
+    not_found: "This item no longer exists. Reload the page.",
+    unavailable: "The change could not be saved right now. Try again in a minute.",
+    invalid_input: "Some of the values are not allowed. Check the fields marked below.",
+  },
+  reload: "Reload the page",
+} as const;
+
+export const courseEditor = {
+  newTitle: "New course",
+  editTitle: (title: string) => `Course: ${title}`,
+  backToCourses: "All courses",
+  detailsHeading: "Details",
+  titleLabel: "Title",
+  titleHint: "1 to 60 characters.",
+  slugLabel: "Address",
+  slugHint:
+    "Lowercase letters, digits and hyphens, such as python-basics. Learners see it in the course's link.",
+  summaryLabel: "Summary",
+  summaryHint: "One sentence, at most 140 characters.",
+  outcomeLabel: (n: number) => `Outcome ${String(n)} (optional)`,
+  outcomesHint: "Up to five things a learner will be able to do. Start each with a verb.",
+  fieldInvalid: {
+    title: "Enter a title of 1 to 60 characters.",
+    slug: "Use lowercase letters, digits and single hyphens, up to 60 characters.",
+    summary: "Enter one sentence of 1 to 140 characters.",
+    outcome: "Keep each outcome to 140 characters.",
+  },
+  create: "Create course",
+  creating: "Creating course",
+  save: "Save details",
+  saving: "Saving details",
+  saved: "Details saved.",
+  unsavedWarning: "You have unsaved changes to this course. Leave without saving them?",
+  statusHeading: "Status",
+  statusNow: (status: string) => `This course is ${status}.`,
+  statusAction: { draft: "Move back to draft", published: "Publish", archived: "Archive" },
+  statusExplain: {
+    draft: "Only you can see it, in the dashboard.",
+    published: "Everyone can see it on the site.",
+    archived: "It is gone from the site. Learners keep their completions.",
+  },
+  statusName: { draft: "a draft", published: "published", archived: "archived" },
+  changingStatus: "Changing status",
+  chaptersHeading: "Chapters",
+  chaptersEmpty: "This course has no chapters yet. Add the first one below.",
+  chapterLessonsEmpty: "No lessons in this chapter yet.",
+  lessonStatus: { draft: "Draft", published: "Published", archived: "Archived" },
+  chapterTitleLabel: "Chapter title",
+  chapterSummaryLabel: "Chapter summary (optional)",
+  chapterTitleInvalid: "Enter a chapter title of 1 to 60 characters.",
+  addChapterHeading: "Add a chapter",
+  addChapter: "Add chapter",
+  addingChapter: "Adding chapter",
+  rename: "Rename",
+  renameChapter: (title: string) => `Rename ${title}`,
+  saveChapter: "Save chapter",
+  cancel: "Cancel",
+  deleteChapter: (title: string) => `Delete ${title}`,
+  deleteShort: "Delete",
+  deleteConfirmTitle: "Delete this chapter?",
+  deleteConfirmBody: (title: string) =>
+    `The chapter "${title}" will be removed. This cannot be undone.`,
+  deleteConfirm: "Delete chapter",
+  notFoundTitle: "Course not found",
 } as const;
