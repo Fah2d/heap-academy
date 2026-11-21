@@ -50,4 +50,35 @@ describe("runtime page view", () => {
   it("[NFR-SEC-01] lists what the controller dropped", () => {
     expect(addReport(INITIAL_VIEW, { code: "worker_error" }).dropped).toEqual(["worker_error"]);
   });
+
+  it("[NFR-COMPAT-04] records at ready whether the runtime can pause a program", () => {
+    const view = reduceView(
+      INITIAL_VIEW,
+      { type: "ready", runtimeVersion: "314.0.7", interactiveInput: true },
+      "ready",
+    );
+    expect(view).toMatchObject({ status: "ready", interactiveInput: true });
+  });
+
+  it("[FR-WSP-08] shows the wait for input, and echoes the answer after the prompt", () => {
+    let view = reduceView(
+      INITIAL_VIEW,
+      { type: "output", runId, stream: "stdout", text: "Name? " },
+      "running",
+    );
+    view = reduceView(view, { type: "input_request", runId }, "awaitingInput");
+    expect(view.status).toBe("awaitingInput");
+    view = reduceView(view, { type: "input", runId, line: "Sara" }, "running");
+    view = reduceView(view, { type: "input", runId, line: "12" }, "running");
+    view = reduceView(view, { type: "input_end", runId }, "running");
+    expect(view.status).toBe("running");
+    expect(view.output).toEqual([
+      { stream: "stdout", text: "Name? " },
+      { stream: "input", text: "Sara\n12\n" },
+    ]);
+  });
+
+  it("[FR-RUN-06] shows that Python could not start", () => {
+    expect(reduceView(INITIAL_VIEW, { type: "failed" }, "failed").status).toBe("failed");
+  });
 });

@@ -94,6 +94,7 @@ describe("page messages", () => {
     ],
     ["an unknown mode", { type: "run", runId, source: "", mode: "fast" }, "invalid_field"],
     ["a bad run ID", { type: "input_end", runId: "Run 1" }, "invalid_field"],
+    ["an answer of two lines", { type: "input", runId, line: "one\ntwo" }, "invalid_field"],
     [
       "a program over the limit",
       { type: "run", runId, source: "x".repeat(SOURCE_LIMIT + 1), mode: "batch" },

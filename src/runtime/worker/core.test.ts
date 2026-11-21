@@ -3,6 +3,7 @@ import type { WorkerMessage } from "../protocol.ts";
 import { createRunId, MESSAGE_LIMIT, parseWorkerMessage } from "../protocol.ts";
 import { HARNESS_VERSION } from "../../grader/harness.ts";
 import { createWorkerCore, type Runtime, type WorkerHost } from "./core.ts";
+import { INTERACTIVE_PROBE_ANSWER, INTERACTIVE_PROBE_SOURCE } from "./run-support.ts";
 
 // The worker's message handling with a fake Pyodide. The real one runs in the
 // browser tests (e2e/runtime.spec.ts); the run support's Python is tested in
@@ -83,6 +84,9 @@ function setUp({
         counting = undefined;
         calls.push("counting stopped");
       };
+    },
+    later: (callback) => {
+      setTimeout(callback, 0);
     },
     lockDown: () => {
       calls.push("lockdown");
@@ -449,5 +453,76 @@ describe("worker: checks", () => {
     });
     await ready(setup);
     expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "load_failed" });
+  });
+});
+
+/**
+ * A fake runtime that can pause: its runner has `callPromising`, and the
+ * capability probe gets back whatever `probeAnswer` is.
+ */
+function pausingRuntime(probeAnswer: unknown = INTERACTIVE_PROBE_ANSWER) {
+  type Program = (requestLine: () => Promise<string | undefined>) => Promise<string>;
+  const state: { program: Program | undefined } = { program: undefined };
+  const run = Object.assign(() => ok, {
+    callPromising: (_source: string, requestLine: () => Promise<string | undefined>) =>
+      state.program!(requestLine),
+  });
+  const runtime: Runtime = {
+    version: "314.0.7",
+    setStdout: () => undefined,
+    setStderr: () => undefined,
+    setStdin: () => undefined,
+    runPython: (code) =>
+      code === INTERACTIVE_PROBE_SOURCE
+        ? { callPromising: (request: () => Promise<unknown>) => request().then(() => probeAnswer) }
+        : run,
+  };
+  return { runtime, state };
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("worker: interactive input", () => {
+  it("[NFR-COMPAT-04] offers interactive input only when a real wait returns the promised value", async () => {
+    const working = setUp({ runtime: pausingRuntime().runtime });
+    await ready(working);
+    expect(working.posted.at(-1)).toMatchObject({ capabilities: { interactiveInput: true } });
+    const broken = setUp({ runtime: pausingRuntime("something else").runtime });
+    await ready(broken);
+    expect(broken.posted.at(-1)).toMatchObject({ capabilities: { interactiveInput: false } });
+  });
+
+  it("[FR-RUN-02] asks once at a time, and leaves the wait out of the duration", async () => {
+    const { runtime, state } = pausingRuntime();
+    const setup = setUp({ runtime });
+    await ready(setup);
+    const seen: (string | undefined)[] = [];
+    state.program = async (requestLine) => {
+      const first = requestLine();
+      seen.push(await requestLine());
+      seen.push(await first);
+      return ok;
+    };
+    setup.core.receive({ type: "run", runId, source: "x", mode: "interactive" });
+    await settle();
+    expect(setup.posted.filter((message) => message.type === "input_request")).toEqual([
+      { type: "input_request", runId },
+    ]);
+    setup.advance(10_000);
+    setup.core.receive({ type: "input", runId: createRunId(2), line: "not this run" });
+    setup.core.receive({ type: "input", runId, line: "answer" });
+    await settle();
+    expect(seen).toEqual([undefined, "answer"]);
+    expect(setup.posted.at(-1)).toMatchObject({ type: "run_done", durationMs: 0 });
+  });
+
+  it("[FR-RUN-06] gives up when an interactive run's runtime fails", async () => {
+    const { runtime, state } = pausingRuntime();
+    const setup = setUp({ runtime });
+    await ready(setup);
+    state.program = () => Promise.reject(new Error("runtime broke"));
+    setup.core.receive({ type: "run", runId, source: "x", mode: "interactive" });
+    await settle();
+    expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "runtime_crashed" });
   });
 });

@@ -13,8 +13,14 @@
 // restored after the program, again after its objects are gone, and once more
 // before the next program starts.
 //
+// Interactive input (section 5.3): for an interactive run, `sys.stdin` is a
+// reader whose every line comes from the page. It asks with `request_line`, a
+// JavaScript function returning a promise, and waits with Pyodide's
+// `run_sync`, which needs the run to have been entered through
+// `callPromising` (E-05). Where it cannot wait, there is no more input.
+//
 // Written for Python 3.9 and later, so the same text runs in Pyodide (3.14)
-// and in the CPython the unit tests start.
+// and in the CPython the unit tests start; they pass their own `wait`.
 
 import { MESSAGE_LIMIT } from "../protocol.ts";
 
@@ -26,12 +32,19 @@ export const SUMMARY_LIMIT = MESSAGE_LIMIT;
 
 /** The routine that makes the runner, for the unit tests to call with their own streams. */
 export const RUN_SUPPORT_DEFINITION = String.raw`
-def _heap_make_runner(require_streaming):
+def _heap_make_runner(require_streaming, wait=None, can_wait=None):
     import builtins
     import gc
+    import _io
     import linecache
     import sys
     import traceback
+
+    if wait is None:
+        try:
+            from pyodide.ffi import run_sync as wait, can_run_sync as can_wait
+        except ImportError:
+            wait = None
 
     filename = "${PROGRAM_FILENAME}"
     builtins_dict = builtins.__dict__
@@ -65,6 +78,10 @@ def _heap_make_runner(require_streaming):
     syntax_error = SyntaxError
     eof_error = EOFError
     memory_error = MemoryError
+    # The C base class, which a program cannot change; io.TextIOBase is a
+    # Python class whose methods a program could replace to see later answers.
+    text_base = _io._TextIOBase
+    text_find = str.find
 
     # JSON string escapes, held here: json's own escaping reads module state a
     # program can change. Lone surrogates are escaped so the text stays valid.
@@ -83,6 +100,62 @@ def _heap_make_runner(require_streaming):
     if require_streaming:
         for name in ("stdout", "stderr"):
             streams[name].reconfigure(line_buffering=True, write_through=True)
+
+    # The learner's standard input in an interactive run. Nothing it does
+    # looks a builtin up by name. Its state is in a closure, which a program
+    # can still reach (__closure__); what it finds there is this run's
+    # request_line, and calling it without waiting asks the page nothing
+    # (core.ts). A line
+    # the page sends has no newline; the reader adds it. End of input, or a
+    # read where the run cannot wait, gives "" from then on, so input()
+    # raises EOFError and the run ends with input_ended.
+    def make_reader(request_line):
+        state = {"buffer": "", "ended": False}
+
+        def fill():
+            if state["ended"]:
+                return False
+            if wait is None or (can_wait is not None and not can_wait()):
+                state["ended"] = True
+                return False
+            # A prompt printed without a newline must reach the page first.
+            flush()
+            answer = wait(request_line())
+            if kind_of(answer) is not to_text:
+                state["ended"] = True
+                return False
+            state["buffer"] = state["buffer"] + answer + "\n"
+            return True
+
+        def take(count):
+            buffer = state["buffer"]
+            state["buffer"] = buffer[count:]
+            return buffer[:count]
+
+        class Answers(text_base):
+            def readable(self):
+                return True
+
+            def readline(self, size=-1):
+                if state["buffer"] == "":
+                    fill()
+                buffer = state["buffer"]
+                end = text_find(buffer, "\n")
+                count = length(buffer) if end < 0 else end + 1
+                if kind_of(size) is integer and 0 <= size < count:
+                    count = size
+                return take(count)
+
+            def read(self, size=-1):
+                if kind_of(size) is integer and size >= 0:
+                    while length(state["buffer"]) < size and fill():
+                        pass
+                    return take(size)
+                while fill():
+                    pass
+                return take(length(state["buffer"]))
+
+        return Answers()
 
     def restore():
         dict_clear(builtins_dict)
@@ -166,8 +239,10 @@ def _heap_make_runner(require_streaming):
         line_text = "null" if line is None else to_text(line)
         return '{"kind": ' + quote(kind) + ', "message": ' + quote(message) + ', "line": ' + line_text + "}"
 
-    def run(source):
+    def run(source, request_line=None):
         restore()
+        if request_line is not None:
+            sys_dict["stdin"] = make_reader(request_line)
         line_cache[filename] = (length(source), None, split_lines(source, True), filename)
         namespace = {"__name__": "__main__", "__builtins__": builtins}
         failure = None
@@ -227,3 +302,18 @@ export function parseRunReport(text: string): RunReport | undefined {
   if (typeof line !== "number" || !Number.isSafeInteger(line) || line < 1) return undefined;
   return { kind: match, message, line };
 }
+
+/** What the capability probe's promise gives, and so what its wait must return. */
+export const INTERACTIVE_PROBE_ANSWER = "interactive";
+
+/**
+ * Evaluated at load, after the run support: a function that waits on the
+ * promise its argument returns. The worker enters it with `callPromising`; it
+ * offers interactive input only if the promised value comes back (E-05).
+ */
+export const INTERACTIVE_PROBE_SOURCE = String.raw`
+def _heap_probe_wait(request):
+    from pyodide.ffi import run_sync
+    return run_sync(request())
+_heap_probe_wait
+`;
