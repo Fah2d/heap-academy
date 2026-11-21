@@ -8,6 +8,9 @@ const port = 3100;
 // server, so e2e/gallery.spec.ts runs against one beside the production build.
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
+// Journeys that need the local Supabase stack (`supabase start`) run in the
+// `stack` project, which the `e2e` job runs after starting it.
+const stack = /-journey\.spec\.ts$/;
 // The servers under test get the fake values of .env.example unless the
 // environment sets real ones. None of them is a secret, and no test reaches
 // Supabase or Resend.
@@ -15,6 +18,8 @@ const environment = {
   NEXT_PUBLIC_SUPABASE_URL: process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
     process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ?? "sb_publishable_example",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+    process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"] ?? "1x00000000000000000000AA",
   RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "re_example_not_a_real_key",
 };
 
@@ -27,9 +32,10 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", testIgnore: gallery, use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", testIgnore: gallery, use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", testIgnore: gallery, use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: [gallery, stack], use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: [gallery, stack], use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: [gallery, stack], use: { ...devices["Desktop Safari"] } },
+    { name: "stack", testMatch: stack, use: { ...devices["Desktop Chrome"] } },
     {
       name: "gallery",
       testMatch: gallery,

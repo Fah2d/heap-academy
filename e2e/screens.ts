@@ -3,8 +3,8 @@ import { test, type Page } from "@playwright/test";
 
 // Every state the axe checks pass through is also saved as a screenshot, so the
 // design review looks at what was measured (docs/spec/05-engineering-handbook.md
-// section 3.3). The folder is the work package that last changed these screens.
-const FOLDER = join("docs", "reports", "screens", "WP-1.4");
+// section 3.3). The folder is the work package that last changed the screen.
+const DEFAULT_PACKAGE = "WP-1.4";
 // One engine's pictures, so Firefox and WebKit runs do not overwrite them.
 const SCREENSHOT_PROJECTS = new Set(["chromium", "gallery"]);
 
@@ -14,7 +14,10 @@ export async function saveScreen(
   page: Page,
   name: string,
   width: number,
-  { fullPage = true }: { fullPage?: boolean } = {},
+  {
+    fullPage = true,
+    workPackage = DEFAULT_PACKAGE,
+  }: { fullPage?: boolean; workPackage?: string } = {},
 ): Promise<void> {
   if (!SCREENSHOT_PROJECTS.has(test.info().project.name)) return;
   // The development server's indicator and overlay are not part of the
@@ -24,5 +27,8 @@ export async function saveScreen(
       element.remove();
     });
   });
-  await page.screenshot({ path: join(FOLDER, `${name}-${width}.png`), fullPage });
+  await page.screenshot({
+    path: join("docs", "reports", "screens", workPackage, `${name}-${width}.png`),
+    fullPage,
+  });
 }

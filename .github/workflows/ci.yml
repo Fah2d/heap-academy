@@ -1,6 +1,6 @@
 # The pull request pipeline (docs/spec/07-operations.md section 2.1). The job
 # names are the required checks of docs/spec/05-engineering-handbook.md
-# section 10: renaming one is a spec change. `e2e` arrives with the journeys.
+# section 10: renaming one is a spec change.
 #
 # Rules: .claude/rules/ci.md. Actions pinned by commit, no permissions by
 # default, a timeout on every job, the frozen lockfile, no secrets.
@@ -24,6 +24,8 @@ env:
   # job reaches Supabase or Resend.
   NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_example
+  # Cloudflare's published Turnstile test key, which always passes.
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
@@ -186,3 +188,39 @@ jobs:
         run: supabase start
       - name: Policy, trigger and function tests
         run: supabase test db
+
+  # The journeys on the production build in Chromium, and the ones that need
+  # the local stack: the email code journey reads its code from the stack's
+  # mail catcher (docs/spec/07-operations.md section 2.1; WP-2.2).
+  e2e:
+    name: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install the Supabase CLI
+        run: |
+          mkdir "$RUNNER_TEMP/bin"
+          scripts/install-supabase.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Start the local stack
+        run: supabase start
+      # The local stack's publishable key is the same on every machine and
+      # is not a secret; the app needs it to reach the stack.
+      - name: Point the app at the local stack
+        run: |
+          key="$(supabase status -o env | sed -n 's/^PUBLISHABLE_KEY="\(.*\)"$/\1/p')"
+          test -n "$key"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$key" >> "$GITHUB_ENV"
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e --project=chromium --project=stack --project=gallery
