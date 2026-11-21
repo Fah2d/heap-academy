@@ -21,6 +21,15 @@ export type PolicyOptions = {
 export const BOT_CHALLENGE_ORIGIN = "https://challenges.cloudflare.com";
 export const SIGN_IN_PATH = "/sign-in";
 
+/**
+ * Whether a path is in the admin area. Its pages carry admin data and, at
+ * setup, the second step's key, so no cache may keep them (FR-ADM-02,
+ * docs/spec/06-security-privacy.md section 5.1).
+ */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
 /** A nonce of 128 random bits, base64 encoded. */
 export function createNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
