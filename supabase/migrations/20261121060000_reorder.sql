@@ -16,6 +16,10 @@ begin
     or cardinality(p_course_ids) <> (select count(*) from public.courses)
     or cardinality(p_course_ids)
       <> (select count(distinct wanted.course_id) from unnest(p_course_ids) as wanted(course_id))
+    or exists (
+      select 1 from unnest(p_course_ids) as wanted(course_id)
+      where not exists (select 1 from public.courses as c where c.id = wanted.course_id)
+    )
   then
     raise exception 'order_out_of_date' using errcode = 'P0001';
   end if;

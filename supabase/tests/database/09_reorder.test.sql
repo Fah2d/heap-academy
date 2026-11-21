@@ -3,7 +3,7 @@
 -- order is refused; everyone else is refused and changes nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -76,6 +76,11 @@ select lives_ok($$select public.reorder_courses(array['40000000-0000-4000-8000-0
   '40000000-0000-4000-8000-000000000001']::uuid[])$$, '[FR-ADM-03] an admin reorders courses');
 select is((select array_agg(slug order by position) from public.courses), array['two','one'],
   '[FR-ADM-03] the courses are in the new order');
+select throws_ok($$select public.reorder_courses(array['40000000-0000-4000-8000-000000000002',
+  '40000000-0000-4000-8000-0000000000ff']::uuid[])$$, 'P0001', 'order_out_of_date',
+  '[FR-ADM-03] an order with an unknown course is refused');
+select is((select array_agg(slug order by position) from public.courses), array['two','one'],
+  '[FR-ADM-03] the refused course order changed nothing');
 reset role;
 
 select * from finish();
