@@ -1,6 +1,7 @@
 "use client";
 
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useRef, useState, useTransition } from "react";
+import { ADMIN_PATHS } from "@/domain/admin/gate";
 import { secondStep as words } from "@/messages/admin";
 import { Button, Notice, TextField } from "@/ui";
 import type { ActionOutcome } from "../types";
@@ -43,6 +44,10 @@ export function SecondStepForm({
   const [invalid, setInvalid] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fieldArea = useRef<HTMLDivElement>(null);
+  // The button is disabled while a code is checked, so focus goes back to the
+  // field for the next code.
+  const focusField = () => fieldArea.current?.querySelector("input")?.focus();
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,40 +62,46 @@ export function SecondStepForm({
       try {
         result = await action({ code: digits });
       } catch {
+        // The action could not be reached; the person sees the provider-down
+        // state. No client error reporter exists yet (WP-2.3 description).
         result = { ok: false, error: "unavailable" };
       }
       if (result.ok) {
         // A full load, so every server component reads the new aal2 session.
-        navigate("/admin");
+        navigate(ADMIN_PATHS.allow);
         return;
       }
       if (result.error === "invalid_input") {
         setInvalid(true);
         setFailure(null);
+        focusField();
         return;
       }
       setCode("");
       setFailure(failureText(result.error));
+      focusField();
     });
   }
 
   return (
     <form noValidate onSubmit={onSubmit} className="flex flex-col gap-5">
-      <TextField
-        label={words.codeLabel}
-        name="code"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={32}
-        value={code}
-        onChange={(value) => {
-          setCode(value);
-          setInvalid(false);
-        }}
-        isInvalid={invalid}
-        errorMessage={words.codeInvalid}
-        autoFocus={autoFocus}
-      />
+      <div ref={fieldArea}>
+        <TextField
+          label={words.codeLabel}
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={32}
+          value={code}
+          onChange={(value) => {
+            setCode(value);
+            setInvalid(false);
+          }}
+          isInvalid={invalid}
+          errorMessage={words.codeInvalid}
+          autoFocus={autoFocus}
+        />
+      </div>
       {failure !== null && (
         <Notice kind="error" kindLabel={words.errorLabel} announce="assertive">
           {failure}

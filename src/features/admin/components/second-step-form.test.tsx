@@ -58,6 +58,7 @@ describe("SecondStepForm [FR-ADM-02]", () => {
     await submit();
     expect((await screen.findByRole("alert")).textContent).toContain(text);
     expect((field as HTMLInputElement).value).toBe("");
+    expect(document.activeElement).toBe(field);
     expect(navigate).not.toHaveBeenCalled();
   });
 

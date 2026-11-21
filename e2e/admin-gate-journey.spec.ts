@@ -102,6 +102,7 @@ async function expectNotFoundEverywhere(page: Page) {
   for (const address of ADMIN_ADDRESSES) {
     const response = await page.goto(address);
     expect(response?.status(), address).toBe(404);
+    expect(response?.headers()["cache-control"], address).toContain("no-store");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(notFound.heading);
   }
 }
@@ -136,6 +137,11 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
     }
   }
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(secondStep.setupTitle);
+  // Rendering the page made no factor; the press does.
+  await expect(page.getByRole("img", { name: secondStep.qrAlt })).toHaveCount(0);
+  const setupResponse = await page.goto("/admin/setup");
+  expect(setupResponse?.headers()["cache-control"]).toContain("no-store");
+  await page.getByRole("button", { name: secondStep.start }).click();
   await expect(page.getByRole("img", { name: secondStep.qrAlt })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "admin-setup", 1280, { workPackage: "WP-2.3" });
@@ -143,7 +149,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   // At aal1 the database refuses every write.
   await expectRefused(page);
 
-  const secret = (await page.locator("code").innerText()).replace(/\s/g, "");
+  const secret = (await page.locator("dd").innerText()).replace(/\s/g, "");
   const field = page.getByRole("textbox", { name: secondStep.codeLabel });
   const wrong = totp(secret) === "000000" ? "111111" : "000000";
   await field.fill(wrong);
@@ -196,7 +202,8 @@ test("[T-19] repeated wrong codes are limited", async ({ page, request }) => {
   await signInWithCode(page, request, address);
   sql(`insert into public.admins (user_id) select id from auth.users where email = '${address}'`);
   await page.goto("/admin/setup");
-  const secret = (await page.locator("code").innerText()).replace(/\s/g, "");
+  await page.getByRole("button", { name: secondStep.start }).click();
+  const secret = (await page.locator("dd").innerText()).replace(/\s/g, "");
   const field = page.getByRole("textbox", { name: secondStep.codeLabel });
   const button = page.getByRole("button", { name: secondStep.confirm });
   let limited = false;

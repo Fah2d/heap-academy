@@ -34,8 +34,8 @@ export function decideAdminGate({
   if (identity === null || !onAdminList) return "not_found";
   if (identity.aal === "aal2") return "allow";
   // Setup creates a new factor, so it is offered only when the auth service
-  // said there is none. When it could not say, verify is the safe page: it
-  // shows the provider-down notice if there is no factor to check.
+  // said there is none. When it could not say, verify is the safe page: a
+  // code sent there gets the provider-down notice if there is no factor.
   if (hasVerifiedFactor === false) return "setup";
   return "verify";
 }
