@@ -4,7 +4,7 @@
 -- opens nothing: an admin at aal1 is still refused by every policy.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-000000000301', 'learner-l@example.test'),
@@ -41,7 +41,19 @@ reset role;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000000301","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
-select is(public.is_on_admin_list(), false, '[FR-ADM-01] a learner is not on the list');
+select is(public.is_on_admin_list(), false, '[FR-ADM-01] a learner at aal2 is not on the list');
+reset role;
+
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000301","role":"authenticated","aal":"aal1"}', true);
+set local role authenticated;
+select is(public.is_on_admin_list(), false, '[FR-ADM-01] a learner at aal1 is not on the list');
+reset role;
+
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000302","role":"authenticated","aal":"aal2"}', true);
+set local role authenticated;
+select is(public.is_on_admin_list(), true, '[FR-ADM-01] an admin at aal2 is on the list');
 reset role;
 
 select set_config('request.jwt.claims',
