@@ -1,0 +1,118 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeDb, type FakeDb } from "../../scripts/testing/fake-db";
+
+// Published content for public pages (FR-ADM-11, docs/spec/02-architecture.md
+// section 7.3): read with the session-less client, kept under one tag for at
+// most a minute, and expired by an admin's change. A failed read is never
+// kept and reaches the page as a failure.
+
+vi.mock("server-only", () => ({}));
+
+const state = vi.hoisted(() => ({
+  db: null as unknown as FakeDb,
+  cacheOptions: [] as unknown[],
+  updated: [] as string[],
+}));
+
+vi.mock("next/cache", () => ({
+  unstable_cache: (read: (...args: unknown[]) => unknown, _keys: unknown, options: unknown) => {
+    state.cacheOptions.push(options);
+    return read;
+  },
+  updateTag: (tag: string) => state.updated.push(tag),
+}));
+vi.mock("@/infrastructure/db/public-client", () => ({ createPublicClient: () => state.db }));
+
+const content = await import("./index");
+
+beforeEach(() => {
+  state.db = fakeDb();
+  state.updated.length = 0;
+});
+
+describe("published content [FR-ADM-11]", () => {
+  it("is cached under the content tag for at most a minute", () => {
+    expect(state.cacheOptions).toEqual([
+      { tags: ["content"], revalidate: 60 },
+      { tags: ["content"], revalidate: 60 },
+    ]);
+  });
+
+  it("lists published courses in order with their published lesson counts", async () => {
+    state.db.answer({
+      data: [
+        { slug: "one", title: "One", summary: "S1", lessons: [{ slug: "a" }, { slug: "b" }] },
+        { slug: "two", title: "Two", summary: "S2", lessons: [] },
+      ],
+    });
+    expect(await content.publishedCourses()).toEqual({
+      ok: true,
+      value: [
+        { slug: "one", title: "One", summary: "S1", lessonCount: 2 },
+        { slug: "two", title: "Two", summary: "S2", lessonCount: 0 },
+      ],
+    });
+    expect(state.db.calls[0]?.chain).toEqual([
+      ["select", ["slug, title, summary, lessons(slug)"]],
+      ["order", ["position"]],
+      ["order", ["title"]],
+    ]);
+  });
+
+  it("puts a course's chapters and lessons in their positions", async () => {
+    state.db.answer({
+      data: {
+        slug: "one",
+        title: "One",
+        summary: "S",
+        outcomes: ["Print"],
+        chapters: [
+          {
+            id: "00000000-0000-4000-8000-000000000d02",
+            title: "Second",
+            summary: "",
+            position: 1,
+            lessons: [],
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000d01",
+            title: "First",
+            summary: "",
+            position: 0,
+            lessons: [
+              { slug: "b", title: "B", position: 1 },
+              { slug: "a", title: "A", position: 0 },
+            ],
+          },
+        ],
+      },
+    });
+    const result = await content.publishedCourse("one");
+    expect(result.ok && result.value?.chapters.map((chapter) => chapter.title)).toEqual([
+      "First",
+      "Second",
+    ]);
+    expect(result.ok && result.value?.chapters[0]?.lessons).toEqual([
+      { slug: "a", title: "A" },
+      { slug: "b", title: "B" },
+    ]);
+    expect(state.db.calls[0]?.chain).toContainEqual(["eq", ["slug", "one"]]);
+  });
+
+  it("answers null for a course that is not published", async () => {
+    state.db.answer({ data: null });
+    expect(await content.publishedCourse("draft-course")).toEqual({ ok: true, value: null });
+  });
+
+  it("turns a database error or an unexpected shape into a failure", async () => {
+    state.db.answer({ error: { code: "57014" } });
+    expect(await content.publishedCourses()).toEqual({ ok: false });
+    state.db.answer({ data: [{ slug: 1 }] });
+    expect(await content.publishedCourses()).toEqual({ ok: false });
+  });
+
+  it("expires the content tag when an admin changes content", () => {
+    content.contentChanged();
+    expect(state.updated).toEqual(["content"]);
+  });
+});

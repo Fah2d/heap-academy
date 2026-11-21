@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { adminArea, dashboard, secondStep } from "../src/messages/admin";
+import { adminArea, courseEditor, dashboard, secondStep, structure } from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
 import { saveScreen } from "./screens";
 
@@ -34,6 +34,45 @@ test("[FR-ADM-02] every admin state shows, with no axe violation, at 1280 px", a
 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "admin-states", 1280, { workPackage: "WP-2.3" });
+});
+
+test("[FR-ADM-03] [FR-ADM-10] the course editor's refusals and empty states, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const refusing = page.getByRole("region", { name: adminGallery.editorRefusing });
+  await refusing.getByRole("button", { name: courseEditor.statusAction.published }).click();
+  await expect(refusing.getByRole("alert")).toContainText(structure.failure.no_published_lesson);
+  await refusing.getByRole("button", { name: courseEditor.save }).click();
+  await expect(refusing.getByRole("alert").first()).toContainText(structure.failure.stale);
+  await expect(refusing.getByRole("button", { name: structure.reload })).toBeVisible();
+  await refusing
+    .getByRole("button", { name: structure.moveDown(adminGallery.sampleChapter) })
+    .click();
+  await expect(
+    refusing.getByRole("alert").filter({ hasText: structure.failure.cannot_move }),
+  ).toBeVisible();
+  // A chapter with lessons offers no Delete; an empty one does.
+  await expect(
+    refusing.getByRole("button", { name: courseEditor.deleteChapter(adminGallery.sampleChapter) }),
+  ).toHaveCount(0);
+  await expect(
+    refusing.getByRole("button", { name: courseEditor.deleteChapter(adminGallery.secondChapter) }),
+  ).toBeVisible();
+
+  const empty = page.getByRole("region", { name: adminGallery.editorEmpty });
+  await expect(empty.getByText(courseEditor.chaptersEmpty)).toBeVisible();
+  const created = page.getByRole("region", { name: adminGallery.newCourse });
+  await created.getByRole("button", { name: courseEditor.create }).click();
+  await expect(created.getByText(courseEditor.fieldInvalid.title)).toBeVisible();
+
+  const rows = page.getByRole("region", { name: adminGallery.courseListRows });
+  await rows.getByRole("button", { name: structure.moveDown(adminGallery.sampleCourse) }).click();
+  await expect(rows.getByRole("alert")).toContainText(structure.failure.cannot_move);
+
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await saveScreen(page, "admin-course-states", 1280, { workPackage: "WP-4.1" });
 });
 
 for (const width of [375, 800]) {

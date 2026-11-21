@@ -1,27 +1,11 @@
 import "server-only";
 import { z } from "zod";
+import { courseDetails, trimmedText as text } from "@/domain/admin/course-details";
 
 // The inputs of the course structure actions (docs/spec/04-content-system.md
-// sections 1.1 and 1.2; FR-ADM-03, FR-ADM-10). The database checks the same
-// limits again (migration 20261120120100_content_checks.sql).
-
-const text = (min: number, max: number) =>
-  z
-    .string()
-    .max(max * 4)
-    .transform((value) => value.trim())
-    .pipe(z.string().min(min).max(max));
-
-export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-export const courseDetails = z.strictObject({
-  title: text(1, 60),
-  slug: z.string().max(60).pipe(z.string().regex(SLUG_PATTERN)),
-  summary: text(1, 140),
-  outcomes: z.array(text(1, 140)).max(5),
-});
-
-export type CourseDetails = z.infer<typeof courseDetails>;
+// sections 1.1 and 1.2; FR-ADM-03, FR-ADM-10). The course details schema is
+// shared with the editor (src/domain/admin/course-details.ts). The database
+// checks the same limits again (migration 20261120120100_content_checks.sql).
 
 const id = z.uuid();
 /** The `updated_at` the editor loaded: a save over a newer row is refused (FR-ADM-10). */

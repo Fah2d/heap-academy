@@ -58,8 +58,9 @@ export const dashboard = {
 
 /** Words shared by the structure editors (docs/spec/03-experience.md section 7.3). */
 export const structure = {
-  moveUp: (name: string) => `Move ${name} up`,
-  moveDown: (name: string) => `Move ${name} down`,
+  // The visible words come first, so a voice command that says them matches.
+  moveUp: (name: string) => `Move up: ${name}`,
+  moveDown: (name: string) => `Move down: ${name}`,
   moveUpShort: "Move up",
   moveDownShort: "Move down",
   errorLabel: "Error",
@@ -80,11 +81,14 @@ export const structure = {
     invalid_input: "Some of the values are not allowed. Check the fields marked below.",
   },
   reload: "Reload the page",
+  moved: "Order saved.",
 } as const;
 
 export const courseEditor = {
   newTitle: "New course",
+  metaTitle: "Edit course",
   editTitle: (title: string) => `Course: ${title}`,
+  loadFailed: "This course could not be loaded. Reload the page to try again.",
   backToCourses: "All courses",
   detailsHeading: "Details",
   titleLabel: "Title",
@@ -95,6 +99,7 @@ export const courseEditor = {
   summaryLabel: "Summary",
   summaryHint: "One sentence, at most 140 characters.",
   outcomeLabel: (n: number) => `Outcome ${String(n)} (optional)`,
+  outcomesLabel: "Outcomes",
   outcomesHint: "Up to five things a learner will be able to do. Start each with a verb.",
   fieldInvalid: {
     title: "Enter a title of 1 to 60 characters.",
@@ -118,6 +123,17 @@ export const courseEditor = {
   },
   statusName: { draft: "a draft", published: "published", archived: "archived" },
   changingStatus: "Changing status",
+  statusChanged: (status: string) => `The course is now ${status}.`,
+  confirmStatusTitle: {
+    draft: "Move this course back to draft?",
+    archived: "Archive this course?",
+  },
+  confirmStatusBody: {
+    draft:
+      "Learners will no longer see this course or its lessons on the site. Their completions are kept, and publishing it again brings it back.",
+    archived:
+      "The course and its lessons leave the site. Learners keep their completions. You can move it back to draft later.",
+  },
   chaptersHeading: "Chapters",
   chaptersEmpty: "This course has no chapters yet. Add the first one below.",
   chapterLessonsEmpty: "No lessons in this chapter yet.",
@@ -131,6 +147,7 @@ export const courseEditor = {
   rename: "Rename",
   renameChapter: (title: string) => `Rename ${title}`,
   saveChapter: "Save chapter",
+  savingChapter: "Saving chapter",
   cancel: "Cancel",
   deleteChapter: (title: string) => `Delete ${title}`,
   deleteShort: "Delete",
@@ -138,5 +155,8 @@ export const courseEditor = {
   deleteConfirmBody: (title: string) =>
     `The chapter "${title}" will be removed. This cannot be undone.`,
   deleteConfirm: "Delete chapter",
-  notFoundTitle: "Course not found",
+  chapterSaved: "Chapter saved.",
+  chapterAdded: "Chapter added.",
+  chapterDeleted: "Chapter deleted.",
+  chapterLessonsLabel: (title: string) => `Lessons in ${title}`,
 } as const;

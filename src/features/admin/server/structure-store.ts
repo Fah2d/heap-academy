@@ -1,7 +1,7 @@
 import "server-only";
 import { type ContentStatus, type Direction, moveInOrder } from "@/domain/admin/structure";
 import type { SessionClient } from "@/infrastructure/db/session-client";
-import type { CourseDetails } from "./structure-input";
+import type { CourseDetails } from "@/domain/admin/course-details";
 
 // Course structure through the admin's own session (docs/spec/02-architecture.md
 // sections 8.2 and 9.1): row level security lets only an admin at aal2 write,

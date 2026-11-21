@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { SessionClient } from "@/infrastructure/db/session-client";
+import type { AdminCourses, EditorCourseResult } from "../types";
 
 // The dashboard's course list (docs/spec/03-experience.md section 7.2). It
 // reads through the admin's own session, so row level security decides: an
@@ -16,19 +17,6 @@ const courseRow = z.object({
   status,
   lessons: z.array(z.object({ status })),
 });
-
-export type CourseStatus = z.infer<typeof status>;
-
-export type AdminCourse = {
-  id: string;
-  slug: string;
-  title: string;
-  status: CourseStatus;
-  publishedLessons: number;
-  draftLessons: number;
-};
-
-export type AdminCourses = { ok: true; courses: AdminCourse[] } | { ok: false };
 
 export function summarizeCourses(rows: unknown): AdminCourses {
   const parsed = z.array(courseRow).safeParse(rows);
@@ -76,22 +64,6 @@ const editorRow = z.object({
     }),
   ),
 });
-
-export type EditorLesson = { id: string; title: string; status: CourseStatus };
-export type EditorChapter = { id: string; title: string; summary: string; lessons: EditorLesson[] };
-export type EditorCourse = {
-  id: string;
-  slug: string;
-  title: string;
-  summary: string;
-  outcomes: string[];
-  status: CourseStatus;
-  /** The row's version: a save names it, and is refused if the row is newer (FR-ADM-10). */
-  loadedAt: string;
-  chapters: EditorChapter[];
-};
-
-export type EditorCourseResult = { ok: true; course: EditorCourse | null } | { ok: false };
 
 const byPosition = (a: { position: number }, b: { position: number }) => a.position - b.position;
 
