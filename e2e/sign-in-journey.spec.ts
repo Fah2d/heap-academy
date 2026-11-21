@@ -1,43 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type APIRequestContext, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { account, signIn } from "../src/messages/sign-in";
 import { saveScreen } from "./screens";
+import { latestCode, requestCode } from "./sign-in-helpers";
 
 // The email code journey against the local stack and its mail catcher
 // (WP-2.2; FR-AUTH-02, FR-AUTH-04, FR-AUTH-05, T-11). Runs in the `stack`
 // project only, which the `e2e` job starts after `supabase start`. The bot
 // challenge uses Cloudflare's published test keys, which always pass.
-
-const MAIL = "http://127.0.0.1:54324";
-
-async function latestCode(request: APIRequestContext, address: string): Promise<string> {
-  let code = "";
-  await expect
-    .poll(
-      async () => {
-        const search = await request.get(
-          `${MAIL}/api/v1/search?query=${encodeURIComponent(`to:"${address}"`)}`,
-        );
-        const found = (await search.json()) as { messages?: { ID: string }[] };
-        const id = found.messages?.[0]?.ID;
-        if (id === undefined) return "";
-        const message = (await (await request.get(`${MAIL}/api/v1/message/${id}`)).json()) as {
-          Text?: string;
-        };
-        code = /\b(\d{6})\b/.exec(message.Text ?? "")?.[1] ?? "";
-        return code;
-      },
-      { message: `a code email to ${address}`, timeout: 15_000 },
-    )
-    .toMatch(/^\d{6}$/);
-  return code;
-}
-
-async function requestCode(page: Page, address: string) {
-  await page.getByRole("textbox", { name: signIn.emailLabel }).fill(address);
-  await page.getByRole("button", { name: signIn.sendCode }).click();
-  await expect(page.getByText(signIn.codeSentTo(address))).toBeVisible();
-}
 
 test("[FR-AUTH-02] [FR-AUTH-04] [FR-AUTH-05] signs in with an email code in one tab, returns, and signs out", async ({
   page,
