@@ -22,6 +22,29 @@ export const MAX_SECOND_STEP_BYTES = 6 * 32 + 64;
 
 export type { SecondStepFailure } from "../types";
 
+/** Starting setup takes no input: the provider works on the caller's own factors. */
+export const startSetupInput = z.strictObject({});
+
+/** The JSON form of an empty object, with room to spare. */
+export const MAX_START_SETUP_BYTES = 16;
+
+/** What the setup page shows: the QR code and the key behind it. */
+export type SetupCode = { qrCodeSvg: string; secret: string };
+
+/**
+ * Starts setup: replaces any unfinished setup with a new factor and returns
+ * its QR code and key. Run by an explicit press, never by rendering a page,
+ * so a reload or a prefetch cannot replace the code being scanned.
+ */
+export async function startSetup(
+  issuer: string,
+  provider: Pick<SecondStepProvider, "startEnrollment">,
+): Promise<UseCaseResult<SetupCode, "already_enrolled" | "unavailable">> {
+  const enrollment = await provider.startEnrollment(issuer);
+  if (!enrollment.ok) return { ok: false, error: enrollment.reason };
+  return { ok: true, value: { qrCodeSvg: enrollment.qrCodeSvg, secret: enrollment.secret } };
+}
+
 /** Checks the first code from a newly added app; on success the session is at aal2. */
 export async function confirmSetup(
   input: z.infer<typeof secondStepInput>,

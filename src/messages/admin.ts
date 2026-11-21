@@ -3,24 +3,31 @@
 // address answers them with the standard not-found page.
 
 export const adminArea = {
+  narrowHeading: "The dashboard needs a wider window",
   narrowScreen:
-    "The dashboard is made for screens at least 1024 pixels wide. Open it on a larger screen.",
+    "The dashboard is made for windows at least 1024 pixels wide. Make the window wider, zoom out, or use a larger screen.",
 } as const;
 
 export const secondStep = {
+  /** The name the authenticator app shows beside the code. */
+  issuer: "Heap Academy",
   setupTitle: "Set up your authenticator app",
   setupIntro:
     "The dashboard asks for a code from an authenticator app at the start of every session. Add Heap Academy to your app once.",
   scanHeading: "1. Add Heap Academy to your app",
   qrAlt: "QR code to add Heap Academy to an authenticator app",
   scanHint: "Scan the QR code with your authenticator app.",
+  start: "Show the QR code",
+  starting: "Making the QR code",
+  startHint:
+    "Each press makes a new QR code and replaces any you did not finish, so scan the one on the screen.",
   manualKeyLabel: "Or enter this key by hand",
   codeHeading: "2. Enter the code your app shows",
   confirm: "Finish setup",
   setupUnavailable: "The QR code could not be made right now. Reload the page in a few minutes.",
   verifyTitle: "Enter your authenticator code",
   verifyIntro: "Open your authenticator app and enter the code it shows for Heap Academy.",
-  verify: "Continue",
+  verify: "Check code",
   checking: "Checking code",
   codeLabel: "Six-digit code",
   codeInvalid: "Enter the six digits from your app.",
