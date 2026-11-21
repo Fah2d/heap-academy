@@ -12,6 +12,7 @@ import {
 const valid = {
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_example",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
   RESEND_API_KEY: "re_example_not_a_real_key",
 };
 
@@ -25,11 +26,24 @@ describe("environment schema", () => {
     for (const name of serverNames) expect(name.startsWith("NEXT_PUBLIC_")).toBe(false);
   });
 
+  it("[FR-AUTH-06] accepts a Turnstile site key and refuses anything else", () => {
+    expect(
+      parsePublicEnvironment({
+        ...valid,
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAABkMYinukE8nzY",
+      }).NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+    ).toBe("0x4AAAAAAABkMYinukE8nzY");
+    expect(() =>
+      parsePublicEnvironment({ ...valid, NEXT_PUBLIC_TURNSTILE_SITE_KEY: "secret value" }),
+    ).toThrow(/NEXT_PUBLIC_TURNSTILE_SITE_KEY: must be a Turnstile site key/);
+  });
+
   it("[NFR-SEC-04] parses a complete environment", () => {
     expect(parseEnvironment(valid)).toEqual({
       public: {
         NEXT_PUBLIC_SUPABASE_URL: valid.NEXT_PUBLIC_SUPABASE_URL,
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: valid.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
       },
       server: { RESEND_API_KEY: valid.RESEND_API_KEY, HEAP_RELEASE: "local" },
     });
@@ -81,6 +95,7 @@ describe("environment schema", () => {
     expect(parsePublicEnvironment(publicOnly)).toEqual({
       NEXT_PUBLIC_SUPABASE_URL: valid.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: valid.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     });
   });
 

@@ -42,8 +42,8 @@ export type ActionContext<Services> = {
   identify: () => Promise<Identity | null>;
   /**
    * Whether the database says this session is an admin. The adapter asks
-   * `public.is_admin()`, the exposed wrapper of `private.is_admin()` that the
-   * admin gate adds (WP-2.3); the data API reaches only `public`.
+   * `public.is_admin()`, the exposed wrapper of `private.is_admin()`; the
+   * data API reaches only `public`.
    */
   isAdmin: () => Promise<boolean>;
   /** The use cases' ports, bound to this request's session. */

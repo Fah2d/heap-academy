@@ -2,28 +2,19 @@ import "server-only";
 import { z } from "zod";
 import { safeReturnPath } from "@/domain/auth/return-path";
 import type { UseCaseResult } from "@/infrastructure/actions/define-action";
-import type {
-  SendOutcome,
-  SignOutOutcome,
-  VerifyOutcome,
-} from "@/infrastructure/auth/provider-outcomes";
+import type { SignInProvider } from "@/infrastructure/auth/sign-in-provider";
+import type { RequestEmailCodeFailure, VerifyEmailCodeFailure } from "../types";
 
 // Sign-in with a six-digit code sent by email (FR-AUTH-02, FR-AUTH-04,
 // FR-AUTH-05, FR-AUTH-06, T-11; docs/spec/02-architecture.md section 11.1).
-// The use cases take the provider as an argument; the provider adapter maps
-// its answers to the outcomes in provider-outcomes.ts.
+// The use cases take the provider as an argument; the provider adapter
+// (infrastructure/auth/sign-in-provider.ts) maps its answers to outcomes.
 
-export type EmailCodeProvider = {
-  /** Sends a code. The challenge token goes to the provider, which checks it (FR-AUTH-06). */
-  sendEmailCode: (email: string, challengeToken: string) => Promise<SendOutcome>;
-  /** Checks the code and, when it is right, sets the session cookies. */
-  verifyEmailCode: (email: string, code: string) => Promise<VerifyOutcome>;
-  /**
-   * Ends the session on this device only (FR-AUTH-05), and clears its cookies
-   * even when the provider cannot be told.
-   */
-  signOut: () => Promise<SignOutOutcome>;
-};
+/** The part of the sign-in provider these use cases call. */
+export type EmailCodeProvider = Pick<
+  SignInProvider,
+  "sendEmailCode" | "verifyEmailCode" | "signOut"
+>;
 
 // RFC 5321 caps a forward path at 256 octets, so an address is at most 254.
 const email = z.string().trim().max(254).pipe(z.email());
@@ -52,8 +43,7 @@ export const MAX_REQUEST_BYTES = jsonLimit(254, 2048);
 export const MAX_VERIFY_BYTES = jsonLimit(254, 32, 512);
 export const MAX_SIGN_OUT_BYTES = 16;
 
-export type RequestEmailCodeFailure = "rate_limited" | "challenge_failed" | "unavailable";
-export type VerifyEmailCodeFailure = "code_rejected" | "rate_limited" | "unavailable";
+export type { RequestEmailCodeFailure, VerifyEmailCodeFailure } from "../types";
 
 /**
  * Asks the provider to send a code. The answer is the same for an address

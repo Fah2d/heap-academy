@@ -25,6 +25,9 @@ const METHODS: ReadonlySet<string> = new Set([
  */
 export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "api",
+  "auth",
+  "callback",
+  "sign-in",
   "csp-report",
   "health",
   "dev",

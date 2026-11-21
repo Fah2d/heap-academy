@@ -14,9 +14,8 @@ sql_paths = ["./seed.sql"]
 
 # Sign-in on the local stack (docs/spec/02-architecture.md section 11.1).
 # Staging and production take the same values in their dashboards
-# (docs/runbooks/infrastructure-setup.md step 10). Google stays off here: it
-# needs a client from outside the repository. The bot challenge stays off
-# until WP-2.2 part 2 turns it on with Cloudflare's published test keys.
+# (docs/runbooks/infrastructure-setup.md section 10). Google stays off here:
+# it needs a client from outside the repository.
 [auth]
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
@@ -47,3 +46,11 @@ content_path = "./supabase/templates/sign-in-code.html"
 [auth.email.template.confirmation]
 subject = "Your Heap Academy sign-in code"
 content_path = "./supabase/templates/sign-in-code.html"
+
+# The bot challenge (FR-AUTH-06) with Cloudflare's published Turnstile test
+# secret, which accepts the test site key's tokens. It is public, not a
+# secret; staging and production use their own keys from the dashboard.
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "1x0000000000000000000000000000000AA"
