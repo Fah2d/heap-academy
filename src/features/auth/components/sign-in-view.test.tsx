@@ -12,13 +12,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const resets: number[] = [];
-
 /** A challenge that hands out a fresh token on mount and on every reset. */
 function PassingChallenge({ onToken, resetKey }: BotChallengeProps) {
   useEffect(() => {
-    resets.push(resetKey);
-    onToken(`token-${resetKey}`);
+    onToken(`token-${resetKey}-${Math.random()}`);
   }, [onToken, resetKey]);
   return null;
 }
@@ -122,20 +119,17 @@ describe("sign-in view", () => {
   });
 
   it("[FR-AUTH-02] [FR-AUTH-06] sends the code with the token, then asks for the code in the same view", async () => {
-    resets.length = 0;
     const { actions: given } = view();
     await sendCodeTo("ada@example.test");
     expect(given.requestEmailCode).toHaveBeenCalledWith({
       email: "ada@example.test",
-      challengeToken: "token-0",
+      challengeToken: expect.stringMatching(/^token-0-/),
     });
     expect(await screen.findByText(words.codeSentTo("ada@example.test"))).toBeTruthy();
     const field = screen.getByRole("textbox", { name: words.codeLabel });
     expect(document.activeElement).toBe(field);
     expect(field.getAttribute("autocomplete")).toBe("one-time-code");
     expect(field.getAttribute("inputmode")).toBe("numeric");
-    // The used token is replaced by a fresh one.
-    expect(resets).toContain(1);
   });
 
   it.each([
@@ -207,6 +201,11 @@ describe("sign-in view", () => {
     expect(screen.getByRole("button", { name: words.resend }).hasAttribute("disabled")).toBe(false);
     await user.click(screen.getByRole("button", { name: words.resend }));
     expect(given.requestEmailCode).toHaveBeenCalledTimes(2);
+    // A token is used once: the resend carries a fresh one.
+    const tokens = vi
+      .mocked(given.requestEmailCode)
+      .mock.calls.map(([input]) => input.challengeToken);
+    expect(tokens[1]).not.toBe(tokens[0]);
     expect(await screen.findByText(words.resent)).toBeTruthy();
   });
 
@@ -216,5 +215,25 @@ describe("sign-in view", () => {
     await userEvent.click(await screen.findByRole("button", { name: words.changeEmail }));
     const field = screen.getByRole("textbox", { name: words.emailLabel });
     expect((field as HTMLInputElement).value).toBe("ada@example.test");
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("[FR-AUTH-03] moves focus to Google's button when the learner asks to see it", async () => {
+    view({ inAppBrowser: true });
+    await userEvent.click(screen.getByRole("button", { name: words.showGoogle }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: words.google }));
+  });
+
+  it("[FR-AUTH-02] shows a failure inside the form that caused it, next to its button", async () => {
+    view(
+      {},
+      actions({
+        requestEmailCode: () => Promise.resolve({ ok: false as const, error: "unavailable" }),
+      }),
+    );
+    await sendCodeTo("ada@example.test");
+    const alert = await screen.findByRole("alert");
+    const form = screen.getByRole("button", { name: words.sendCode }).closest("form");
+    expect(form?.contains(alert)).toBe(true);
   });
 });

@@ -101,5 +101,5 @@ export function BotChallenge({ siteKey, onToken, onLoadFailed, resetKey }: BotCh
     widget.current.api.reset(widget.current.id);
   }, [resetKey]);
 
-  return <div ref={container} className="min-h-challenge" />;
+  return <div ref={container} className="min-h-(--challenge-height)" />;
 }

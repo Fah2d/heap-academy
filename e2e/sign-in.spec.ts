@@ -77,3 +77,27 @@ for (const width of WIDTHS) {
     expect(overflow).toBe(false);
   });
 }
+
+// The other states that need no auth service: each is checked with axe and
+// saved for the design review.
+const STATES = [
+  { name: "sign-in-google-failed", path: "/sign-in?failed=google", userAgent: undefined },
+  { name: "sign-in-in-app-browser", path: "/sign-in", userAgent: INSTAGRAM },
+] as const;
+
+for (const state of STATES) {
+  for (const width of [375, 1280]) {
+    test(`[NFR-A11Y-02] ${state.name} has no axe violation at ${width} px`, async ({ browser }) => {
+      const context = await browser.newContext({
+        viewport: { width, height: 900 },
+        ...(state.userAgent !== undefined && { userAgent: state.userAgent }),
+      });
+      const page = await context.newPage();
+      await page.goto(state.path);
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations).toEqual([]);
+      await saveScreen(page, state.name, width, SCREENS);
+      await context.close();
+    });
+  }
+}

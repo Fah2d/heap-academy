@@ -12,6 +12,7 @@ export const signIn = {
   inAppBrowser:
     "Google does not allow sign-in inside this app's browser. Sign in with a code sent to your email instead.",
   showGoogle: "Show Google sign-in anyway",
+  googleOpening: "Opening Google sign-in.",
   emailHeading: "Sign in with an email code",
   emailLabel: "Email address",
   emailDescription: "We send a six-digit code to this address. There is no password.",
@@ -22,7 +23,8 @@ export const signIn = {
   challengeNotLoaded:
     "The check that keeps automated sign-ups out did not load. Reload the page, then try again.",
   challengeFailed: "The check that keeps automated sign-ups out did not pass. Try again.",
-  challengeNeeded: "Wait for the check below the field to finish, then send the code.",
+  challengeNeeded:
+    "Wait for the check that keeps automated sign-ups out to finish, then try again.",
   sendRateLimited: "Too many codes were asked for. Wait a few minutes, then try again.",
   unavailable: "Sign-in is not working right now. Try again in a few minutes.",
   codeHeading: "Enter your code",

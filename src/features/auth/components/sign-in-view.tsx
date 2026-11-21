@@ -98,6 +98,10 @@ export function SignInView({
   const [challengeMissing, setChallengeMissing] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [showGoogle, setShowGoogle] = useState(!inAppBrowser);
+  // Set when the learner's own action removes the control that had focus,
+  // so focus lands on the field or button they need next.
+  const [focusEmail, setFocusEmail] = useState(false);
+  const [focusGoogle, setFocusGoogle] = useState(false);
   const [pending, startTransition] = useTransition();
   const [pendingKind, setPendingKind] = useState<"send" | "verify" | null>(null);
 
@@ -113,10 +117,12 @@ export function SignInView({
       return;
     }
     const challengeToken = token;
+    // A token can be used once: it is dropped now, and the widget, reset or
+    // mounted anew, hands out the next one.
+    setToken(null);
     setPendingKind("send");
     startTransition(async () => {
       const result = await actions.requestEmailCode({ email: address, challengeToken });
-      // A token can be used once, whatever the answer.
       setChallengeReset((count) => count + 1);
       setPendingKind(null);
       if (result.ok) {
@@ -178,7 +184,10 @@ export function SignInView({
     </Notice>
   ) : (
     <div className="flex flex-col gap-2">
-      {token === null && <p className="text-sm text-text-muted">{words.challengeLoading}</p>}
+      {/* Kept in the layout when hidden, so the button below does not move. */}
+      <p className={token === null ? "text-sm text-text-muted" : "invisible text-sm"}>
+        {words.challengeLoading}
+      </p>
       <Challenge
         siteKey={challengeSiteKey}
         onToken={setToken}
@@ -186,6 +195,16 @@ export function SignInView({
         resetKey={challengeReset}
       />
     </div>
+  );
+
+  const notice = message !== null && (
+    <Notice
+      kind={message.kind}
+      kindLabel={noticeLabel[message.kind]}
+      announce={message.kind === "error" ? "assertive" : "polite"}
+    >
+      {message.text}
+    </Notice>
   );
 
   const emailSection =
@@ -209,8 +228,10 @@ export function SignInView({
             }}
             isInvalid={emailInvalid}
             errorMessage={words.emailInvalid}
+            autoFocus={focusEmail}
           />
           {challenge}
+          {notice}
           <Button type="submit" variant="primary" isDisabled={pending}>
             {pendingKind === "send" ? words.sending : words.sendCode}
           </Button>
@@ -240,12 +261,15 @@ export function SignInView({
             // field the learner needs next.
             autoFocus
           />
+          {notice}
           <Button type="submit" variant="primary" isDisabled={pending}>
             {pendingKind === "verify" ? words.verifying : words.verify}
           </Button>
         </form>
         <div className="flex flex-col gap-3">
-          {challenge}
+          {/* The check is needed only for a new code, so it appears when one
+              may be asked for. */}
+          {cooldown === 0 && challenge}
           <Button
             variant="secondary"
             isDisabled={pending || cooldown > 0}
@@ -265,6 +289,7 @@ export function SignInView({
               setStep({ name: "email" });
               setMessage(null);
               setCodeInvalid(false);
+              setFocusEmail(true);
             }}
           >
             {words.changeEmail}
@@ -274,7 +299,11 @@ export function SignInView({
     );
 
   const googleSection = showGoogle && (
-    <GoogleSection returnTo={returnTo} startGoogleSignIn={actions.startGoogleSignIn} />
+    <GoogleSection
+      returnTo={returnTo}
+      startGoogleSignIn={actions.startGoogleSignIn}
+      focusOnMount={focusGoogle}
+    />
   );
 
   return (
@@ -288,15 +317,6 @@ export function SignInView({
           {words.googleFailed}
         </Notice>
       )}
-      {message !== null && (
-        <Notice
-          kind={message.kind}
-          kindLabel={noticeLabel[message.kind]}
-          announce={message.kind === "error" ? "assertive" : "polite"}
-        >
-          {message.text}
-        </Notice>
-      )}
       {inAppBrowser ? (
         <>
           <Notice kind="information" kindLabel={words.informationLabel}>
@@ -306,7 +326,13 @@ export function SignInView({
           {showGoogle ? (
             googleSection
           ) : (
-            <Button variant="secondary" onPress={() => setShowGoogle(true)}>
+            <Button
+              variant="secondary"
+              onPress={() => {
+                setShowGoogle(true);
+                setFocusGoogle(true);
+              }}
+            >
               {words.showGoogle}
             </Button>
           )}
@@ -324,9 +350,11 @@ export function SignInView({
 function GoogleSection({
   returnTo,
   startGoogleSignIn,
+  focusOnMount,
 }: {
   returnTo: string;
   startGoogleSignIn: SignInActions["startGoogleSignIn"];
+  focusOnMount: boolean;
 }) {
   const [state, formAction, pending] = useActionState(startGoogleSignIn, { failed: false });
   return (
@@ -337,6 +365,8 @@ function GoogleSection({
       <button
         type="submit"
         disabled={pending}
+        // True only after the learner asked to see this button.
+        autoFocus={focusOnMount}
         aria-label={words.google}
         className="inline-flex min-h-target items-center self-start rounded-control disabled:cursor-not-allowed"
       >
@@ -348,7 +378,12 @@ function GoogleSection({
           unoptimized
         />
       </button>
-      {state.failed && (
+      {pending && (
+        <p role="status" className="text-sm text-text-muted">
+          {words.googleOpening}
+        </p>
+      )}
+      {state.failed && !pending && (
         <Notice kind="error" kindLabel={words.errorLabel} announce="assertive">
           {words.googleUnavailable}
         </Notice>

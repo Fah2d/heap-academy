@@ -1,5 +1,7 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, type APIRequestContext, type Page, test } from "@playwright/test";
 import { account, signIn } from "../src/messages/sign-in";
+import { saveScreen } from "./screens";
 
 // The email code journey against the local stack and its mail catcher
 // (WP-2.2; FR-AUTH-02, FR-AUTH-04, FR-AUTH-05, T-11). Runs in the `stack`
@@ -68,10 +70,14 @@ test("[FR-AUTH-02] a wrong code is refused and the learner stays on the code ste
   await requestCode(page, address);
   const code = await latestCode(request, address);
   const wrong = code === "000000" ? "111111" : "000000";
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await saveScreen(page, "sign-in-code", 1280, { workPackage: "WP-2.2" });
   await page.getByRole("textbox", { name: signIn.codeLabel }).fill(wrong);
   await page.getByRole("button", { name: signIn.verify }).click();
   await expect(page.getByRole("alert")).toContainText(signIn.codeRejected);
   await expect(page.getByRole("textbox", { name: signIn.codeLabel })).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await saveScreen(page, "sign-in-code-rejected", 1280, { workPackage: "WP-2.2" });
 });
 
 test("[T-11] the answer is the same for an address with an account and one without", async ({

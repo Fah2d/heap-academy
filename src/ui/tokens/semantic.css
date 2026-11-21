@@ -84,9 +84,6 @@
   /* The icon sizes of DESIGN.md section 8. */
   --spacing-icon: 1rem;
   --spacing-icon-lg: 1.25rem;
-  /* The height of the bot challenge's widget, kept free so nothing moves
-     when it appears (antislop R-40). Turnstile's widget is 65 px tall. */
-  --spacing-challenge: 4.0625rem;
 
   /* Lesson prose measure, 60 to 75 characters. */
   --container-prose: 68ch;
