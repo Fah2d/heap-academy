@@ -4,6 +4,7 @@ import type {
   ControllerStatus,
   RunResult,
 } from "@/runtime/controller";
+import type { CheckSummary, TestResult } from "@/grader/grade";
 import type { OutputStream } from "@/runtime/protocol";
 
 // What the development runtime page shows, built from the controller's
@@ -19,8 +20,13 @@ export type RuntimeView = {
   progress: { loadedBytes: number; totalBytes: number } | undefined;
   output: { stream: ConsoleStream; text: string }[];
   result: RunResult | undefined;
+  /** The current or last check's results, in test case order, and its summary once done. */
+  tests: TestResult[];
+  summary: CheckSummary | undefined;
   restarts: number;
   dropped: ControllerReport["code"][];
+  /** Runs and checks the controller refused although the chart sent them. */
+  refused: number;
 };
 
 export const INITIAL_VIEW: RuntimeView = {
@@ -29,8 +35,11 @@ export const INITIAL_VIEW: RuntimeView = {
   progress: undefined,
   output: [],
   result: undefined,
+  tests: [],
+  summary: undefined,
   restarts: 0,
   dropped: [],
+  refused: 0,
 };
 
 export function reduceView(
@@ -56,10 +65,10 @@ export function reduceView(
       return { ...view, status, result: event.result };
     case "restarting":
       return { ...view, status, restarts: view.restarts + 1, progress: undefined };
-    // This page sends runs only; a check's results belong to the workspace (WP-5.2).
     case "test_result":
+      return { ...view, status, tests: [...view.tests, event.result] };
     case "check_done":
-      return { ...view, status };
+      return { ...view, status, tests: event.results, summary: event.summary };
     default: {
       const unreachable: never = event;
       return unreachable;
@@ -81,6 +90,15 @@ function append(
 /** A new run starts with empty output and no result. */
 export function startRun(view: RuntimeView, status: ControllerStatus): RuntimeView {
   return { ...view, status, output: [], result: undefined };
+}
+
+/** A new check starts with no results. */
+export function startCheck(view: RuntimeView, status: ControllerStatus): RuntimeView {
+  return { ...view, status, tests: [], summary: undefined };
+}
+
+export function addRefusal(view: RuntimeView, count: number): RuntimeView {
+  return { ...view, refused: view.refused + count };
 }
 
 export function addReport(view: RuntimeView, report: ControllerReport): RuntimeView {

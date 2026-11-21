@@ -1,22 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { EXAMPLE_LESSON } from "@/grader/example-lesson";
 import { runtimeDev as m } from "@/messages/runtime-dev";
 import { STDIN_LINE_LENGTH_LIMIT } from "@/runtime/protocol";
-import { useRuntime } from "../client/use-runtime";
+import { canStart, canStop, isRemembered } from "@/runtime/workspace-chart";
+import { type Program, useRuntime } from "../client/use-runtime";
 
 /**
- * The development-only page that drives the Python worker (WP-3.1). It is
- * plain on purpose: the workspace's real interface is WP-5.2's. The data
+ * The development and preview page that drives the Python worker through
+ * the workspace statechart (WP-3.1, WP-3.4): a program with input, a check,
+ * and a runaway loop, for the browser tests and the owner's phone check. It
+ * is plain on purpose: the workspace's real interface is WP-5.2's. The data
  * attributes are for the browser tests.
  */
 export function RuntimeConsole() {
-  const { view, run, sendInput, endInput, stop } = useRuntime();
   const [source, setSource] = useState<string>(m.sample);
   const [stdin, setStdin] = useState("");
   const [answer, setAnswer] = useState("");
   const [refused, setRefused] = useState(false);
-  const waiting = view.status === "awaitingInput";
+  const program = useCallback(
+    (interactive: boolean): Program => {
+      const lines = stdin === "" ? [] : stdin.split("\n");
+      return {
+        source,
+        stdin: interactive && stdin === "" ? undefined : lines,
+        tests: EXAMPLE_LESSON.testCases,
+      };
+    },
+    [source, stdin],
+  );
+  const { view, chart, dispatch, sendInput, endInput } = useRuntime(program);
+  const runtime = chart.runtime;
+  // A press while Python starts is kept and fires when it is ready (FR-WSP-17).
+  const canPress = (type: "RUN" | "CHECK") => canStart(chart) || isRemembered(runtime.name, type);
+  const waiting = runtime.name === "awaitingInput";
   const result = view.result;
   const output = view.output.map((chunk) => chunk.text).join("");
 
@@ -24,6 +42,19 @@ export function RuntimeConsole() {
     <section aria-labelledby="runtime-title">
       <h1 id="runtime-title">{m.title}</h1>
       <p>{m.intro}</p>
+
+      <h2>{m.samples}</h2>
+      <p>
+        <button type="button" onClick={() => setSource(m.sample)}>
+          {m.sampleInput}
+        </button>{" "}
+        <button type="button" onClick={() => setSource(EXAMPLE_LESSON.solution)}>
+          {m.sampleSolution}
+        </button>{" "}
+        <button type="button" onClick={() => setSource(m.loop)}>
+          {m.sampleLoop}
+        </button>
+      </p>
 
       <label htmlFor="runtime-program">{m.program}</label>
       <textarea
@@ -50,19 +81,32 @@ export function RuntimeConsole() {
       />
       {view.interactiveInput && <p id="runtime-input-hint">{m.inputHint}</p>}
 
-      <button
-        type="button"
-        disabled={view.status !== "ready"}
-        onClick={() => {
-          const lines = stdin === "" ? [] : stdin.split("\n");
-          run(source, view.interactiveInput && stdin === "" ? undefined : lines);
-        }}
-      >
+      <button type="button" disabled={!canPress("RUN")} onClick={() => dispatch({ type: "RUN" })}>
         {m.run}
       </button>
-      <button type="button" disabled={view.status !== "running" && !waiting} onClick={stop}>
+      <button
+        type="button"
+        disabled={!canPress("CHECK")}
+        onClick={() => dispatch({ type: "CHECK" })}
+      >
+        {m.check}
+      </button>
+      <button type="button" disabled={!canStop(chart)} onClick={() => dispatch({ type: "STOP" })}>
         {m.stop}
       </button>
+      {runtime.name === "failed" && (
+        <button type="button" onClick={() => dispatch({ type: "RETRY" })}>
+          {m.retry}
+        </button>
+      )}
+
+      <h2>{m.chart}</h2>
+      <p data-chart-state={runtime.name} data-lesson={chart.lesson}>
+        {m.chartState[runtime.name]}
+        {"pending" in runtime && runtime.pending !== null && <>, {m.pending[runtime.pending]}</>}
+        {runtime.name === "restarting" && <> {m.restartReason[runtime.reason]}</>}. {m.lesson}:{" "}
+        {m.lessonState[chart.lesson]}.
+      </p>
 
       <p role="status" data-status={view.status}>
         {m.status[view.status]}
@@ -116,7 +160,19 @@ export function RuntimeConsole() {
         </p>
       )}
 
+      <h2>{m.tests}</h2>
+      <p>{m.testsIntro}</p>
+      <ol data-testid="runtime-tests">
+        {view.tests.map((test) => (
+          <li key={test.testCaseId} data-test-status={test.status}>
+            {test.testCaseId}: {m.testStatus[test.status]}
+          </li>
+        ))}
+      </ol>
+
       <dl>
+        <dt>{m.refused}</dt>
+        <dd data-testid="runtime-refused">{view.refused}</dd>
         <dt>{m.restarts}</dt>
         <dd data-testid="runtime-restarts">{view.restarts}</dd>
         <dt>{m.dropped}</dt>
