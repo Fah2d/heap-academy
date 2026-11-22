@@ -2,10 +2,10 @@
 -- keeps (FR-ADM-10): an admin at aal2 rewrites a chapter's order in one
 -- statement; a stale, partial or foreign order is refused; everyone else is
 -- refused and changes nothing. A move keeps the lesson's updated_at; any
--- other change moves it.
+-- other change moves it, a save that changes only the solution included.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(21);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -39,6 +39,10 @@ values
   ('52000000-0000-4000-8000-000000000003', '50000000-0000-4000-8000-000000000001',
    '51000000-0000-4000-8000-000000000002', 'other', 'Other', 0, 10,
    '', '[]', 'draft', now() - interval '2 hours', null, null, now() - interval '1 hour');
+alter table public.lesson_solutions disable trigger lesson_solutions_after_write;
+insert into public.lesson_solutions (lesson_id, solution_code, wrong_answers) values
+  ('52000000-0000-4000-8000-000000000003', 'print(1)', '[]');
+alter table public.lesson_solutions enable trigger lesson_solutions_after_write;
 alter table public.courses enable trigger courses_before_write;
 alter table public.lessons enable trigger lessons_before_write;
 
@@ -110,6 +114,28 @@ update public.lessons set title = 'Second, renamed', position = 5 where slug = '
 select isnt((select l.updated_at from public.lessons as l join loaded using (id) where l.slug = 'second'),
   (select loaded.updated_at from public.lessons as l join loaded using (id) where l.slug = 'second'),
   '[FR-ADM-10] a change of position with anything else gives a new version');
+
+-- A save that changes only the solution writes the lesson row unchanged, so
+-- its version moves only through lesson_solutions_after_write and
+-- gradable_changed_at. A second editor holding the old version is refused.
+create temporary table resaved (updated_at timestamptz) on commit drop;
+grant select, insert on resaved to authenticated;
+insert into resaved
+  select public.save_lesson('52000000-0000-4000-8000-000000000003',
+    (select updated_at from loaded where id = '52000000-0000-4000-8000-000000000003'),
+    '51000000-0000-4000-8000-000000000002', 'other', 'Other', 0, 10, '', '[]',
+    (select starter_code from public.lessons where slug = 'other'), '[]', 'print(2)', '[]', false);
+select isnt((select updated_at from resaved),
+  (select updated_at from loaded where id = '52000000-0000-4000-8000-000000000003'),
+  '[FR-ADM-10] a save that changes only the solution gives the lesson a new version');
+select is((select updated_at from public.lessons where slug = 'other'), (select updated_at from resaved),
+  '[FR-ADM-10] save_lesson returns the version the lesson now has');
+select throws_ok($$select public.save_lesson('52000000-0000-4000-8000-000000000003',
+    (select updated_at from loaded where id = '52000000-0000-4000-8000-000000000003'),
+    '51000000-0000-4000-8000-000000000002', 'other', 'Other', 0, 10, '', '[]',
+    (select starter_code from public.lessons where slug = 'other'), '[]', 'print(3)', '[]', false)$$,
+  'P0001', 'lesson_changed_since_loaded',
+  '[FR-ADM-10] a second save from the version before the solution change is refused');
 reset role;
 select is((select position from public.lessons where slug = 'other'), 0,
   '[FR-ADM-03] another chapter''s order is untouched');
