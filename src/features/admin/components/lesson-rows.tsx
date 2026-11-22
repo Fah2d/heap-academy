@@ -8,6 +8,7 @@ import { LESSON_LIMITS } from "@/domain/admin/lesson-details";
 import { courseEditor, lessonEditor, lessonRows as words, structure } from "@/messages/admin";
 import { Button, Link, Notice, TextField } from "@/ui";
 import type { AdminAction, EditorChapter, MoveDirection, ReorderInput } from "../types";
+import type { ConfirmLeave } from "./leave-warning";
 import { focusMoved, MoveButtons, settle, structureFailureText } from "./structure-controls";
 
 // A chapter's lessons in the course editor (docs/spec/03-experience.md
@@ -20,6 +21,9 @@ export type LessonRowActions = {
   reorder: AdminAction<ReorderInput, null>;
   createLesson: AdminAction<CreateLessonInput, { id: string }>;
 };
+
+/** The add-lesson form's name in the course editor's reports of unsaved text. */
+export const addLessonFormKey = (chapterId: string) => `lesson-${chapterId}`;
 
 const TITLE = trimmedText(1, LESSON_LIMITS.title);
 
@@ -123,11 +127,16 @@ export function AddLessonForm({
   chapter,
   createLesson,
   onUnsavedChange,
+  otherUnsaved = false,
+  confirmLeave = (text) => window.confirm(text),
 }: {
   courseId: string;
   chapter: EditorChapter;
   createLesson: LessonRowActions["createLesson"];
   onUnsavedChange: (formKey: string, unsaved: boolean) => void;
+  /** Whether another form on the page holds unsaved text. */
+  otherUnsaved?: boolean;
+  confirmLeave?: ConfirmLeave;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -136,7 +145,7 @@ export function AddLessonForm({
   const [pending, startTransition] = useTransition();
   const field = useRef<HTMLDivElement>(null);
   const headingId = useId();
-  const formKey = `lesson-${chapter.id}`;
+  const formKey = addLessonFormKey(chapter.id);
 
   useEffect(() => {
     onUnsavedChange(formKey, title.trim() !== "");
@@ -152,6 +161,9 @@ export function AddLessonForm({
       return;
     }
     setInvalid(false);
+    // The new lesson opens by the router, which the leave warning does not
+    // see, so the question is asked here, before anything is created.
+    if (otherUnsaved && !confirmLeave(courseEditor.unsavedWarning)) return;
     startTransition(async () => {
       const outcome = await settle(() =>
         createLesson({ courseId, chapterId: chapter.id, title: title.trim() }),

@@ -121,6 +121,44 @@ describe("AddLessonForm [FR-ADM-03]", () => {
     expect(onUnsaved).toHaveBeenLastCalledWith(`lesson-${chapter.id}`, false);
   });
 
+  it("[FR-ADM-10] asks before leaving other unsaved text on the page, and stays if told to", async () => {
+    const createLesson = vi.fn(() => ok({ id: SECOND }));
+    const confirmLeave = vi.fn(() => false);
+    render(
+      <AddLessonForm
+        courseId={COURSE}
+        chapter={chapter}
+        createLesson={createLesson}
+        onUnsavedChange={vi.fn()}
+        otherUnsaved
+        confirmLeave={confirmLeave}
+      />,
+    );
+    await userEvent.type(titleField(), "Loops");
+    await userEvent.click(screen.getByRole("button", { name: words.addLesson }));
+    expect(confirmLeave).toHaveBeenCalledWith(courseEditor.unsavedWarning);
+    expect(createLesson).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("[FR-ADM-10] adds the lesson once the owner chooses to leave the other text", async () => {
+    const createLesson = vi.fn(() => ok({ id: SECOND }));
+    render(
+      <AddLessonForm
+        courseId={COURSE}
+        chapter={chapter}
+        createLesson={createLesson}
+        onUnsavedChange={vi.fn()}
+        otherUnsaved
+        confirmLeave={() => true}
+      />,
+    );
+    await userEvent.type(titleField(), "Loops");
+    await userEvent.click(screen.getByRole("button", { name: words.addLesson }));
+    expect(createLesson).toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith(`/admin/lessons/${SECOND}`);
+  });
+
   it("refuses an empty title on its field, and sends nothing", async () => {
     const createLesson = vi.fn();
     render(

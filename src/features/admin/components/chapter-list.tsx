@@ -13,7 +13,7 @@ import { trimmedText } from "@/domain/admin/course-details";
 import { courseEditor as words, structure } from "@/messages/admin";
 import { Button, Dialog, DialogActions, Notice, TextField } from "@/ui";
 import type { ActionOutcome, AdminAction, EditorChapter, MoveDirection } from "../types";
-import { AddLessonForm, LessonRows, type LessonRowActions } from "./lesson-rows";
+import { AddLessonForm, addLessonFormKey, LessonRows, type LessonRowActions } from "./lesson-rows";
 import { focusMoved, MoveButtons, settle, structureFailureText } from "./structure-controls";
 
 // The Structure of a course (docs/spec/03-experience.md section 7.3,
@@ -40,6 +40,8 @@ export type ChapterListProps = ChapterActions & {
   refresh: () => void;
   /** Whether a chapter form holds text that is not saved. */
   onUnsavedChange?: (unsaved: boolean) => void;
+  /** Whether a form outside the list, such as the course details, holds unsaved text. */
+  otherUnsaved?: boolean;
 };
 
 /** The limits of docs/spec/04-content-system.md section 1.2, as the server checks them. */
@@ -154,6 +156,7 @@ export function ChapterList({
   createLesson,
   refresh,
   onUnsavedChange,
+  otherUnsaved = false,
 }: ChapterListProps) {
   const [failure, setFailure] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -390,6 +393,10 @@ export function ChapterList({
                 chapter={chapter}
                 createLesson={createLesson}
                 onUnsavedChange={reportUnsaved}
+                otherUnsaved={
+                  otherUnsaved ||
+                  [...unsavedForms].some((key) => key !== addLessonFormKey(chapter.id))
+                }
               />
             </li>
           ))}

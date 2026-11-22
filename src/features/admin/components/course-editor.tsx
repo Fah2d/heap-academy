@@ -83,6 +83,7 @@ export function CourseEditor({
         reorder={reorder}
         refresh={reread}
         onUnsavedChange={onChaptersUnsaved}
+        otherUnsaved={detailsUnsaved}
       />
     </div>
   );
