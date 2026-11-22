@@ -13,8 +13,7 @@
     line-height: var(--text-code--line-height);
   }
 
-  .code-surface ::selection,
-  .code-surface .cm-selectionBackground {
+  .code-surface ::selection {
     background-color: var(--editor-selection);
   }
 
@@ -43,59 +42,7 @@
     color: var(--syntax-comment);
   }
 
-  /* The code editor (CodeMirror). Its structural styles come from its own
-     base theme, which carries the page's nonce; these set the palette. */
-  .code-surface .cm-editor {
-    background-color: var(--color-surface-editor);
-    color: var(--syntax-text);
-  }
-
-  .code-surface .cm-scroller {
-    font-family: var(--font-mono);
-    line-height: var(--text-code--line-height);
-  }
-
-  .code-surface .cm-content {
-    caret-color: var(--editor-caret);
-    padding-block: var(--space-3);
-  }
-
-  .code-surface .cm-cursor,
-  .code-surface .cm-dropCursor {
-    border-inline-start: var(--marker-width) solid var(--editor-caret);
-  }
-
-  .code-surface .cm-editor.cm-focused .cm-selectionBackground,
-  .code-surface .cm-content ::selection {
-    background-color: var(--editor-selection);
-  }
-
-  .code-surface .cm-gutters {
-    background-color: var(--color-surface-editor);
-    color: var(--editor-gutter-text);
-    border-inline-end: var(--hairline) solid var(--color-border);
-  }
-
-  /* The caret's line is marked in the gutter only, never with a background
-     over the selection (DESIGN.md section 4.4). */
-  .code-surface .cm-activeLineGutter {
-    background-color: transparent;
-    color: var(--editor-gutter-active);
-  }
-
-  .code-surface .cm-matchingBracket {
-    background-color: transparent;
-    outline: var(--hairline) solid var(--editor-bracket-match);
-  }
-
-  .code-surface .cm-searchMatch {
-    background-color: var(--editor-search-match);
-    outline: var(--hairline) solid var(--editor-search-outline);
-  }
-
-  /* The focus ring goes on the whole editor, inside its box. */
-  .code-surface .cm-editor.cm-focused {
-    outline: var(--focus-ring-width) solid var(--color-focus);
-    outline-offset: calc(var(--focus-ring-width) * -1);
-  }
+  /* The code editor's own chrome is a CodeMirror theme in
+     src/features/workspace/components/code-editor-extensions.ts: rules here
+     would lose to CodeMirror's base theme, which sits outside every layer. */
 }

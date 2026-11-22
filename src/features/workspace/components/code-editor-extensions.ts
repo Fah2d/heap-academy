@@ -79,6 +79,67 @@ const builtins = ViewPlugin.fromClass(
   { decorations: (plugin) => plugin.decorations },
 );
 
+const SELECTION =
+  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection";
+
+/**
+ * The editor's chrome from the design tokens (DESIGN.md section 4.4). It is
+ * a CodeMirror theme, not rules in `src/ui/code.css`: CodeMirror's base theme
+ * is injected outside any cascade layer, so it beats every rule inside
+ * `@layer components`, however specific. A theme is scoped to the editor and
+ * outranks the base theme. Marked dark, so the base theme's light caret,
+ * selection and gutter never apply.
+ */
+export const EDITOR_THEME = {
+  "&": {
+    backgroundColor: "var(--color-surface-editor)",
+    color: "var(--syntax-text)",
+  },
+  "&.cm-focused": {
+    outline: "var(--focus-ring-width) solid var(--color-focus)",
+    outlineOffset: "calc(var(--focus-ring-width) * -1)",
+  },
+  ".cm-scroller": {
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-code)",
+    lineHeight: "var(--text-code--line-height)",
+  },
+  ".cm-content": {
+    caretColor: "var(--editor-caret)",
+    paddingBlock: "var(--space-3)",
+  },
+  ".cm-cursor, .cm-dropCursor": {
+    borderInlineStartWidth: "var(--marker-width)",
+    borderInlineStartStyle: "solid",
+    borderInlineStartColor: "var(--editor-caret)",
+  },
+  [SELECTION]: {
+    backgroundColor: "var(--editor-selection)",
+  },
+  ".cm-gutters": {
+    backgroundColor: "var(--color-surface-editor)",
+    color: "var(--editor-gutter-text)",
+    border: "none",
+    borderInlineEnd: "var(--hairline) solid var(--color-border)",
+  },
+  // The caret's line is marked in the gutter only, never with a background
+  // over the selection.
+  ".cm-activeLineGutter": {
+    backgroundColor: "transparent",
+    color: "var(--editor-gutter-active)",
+  },
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
+    backgroundColor: "transparent",
+    outline: "var(--hairline) solid var(--editor-bracket-match)",
+  },
+  ".cm-searchMatch": {
+    backgroundColor: "var(--editor-search-match)",
+    outline: "var(--hairline) solid var(--editor-search-outline)",
+  },
+} as const;
+
+const theme = EditorView.theme(EDITOR_THEME, { dark: true });
+
 export type EditorOptions = {
   /** This request's script and style nonce: the editor's style sheets need it (ADR-0028). */
   nonce: string;
@@ -102,6 +163,7 @@ export function editorExtensions({
       "aria-describedby": describedBy,
       "aria-multiline": "true",
     }),
+    theme,
     lineNumbers(),
     highlightActiveLineGutter(),
     drawSelection(),
@@ -112,7 +174,7 @@ export function editorExtensions({
     syntaxHighlighting(highlighter),
     builtins,
     // Tab indents. Escape, then Tab, leaves the editor: CodeMirror turns on
-    // its tab focus mode after Escape (section 6.8, "Esc then Tab").
+    // its tab focus mode after Escape (03-experience.md section 6.2, "Esc then Tab").
     keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) onChange(update.state.doc.toString());
