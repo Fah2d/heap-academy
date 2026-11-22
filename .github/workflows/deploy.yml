@@ -135,7 +135,9 @@ jobs:
         run: |
           vercel build --prod
           # A preview-only page in the production output fails the release.
-          if find .vercel/output -path '*/dev/*' -print -quit | grep -q .; then
+          # Only the route folders: traced server files have `dev` folders
+          # of their own.
+          if [ -e .vercel/output/functions/dev ] || [ -e .vercel/output/static/dev ]; then
             echo "::error::a development page is in the production build"
             exit 1
           fi

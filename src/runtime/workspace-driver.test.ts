@@ -181,13 +181,14 @@ describe("performEffects [FR-WSP-07]", () => {
 });
 
 // The loop the development page runs: chart, driver and controller together.
-function workspace(interactiveInput = true) {
+function workspace(interactiveInput = true, freshWorker = false) {
   const workers: (WorkerLike & { received: PageMessage[]; send: (data: unknown) => void })[] = [];
   let time = 0;
   const timers = new Map<number, { at: number; callback: () => void }>();
   let nextTimer = 1;
   let state = INITIAL_STATE;
   let program = "program";
+  const history: WorkspaceState[] = [];
   const completed: number[] = [];
   const refusals: unknown[] = [];
   const crash = () => {
@@ -246,6 +247,7 @@ function workspace(interactiveInput = true) {
         () => state,
         (next) => {
           state = next;
+          history.push(next);
         },
         event,
         {
@@ -256,7 +258,7 @@ function workspace(interactiveInput = true) {
             controller.stop();
           },
           run: () => controller.run(program),
-          check: () => controller.check(program, tests),
+          check: () => controller.check(program, tests, { freshWorker }),
           complete: () => completed.push(1),
         },
       ),
@@ -283,6 +285,7 @@ function workspace(interactiveInput = true) {
     dispatch,
     ready,
     crash,
+    history,
     setProgram: (source: string) => {
       program = source;
     },
@@ -491,5 +494,28 @@ describe("the chart driving the controller [FR-WSP-07, FR-WSP-17]", () => {
     w.ready();
     w.dispatch({ type: "RUN" });
     expect(w.controller.status).toBe("running");
+  });
+
+  it("[FR-WSP-07] a check that asks for a new worker is seen as checking, not as a crash", () => {
+    // The controller reports `restarting` while the check starts; the chart
+    // must already be `checking` when that event arrives.
+    const w = workspace(true, true);
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.ready();
+    w.dispatch({ type: "RUN" });
+    w.latest().send({
+      type: "run_done",
+      runId: w.lastRunId(),
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 1,
+    });
+    const before = w.history.length;
+    w.dispatch({ type: "CHECK" });
+    expect(w.controller.status).toBe("restarting");
+    expect(w.history.slice(before).map((state) => state.runtime.name)).toEqual(["checking"]);
+    w.ready();
+    expect(w.controller.status).toBe("checking");
+    expect(w.state().runtime.name).toBe("checking");
   });
 });
