@@ -14,9 +14,13 @@ Description: `docs/reports/pull-requests/WP-4.1.md`, with its `gh pr create` com
 
 Before this session the branch had one unpushed commit (9f20137, the views) and the WP-2.3 merge with the owner's lockfile commit; both are pushed now.
 
-### WP-3.4: reviews done, fixes pending
+### WP-3.4 The statechart: ready as a draft, `wp/3.4-statechart` at fb21e29 (stacked on `wp/3.3-grader`)
 
-Code review 1 and security review 1 of 36f4372 are in `night-b` under `docs/reports/reviews/WP-3.4/` (not committed yet). Both CHANGES REQUIRED: a Run or Check the controller refuses leaves the chart stuck (BLOCKER); a program can pause the page's clock by yielding once before it loops (MAJOR, T-02).
+Description: `docs/reports/pull-requests/WP-3.4.md`, with its `gh pr create` command. `pnpm verify`: 41 files, 1066 tests. Production build has no `/dev/runtime`; a `VERCEL_ENV=preview` build has it. Round 1 BLOCKER (a refused Run or Check left the chart stuck) fixed with `dispatchEvent`; round 2 code review APPROVE, security review APPROVE on the condition that the owner accepts ADR-0034 (Proposed: a program that yields once can compute while the page waits for input; Stop is the control; a liveness ping was rejected because a program that yields periodically defeats it). e2e written, not run. The phone check is the owner's.
+
+### WP-4.2 The lesson editor: in progress in `night-c`, local branch `wp/4.2-lesson-editor`
+
+`origin/wp/4.1-courses-chapters` (d9eba53) merged in (d9e03ac). Highlighting (`src/content/markdown/highlight.ts`, `document.ts`) written, not committed. CodeMirror packages are in `package.json` and copied into `node_modules` from `/private/tmp/claude-501/cm-side`; the lockfile is not updated (Owner: run this, item 3).
 
 ## Session of 2026-11-21 (from 10:33), on `wp/2.3-admin-gate`
 
@@ -29,6 +33,11 @@ Picked up from an uncommitted draft a session at about 06:10 left in `$TMPDIR/wp
 ### WP-3.4: `wp/3.2-live-input` merged into `wp/3.4-statechart` (312bf29)
 
 Conflicts with WP-3.3 resolved in `controller.ts` (status has both `awaitingInput` and `checking`; the run record has `kind: "run"`; input only for runs), `worker/core.ts` (`Loaded` carries the input-capable runner and the harness checker), `runtime-dev.ts` and both tests. The Pyodide input tests now import `pyodide` by name (WP-3.3's fixed-import lint rule) and send `harnessVersion`. `pnpm verify`: 39 files, 1028 tests.
+
+### Owner: run this (this session)
+
+1. After WP-4.2 is pushed, in a checkout of `wp/4.2-lesson-editor` with dependencies installed: `pnpm install && git add pnpm-lock.yaml && git commit -m "build: lock the code editor packages" && git push`. Until then every CI job of WP-4.2 fails at the frozen install.
+2. Decide ADR-0034 (WP-3.4).
 
 ### Owner: run this
 
