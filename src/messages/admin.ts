@@ -197,7 +197,7 @@ export const lessonEditor = {
     "Headings of level two and three, emphasis, code, fenced code blocks, lists, tables, quotes and https links. Anything else is dropped. Needed before publishing.",
   previewHeading: "Preview",
   previewDescription: "Exactly as learners will see it.",
-  previewEmpty: "Nothing to preview yet. Write the instructions on the left.",
+  previewEmpty: "Nothing to preview yet. Write the instructions in the Markdown field.",
   previewUpdating: "Updating the preview",
   previewFailed: "The preview could not be updated. It shows the last version that worked.",
   hintsLabel: "Hints",

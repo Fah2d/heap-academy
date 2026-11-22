@@ -5,8 +5,9 @@ import { indentUnit } from "@codemirror/language";
 import { describe, expect, it, vi } from "vitest";
 import { builtinCalls, EDITOR_THEME, editorExtensions } from "./code-editor-extensions";
 
-// The editor's state without a browser. Its styles under the page policy
-// and its keyboard behavior are checked in a browser (e2e/lesson-editor.spec.ts).
+// The editor's state without a browser. Its styles under the page policy are
+// checked in a browser (e2e/lesson-editor-journey.spec.ts); its keyboard
+// behavior in the learner workspace is WP-5.2's (NFR-A11Y-03).
 
 const state = (doc: string, onChange = vi.fn()) =>
   EditorState.create({

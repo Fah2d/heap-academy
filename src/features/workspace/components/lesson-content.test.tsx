@@ -125,6 +125,15 @@ describe("CopyCodeButton", () => {
     vi.useRealTimers();
   });
 
+  it("says the copy failed when the browser has no clipboard at all", async () => {
+    const writeText = vi.fn(() => {
+      throw new TypeError("navigator.clipboard is undefined");
+    });
+    render(<CopyCodeButton code="x" writeText={writeText} />);
+    await userEvent.click(screen.getByRole("button", { name: words.copyCode }));
+    expect((await screen.findByRole("status")).textContent).toBe(words.copyFailed);
+  });
+
   it("says when the browser refuses the copy", async () => {
     const writeText = vi.fn(() => Promise.reject(new Error("denied")));
     render(<CopyCodeButton code="x" writeText={writeText} />);

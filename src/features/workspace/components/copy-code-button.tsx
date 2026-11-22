@@ -40,10 +40,14 @@ export function CopyCodeButton({
       <Button
         variant="secondary"
         onPress={() => {
-          writeText(code).then(
-            () => setState("copied"),
-            () => setState("failed"),
-          );
+          // Started inside a promise, so a browser with no clipboard API,
+          // which throws at once, ends in the failed state too.
+          Promise.resolve()
+            .then(() => writeText(code))
+            .then(
+              () => setState("copied"),
+              () => setState("failed"),
+            );
         }}
       >
         <span aria-live="polite">{state === "copied" ? words.copied : words.copyCode}</span>
