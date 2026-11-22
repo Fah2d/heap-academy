@@ -69,13 +69,14 @@ export async function saveLesson(
   if (current === null) return { ok: false, error: "not_found" };
   let position = typeof current.position === "number" ? current.position : 0;
   if (current.chapter_id !== draft.chapterId) {
-    const { data: last } = await db
+    const { data: last, error: lastError } = await db
       .from("lessons")
       .select("position")
       .eq("chapter_id", draft.chapterId)
       .order("position", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (lastError !== null) return { ok: false, error: lessonFailure(lastError) };
     position = typeof last?.position === "number" ? last.position + 1 : 0;
   }
   const { data, error } = await db.rpc("save_lesson", {
@@ -110,12 +111,13 @@ export async function createLesson(
 ): Promise<Outcome<{ id: string }>> {
   const base = slugFromTitle(lesson.title);
   if (base === undefined) return { ok: false, error: "slug_needed" };
-  const { data: chapter } = await db
+  const { data: chapter, error: chapterError } = await db
     .from("chapters")
     .select("id")
     .eq("id", lesson.chapterId)
     .eq("course_id", lesson.courseId)
     .maybeSingle();
+  if (chapterError !== null) return { ok: false, error: lessonFailure(chapterError) };
   if (chapter === null) return { ok: false, error: "chapter_not_found" };
   const { data: siblings, error: listError } = await db
     .from("lessons")
@@ -141,7 +143,10 @@ export async function createLesson(
     .select("id")
     .single();
   if (error !== null || typeof data?.id !== "string") {
-    return { ok: false, error: lessonFailure(error) };
+    // The address was free when read; a lesson added since took it. The add
+    // form has no address field to point at, so this is a failure to retry.
+    const failure = lessonFailure(error);
+    return { ok: false, error: failure === "slug_taken" ? "unavailable" : failure };
   }
   return { ok: true, value: { id: data.id } };
 }

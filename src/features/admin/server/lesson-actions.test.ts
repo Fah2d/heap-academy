@@ -163,6 +163,19 @@ describe("saveLesson for an admin [FR-ADM-04, FR-ADM-10]", () => {
     expect(args.p_position).toBe(7);
   });
 
+  it("[FR-ADM-10] saves nothing when the new chapter's last place cannot be read", async () => {
+    asAdmin();
+    state.db.answer(
+      { data: { chapter_id: OTHER_CHAPTER, position: 0, tests: [] } },
+      { error: { code: "XX000", message: "boom" } },
+    );
+    expect(await actions.saveLesson({ id: LESSON, loadedAt: LOADED, draft })).toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+    expect(state.db.calls).toHaveLength(2);
+  });
+
   it.each([
     [{ code: "P0001", message: "lesson_changed_since_loaded" }, "stale"],
     [{ code: "P0001", message: "lesson_not_validated" }, "needs_validation"],
@@ -232,6 +245,26 @@ describe("createLesson for an admin [FR-ADM-03]", () => {
     expect(
       await actions.createLesson({ courseId: COURSE, chapterId: CHAPTER, title: "مرحبا" }),
     ).toEqual({ ok: false, error: "slug_needed" });
+  });
+
+  it("says the chapter could not be read, not that it is gone, when its lookup fails", async () => {
+    asAdmin();
+    state.db.answer({ error: { code: "XX000", message: "boom" } });
+    expect(
+      await actions.createLesson({ courseId: COURSE, chapterId: CHAPTER, title: "Loops" }),
+    ).toEqual({ ok: false, error: "unavailable" });
+  });
+
+  it("answers an address taken by a lesson added at the same moment as a failure to retry", async () => {
+    asAdmin();
+    state.db.answer(
+      { data: { id: CHAPTER } },
+      { data: [] },
+      { error: { code: "23505", message: "duplicate key" } },
+    );
+    expect(
+      await actions.createLesson({ courseId: COURSE, chapterId: CHAPTER, title: "Loops" }),
+    ).toEqual({ ok: false, error: "unavailable" });
   });
 
   it("starts an empty chapter at the first place", async () => {

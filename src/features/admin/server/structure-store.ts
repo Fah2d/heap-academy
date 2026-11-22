@@ -180,12 +180,13 @@ export async function deleteChapter(db: SessionClient, id: string): Promise<Outc
   return { ok: true, value: null };
 }
 
-/** Moves one course or chapter a place, rewriting the whole order in one statement. */
+/** What a move acts on: a course, or a chapter or lesson inside its parent. */
 export type MoveTarget =
   | { kind: "course"; id: string }
   | { kind: "chapter"; courseId: string; id: string }
   | { kind: "lesson"; chapterId: string; id: string };
 
+/** Moves one course, chapter or lesson a place, rewriting the whole order in one statement. */
 export async function move(
   db: SessionClient,
   target: MoveTarget,
