@@ -1,10 +1,10 @@
 "use client";
 
-import { EditorState } from "@codemirror/state";
+import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useId, useRef } from "react";
 import { codeEditor as words } from "@/messages/lesson";
-import { editorExtensions } from "./code-editor-extensions";
+import { editorAttributes, editorExtensions } from "./code-editor-extensions";
 
 // The code editor (docs/spec/03-experience.md sections 6 and 7.4): the one
 // editor for learners and for the dashboard's starter and solution. It owns
@@ -32,17 +32,32 @@ export type CodeEditorProps = {
   labelledBy: string;
   value: string;
   onChange: (value: string) => void;
+  /** IDs of a hint and an error outside the editor that describe it. */
+  describedBy?: string;
+  /** Whether the field's text is refused. */
+  invalid?: boolean;
   /** This request's nonce, read on the server (`requestNonce`): used only when the document's own is not found. */
   nonce: string;
 };
 
-export function CodeEditor({ labelledBy, value, onChange, nonce }: CodeEditorProps) {
+export function CodeEditor({
+  labelledBy,
+  describedBy,
+  invalid = false,
+  value,
+  onChange,
+  nonce,
+}: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const changed = useRef(onChange);
   // The latest value from the page: the text a newly built editor opens with.
   const initial = useRef(value);
   const hintId = useId();
+  const attributeSlot = useRef(new Compartment());
+  const description = describedBy === undefined ? hintId : `${hintId} ${describedBy}`;
+  // The attributes a newly built editor opens with.
+  const attributes = useRef({ labelledBy, describedBy: description, invalid });
 
   useEffect(() => {
     changed.current = onChange;
@@ -54,12 +69,14 @@ export function CodeEditor({ labelledBy, value, onChange, nonce }: CodeEditorPro
       parent: host.current,
       state: EditorState.create({
         doc: initial.current,
-        extensions: editorExtensions({
-          nonce: documentNonce(document, nonce),
-          labelledBy,
-          describedBy: hintId,
-          onChange: (next) => changed.current(next),
-        }),
+        extensions: editorExtensions(
+          {
+            nonce: documentNonce(document, nonce),
+            ...attributes.current,
+            onChange: (next) => changed.current(next),
+          },
+          attributeSlot.current,
+        ),
       }),
     });
     view.current = editor;
@@ -67,7 +84,14 @@ export function CodeEditor({ labelledBy, value, onChange, nonce }: CodeEditorPro
       editor.destroy();
       view.current = null;
     };
-  }, [nonce, labelledBy, hintId]);
+  }, [nonce]);
+
+  useEffect(() => {
+    attributes.current = { labelledBy, describedBy: description, invalid };
+    view.current?.dispatch({
+      effects: attributeSlot.current.reconfigure(editorAttributes(attributes.current)),
+    });
+  }, [labelledBy, description, invalid]);
 
   useEffect(() => {
     initial.current = value;
@@ -80,7 +104,9 @@ export function CodeEditor({ labelledBy, value, onChange, nonce }: CodeEditorPro
   }, [value]);
 
   return (
-    <div className="code-surface overflow-hidden rounded-panel border border-border-control">
+    <div
+      className={`code-surface overflow-hidden rounded-panel border ${invalid ? "border-fail" : "border-border-control"}`}
+    >
       <span id={hintId} className="sr-only">
         {words.leaveHint}
       </span>

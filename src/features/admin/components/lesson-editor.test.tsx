@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LessonDocument } from "@/content/markdown";
@@ -89,8 +89,11 @@ describe("LessonEditor [FR-ADM-04]", () => {
     expect(
       within(nav)
         .getAllByRole("link")
-        .map((link) => link.getAttribute("href")),
-    ).toEqual(LESSON_SECTIONS.map((section) => `#${section.id}`));
+        .map(
+          (link) =>
+            document.getElementById((link.getAttribute("href") ?? "").slice(1))?.textContent,
+        ),
+    ).toEqual(LESSON_SECTIONS.map((section) => section.title));
     for (const section of LESSON_SECTIONS) {
       expect(screen.getByRole("heading", { level: 2, name: section.title })).toBeTruthy();
     }
@@ -227,10 +230,10 @@ describe("LessonEditor [FR-ADM-04]", () => {
     },
   );
 
-  it("marks a taken address on its field", async () => {
+  it("marks a taken address on its field, and says so once", async () => {
     setup({ save: () => Promise.resolve({ ok: false, error: "slug_taken" }) });
     await userEvent.click(saveButton());
-    expect(await screen.findAllByText(words.failure.slug_taken)).not.toHaveLength(0);
+    expect(await screen.findAllByText(words.failure.slug_taken)).toHaveLength(1);
     expect(field(words.slugLabel).getAttribute("aria-invalid")).toBe("true");
   });
 
@@ -261,6 +264,47 @@ describe("LessonEditor [FR-ADM-04]", () => {
     await userEvent.click(screen.getByRole("button", { name: words.removeWrongAnswer(1) }));
     expect(screen.getAllByRole("textbox", { name: /what the mistake is/ })).toHaveLength(2);
     expect(screen.getByRole("button", { name: words.addWrongAnswer })).toBeTruthy();
+  });
+
+  it("gives each editor on a page its own section IDs", () => {
+    setup();
+    setup();
+    const targets = screen
+      .getAllByRole("navigation", { name: words.sectionsLabel })
+      .flatMap((nav) =>
+        within(nav)
+          .getAllByRole("link")
+          .map((link) => link.getAttribute("href")),
+      );
+    expect(new Set(targets).size).toBe(targets.length);
+  });
+
+  it("[NFR-A11Y-03] keeps focus on the wrong answers when one is added or removed", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: words.addWrongAnswer }));
+    await waitFor(() => expect(document.activeElement).toBe(field(words.wrongAnswerLabel(2))));
+    await userEvent.click(screen.getByRole("button", { name: words.removeWrongAnswer(1) }));
+    await waitFor(() => expect(document.activeElement).toBe(field(words.wrongAnswerLabel(1))));
+    await userEvent.click(screen.getByRole("button", { name: words.removeWrongAnswer(1) }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: words.addWrongAnswer }),
+      ),
+    );
+  });
+
+  it("[FR-ADM-04] marks a refused code field on the editor itself, with its error, and focuses it", async () => {
+    const { save } = setup({}, { ...lesson, solutionCode: "x".repeat(10_001) });
+    await userEvent.click(saveButton());
+    const solution = screen.getByRole("textbox", { name: words.solutionLabel });
+    expect(solution.getAttribute("aria-invalid")).toBe("true");
+    const described = (solution.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent);
+    expect(described).toContain(words.fieldInvalid.solutionCode);
+    expect(described).toContain(words.solutionHint);
+    await waitFor(() => expect(document.activeElement).toBe(solution));
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("notes that a published lesson's code changes only with a validation", () => {

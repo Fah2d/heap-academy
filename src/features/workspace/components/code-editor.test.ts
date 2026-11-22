@@ -64,6 +64,24 @@ describe("the code editor's extensions", () => {
     });
   });
 
+  it("[NFR-A11Y-02] marks the text area invalid when the field is refused", () => {
+    const refused = EditorState.create({
+      extensions: editorExtensions({
+        nonce: "bm9uY2U=",
+        labelledBy: "label",
+        describedBy: "hint error",
+        invalid: true,
+        onChange: vi.fn(),
+      }),
+    });
+    expect(refused.facet(EditorView.contentAttributes)).toContainEqual(
+      expect.objectContaining({ "aria-invalid": "true", "aria-describedby": "hint error" }),
+    );
+    expect(state("").facet(EditorView.contentAttributes)).not.toContainEqual(
+      expect.objectContaining({ "aria-invalid": "true" }),
+    );
+  });
+
   it("reports each change of the text", () => {
     const onChange = vi.fn();
     const view = new EditorView({ state: state("a", onChange) });

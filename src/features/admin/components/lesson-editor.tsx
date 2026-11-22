@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useId, useRef, useState, useTransition } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState, useTransition } from "react";
 import type { LessonDocument } from "@/content/markdown";
 import {
   checkLessonFields,
@@ -11,7 +11,7 @@ import {
 } from "@/domain/admin/lesson-details";
 import { CodeEditor } from "@/features/workspace";
 import { lessonEditor as words, structure } from "@/messages/admin";
-import { Button, Notice, SelectField, TextArea, TextField } from "@/ui";
+import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
 import type { AdminAction, EditorLessonDetail } from "../types";
 import { InstructionsPreview, type RenderPreview } from "./instructions-preview";
 import { useLeaveWarning } from "./leave-warning";
@@ -64,10 +64,11 @@ const FAILURES = Object.keys(words.failure) as (keyof typeof words.failure)[];
 const failureText = (error: string) =>
   words.failure[FAILURES.find((key) => key === error) ?? "unavailable"];
 
+/** The editor's sections, in order. Their IDs are made per editor, so two on a page never share one. */
 export const LESSON_SECTIONS = [
-  { id: "lesson-details", title: words.detailsHeading },
-  { id: "lesson-instructions", title: words.instructionsHeading },
-  { id: "lesson-code", title: words.codeHeading },
+  { key: "details", title: words.detailsHeading },
+  { key: "instructions", title: words.instructionsHeading },
+  { key: "code", title: words.codeHeading },
 ] as const;
 
 export type LessonEditorProps = {
@@ -94,12 +95,27 @@ export function LessonEditor({
   const [pending, startTransition] = useTransition();
   const form = useRef<HTMLFormElement>(null);
   const nextKey = useRef(lesson.wrongAnswers.length);
+  const sectionPrefix = useId();
+  const sectionId = (key: (typeof LESSON_SECTIONS)[number]["key"]) => `${sectionPrefix}${key}`;
   const ids = {
-    starter: useId(),
-    solution: useId(),
     hints: useId(),
     wrong: useId(),
   };
+  // Where focus goes once the wrong answers re-render after an Add or a
+  // Remove, so it never falls back to the page.
+  const focusAfter = useRef<{ row: number } | "add" | null>(null);
+  useEffect(() => {
+    const target = focusAfter.current;
+    if (target === null) return;
+    focusAfter.current = null;
+    const element =
+      target === "add"
+        ? form.current?.querySelector<HTMLElement>(`[data-add-wrong-answer] button`)
+        : form.current?.querySelector<HTMLElement>(
+            `[data-wrong-answer="${String(target.row)}"] input`,
+          );
+    element?.focus();
+  }, [fields.wrongAnswers]);
 
   const unsaved = snapshot(fields) !== saved;
   useLeaveWarning(unsaved, words.unsavedWarning);
@@ -201,7 +217,8 @@ export function LessonEditor({
         </Button>
       </div>
 
-      {failure !== null && (
+      {/* A taken address is said once, under its field. */}
+      {failure !== null && failure !== words.failure.slug_taken && (
         <div className="flex flex-col gap-3">
           <Notice kind="error" kindLabel={structure.errorLabel} announce="assertive">
             {failure}
@@ -223,9 +240,9 @@ export function LessonEditor({
         <nav aria-label={words.sectionsLabel} className="sticky inset-bs-20 shrink-0 self-start">
           <ul className="flex flex-col gap-1">
             {LESSON_SECTIONS.map((section) => (
-              <li key={section.id}>
+              <li key={section.key}>
                 <a
-                  href={`#${section.id}`}
+                  href={`#${sectionId(section.key)}`}
                   className="inline-flex min-h-target items-center text-base text-text-muted underline-offset-(--link-underline-offset) hover:text-text hover:underline"
                 >
                   {section.title}
@@ -236,8 +253,11 @@ export function LessonEditor({
         </nav>
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
-          <section aria-labelledby="lesson-details" className="flex max-w-prose flex-col gap-5">
-            <h2 id="lesson-details" className="scroll-mbs-20 text-lg font-semibold text-text">
+          <section
+            aria-labelledby={sectionId("details")}
+            className="flex max-w-prose flex-col gap-5"
+          >
+            <h2 id={sectionId("details")} className="scroll-mbs-20 text-lg font-semibold text-text">
               {words.detailsHeading}
             </h2>
             <TextField
@@ -281,8 +301,11 @@ export function LessonEditor({
             />
           </section>
 
-          <section aria-labelledby="lesson-instructions" className="flex flex-col gap-5">
-            <h2 id="lesson-instructions" className="scroll-mbs-20 text-lg font-semibold text-text">
+          <section aria-labelledby={sectionId("instructions")} className="flex flex-col gap-5">
+            <h2
+              id={sectionId("instructions")}
+              className="scroll-mbs-20 text-lg font-semibold text-text"
+            >
               {words.instructionsHeading}
             </h2>
             <div className="grid grid-cols-2 gap-6">
@@ -327,43 +350,33 @@ export function LessonEditor({
             </fieldset>
           </section>
 
-          <section aria-labelledby="lesson-code" className="flex flex-col gap-5">
-            <h2 id="lesson-code" className="scroll-mbs-20 text-lg font-semibold text-text">
+          <section aria-labelledby={sectionId("code")} className="flex flex-col gap-5">
+            <h2 id={sectionId("code")} className="scroll-mbs-20 text-lg font-semibold text-text">
               {words.codeHeading}
             </h2>
             {lesson.status === "published" && (
-              <Notice kind="information" kindLabel={words.statusNow.published}>
+              <Notice kind="information" kindLabel={words.noteLabel}>
                 {words.publishedCodeNote}
               </Notice>
             )}
             <p className="text-sm text-text-muted">{words.testCount(lesson.testCount)}</p>
             <div className="grid grid-cols-2 gap-6">
               <CodeField
-                id={ids.starter}
                 label={words.starterLabel}
                 hint={words.starterHint}
                 invalid={isInvalid("starterCode") ? words.fieldInvalid.starterCode : undefined}
-              >
-                <CodeEditor
-                  labelledBy={ids.starter}
-                  nonce={nonce}
-                  value={fields.starterCode}
-                  onChange={(starterCode) => edit({ starterCode })}
-                />
-              </CodeField>
+                nonce={nonce}
+                value={fields.starterCode}
+                onChange={(starterCode) => edit({ starterCode })}
+              />
               <CodeField
-                id={ids.solution}
                 label={words.solutionLabel}
                 hint={words.solutionHint}
                 invalid={isInvalid("solutionCode") ? words.fieldInvalid.solutionCode : undefined}
-              >
-                <CodeEditor
-                  labelledBy={ids.solution}
-                  nonce={nonce}
-                  value={fields.solutionCode}
-                  onChange={(solutionCode) => edit({ solutionCode })}
-                />
-              </CodeField>
+                nonce={nonce}
+                value={fields.solutionCode}
+                onChange={(solutionCode) => edit({ solutionCode })}
+              />
             </div>
             <fieldset aria-describedby={ids.wrong} className="flex flex-col gap-5">
               <legend className="pbe-1 text-base font-medium text-text">
@@ -384,20 +397,22 @@ export function LessonEditor({
                   labelInvalid={isInvalid("wrongAnswerLabel", index)}
                   codeInvalid={isInvalid("wrongAnswerCode", index)}
                   onChange={(next) => editAnswer(row.key, next)}
-                  onRemove={() =>
-                    edit({
-                      wrongAnswers: fields.wrongAnswers.filter((other) => other.key !== row.key),
-                    })
-                  }
+                  onRemove={() => {
+                    const rest = fields.wrongAnswers.filter((other) => other.key !== row.key);
+                    const next = rest[index] ?? rest[index - 1];
+                    focusAfter.current = next === undefined ? "add" : { row: next.key };
+                    edit({ wrongAnswers: rest });
+                  }}
                 />
               ))}
               {fields.wrongAnswers.length < LESSON_LIMITS.wrongAnswers && (
-                <div>
+                <div data-add-wrong-answer>
                   <Button
                     variant="secondary"
                     onPress={() => {
                       const key = nextKey.current;
                       nextKey.current += 1;
+                      focusAfter.current = { row: key };
                       edit({
                         wrongAnswers: [...fields.wrongAnswers, { key, label: "", code: "" }],
                       });
@@ -415,28 +430,54 @@ export function LessonEditor({
   );
 }
 
-/** A code editor with its visible label, hint and error, as a text field has them. */
+/**
+ * A code editor with its visible label, hint and error, in the order a text
+ * field has them. The editor's text area carries the invalid state and is
+ * described by the hint and the error, so focus lands on it and both are read.
+ */
 function CodeField({
-  id,
   label,
   hint,
   invalid,
-  children,
+  nonce,
+  value,
+  onChange,
 }: {
-  id: string;
   label: string;
-  hint: string;
+  hint?: string;
   invalid: string | undefined;
-  children: ReactNode;
+  nonce: string;
+  value: string;
+  onChange: (value: string) => void;
 }) {
+  const labelId = useId();
+  const hintId = useId();
+  const errorId = useId();
+  const describedBy = [
+    hint === undefined ? undefined : hintId,
+    invalid === undefined ? undefined : errorId,
+  ]
+    .filter((id) => id !== undefined)
+    .join(" ");
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <span id={id} className="text-base font-medium text-text">
+      <span id={labelId} className="text-base font-medium text-text">
         {label}
       </span>
-      <p className="text-sm text-text-muted">{hint}</p>
-      <div aria-invalid={invalid === undefined ? undefined : true}>{children}</div>
-      {invalid !== undefined && <p className="text-sm text-fail">{invalid}</p>}
+      <CodeEditor
+        labelledBy={labelId}
+        {...(describedBy === "" ? {} : { describedBy })}
+        invalid={invalid !== undefined}
+        nonce={nonce}
+        value={value}
+        onChange={onChange}
+      />
+      {hint !== undefined && (
+        <p id={hintId} className="text-sm text-text-muted">
+          {hint}
+        </p>
+      )}
+      {invalid !== undefined && <FieldErrorMessage id={errorId}>{invalid}</FieldErrorMessage>}
     </div>
   );
 }
@@ -458,9 +499,11 @@ function WrongAnswer({
   onChange: (next: Partial<WrongAnswerRow>) => void;
   onRemove: () => void;
 }) {
-  const codeId = useId();
   return (
-    <div className="flex flex-col gap-3 rounded-panel border border-border p-4">
+    <div
+      data-wrong-answer={row.key}
+      className="flex flex-col gap-3 rounded-panel border border-border p-4"
+    >
       <TextField
         label={words.wrongAnswerLabel(number)}
         value={row.label}
@@ -469,18 +512,12 @@ function WrongAnswer({
         errorMessage={words.fieldInvalid.wrongAnswerLabel}
       />
       <CodeField
-        id={codeId}
         label={words.wrongAnswerCodeLabel(number)}
-        hint=""
         invalid={codeInvalid ? words.fieldInvalid.wrongAnswerCode : undefined}
-      >
-        <CodeEditor
-          labelledBy={codeId}
-          nonce={nonce}
-          value={row.code}
-          onChange={(code) => onChange({ code })}
-        />
-      </CodeField>
+        nonce={nonce}
+        value={row.code}
+        onChange={(code) => onChange({ code })}
+      />
       <div>
         <Button
           variant="destructive"

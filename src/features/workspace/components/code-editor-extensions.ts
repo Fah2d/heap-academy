@@ -6,7 +6,7 @@ import {
   indentUnit,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { type EditorState, type Extension, RangeSetBuilder } from "@codemirror/state";
+import { Compartment, type EditorState, type Extension, RangeSetBuilder } from "@codemirror/state";
 import {
   Decoration,
   type DecorationSet,
@@ -145,24 +145,35 @@ export type EditorOptions = {
   nonce: string;
   /** The ID of the element that names the editor. */
   labelledBy: string;
-  /** The ID of the element that says how to leave the editor by keyboard. */
+  /** The IDs of the elements that describe the editor: how to leave it, a hint, an error. */
   describedBy: string;
+  /** Whether the text is refused; the error's ID is then in `describedBy`. */
+  invalid?: boolean;
   onChange: (value: string) => void;
 };
 
-export function editorExtensions({
-  nonce,
+/** The editor's name, description and invalid state, for its text area. */
+export function editorAttributes({
   labelledBy,
   describedBy,
-  onChange,
-}: EditorOptions): Extension[] {
+  invalid = false,
+}: Pick<EditorOptions, "labelledBy" | "describedBy" | "invalid">): Extension {
+  return EditorView.contentAttributes.of({
+    "aria-labelledby": labelledBy,
+    "aria-describedby": describedBy,
+    "aria-multiline": "true",
+    ...(invalid ? { "aria-invalid": "true" } : {}),
+  });
+}
+
+export function editorExtensions(
+  { nonce, onChange, ...attributes }: EditorOptions,
+  /** Holds the attributes, so they can change without building a new editor. */
+  attributeSlot: Compartment = new Compartment(),
+): Extension[] {
   return [
     EditorView.cspNonce.of(nonce),
-    EditorView.contentAttributes.of({
-      "aria-labelledby": labelledBy,
-      "aria-describedby": describedBy,
-      "aria-multiline": "true",
-    }),
+    attributeSlot.of(editorAttributes(attributes)),
     theme,
     lineNumbers(),
     highlightActiveLineGutter(),

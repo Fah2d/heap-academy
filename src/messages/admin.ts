@@ -174,6 +174,8 @@ export const lessonEditor = {
   backToCourse: (course: string) => `Back to ${course}`,
   sectionsLabel: "Sections of this lesson",
   statusNow: { draft: "Draft", published: "Published", archived: "Archived" },
+  /** The label of a neutral notice, such as how a published lesson's code changes. */
+  noteLabel: "Note",
   statusLabel: "Status",
   unsaved: "Unsaved changes",
   allSaved: "All changes saved",
