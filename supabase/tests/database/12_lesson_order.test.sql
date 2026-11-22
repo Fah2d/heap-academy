@@ -5,7 +5,7 @@
 -- other change moves it, a save that changes only the solution included.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(23);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -114,6 +114,14 @@ update public.lessons set title = 'Second, renamed', position = 5 where slug = '
 select isnt((select l.updated_at from public.lessons as l join loaded using (id) where l.slug = 'second'),
   (select loaded.updated_at from public.lessons as l join loaded using (id) where l.slug = 'second'),
   '[FR-ADM-10] a change of position with anything else gives a new version');
+-- A caller cannot set a version: an older one supplied with a move, or alone,
+-- is replaced by the version the lesson already had.
+update public.lessons set updated_at = now() - interval '1 day' where slug = 'first';
+select is((select updated_at from public.lessons where slug = 'first'), now(),
+  '[FR-ADM-10] a version supplied alone is ignored');
+update public.lessons set position = 1, updated_at = now() - interval '1 day' where slug = 'second';
+select is((select updated_at from public.lessons where slug = 'second'), now(),
+  '[FR-ADM-10] a version supplied with a move is ignored');
 
 -- A save that changes only the solution writes the lesson row unchanged, so
 -- its version moves only through lesson_solutions_after_write and
