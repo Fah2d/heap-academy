@@ -56,11 +56,34 @@ describe("LessonContent [NFR-SEC-07]", () => {
   it("highlights a Python block by class and keeps the code exact", () => {
     const code = 'name = input("Name? ")\nprint(f"Hello, {name}")  # greet';
     const container = show("```python\n" + code + "\n```");
-    const block = screen.getByRole("group", { name: words.codeBlock("python") });
+    const block = screen.getByRole("group", { name: words.codeBlock("Python") });
     expect(block.querySelector("pre code")?.textContent).toBe(code);
     expect(container.querySelector(".syntax-builtin")?.textContent).toBe("input");
     expect(container.querySelector(".syntax-string")?.textContent).toBe('"Name? "');
     expect(container.querySelector(".syntax-comment")?.textContent).toBe("# greet");
+  });
+
+  it("names a Python block by the language's name, however its fence spells it", () => {
+    show("```py\nx = 1\n```");
+    expect(screen.getByRole("group", { name: words.codeBlock("Python") })).toBeTruthy();
+  });
+
+  it("[NFR-A11Y-03] names the scrolling box of a table it lets the keyboard reach", () => {
+    show("| a | b |\n|---|---|\n| 1 | 2 |");
+    const region = screen.getByRole("region", { name: words.table });
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(region.querySelector("table")).toBeTruthy();
+  });
+
+  it("starts its headings at a lower level inside another page's section, looking the same", () => {
+    render(
+      <LessonContent document={renderMarkdown("## Ask\n\n### Then answer")} topHeadingLevel={4} />,
+    );
+    const top = screen.getByRole("heading", { level: 4, name: "Ask" });
+    const next = screen.getByRole("heading", { level: 5, name: "Then answer" });
+    expect(top.className).toContain("text-lg");
+    expect(next.className).toContain("text-base");
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
   });
 
   it("names a block with no language as code, unhighlighted", () => {

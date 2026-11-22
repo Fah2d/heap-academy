@@ -8,7 +8,9 @@ export const lessonContent = {
   copyFailed: "Could not copy. Select the code and copy it.",
   /** Read after a link's text: every link opens in a new tab. */
   opensInNewTab: "(opens in a new tab)",
-  /** The accessible name of a code block. */
+  /** The accessible name of a table's scrolling box, which the keyboard can reach. */
+  table: "Table",
+  /** The accessible name of a code block: the language as typed, or "Python". */
   codeBlock: (language: string | undefined) =>
     language === undefined ? "Code" : `Code in ${language}`,
 } as const;

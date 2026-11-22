@@ -318,12 +318,17 @@ describe("InstructionsPreview [NFR-SEC-07]", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { renderPreview } = setup();
     const markdown = field(words.instructionsLabel);
+    const updating = screen.getByText(words.previewUpdating);
+    // The line keeps its place, so the preview does not jump, and it is
+    // never announced: only a failure is.
+    expect(updating.className).toContain("invisible");
+    expect(updating.closest("[role=status], [aria-live]")).toBeNull();
     await userEvent.type(markdown, " more");
-    expect(screen.getByText(words.previewUpdating)).toBeTruthy();
+    expect(updating.className).not.toContain("invisible");
     await act(() => vi.advanceTimersByTimeAsync(PREVIEW_DELAY_MS));
     expect(renderPreview).toHaveBeenLastCalledWith({ markdown: "## Ask more" });
     expect(screen.getByTestId("instructions-preview").textContent).toBe("rendered: ## Ask more");
-    expect(screen.queryByText(words.previewUpdating)).toBeNull();
+    expect(screen.getByText(words.previewUpdating).className).toContain("invisible");
   });
 
   it("keeps the last preview and says so when the renderer fails", async () => {
@@ -331,7 +336,11 @@ describe("InstructionsPreview [NFR-SEC-07]", () => {
     setup({ render: () => Promise.resolve({ ok: false, error: "unavailable" }) });
     await userEvent.type(field(words.instructionsLabel), "!");
     await act(() => vi.advanceTimersByTimeAsync(PREVIEW_DELAY_MS));
-    expect(screen.getByText(words.previewFailed)).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((region) => region.textContent.includes(words.previewFailed)),
+    ).toBe(true);
     expect(screen.getByTestId("instructions-preview").textContent).toBe("saved preview");
   });
 

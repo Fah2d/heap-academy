@@ -1,5 +1,5 @@
 import "server-only";
-import { highlightCode, type Run } from "./highlight";
+import { highlightCode, isPython, type Run } from "./highlight";
 import { type Alignment, type Block as ParsedBlock, type Inline, parseMarkdown } from "./parse";
 
 // Lesson instructions as learners see them (docs/spec/04-content-system.md
@@ -17,7 +17,14 @@ export type CellAlign = "start" | "center" | "end";
 export type DocumentBlock =
   | Exclude<ParsedBlock, { kind: "code_block" | "list" | "quote" | "table" }>
   | { kind: "table"; align: CellAlign[]; head: Inline[][]; rows: Inline[][][] }
-  | { kind: "code_block"; language: string | undefined; text: string; runs: Run[] }
+  | {
+      kind: "code_block";
+      language: string | undefined;
+      /** Whether the fence names Python, however it spells it. */
+      python: boolean;
+      text: string;
+      runs: Run[];
+    }
   | { kind: "list"; ordered: boolean; start: number; items: DocumentBlock[][] }
   | { kind: "quote"; children: DocumentBlock[] };
 
@@ -38,7 +45,11 @@ function withRuns(block: ParsedBlock): DocumentBlock {
         align: block.align.map((align) => (align === undefined ? "start" : LOGICAL[align])),
       };
     case "code_block":
-      return { ...block, runs: highlightCode(block.text, block.language) };
+      return {
+        ...block,
+        python: isPython(block.language),
+        runs: highlightCode(block.text, block.language),
+      };
     case "list":
       return { ...block, items: block.items.map((item) => item.map(withRuns)) };
     case "quote":

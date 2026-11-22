@@ -61,11 +61,13 @@ export function InstructionsPreview({
 
   return (
     <div className="flex flex-col gap-3">
-      <p role="status" className={state === "updating" ? "text-sm text-text-muted" : "sr-only"}>
-        {state === "updating" ? words.previewUpdating : ""}
+      {/* Always in place, so the preview below does not move as typing
+          pauses; shown while updating and never announced. */}
+      <p className={state === "updating" ? "text-sm text-text-muted" : "invisible text-sm"}>
+        {words.previewUpdating}
       </p>
       {state === "failed" && (
-        <Notice kind="error" kindLabel={structure.errorLabel}>
+        <Notice kind="error" kindLabel={structure.errorLabel} announce="polite">
           {words.previewFailed}
         </Notice>
       )}
@@ -76,7 +78,7 @@ export function InstructionsPreview({
         {document.blocks.length === 0 ? (
           <p className="text-base text-text-muted">{words.previewEmpty}</p>
         ) : (
-          <LessonContent document={document} />
+          <LessonContent document={document} topHeadingLevel={4} />
         )}
       </div>
     </div>

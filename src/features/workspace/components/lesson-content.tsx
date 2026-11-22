@@ -68,7 +68,7 @@ function CodeBlock({ block }: { block: Extract<DocumentBlock, { kind: "code_bloc
   return (
     <div
       role="group"
-      aria-label={words.codeBlock(block.language)}
+      aria-label={words.codeBlock(block.python ? "Python" : block.language)}
       className="flex flex-col gap-2 rounded-panel border border-border bg-surface-editor p-3"
     >
       <pre className="code-surface overflow-x-auto" tabIndex={0}>
@@ -91,7 +91,9 @@ function CodeBlock({ block }: { block: Extract<DocumentBlock, { kind: "code_bloc
   );
 }
 
-function Blocks({ blocks }: { blocks: readonly DocumentBlock[] }) {
+type HeadingLevel = 2 | 3 | 4 | 5 | 6;
+
+function Blocks({ blocks, top }: { blocks: readonly DocumentBlock[]; top: 2 | 4 }) {
   return blocks.map((block, index) => {
     switch (block.kind) {
       case "paragraph":
@@ -100,22 +102,28 @@ function Blocks({ blocks }: { blocks: readonly DocumentBlock[] }) {
             <Inlines nodes={block.children} />
           </p>
         );
-      case "heading":
-        return block.level === 2 ? (
-          <h2 key={index} className="text-lg font-semibold text-text">
+      case "heading": {
+        // The tag follows the page's outline; the look follows the lesson's.
+        const Tag = `h${String(block.level - 2 + top) as `${HeadingLevel}`}` as const;
+        return (
+          <Tag
+            key={index}
+            className={
+              block.level === 2
+                ? "text-lg font-semibold text-text"
+                : "text-base font-semibold text-text"
+            }
+          >
             <Inlines nodes={block.children} />
-          </h2>
-        ) : (
-          <h3 key={index} className="text-base font-semibold text-text">
-            <Inlines nodes={block.children} />
-          </h3>
+          </Tag>
         );
+      }
       case "code_block":
         return <CodeBlock key={index} block={block} />;
       case "list": {
         const items = block.items.map((item, itemIndex) => (
           <li key={itemIndex} className="flex flex-col gap-2">
-            <Blocks blocks={item} />
+            <Blocks blocks={item} top={top} />
           </li>
         ));
         return block.ordered ? (
@@ -134,12 +142,18 @@ function Blocks({ blocks }: { blocks: readonly DocumentBlock[] }) {
             key={index}
             className="flex flex-col gap-3 border-s-(length:--marker-width) border-border-control ps-4 text-text-muted"
           >
-            <Blocks blocks={block.children} />
+            <Blocks blocks={block.children} top={top} />
           </blockquote>
         );
       case "table":
         return (
-          <div key={index} className="overflow-x-auto" tabIndex={0}>
+          <div
+            key={index}
+            role="region"
+            aria-label={words.table}
+            className="overflow-x-auto"
+            tabIndex={0}
+          >
             <table className="border-collapse text-base">
               <thead>
                 <tr>
@@ -185,11 +199,22 @@ function Blocks({ blocks }: { blocks: readonly DocumentBlock[] }) {
   });
 }
 
-/** The instructions, in the reading measure of DESIGN.md section 5. */
-export function LessonContent({ document }: { document: LessonDocument }) {
+/**
+ * The instructions, in the reading measure of DESIGN.md section 5. A lesson's
+ * headings are levels 2 and 3; inside a section of another page, such as the
+ * dashboard's preview under its own heading, `topHeadingLevel` moves them down
+ * the outline without changing how they look.
+ */
+export function LessonContent({
+  document,
+  topHeadingLevel = 2,
+}: {
+  document: LessonDocument;
+  topHeadingLevel?: 2 | 4;
+}) {
   return (
     <div className="flex max-w-prose flex-col gap-4 text-prose text-text">
-      <Blocks blocks={document.blocks} />
+      <Blocks blocks={document.blocks} top={topHeadingLevel} />
     </div>
   );
 }
