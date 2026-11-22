@@ -50,6 +50,9 @@ function fieldsOf(lesson: EditorLessonDetail): EditorFields {
   };
 }
 
+const sameLines = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((line, index) => line === b[index]);
+
 /** The fields as text, to tell whether anything differs from what was saved. */
 const snapshot = (fields: EditorFields) =>
   JSON.stringify({
@@ -135,6 +138,7 @@ export function LessonEditor({
     }
     setInvalid([]);
     const { draft } = checked;
+    const submitted = fields;
     startTransition(async () => {
       const outcome = await settle(() => save({ id: lesson.id, loadedAt, draft }));
       if (!outcome.ok) {
@@ -147,16 +151,31 @@ export function LessonEditor({
         setFailure(failureText(outcome.error));
         return;
       }
+      // What was saved, as the form shows it once tidied. The fields stayed
+      // editable while the save was in flight, so a field is tidied only if
+      // it still holds what was sent; anything typed since is kept, and the
+      // editor goes on calling it unsaved.
       const clean: EditorFields = {
-        ...fields,
+        ...submitted,
         title: draft.title,
         hints: hintLines(draft.hints),
-        wrongAnswers: fields.wrongAnswers.map((row, index) => ({
+        wrongAnswers: submitted.wrongAnswers.map((row, index) => ({
           ...row,
           label: draft.wrongAnswers[index]?.label ?? row.label,
         })),
       };
-      setFields(clean);
+      setFields((current) => ({
+        ...current,
+        title: current.title === submitted.title ? clean.title : current.title,
+        hints: sameLines(current.hints, submitted.hints) ? clean.hints : current.hints,
+        wrongAnswers: current.wrongAnswers.map((row) => {
+          const sent = submitted.wrongAnswers.find((entry) => entry.key === row.key);
+          const tidy = clean.wrongAnswers.find((entry) => entry.key === row.key);
+          return sent !== undefined && tidy !== undefined && row.label === sent.label
+            ? { ...row, label: tidy.label }
+            : row;
+        }),
+      }));
       setSaved(snapshot(clean));
       setLoadedAt(outcome.value.updatedAt);
       setSavedNow(true);

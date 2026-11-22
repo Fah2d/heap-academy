@@ -141,6 +141,57 @@ describe("LessonEditor [FR-ADM-04]", () => {
     expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ loadedAt: NEWER }));
   });
 
+  it("[FR-ADM-10] keeps text typed while a save is in flight, and still calls it unsaved", async () => {
+    let finish: (value: { ok: true; value: { updatedAt: string } }) => void = () => undefined;
+    const save = vi.fn<SaveLesson>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    setup({ save });
+    await userEvent.clear(field(words.titleLabel));
+    await userEvent.type(field(words.titleLabel), "Ask one ");
+    await userEvent.click(saveButton());
+    await userEvent.type(field(words.titleLabel), "two");
+    await act(async () => {
+      finish({ ok: true, value: { updatedAt: NEWER } });
+      await Promise.resolve();
+    });
+    expect((field(words.titleLabel) as HTMLInputElement).value).toBe("Ask one two");
+    expect(screen.getByText(words.unsaved)).toBeTruthy();
+    expect(screen.queryByText(words.saved)).toBeNull();
+    await userEvent.click(saveButton());
+    expect(save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        loadedAt: NEWER,
+        draft: expect.objectContaining({ title: "Ask one two" }),
+      }),
+    );
+  });
+
+  it("[FR-ADM-10] tidies a field after a save only where it still holds what was saved", async () => {
+    let finish: (value: { ok: true; value: { updatedAt: string } }) => void = () => undefined;
+    const save = vi.fn<SaveLesson>(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    setup({ save });
+    await userEvent.clear(field(words.titleLabel));
+    await userEvent.type(field(words.titleLabel), "  Ask first  ");
+    await userEvent.click(saveButton());
+    await userEvent.type(field(words.hintLabel(2)), "Then print it");
+    await act(async () => {
+      finish({ ok: true, value: { updatedAt: NEWER } });
+      await Promise.resolve();
+    });
+    expect((field(words.titleLabel) as HTMLInputElement).value).toBe("Ask first");
+    expect((field(words.hintLabel(2)) as HTMLInputElement).value).toBe("Then print it");
+    expect(screen.getByText(words.unsaved)).toBeTruthy();
+  });
+
   it("names every wrong field and sends nothing", async () => {
     const { save } = setup();
     await userEvent.clear(field(words.titleLabel));
