@@ -1,5 +1,10 @@
 import type { ControllerEvent, RunRequest } from "./controller.ts";
-import type { Effect, WorkspaceEvent, WorkspaceState } from "./workspace-chart.ts";
+import {
+  type Effect,
+  transition,
+  type WorkspaceEvent,
+  type WorkspaceState,
+} from "./workspace-chart.ts";
 
 // Connects the workspace statechart to the runtime controller (architecture
 // sections 5 and 6, ADR-0020; FR-WSP-07, FR-WSP-17). Pure: it maps what the
@@ -94,18 +99,36 @@ export type DriverPorts = {
   complete: () => void;
 };
 
+/** A Run or Check the controller would not start: too long a program or input, or not ready. */
+export type Refusal = {
+  effect: "startRun" | "startCheck";
+  request: Extract<RunRequest, { ok: false }>;
+};
+
+/**
+ * The chart has already moved to `running` or `checking` when the controller
+ * refuses, and nothing will ever end that run. The caller dispatches this
+ * event, which brings the chart back to `ready` by the diagram's own edge:
+ * the run is over before it began. A refused check passed nothing.
+ */
+export function eventAfterRefusal(refusal: Refusal): WorkspaceEvent {
+  return refusal.effect === "startRun"
+    ? { type: "RUN_DONE" }
+    : { type: "CHECK_DONE", allPassed: false };
+}
+
 /**
  * Carries out a transition's effects. `restartRuntime` asks the controller to
  * stop only for the learner's STOP: on a time limit or a crash the controller
  * has already replaced the worker by itself (section 5.4). Returns the
- * refusals, which mean the chart and the controller disagree.
+ * refusals; for each, the caller dispatches `eventAfterRefusal`.
  */
 export function performEffects(
   effects: readonly Effect[],
   cause: WorkspaceEvent,
   ports: DriverPorts,
-): RunRequest[] {
-  const refused: RunRequest[] = [];
+): Refusal[] {
+  const refused: Refusal[] = [];
   for (const effect of effects) {
     switch (effect) {
       case "loadRuntime":
@@ -116,12 +139,12 @@ export function performEffects(
         break;
       case "startRun": {
         const request = ports.run();
-        if (!request.ok) refused.push(request);
+        if (!request.ok) refused.push({ effect, request });
         break;
       }
       case "startCheck": {
         const request = ports.check();
-        if (!request.ok) refused.push(request);
+        if (!request.ok) refused.push({ effect, request });
         break;
       }
       case "completeLesson":
@@ -134,4 +157,31 @@ export function performEffects(
     }
   }
   return refused;
+}
+
+/**
+ * Applies an event and carries out its effects; when the controller refuses
+ * the Run or Check that a transition started, applies `eventAfterRefusal` so
+ * the chart returns to `ready`. `commit` stores each new state before its
+ * effects run, because the controller may report an event synchronously and
+ * that event must see the chart already moved. Returns the refusals.
+ */
+export function dispatchEvent(
+  current: () => WorkspaceState,
+  commit: (state: WorkspaceState) => void,
+  first: WorkspaceEvent,
+  ports: DriverPorts,
+): Refusal[] {
+  const refusals: Refusal[] = [];
+  let event: WorkspaceEvent | undefined = first;
+  while (event !== undefined) {
+    const next = transition(current(), event);
+    commit(next.state);
+    const refused = performEffects(next.effects, event, ports);
+    refusals.push(...refused);
+    // One transition starts at most one run or check, so at most one refusal.
+    const [refusal] = refused;
+    event = refusal === undefined ? undefined : eventAfterRefusal(refusal);
+  }
+  return refusals;
 }

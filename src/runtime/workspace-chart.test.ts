@@ -178,6 +178,30 @@ describe("the lesson region", () => {
     }
   });
 
+  it("[FR-WSP-17] a Run or Check the runtime does not take leaves an untouched lesson untouched", () => {
+    const refusing: readonly RuntimeState[] = [
+      { name: "idle" },
+      { name: "failed" },
+      { name: "running" },
+      { name: "awaitingInput" },
+      { name: "checking" },
+    ];
+    for (const runtime of refusing) {
+      for (const type of ["RUN", "CHECK"] as const) {
+        expect(transition(at(runtime, "untouched"), { type }).state.lesson).toBe("untouched");
+      }
+    }
+  });
+
+  it("[FR-WSP-17] a Run kept as the pending intent marks the lesson in progress", () => {
+    for (const runtime of [
+      { name: "loading", pending: null },
+      { name: "restarting", pending: null, reason: "stopped" },
+    ] as const) {
+      expect(transition(at(runtime, "untouched"), { type: "RUN" }).state.lesson).toBe("inProgress");
+    }
+  });
+
   it("[FR-PRG-01] a check with every test case passing completes the lesson once", () => {
     const passed = transition(at({ name: "checking" }), { type: "CHECK_DONE", allPassed: true });
     expect(passed.state).toEqual({ runtime: { name: "ready" }, lesson: "passed" });

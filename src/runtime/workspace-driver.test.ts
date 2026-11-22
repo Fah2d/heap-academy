@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { HARNESS_VERSION } from "../grader/harness.ts";
 import type { TestCaseId } from "../grader/test-case.ts";
 import { createRuntimeController, TIME_LIMIT_MS, type WorkerLike } from "./controller.ts";
-import { createRunId, type PageMessage } from "./protocol.ts";
+import { createRunId, type PageMessage, SOURCE_LIMIT } from "./protocol.ts";
+import { INITIAL_STATE, type WorkspaceEvent, type WorkspaceState } from "./workspace-chart.ts";
 import {
-  INITIAL_STATE,
-  transition,
-  type WorkspaceEvent,
-  type WorkspaceState,
-} from "./workspace-chart.ts";
-import { chartEventFor, performEffects } from "./workspace-driver.ts";
+  chartEventFor,
+  dispatchEvent,
+  eventAfterRefusal,
+  performEffects,
+} from "./workspace-driver.ts";
 
 // The chart driving the real controller, with a fake worker and a fake clock
 // (FR-WSP-07, FR-WSP-17; WP-3.4). The browser run is the development page.
@@ -167,7 +167,16 @@ describe("performEffects [FR-WSP-07]", () => {
       given.ports,
     );
     expect(given.calls).toEqual(["start", "run", "check", "complete"]);
-    expect(refused).toEqual([{ ok: false, error: "not_ready" }]);
+    expect(refused).toEqual([{ effect: "startCheck", request: { ok: false, error: "not_ready" } }]);
+  });
+
+  it("ends a refused Run by RUN_DONE and a refused Check as not passed", () => {
+    const request = { ok: false as const, error: "invalid" as const };
+    expect(eventAfterRefusal({ effect: "startRun", request })).toEqual({ type: "RUN_DONE" });
+    expect(eventAfterRefusal({ effect: "startCheck", request })).toEqual({
+      type: "CHECK_DONE",
+      allPassed: false,
+    });
   });
 });
 
@@ -178,8 +187,13 @@ function workspace(interactiveInput = true) {
   const timers = new Map<number, { at: number; callback: () => void }>();
   let nextTimer = 1;
   let state = INITIAL_STATE;
+  let program = "program";
   const completed: number[] = [];
   const refusals: unknown[] = [];
+  const crash = () => {
+    for (const listener of errorListeners.at(-1) ?? []) listener({});
+  };
+  const errorListeners: ((event: { data?: unknown }) => void)[][] = [];
   const tests = [
     {
       id: "t" as TestCaseId,
@@ -194,12 +208,15 @@ function workspace(interactiveInput = true) {
   const controller = createRuntimeController({
     createWorker: () => {
       const listeners: ((event: { data?: unknown }) => void)[] = [];
+      const errors: ((event: { data?: unknown }) => void)[] = [];
+      errorListeners.push(errors);
       const worker = {
         received: [] as PageMessage[],
         postMessage: (message: PageMessage) => worker.received.push(message),
         terminate: () => undefined,
         addEventListener: (type: string, listener: (event: { data?: unknown }) => void) => {
           if (type === "message") listeners.push(listener);
+          if (type === "error") errors.push(listener);
         },
         send: (data: unknown) => {
           for (const listener of listeners) listener({ data });
@@ -224,20 +241,25 @@ function workspace(interactiveInput = true) {
     report: () => undefined,
   });
   function dispatch(event: WorkspaceEvent) {
-    const next = transition(state, event);
-    state = next.state;
     refusals.push(
-      ...performEffects(next.effects, event, {
-        start: () => {
-          controller.start();
+      ...dispatchEvent(
+        () => state,
+        (next) => {
+          state = next;
         },
-        stop: () => {
-          controller.stop();
+        event,
+        {
+          start: () => {
+            controller.start();
+          },
+          stop: () => {
+            controller.stop();
+          },
+          run: () => controller.run(program),
+          check: () => controller.check(program, tests),
+          complete: () => completed.push(1),
         },
-        run: () => controller.run("program"),
-        check: () => controller.check("program", tests),
-        complete: () => completed.push(1),
-      }),
+      ),
     );
   }
   const latest = () => workers[workers.length - 1]!;
@@ -260,6 +282,10 @@ function workspace(interactiveInput = true) {
   return {
     dispatch,
     ready,
+    crash,
+    setProgram: (source: string) => {
+      program = source;
+    },
     latest,
     lastRunId,
     advance,
@@ -380,5 +406,90 @@ describe("the chart driving the controller [FR-WSP-07, FR-WSP-17]", () => {
     w.ready();
     expect(w.state().runtime.name).toBe("checking");
     expect(w.controller.status).toBe("checking");
+  });
+
+  it("[FR-WSP-07] a Run the controller refuses brings the chart back to ready", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.ready();
+    w.setProgram("x".repeat(SOURCE_LIMIT + 1));
+    w.dispatch({ type: "RUN" });
+    expect(w.refusals).toEqual([{ effect: "startRun", request: { ok: false, error: "invalid" } }]);
+    expect(w.state().runtime.name).toBe("ready");
+    expect(w.controller.status).toBe("ready");
+    w.setProgram("print(1)");
+    w.dispatch({ type: "RUN" });
+    expect(w.state().runtime.name).toBe("running");
+    expect(w.controller.status).toBe("running");
+  });
+
+  it("[FR-WSP-07] a Check the controller refuses brings the chart back to ready, not passed", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.ready();
+    w.setProgram("x".repeat(SOURCE_LIMIT + 1));
+    w.dispatch({ type: "CHECK" });
+    expect(w.state()).toEqual({ runtime: { name: "ready" }, lesson: "inProgress" });
+    expect(w.completed).toEqual([]);
+    expect(w.controller.status).toBe("ready");
+  });
+
+  it("[FR-WSP-17] a pending Run refused when Python becomes ready leaves the chart ready", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.setProgram("x".repeat(SOURCE_LIMIT + 1));
+    w.dispatch({ type: "RUN" });
+    w.ready();
+    expect(w.state().runtime.name).toBe("ready");
+    expect(w.refusals).toHaveLength(1);
+  });
+
+  it("[FR-RUN-02] a check that reaches the time limit restarts for that reason, and passes nothing", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.ready();
+    w.dispatch({ type: "CHECK" });
+    w.advance(TIME_LIMIT_MS);
+    expect(w.state()).toEqual({
+      runtime: { name: "restarting", pending: null, reason: "time_limit" },
+      lesson: "inProgress",
+    });
+    expect(w.controller.status).toBe("restarting");
+    w.ready();
+    expect(w.state().runtime.name).toBe("ready");
+  });
+
+  it("[FR-RUN-06] a worker that dies during a check restarts as crashed", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.ready();
+    w.dispatch({ type: "CHECK" });
+    w.crash();
+    expect(w.state().runtime).toEqual({ name: "restarting", pending: null, reason: "crashed" });
+    expect(w.completed).toEqual([]);
+  });
+
+  it("[FR-RUN-06] a worker that dies at rest restarts as crashed", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.ready();
+    w.crash();
+    expect(w.state().runtime).toEqual({ name: "restarting", pending: null, reason: "crashed" });
+    w.ready();
+    expect(w.state().runtime.name).toBe("ready");
+  });
+
+  it("[FR-WSP-07] Python that fails to load can be retried, and a Run then works", () => {
+    const w = workspace();
+    w.dispatch({ type: "LESSON_OPENED" });
+    w.crash();
+    expect(w.state().runtime.name).toBe("failed");
+    expect(w.controller.status).toBe("failed");
+    w.dispatch({ type: "RETRY" });
+    expect(w.state().runtime).toEqual({ name: "loading", pending: null });
+    expect(w.controller.status).toBe("loading");
+    w.ready();
+    w.dispatch({ type: "RUN" });
+    expect(w.controller.status).toBe("running");
   });
 });

@@ -10,13 +10,8 @@ import {
   type RunRequest,
   type RuntimeController,
 } from "@/runtime/controller";
-import {
-  INITIAL_STATE,
-  transition,
-  type WorkspaceEvent,
-  type WorkspaceState,
-} from "@/runtime/workspace-chart";
-import { chartEventFor, performEffects } from "@/runtime/workspace-driver";
+import { INITIAL_STATE, type WorkspaceEvent, type WorkspaceState } from "@/runtime/workspace-chart";
+import { chartEventFor, dispatchEvent } from "@/runtime/workspace-driver";
 import {
   addRefusal,
   addReport,
@@ -55,31 +50,36 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
   }, [program]);
 
   const dispatch = useCallback((event: WorkspaceEvent) => {
-    const next = transition(chartRef.current, event);
-    chartRef.current = next.state;
-    setChart(next.state);
-    const refused = performEffects(next.effects, event, {
-      start: () => controller.current?.start(),
-      stop: () => controller.current?.stop(),
-      run: () => {
-        const current = controller.current;
-        if (current === undefined) return NOT_READY;
-        const { source, stdin } = programRef.current(current.interactiveInput);
-        const request = current.run(source, stdin);
-        if (request.ok) setView((previous) => startRun(previous, current.status));
-        return request;
+    const refused = dispatchEvent(
+      () => chartRef.current,
+      (next) => {
+        chartRef.current = next;
+        setChart(next);
       },
-      check: () => {
-        const current = controller.current;
-        if (current === undefined) return NOT_READY;
-        const { source, tests } = programRef.current(current.interactiveInput);
-        const request = current.check(source, tests);
-        if (request.ok) setView((previous) => startCheck(previous, current.status));
-        return request;
+      event,
+      {
+        start: () => controller.current?.start(),
+        stop: () => controller.current?.stop(),
+        run: () => {
+          const current = controller.current;
+          if (current === undefined) return NOT_READY;
+          const { source, stdin } = programRef.current(current.interactiveInput);
+          const request = current.run(source, stdin);
+          if (request.ok) setView((previous) => startRun(previous, current.status));
+          return request;
+        },
+        check: () => {
+          const current = controller.current;
+          if (current === undefined) return NOT_READY;
+          const { source, tests } = programRef.current(current.interactiveInput);
+          const request = current.check(source, tests);
+          if (request.ok) setView((previous) => startCheck(previous, current.status));
+          return request;
+        },
+        // The development page has no lesson to record; the chart shows `passed`.
+        complete: () => undefined,
       },
-      // The development page has no lesson to record; the chart shows `passed`.
-      complete: () => undefined,
-    });
+    );
     if (refused.length > 0) setView((previous) => addRefusal(previous, refused.length));
   }, []);
 
