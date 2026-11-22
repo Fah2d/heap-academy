@@ -31,6 +31,10 @@ export function RuntimeConsole() {
     [source, stdin],
   );
   const { view, chart, dispatch, sendInput, endInput } = useRuntime(program);
+  const edit = (next: string) => {
+    setSource(next);
+    dispatch({ type: "CODE_EDITED" });
+  };
   const runtime = chart.runtime;
   // A press while Python starts is kept and fires when it is ready (FR-WSP-17).
   const canPress = (type: "RUN" | "CHECK") => canStart(chart) || isRemembered(runtime.name, type);
@@ -45,13 +49,13 @@ export function RuntimeConsole() {
 
       <h2>{m.samples}</h2>
       <p>
-        <button type="button" onClick={() => setSource(m.sample)}>
+        <button type="button" onClick={() => edit(m.sample)}>
           {m.sampleInput}
         </button>{" "}
-        <button type="button" onClick={() => setSource(EXAMPLE_LESSON.solution)}>
+        <button type="button" onClick={() => edit(EXAMPLE_LESSON.solution)}>
           {m.sampleSolution}
         </button>{" "}
-        <button type="button" onClick={() => setSource(m.loop)}>
+        <button type="button" onClick={() => edit(m.loop)}>
           {m.sampleLoop}
         </button>
       </p>
@@ -63,7 +67,7 @@ export function RuntimeConsole() {
         rows={8}
         spellCheck={false}
         onChange={(event) => {
-          setSource(event.target.value);
+          edit(event.target.value);
         }}
       />
 

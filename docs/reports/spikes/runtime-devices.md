@@ -2,7 +2,7 @@
 
 - Work package: WP-3.4
 - Date: started 2026-11-21. The phone rows wait for the owner's check.
-- Decides: whether ADR-0020's runtime (Pyodide in a worker, live input, the watchdog) stands on phones, or Day 4 starts with a fix.
+- Decides: whether the runtime (Pyodide in a module worker, ADR-0004; live input by stack switching with a batch fallback, ADR-0005; the statechart and watchdog, ADR-0020) stands on phones, or Day 4 starts with a fix.
 
 ## Question
 

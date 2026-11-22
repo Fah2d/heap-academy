@@ -257,11 +257,13 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
 
     // One request at a time: a second call while one waits gets the end of
     // input and posts nothing. The request is posted from a task of its own,
-    // which the worker runs only once Python has suspended on this wait; a
-    // program that takes `request_line` out of the reader's closure and keeps
-    // computing never yields, so nothing is posted and the page's clock keeps
-    // running (WP-3.2 reviews). The prompt is flushed in that task, so it
-    // arrives before the request.
+    // which the worker runs only once Python has suspended. A program that
+    // takes `request_line` out of the reader's closure and keeps computing
+    // without yielding posts nothing, so the page's clock keeps running. One
+    // that suspends once on a promise of its own gets the request posted and
+    // can compute while the page waits; ADR-0034 accepts that, with Stop as
+    // the control. The prompt is flushed in that task, so it arrives before
+    // the request.
     const requestLine: RequestLine = () => {
       if (running.waiting !== undefined || state !== running) return Promise.resolve(undefined);
       return new Promise((resolve) => {

@@ -20,10 +20,27 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("[FR-WSP-17] Run pressed while Python starts waits and then runs", async ({ page }) => {
+  // Python's files are held until Run is pressed, so the page is still
+  // loading at the click however fast the runner is. Whether the context's
+  // route sees a worker's requests is not documented; `held` makes a miss
+  // fail here instead of racing.
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.context().route("**/_runtime/pyodide/**", async (route) => {
+    held = true;
+    await gate;
+    await route.continue();
+  });
+  await page.reload();
   await page.getByLabel(runtimeDev.input).fill("Ada");
   await expect(chart(page)).toHaveAttribute("data-chart-state", "loading");
   await page.getByRole("button", { name: runtimeDev.run }).click();
   await expect(chart(page)).toContainText(runtimeDev.pending.run);
+  await expect.poll(() => held).toBe(true);
+  release();
   await expect(page.locator("[data-outcome]")).toHaveAttribute("data-outcome", "ok", {
     timeout: READY_MS,
   });

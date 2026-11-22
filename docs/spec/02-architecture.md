@@ -478,3 +478,4 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | 0031 | Identity without a brand kit | Accepted |
 | 0032 | Module table additions and a test-only grader runner | Accepted |
 | 0033 | The Python worker is compiled by the TypeScript compiler, outside the bundler | Proposed |
+| 0034 | A program that yields once can compute while the page waits for its input; the risk is accepted with Stop as the control | Proposed |

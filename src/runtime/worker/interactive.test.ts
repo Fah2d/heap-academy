@@ -184,7 +184,7 @@ describe("interactive input in Pyodide", () => {
     }
   });
 
-  it("[FR-RUN-02] a program that takes request_line from the reader and keeps computing asks the page nothing", async () => {
+  it("[FR-RUN-02] a program that takes request_line from the reader and computes without yielding asks the page nothing (ADR-0034)", async () => {
     const { end, transcript } = await runtime.run(
       [
         "import sys",

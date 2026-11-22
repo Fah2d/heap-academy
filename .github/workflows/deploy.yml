@@ -129,7 +129,16 @@ jobs:
       - name: Build
         env:
           HEAP_RELEASE: ${{ github.sha }}
-        run: vercel build --prod
+          # Set here, not only by the pulled settings: the preview-only pages
+          # (`.preview.tsx`) are left out exactly when this is `production`.
+          VERCEL_ENV: production
+        run: |
+          vercel build --prod
+          # A preview-only page in the production output fails the release.
+          if find .vercel/output -path '*/dev/*' -print -quit | grep -q .; then
+            echo "::error::a development page is in the production build"
+            exit 1
+          fi
       # Covers every server variable `vercel pull` wrote. A Sensitive
       # variable arrives as a placeholder, so for it this checks the name;
       # the marker build of the `build` job checks the code path.

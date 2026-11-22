@@ -226,7 +226,11 @@ describe("parseTestResult and parseCheckSummary", () => {
   ];
 
   it("[FR-GRD-01] reads back every kind of result a worker sends", () => {
-    for (const sample of samples.filter((_sample, index) => index !== 4))
+    // A time limit is decided by the page, never read from a worker (next test).
+    const fromWorker = samples.filter(
+      (sample) => !(sample.status === "failed" && sample.reason === "time_limit"),
+    );
+    for (const sample of fromWorker)
       expect(parseTestResult(JSON.parse(JSON.stringify(sample)))).toEqual(sample);
   });
 
