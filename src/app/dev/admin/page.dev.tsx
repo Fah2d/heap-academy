@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AdminFrame, AdminStateGallery } from "@/features/admin";
+import { AdminFrame, AdminStateGalleryServer } from "@/features/admin";
 import { adminGallery } from "@/messages/gallery";
 
 // Development only. The `.dev.tsx` extension is a page extension in
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function AdminStatesPage() {
   return (
     <AdminFrame>
-      <AdminStateGallery />
+      <AdminStateGalleryServer />
     </AdminFrame>
   );
 }

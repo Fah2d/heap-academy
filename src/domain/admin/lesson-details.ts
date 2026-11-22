@@ -107,7 +107,7 @@ export function checkLessonFields(fields: LessonFields): CheckedLesson {
       hints: fields.hints.filter((line) => line.trim() !== ""),
       starterCode: fields.starterCode,
       solutionCode: fields.solutionCode,
-      wrongAnswers: fields.wrongAnswers,
+      wrongAnswers: fields.wrongAnswers.map(({ label, code }) => ({ label, code })),
     }),
   };
 }

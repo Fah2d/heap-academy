@@ -124,7 +124,10 @@ export function LessonEditor({
     event.preventDefault();
     setFailure(null);
     setSavedNow(false);
-    const checked = checkLessonFields(fields);
+    const checked = checkLessonFields({
+      ...fields,
+      wrongAnswers: fields.wrongAnswers.map(({ label, code }) => ({ label, code })),
+    });
     if (!checked.ok) {
       setInvalid(checked.invalid);
       focusFirstInvalid();

@@ -108,4 +108,20 @@ export const adminGallery = {
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",
+  lessonEditor: "Lesson editor of a draft whose saves succeed and whose preview renders",
+  lessonRefusing:
+    "Lesson editor whose save is refused (changed somewhere else) and whose preview fails",
+  lessonPublished: "Lesson editor of a published lesson whose save never answers",
+  lessonEmpty: "Lesson editor of a new lesson with no instructions, code or wrong answers",
+  sampleInstructions:
+    "## Ask, then answer\n\nAsk for a name with `input()`, then greet that person.",
+  sampleHint: "input() returns what the learner typed.",
+  sampleStarter: "# Ask for a name, then greet that person.\n",
+  sampleSolution: 'name = input("What is your name? ")\nprint(f"Hello, {name}!")\n',
+  sampleWrongLabel: "Greets without the name",
+  sampleWrongCode: 'input("What is your name? ")\nprint("Hello!")\n',
+  previewHeading: "Ask, then answer",
+  previewText: "Ask for a name with ",
+  previewCode: "input()",
+  previewTail: ", then greet that person.",
 } as const;
