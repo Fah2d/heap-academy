@@ -1,6 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { adminArea, courseEditor, dashboard, secondStep, structure } from "../src/messages/admin";
+import {
+  adminArea,
+  courseEditor,
+  dashboard,
+  lessonEditor,
+  secondStep,
+  structure,
+} from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
 import { saveScreen } from "./screens";
 
@@ -161,3 +168,49 @@ for (const width of [375, 800]) {
     await saveScreen(page, "admin-narrow", width, { workPackage: "WP-2.3" });
   });
 }
+
+test("[FR-ADM-04] [FR-ADM-10] the lesson editor's states, at 1280 px", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
+
+  // Saves that succeed, and a preview that renders as the learner sees it.
+  const editing = page.getByRole("region", { name: adminGallery.lessonEditor });
+  await expect(editing.getByTestId("instructions-preview").getByRole("heading")).toHaveText(
+    adminGallery.previewHeading,
+  );
+  await editing.getByLabel(lessonEditor.titleLabel).fill("Renamed");
+  await expect(editing.getByText(lessonEditor.unsaved)).toBeVisible();
+  await editing.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(editing.getByRole("status").filter({ hasText: lessonEditor.saved })).toBeVisible();
+  await expect(editing.getByText(lessonEditor.allSaved)).toBeVisible();
+  await shot("admin-lesson-editor-saved");
+
+  // A refused save and a preview that fails keep what was typed.
+  const refusing = page.getByRole("region", { name: adminGallery.lessonRefusing });
+  await refusing.getByLabel(lessonEditor.instructionsLabel).fill("## Changed");
+  await expect(refusing.getByText(lessonEditor.previewFailed)).toBeVisible();
+  await refusing.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(refusing.getByRole("alert").first()).toContainText(lessonEditor.failure.stale);
+  await expect(refusing.getByLabel(lessonEditor.instructionsLabel)).toHaveValue("## Changed");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-refused");
+
+  // A published lesson says how its code changes are saved; a save that never answers stays pending.
+  const published = page.getByRole("region", { name: adminGallery.lessonPublished });
+  await expect(published.getByText(lessonEditor.publishedCodeNote)).toBeVisible();
+  await published.getByLabel(lessonEditor.titleLabel).fill("Pending");
+  await published.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(published.getByRole("button", { name: lessonEditor.saving })).toBeVisible();
+  await shot("admin-lesson-editor-pending");
+
+  // An empty lesson: the empty preview and no wrong answers; invalid fields are named.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await expect(empty.getByText(lessonEditor.previewEmpty)).toBeVisible();
+  await expect(empty.getByText(lessonEditor.wrongAnswersEmpty)).toBeVisible();
+  await empty.getByLabel(lessonEditor.titleLabel).fill("");
+  await empty.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(empty.getByText(lessonEditor.fieldInvalid.title)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-empty");
+});
