@@ -8,7 +8,13 @@ export {
 } from "./primitives/button";
 export { Dialog, DialogActions, type DialogProps } from "./primitives/dialog";
 export { Disclosure, type DisclosureProps } from "./primitives/disclosure";
-export { Link, type LinkProps, type LinkVariant } from "./primitives/link";
+export {
+  ExternalLink,
+  type ExternalLinkProps,
+  Link,
+  type LinkProps,
+  type LinkVariant,
+} from "./primitives/link";
 export { Notice, type NoticeKind, type NoticeProps } from "./primitives/notice";
 export { Progress, type ProgressProps } from "./primitives/progress";
 export { Status, type StatusProps, type StatusState } from "./primitives/status";

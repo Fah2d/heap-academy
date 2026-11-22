@@ -1,6 +1,7 @@
 import NextLink from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "../class-names";
+import { Launch } from "../icons";
 
 /**
  * - `inline`: a link in running text, always underlined, because amber on the
@@ -48,5 +49,27 @@ export function Link({ href, variant, current = false, children }: LinkProps) {
     >
       {children}
     </NextLink>
+  );
+}
+
+export type ExternalLinkProps = {
+  href: string;
+  /** Read after the link's text, such as "(opens in a new tab)". */
+  newTabLabel: string;
+  children: ReactNode;
+};
+
+/**
+ * A link that leaves the site, in running text: it opens in a new tab with no
+ * opener and no referrer (docs/spec/04-content-system.md section 5), and says
+ * so to every reader, by the icon and by words for screen readers.
+ */
+export function ExternalLink({ href, newTabLabel, children }: ExternalLinkProps) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={underlined}>
+      {children}
+      <span className="sr-only"> {newTabLabel}</span>
+      <Launch aria-hidden="true" size={16} className="ms-1 inline-block align-text-bottom" />
+    </a>
   );
 }
