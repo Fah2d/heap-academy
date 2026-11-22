@@ -1,12 +1,13 @@
-import { highlightTree, tagHighlighter, tags } from "@lezer/highlight";
+import { highlightTree, tagHighlighter } from "@lezer/highlight";
 import { parser } from "@lezer/python";
+import { BUILTINS, PYTHON_TAG_RULES, type TokenKind } from "./python-style";
 
 // Python highlighting for fenced code blocks (docs/spec/04-content-system.md
 // section 5, DESIGN.md section 4.4). The code is cut into runs of plain text,
 // each with at most one kind from the design's palette. Nothing here makes
 // markup: the renderer turns each run into a text node in a span.
 
-export type TokenKind = "keyword" | "string" | "number" | "function" | "builtin" | "comment";
+export type { TokenKind };
 
 export type Run = { text: string; kind?: TokenKind };
 
@@ -17,62 +18,7 @@ export function isPython(language: string | undefined): boolean {
   return language !== undefined && PYTHON.has(language.toLowerCase());
 }
 
-/** Built-ins that a beginner's lesson uses, shown apart from their own functions. */
-const BUILTINS = new Set([
-  "abs",
-  "all",
-  "any",
-  "bool",
-  "dict",
-  "enumerate",
-  "filter",
-  "float",
-  "format",
-  "input",
-  "int",
-  "isinstance",
-  "len",
-  "list",
-  "map",
-  "max",
-  "min",
-  "open",
-  "print",
-  "range",
-  "reversed",
-  "round",
-  "set",
-  "sorted",
-  "str",
-  "sum",
-  "tuple",
-  "type",
-  "zip",
-]);
-
-const highlighter = tagHighlighter([
-  {
-    tag: [
-      tags.keyword,
-      tags.controlKeyword,
-      tags.definitionKeyword,
-      tags.moduleKeyword,
-      tags.operatorKeyword,
-    ],
-    class: "keyword",
-  },
-  { tag: [tags.string, tags.special(tags.string)], class: "string" },
-  { tag: [tags.number, tags.bool, tags.null], class: "number" },
-  {
-    tag: [
-      tags.function(tags.variableName),
-      tags.function(tags.definition(tags.variableName)),
-      tags.function(tags.propertyName),
-    ],
-    class: "function",
-  },
-  { tag: [tags.comment, tags.lineComment], class: "comment" },
-]);
+const highlighter = tagHighlighter(PYTHON_TAG_RULES.map(({ tag, kind }) => ({ tag, class: kind })));
 
 /** The longest block that is highlighted; a longer one stays plain text. */
 export const MAX_HIGHLIGHT = 10_000;
