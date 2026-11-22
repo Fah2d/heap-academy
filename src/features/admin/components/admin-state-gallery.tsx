@@ -114,6 +114,7 @@ export function AdminStateGallery() {
           saveChapter={refuse("unavailable")}
           deleteChapter={refuse("unavailable")}
           reorder={refuse("cannot_move")}
+          createLesson={refuse("unavailable")}
           refresh={stay}
         />
       </Example>
@@ -125,6 +126,7 @@ export function AdminStateGallery() {
           saveChapter={never}
           deleteChapter={never}
           reorder={never}
+          createLesson={never}
           refresh={stay}
         />
       </Example>
@@ -136,6 +138,7 @@ export function AdminStateGallery() {
           saveChapter={never}
           deleteChapter={never}
           reorder={never}
+          createLesson={never}
           refresh={stay}
         />
       </Example>
@@ -147,6 +150,7 @@ export function AdminStateGallery() {
           saveChapter={succeed({ id: COURSE_ID })}
           deleteChapter={succeed(null)}
           reorder={succeed(null)}
+          createLesson={never}
           refresh={stay}
         />
       </Example>

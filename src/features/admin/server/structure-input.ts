@@ -40,6 +40,12 @@ export const reorderInput = z.union([
     id,
     direction: z.enum(["up", "down"]),
   }),
+  z.strictObject({
+    kind: z.literal("lesson"),
+    chapterId: id,
+    id,
+    direction: z.enum(["up", "down"]),
+  }),
 ]);
 
 /** Every structure input is small: five outcomes of 140 characters is the largest. */

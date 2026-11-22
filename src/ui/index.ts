@@ -20,3 +20,5 @@ export { Progress, type ProgressProps } from "./primitives/progress";
 export { Status, type StatusProps, type StatusState } from "./primitives/status";
 export { Tabs, type TabItem, type TabsProps } from "./primitives/tabs";
 export { TextField, type TextFieldProps } from "./primitives/text-field";
+export { SelectField, type SelectFieldProps, type SelectOption } from "./primitives/select-field";
+export { TextArea, type TextAreaProps } from "./primitives/text-area";

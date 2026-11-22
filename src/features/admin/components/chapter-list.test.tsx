@@ -10,6 +10,9 @@ import { type ChapterActions, ChapterList } from "./chapter-list";
 // 7.3): chapters in order with their lessons and status, Move up and Move
 // down, rename, delete an empty chapter after a question, and add a chapter.
 
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
 afterEach(cleanup);
 
 const COURSE = "00000000-0000-4000-8000-000000000c01";
@@ -41,6 +44,7 @@ function actions(overrides: Partial<ChapterActions> = {}): ChapterActions {
     saveChapter: vi.fn(() => ok({ id: TWO })),
     deleteChapter: vi.fn(() => ok(null)),
     reorder: vi.fn(() => ok(null)),
+    createLesson: vi.fn(() => ok({ id: "00000000-0000-4000-8000-0000000000e1" })),
     ...overrides,
   };
 }
@@ -203,7 +207,7 @@ describe("ChapterList [FR-ADM-03]", () => {
     expect(dialog.textContent).toContain(words.deleteConfirmBody("Loops"));
     await user.click(within(dialog).getByRole("button", { name: words.deleteConfirm }));
     expect(all.deleteChapter).toHaveBeenCalledWith({ id: TWO });
-    expect(screen.getByRole("status").textContent).toBe(words.chapterDeleted);
+    expect(screen.getByText(words.chapterDeleted).getAttribute("role")).toBe("status");
   });
 
   it("moves a chapter and puts focus back on its button in the new order", async () => {

@@ -165,3 +165,94 @@ export const courseEditor = {
   chapterDeleted: "Chapter deleted.",
   chapterLessonsLabel: (title: string) => `Lessons in ${title}`,
 } as const;
+
+/** The lesson editor (docs/spec/03-experience.md section 7.4). */
+export const lessonEditor = {
+  metaTitle: "Edit lesson",
+  editTitle: (title: string) => `Lesson: ${title}`,
+  loadFailed: "This lesson could not be loaded. Reload the page to try again.",
+  backToCourse: (course: string) => `Back to ${course}`,
+  sectionsLabel: "Sections of this lesson",
+  statusNow: { draft: "Draft", published: "Published", archived: "Archived" },
+  statusLabel: "Status",
+  unsaved: "Unsaved changes",
+  allSaved: "All changes saved",
+  save: "Save lesson",
+  saving: "Saving lesson",
+  saved: "Lesson saved.",
+  unsavedWarning: "You have unsaved changes to this lesson. Leave without saving them?",
+  detailsHeading: "Details",
+  titleLabel: "Title",
+  titleHint: "1 to 60 characters.",
+  slugLabel: "Address",
+  slugHint:
+    "Lowercase letters, digits and hyphens, such as ask-then-answer. Unique in this course.",
+  chapterLabel: "Chapter",
+  chapterHint: "Moving the lesson to another chapter puts it last there.",
+  xpLabel: "XP",
+  xpHint: "A whole number from 5 to 50. XP already earned does not change.",
+  instructionsHeading: "Instructions",
+  instructionsLabel: "Instructions in Markdown",
+  instructionsHint:
+    "Headings of level two and three, emphasis, code, fenced code blocks, lists, tables, quotes and https links. Anything else is dropped. Needed before publishing.",
+  previewHeading: "Preview",
+  previewDescription: "Exactly as learners will see it.",
+  previewEmpty: "Nothing to preview yet. Write the instructions on the left.",
+  previewUpdating: "Updating the preview",
+  previewFailed: "The preview could not be updated. It shows the last version that worked.",
+  hintsLabel: "Hints",
+  hintsHint: "Up to five, each at most 300 characters. Learners reveal them one at a time.",
+  hintLabel: (n: number) => `Hint ${String(n)} (optional)`,
+  codeHeading: "Code",
+  starterLabel: "Starter",
+  starterHint: "What the learner sees first. It may be empty.",
+  solutionLabel: "Solution",
+  solutionHint: "Your correct answer. Only admins ever see it.",
+  wrongAnswersLabel: "Wrong answers",
+  wrongAnswersHint:
+    "Up to three programs a learner might write by mistake. Each must fail at least one test case before the lesson can be published.",
+  wrongAnswersEmpty: "No wrong answers yet.",
+  wrongAnswerLabel: (n: number) => `Wrong answer ${String(n)}: what the mistake is`,
+  wrongAnswerCodeLabel: (n: number) => `Wrong answer ${String(n)}: code`,
+  addWrongAnswer: "Add a wrong answer",
+  removeWrongAnswer: (n: number) => `Remove wrong answer ${String(n)}`,
+  removeShort: "Remove",
+  publishedCodeNote:
+    "This lesson is published. A change to its starter, solution or wrong answers is saved only together with a passing validation.",
+  testCount: (count: number) =>
+    count === 1 ? "This lesson has 1 test case." : `This lesson has ${String(count)} test cases.`,
+  fieldInvalid: {
+    title: "Enter a title of 1 to 60 characters.",
+    slug: "Use lowercase letters, digits and single hyphens, up to 60 characters.",
+    xp: "Enter a whole number from 5 to 50.",
+    instructionsMd: "Keep the instructions to 20,000 characters.",
+    hint: "Keep each hint to 300 characters.",
+    starterCode: "Keep the starter to 10,000 characters.",
+    solutionCode: "Keep the solution to 10,000 characters.",
+    wrongAnswerLabel: "Say what the mistake is, in 1 to 80 characters.",
+    wrongAnswerCode: "Keep each wrong answer to 10,000 characters.",
+  },
+  failure: {
+    slug_taken: "Another lesson in this course already uses this address. Choose a different one.",
+    stale:
+      "This lesson was changed somewhere else after you opened it, so your change was not saved. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
+    needs_validation:
+      "This lesson is published. A change to its starter, solution or wrong answers is saved only together with a passing validation, so nothing was saved.",
+    published_incomplete:
+      "A published lesson needs instructions and at least one test case, so nothing was saved.",
+    chapter_not_found: "That chapter is no longer in this course. Reload the page.",
+    slug_needed: "Write a title with letters or digits, so the lesson gets an address.",
+    not_found: "This lesson no longer exists. Go back to the course.",
+    unavailable: "The lesson could not be saved right now. Try again in a minute.",
+    invalid_input: "Some of the values were not accepted. Check them and save again.",
+  },
+} as const;
+
+/** Lessons in the course editor's chapters (docs/spec/03-experience.md section 7.3). */
+export const lessonRows = {
+  addLessonHeading: (chapter: string) => `Add a lesson to ${chapter}`,
+  newLessonTitleLabel: (chapter: string) => `Title of the new lesson in ${chapter}`,
+  addLesson: "Add lesson",
+  addingLesson: "Adding lesson",
+  lessonTitleInvalid: "Enter a lesson title of 1 to 60 characters.",
+} as const;

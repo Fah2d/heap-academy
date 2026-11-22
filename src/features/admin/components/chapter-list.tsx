@@ -12,13 +12,8 @@ import {
 import { trimmedText } from "@/domain/admin/course-details";
 import { courseEditor as words, structure } from "@/messages/admin";
 import { Button, Dialog, DialogActions, Notice, TextField } from "@/ui";
-import type {
-  ActionOutcome,
-  AdminAction,
-  EditorChapter,
-  MoveDirection,
-  ReorderInput,
-} from "../types";
+import type { ActionOutcome, AdminAction, EditorChapter, MoveDirection } from "../types";
+import { AddLessonForm, LessonRows, type LessonRowActions } from "./lesson-rows";
 import { focusMoved, MoveButtons, settle, structureFailureText } from "./structure-controls";
 
 // The Structure of a course (docs/spec/03-experience.md section 7.3,
@@ -33,10 +28,9 @@ export type SaveChapterInput =
   | { courseId: string; title: string; summary: string }
   | { courseId: string; id: string; loadedAt: string; title: string; summary: string };
 
-export type ChapterActions = {
+export type ChapterActions = LessonRowActions & {
   saveChapter: AdminAction<SaveChapterInput, { id: string }>;
   deleteChapter: AdminAction<{ id: string }, null>;
-  reorder: AdminAction<ReorderInput, null>;
 };
 
 export type ChapterListProps = ChapterActions & {
@@ -157,6 +151,7 @@ export function ChapterList({
   saveChapter,
   deleteChapter,
   reorder,
+  createLesson,
   refresh,
   onUnsavedChange,
 }: ChapterListProps) {
@@ -321,27 +316,12 @@ export function ChapterList({
                   </div>
                 </div>
               )}
-              {chapter.lessons.length === 0 ? (
-                <p className="text-sm text-text-muted">{words.chapterLessonsEmpty}</p>
-              ) : (
-                <ol
-                  aria-label={words.chapterLessonsLabel(chapter.title)}
-                  className="flex flex-col text-sm text-text"
-                >
-                  {chapter.lessons.map((lesson, lessonIndex) => (
-                    <li
-                      key={lesson.id}
-                      className="flex items-baseline gap-3 border-b border-border py-2"
-                    >
-                      <span className="font-mono text-text-muted">
-                        {words.lessonNumber(index + 1, lessonIndex + 1)}
-                      </span>
-                      <span className="flex-1">{lesson.title}</span>
-                      <span className="text-text-muted">{words.lessonStatus[lesson.status]}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
+              <LessonRows
+                chapter={chapter}
+                chapterNumber={index + 1}
+                reorder={reorder}
+                refresh={refresh}
+              />
               <div className="flex flex-wrap items-center gap-3">
                 <MoveButtons
                   name={chapter.title}
@@ -405,6 +385,12 @@ export function ChapterList({
                   </Dialog>
                 )}
               </div>
+              <AddLessonForm
+                courseId={courseId}
+                chapter={chapter}
+                createLesson={createLesson}
+                onUnsavedChange={reportUnsaved}
+              />
             </li>
           ))}
         </ol>

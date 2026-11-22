@@ -31,6 +31,7 @@ export function CourseEditor({
   saveChapter,
   deleteChapter,
   reorder,
+  createLesson,
   refresh,
 }: CourseEditorProps) {
   const router = useRouter();
@@ -78,6 +79,7 @@ export function CourseEditor({
         chapters={course.chapters}
         saveChapter={saveChapter}
         deleteChapter={deleteChapter}
+        createLesson={createLesson}
         reorder={reorder}
         refresh={reread}
         onUnsavedChange={onChaptersUnsaved}
