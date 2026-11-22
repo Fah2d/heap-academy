@@ -93,7 +93,7 @@ function CodeBlock({ block }: { block: Extract<DocumentBlock, { kind: "code_bloc
 
 type HeadingLevel = 2 | 3 | 4 | 5 | 6;
 
-function Blocks({ blocks, top }: { blocks: readonly DocumentBlock[]; top: 2 | 4 }) {
+function Blocks({ blocks, top }: { blocks: readonly DocumentBlock[]; top: 2 | 3 | 4 }) {
   return blocks.map((block, index) => {
     switch (block.kind) {
       case "paragraph":
@@ -210,7 +210,7 @@ export function LessonContent({
   topHeadingLevel = 2,
 }: {
   document: LessonDocument;
-  topHeadingLevel?: 2 | 4;
+  topHeadingLevel?: 2 | 3 | 4;
 }) {
   return (
     <div className="flex max-w-prose flex-col gap-4 text-prose text-text">

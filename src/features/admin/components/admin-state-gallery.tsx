@@ -8,6 +8,7 @@ import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
+import { LessonContent } from "@/features/workspace";
 import { LessonEditor } from "./lesson-editor";
 import { NewCourseForm } from "./new-course-form";
 import { SecondStepForm } from "./second-step-form";
@@ -87,6 +88,78 @@ const samplePreview: LessonDocument = {
   ],
 };
 
+const fullLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  wrongAnswers: [
+    { label: m.sampleWrongLabel, code: m.sampleWrongCode },
+    { label: m.sampleWrongLabel2, code: m.sampleWrongCode2 },
+    { label: m.sampleWrongLabel3, code: m.sampleWrongCode3 },
+  ],
+};
+
+/** A starter over the 10,000-character limit, so Save names the field. */
+const tooLongLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  starterCode: m.sampleStarter.repeat(300),
+};
+
+const codeText = [
+  m.contentCodeName,
+  m.contentCodeAssign,
+  m.contentCodeInput,
+  m.contentCodeOpen,
+  m.contentCodePrompt,
+  m.contentCodeClose,
+  m.contentCodeComment,
+].join("");
+
+/** Every construct a lesson's instructions may hold, as the server renders it. */
+const learnerContent: LessonDocument = {
+  blocks: [
+    { kind: "heading", level: 2, children: [{ kind: "text", text: m.contentHeading }] },
+    { kind: "paragraph", children: [{ kind: "text", text: m.contentText }] },
+    {
+      kind: "code_block",
+      language: "python",
+      python: true,
+      text: codeText,
+      runs: [
+        { text: m.contentCodeName },
+        { text: m.contentCodeAssign },
+        { text: m.contentCodeInput, kind: "builtin" },
+        { text: m.contentCodeOpen },
+        { text: m.contentCodePrompt, kind: "string" },
+        { text: m.contentCodeClose },
+        { text: m.contentCodeComment, kind: "comment" },
+      ],
+    },
+    {
+      kind: "table",
+      align: ["start", "start"],
+      head: [[{ kind: "text", text: m.tableFunction }], [{ kind: "text", text: m.tableReturns }]],
+      rows: [
+        [[{ kind: "code", text: m.tableInput }], [{ kind: "text", text: m.tableInputReturns }]],
+        [[{ kind: "code", text: m.tableLen }], [{ kind: "text", text: m.tableLenReturns }]],
+      ],
+    },
+    {
+      kind: "quote",
+      children: [{ kind: "paragraph", children: [{ kind: "text", text: m.contentQuote }] }],
+    },
+    {
+      kind: "paragraph",
+      children: [
+        { kind: "text", text: m.contentLinkBefore },
+        {
+          kind: "link",
+          href: "https://docs.python.org/3/library/functions.html#input",
+          children: [{ kind: "text", text: m.contentLink }],
+        },
+      ],
+    },
+  ],
+};
+
 const refusingCourse: EditorCourse = {
   id: COURSE_ID,
   slug: "sample-course",
@@ -103,6 +176,7 @@ const refusingCourse: EditorCourse = {
       loadedAt: "2026-11-21T08:00:00.000000+00:00",
       lessons: [
         { id: "5eed0000-0000-4000-8000-000000000201", title: m.sampleLesson, status: "draft" },
+        { id: "5eed0000-0000-4000-8000-000000000202", title: m.secondLesson, status: "draft" },
       ],
     },
     {
@@ -255,6 +329,38 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           save={never}
           renderPreview={never}
         />
+      </Example>
+      <Example id="gallery-lesson-full" title={m.lessonFull}>
+        <LessonEditor
+          lesson={fullLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("unavailable")}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-taken" title={m.lessonTaken}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("slug_taken")}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-too-long" title={m.lessonTooLong}>
+        <LessonEditor
+          lesson={tooLongLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-content" title={m.lessonContent}>
+        <div className="rounded-panel border border-border bg-surface p-4">
+          <LessonContent document={learnerContent} topHeadingLevel={3} />
+        </div>
       </Example>
       <Example id="gallery-lesson-empty" title={m.lessonEmpty}>
         <LessonEditor
