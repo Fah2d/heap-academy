@@ -1,6 +1,15 @@
 "use client";
 
-import { type FormEvent, useEffect, useId, useRef, useState, useTransition } from "react";
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { trimmedText } from "@/domain/admin/course-details";
 import { courseEditor as words, structure } from "@/messages/admin";
 import { Button, Dialog, DialogActions, Notice, TextField } from "@/ui";
 import type {
@@ -16,9 +25,13 @@ import { focusMoved, MoveButtons, settle, structureFailureText } from "./structu
 // FR-ADM-03): its chapters in order, each with its lessons in order and
 // their status; Move up and Move down; rename; delete an empty chapter; and
 // add a chapter at the end. Each change is saved at once, and the list is
-// read again from the database.
+// read again from the database. A rename names the version it loaded and is
+// refused when the chapter is newer (FR-ADM-10). Typed text that is not
+// saved yet is reported to the editor, which asks before leaving.
 
-export type SaveChapterInput = { courseId: string; id?: string; title: string; summary: string };
+export type SaveChapterInput =
+  | { courseId: string; title: string; summary: string }
+  | { courseId: string; id: string; loadedAt: string; title: string; summary: string };
 
 export type ChapterActions = {
   saveChapter: AdminAction<SaveChapterInput, { id: string }>;
@@ -31,39 +44,65 @@ export type ChapterListProps = ChapterActions & {
   chapters: EditorChapter[];
   /** Reads the course again after a change. */
   refresh: () => void;
+  /** Whether a chapter form holds text that is not saved. */
+  onUnsavedChange?: (unsaved: boolean) => void;
 };
 
-const MAX_TITLE = 60;
-const MAX_SUMMARY = 140;
-const titleOk = (title: string) => title.trim().length >= 1 && title.trim().length <= MAX_TITLE;
-const summaryOk = (summary: string) => summary.trim().length <= MAX_SUMMARY;
+/** The limits of docs/spec/04-content-system.md section 1.2, as the server checks them. */
+const TITLE = trimmedText(1, 60);
+const SUMMARY = trimmedText(0, 140);
+const within = (text: string, limit: typeof TITLE) => limit.safeParse(text).success;
 
 type ChapterFormProps = {
   initial: { title: string; summary: string };
+  titleLabel: string;
+  summaryLabel: string;
   submitLabel: string;
   pendingLabel: string;
   pending: boolean;
+  /** Focus the title field when the form appears (a rename). */
+  focusOnOpen?: boolean;
   onSubmit: (values: { title: string; summary: string }) => Promise<boolean>;
   onCancel?: () => void;
+  /** This form's name in the reports of unsaved text. */
+  formKey: string;
+  onUnsavedChange: (formKey: string, unsaved: boolean) => void;
 };
 
 /** The title and summary of a chapter, for a new chapter and for a rename. */
 function ChapterForm({
   initial,
+  titleLabel,
+  summaryLabel,
   submitLabel,
   pendingLabel,
   pending,
+  focusOnOpen = false,
   onSubmit,
   onCancel,
+  formKey,
+  onUnsavedChange,
 }: ChapterFormProps) {
   const [title, setTitle] = useState(initial.title);
   const [summary, setSummary] = useState(initial.summary);
   const [invalid, setInvalid] = useState<"title" | "summary" | null>(null);
   const form = useRef<HTMLFormElement>(null);
+  const titleField = () => form.current?.querySelector<HTMLInputElement>("input");
+
+  const unsaved = title !== initial.title || summary !== initial.summary;
+  useEffect(() => {
+    onUnsavedChange(formKey, unsaved);
+  }, [formKey, unsaved, onUnsavedChange]);
+  // A form that goes away holds nothing.
+  useEffect(() => () => onUnsavedChange(formKey, false), [formKey, onUnsavedChange]);
+
+  useEffect(() => {
+    if (focusOnOpen) titleField()?.focus();
+  }, [focusOnOpen]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const wrong = !titleOk(title) ? "title" : !summaryOk(summary) ? "summary" : null;
+    const wrong = !within(title, TITLE) ? "title" : !within(summary, SUMMARY) ? "summary" : null;
     setInvalid(wrong);
     if (wrong !== null) {
       requestAnimationFrame(() =>
@@ -73,24 +112,25 @@ function ChapterForm({
     }
     void onSubmit({ title: title.trim(), summary: summary.trim() }).then((done) => {
       if (done && onCancel === undefined) {
-        // The add form empties for the next chapter.
+        // The add form empties for the next chapter, and its title takes focus.
         setTitle("");
         setSummary("");
+        titleField()?.focus();
       }
     });
   }
 
   return (
-    <form ref={form} noValidate onSubmit={submit} className="flex max-w-prose flex-col gap-4">
+    <form ref={form} noValidate onSubmit={submit} className="flex flex-col gap-4">
       <TextField
-        label={words.chapterTitleLabel}
+        label={titleLabel}
         value={title}
         onChange={setTitle}
         isInvalid={invalid === "title"}
         errorMessage={words.chapterTitleInvalid}
       />
       <TextField
-        label={words.chapterSummaryLabel}
+        label={summaryLabel}
         description={words.summaryHint}
         value={summary}
         onChange={setSummary}
@@ -98,11 +138,11 @@ function ChapterForm({
         errorMessage={words.fieldInvalid.summary}
       />
       <div className="flex gap-3">
-        <Button type="submit" variant="secondary" isDisabled={pending}>
+        <Button type="submit" variant="secondary" isPending={pending}>
           {pending ? pendingLabel : submitLabel}
         </Button>
         {onCancel !== undefined && (
-          <Button variant="secondary" onPress={onCancel} isDisabled={pending}>
+          <Button variant="secondary" onPress={onCancel} isPending={pending}>
             {words.cancel}
           </Button>
         )}
@@ -118,8 +158,10 @@ export function ChapterList({
   deleteChapter,
   reorder,
   refresh,
+  onUnsavedChange,
 }: ChapterListProps) {
   const [failure, setFailure] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
   const [done, setDone] = useState<string>("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -128,12 +170,43 @@ export function ChapterList({
   const courseChaptersId = useId();
   const courseAddChapterId = useId();
   const lastMove = useRef<{ id: string; direction: MoveDirection } | null>(null);
+  // After a rename closes, focus goes back to that chapter's Rename button.
+  const renameClosed = useRef<string | null>(null);
+  const [unsavedForms, setUnsavedForms] = useState<ReadonlySet<string>>(new Set());
+  // Stable, so a form's effect runs only when its own text changes.
+  const reportUnsaved = useCallback((formKey: string, unsaved: boolean) => {
+    setUnsavedForms((current) => {
+      if (current.has(formKey) === unsaved) return current;
+      const next = new Set(current);
+      if (unsaved) next.add(formKey);
+      else next.delete(formKey);
+      return next;
+    });
+  }, []);
+  const anyUnsaved = unsavedForms.size > 0;
+  useEffect(() => {
+    onUnsavedChange?.(anyUnsaved);
+  }, [anyUnsaved, onUnsavedChange]);
 
   useEffect(() => {
-    if (lastMove.current === null) return;
-    focusMoved(list.current, lastMove.current.id, lastMove.current.direction);
-    lastMove.current = null;
+    if (lastMove.current !== null) {
+      focusMoved(list.current, lastMove.current.id, lastMove.current.direction);
+      lastMove.current = null;
+    }
   }, [chapters]);
+
+  useEffect(() => {
+    if (renaming !== null || renameClosed.current === null) return;
+    list.current
+      ?.querySelector<HTMLButtonElement>(`[data-rename="${renameClosed.current}"]`)
+      ?.focus();
+    renameClosed.current = null;
+  }, [renaming, chapters]);
+
+  function closeRename(id: string) {
+    renameClosed.current = id;
+    setRenaming(null);
+  }
 
   /** Runs one change and reads the course again; true when it was saved. */
   function run<Value>(
@@ -142,11 +215,13 @@ export function ChapterList({
     beforeRefresh?: () => void,
   ) {
     setFailure(null);
+    setStale(false);
     setDone("");
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
         const outcome = await settle(change);
         if (!outcome.ok) {
+          setStale(outcome.error === "stale");
           setFailure(structureFailureText(outcome.error));
           resolve(false);
           return;
@@ -171,7 +246,7 @@ export function ChapterList({
 
   const last = chapters.length - 1;
   return (
-    <section aria-labelledby={courseChaptersId} className="flex flex-col gap-5">
+    <section aria-labelledby={courseChaptersId} className="flex max-w-prose flex-col gap-5">
       <h2
         ref={heading}
         id={courseChaptersId}
@@ -181,9 +256,18 @@ export function ChapterList({
         {words.chaptersHeading}
       </h2>
       {failure !== null && (
-        <Notice kind="error" kindLabel={structure.errorLabel} announce="assertive">
-          {failure}
-        </Notice>
+        <div className="flex flex-col gap-3">
+          <Notice kind="error" kindLabel={structure.errorLabel} announce="assertive">
+            {failure}
+          </Notice>
+          {stale && (
+            <div>
+              <Button variant="secondary" onPress={() => window.location.reload()}>
+                {structure.reload}
+              </Button>
+            </div>
+          )}
+        </div>
       )}
       <p role="status" className="sr-only">
         {done}
@@ -200,25 +284,41 @@ export function ChapterList({
               {renaming === chapter.id ? (
                 <ChapterForm
                   initial={chapter}
+                  titleLabel={words.renameTitleLabel(chapter.title)}
+                  summaryLabel={words.renameSummaryLabel(chapter.title)}
                   submitLabel={words.saveChapter}
                   pendingLabel={words.savingChapter}
                   pending={pending}
+                  focusOnOpen
+                  formKey={`rename:${chapter.id}`}
+                  onUnsavedChange={reportUnsaved}
                   onSubmit={async (values) => {
                     const saved = await run(
-                      () => saveChapter({ courseId, id: chapter.id, ...values }),
+                      () =>
+                        saveChapter({
+                          courseId,
+                          id: chapter.id,
+                          loadedAt: chapter.loadedAt,
+                          ...values,
+                        }),
                       words.chapterSaved,
                     );
-                    if (saved) setRenaming(null);
+                    if (saved) closeRename(chapter.id);
                     return saved;
                   }}
-                  onCancel={() => setRenaming(null)}
+                  onCancel={() => closeRename(chapter.id)}
                 />
               ) : (
-                <div className="flex flex-col gap-1">
-                  <h3 className="text-base font-semibold text-text">{chapter.title}</h3>
-                  {chapter.summary !== "" && (
-                    <p className="text-sm text-text-muted">{chapter.summary}</p>
-                  )}
+                <div className="flex items-baseline gap-3">
+                  <span className="font-mono text-sm text-text-muted">
+                    {words.chapterNumber(index + 1)}
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    <h3 className="text-base font-semibold text-text">{chapter.title}</h3>
+                    {chapter.summary !== "" && (
+                      <p className="text-sm text-text-muted">{chapter.summary}</p>
+                    )}
+                  </div>
                 </div>
               )}
               {chapter.lessons.length === 0 ? (
@@ -228,12 +328,15 @@ export function ChapterList({
                   aria-label={words.chapterLessonsLabel(chapter.title)}
                   className="flex flex-col text-sm text-text"
                 >
-                  {chapter.lessons.map((lesson) => (
+                  {chapter.lessons.map((lesson, lessonIndex) => (
                     <li
                       key={lesson.id}
-                      className="flex justify-between gap-4 border-b border-border py-2"
+                      className="flex items-baseline gap-3 border-b border-border py-2"
                     >
-                      <span>{lesson.title}</span>
+                      <span className="font-mono text-text-muted">
+                        {words.lessonNumber(index + 1, lessonIndex + 1)}
+                      </span>
+                      <span className="flex-1">{lesson.title}</span>
                       <span className="text-text-muted">{words.lessonStatus[lesson.status]}</span>
                     </li>
                   ))}
@@ -245,14 +348,15 @@ export function ChapterList({
                   itemId={chapter.id}
                   isFirst={index === 0}
                   isLast={index === last}
-                  isDisabled={pending}
+                  isPending={pending}
                   onMove={(direction) => onMove(chapter.id, direction)}
                 />
                 {renaming !== chapter.id && (
                   <Button
                     variant="secondary"
                     aria-label={words.renameChapter(chapter.title)}
-                    isDisabled={pending}
+                    data-rename={chapter.id}
+                    isPending={pending}
                     onPress={() => setRenaming(chapter.id)}
                   >
                     {words.rename}
@@ -265,7 +369,7 @@ export function ChapterList({
                       <Button
                         variant="destructive"
                         aria-label={words.deleteChapter(chapter.title)}
-                        isDisabled={pending}
+                        isPending={pending}
                       >
                         {words.deleteShort}
                       </Button>
@@ -311,9 +415,13 @@ export function ChapterList({
         </h3>
         <ChapterForm
           initial={{ title: "", summary: "" }}
+          titleLabel={words.newChapterTitleLabel}
+          summaryLabel={words.newChapterSummaryLabel}
           submitLabel={words.addChapter}
           pendingLabel={words.addingChapter}
           pending={pending}
+          formKey="add"
+          onUnsavedChange={reportUnsaved}
           onSubmit={(values) => run(() => saveChapter({ courseId, ...values }), words.chapterAdded)}
         />
       </section>

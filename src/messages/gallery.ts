@@ -100,6 +100,11 @@ export const adminGallery = {
     "Course editor whose changes are refused: Publish (no published lesson), Save details (changed somewhere else), and the order (changed meanwhile)",
   editorEmpty: "Course editor of a draft course with no chapter",
   newCourse: "New course form, whose create never answers",
+  newCourseTaken: "New course form whose address is taken",
+  editorPublished:
+    "Course editor of a published course whose saves never answer: the saving and changing states, rename, and the questions before archiving and deleting",
+  editorSaving: "Course editor whose saves succeed",
+  editorFailed: "Course editor whose course could not load",
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",

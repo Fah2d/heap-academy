@@ -34,7 +34,8 @@ export type MoveButtonsProps = {
   itemId: string;
   isFirst: boolean;
   isLast: boolean;
-  isDisabled: boolean;
+  /** A change is being saved: the buttons keep focus and ignore presses. */
+  isPending: boolean;
   onMove: (direction: MoveDirection) => void;
 };
 
@@ -43,7 +44,7 @@ export function MoveButtons({
   itemId,
   isFirst,
   isLast,
-  isDisabled,
+  isPending,
   onMove,
 }: MoveButtonsProps) {
   return (
@@ -52,7 +53,8 @@ export function MoveButtons({
         variant="secondary"
         aria-label={words.moveUp(name)}
         data-move={`${itemId}:up`}
-        isDisabled={isDisabled || isFirst}
+        isDisabled={isFirst}
+        isPending={isPending}
         onPress={() => onMove("up")}
       >
         {words.moveUpShort}
@@ -61,7 +63,8 @@ export function MoveButtons({
         variant="secondary"
         aria-label={words.moveDown(name)}
         data-move={`${itemId}:down`}
-        isDisabled={isDisabled || isLast}
+        isDisabled={isLast}
+        isPending={isPending}
         onPress={() => onMove("down")}
       >
         {words.moveDownShort}

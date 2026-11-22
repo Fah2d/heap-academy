@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { ADMIN_PATHS } from "@/domain/admin/gate";
 import { createSessionClient } from "@/infrastructure/db/session-client";
-import { courseEditor as words, structure } from "@/messages/admin";
-import { Link, Notice } from "@/ui";
+import { courseEditor as words } from "@/messages/admin";
+import { Link } from "@/ui";
 import { courseForEditor } from "../server/courses";
 import { requireAdminStage } from "../server/gate";
 import {
@@ -14,6 +14,7 @@ import {
   setCourseStatus,
 } from "../server/structure-actions";
 import { CourseEditor } from "./course-editor";
+import { CourseEditorFailed } from "./course-editor-failed";
 
 /**
  * `/admin/courses/[id]` (docs/spec/03-experience.md section 7.3): one course,
@@ -48,14 +49,7 @@ export async function CourseEditorPage({ params }: { params: Promise<{ id: strin
           />
         </>
       ) : (
-        <>
-          <h1 id="admin-course" className="text-xl font-semibold text-text">
-            {words.metaTitle}
-          </h1>
-          <Notice kind="error" kindLabel={structure.errorLabel}>
-            {words.loadFailed}
-          </Notice>
-        </>
+        <CourseEditorFailed headingId="admin-course" />
       )}
     </section>
   );

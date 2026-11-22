@@ -22,12 +22,15 @@ vi.mock("next/cache", () => ({
   updateTag: (tag: string) => state.updated.push(tag),
 }));
 vi.mock("@/infrastructure/db/public-client", () => ({ createPublicClient: () => state.db }));
+const logged = vi.hoisted(() => [] as unknown[]);
+vi.mock("@/infrastructure/logging/logger", () => ({ log: (entry: unknown) => logged.push(entry) }));
 
 const content = await import("./index");
 
 beforeEach(() => {
   state.db = fakeDb();
   state.updated.length = 0;
+  logged.length = 0;
 });
 
 describe("published content [FR-ADM-11]", () => {
@@ -109,7 +112,30 @@ describe("published content [FR-ADM-11]", () => {
     expect(await content.publishedCourses()).toEqual({ ok: false });
     state.db.answer({ data: [{ slug: 1 }] });
     expect(await content.publishedCourses()).toEqual({ ok: false });
+    // Each failure is logged, with no detail a visitor chose.
+    expect(logged).toEqual([
+      {
+        level: "error",
+        requestId: "none",
+        route: "GET /content/published-courses",
+        outcome: "content-read-failed",
+      },
+      {
+        level: "error",
+        requestId: "none",
+        route: "GET /content/published-courses",
+        outcome: "content-read-failed",
+      },
+    ]);
   });
+
+  it.each(["", "Not-A-Slug", "a/../b", "x".repeat(61), "ada@example.com"])(
+    "[T-25] answers the address %j with no query, as no course",
+    async (slug) => {
+      expect(await content.publishedCourse(slug)).toEqual({ ok: true, value: null });
+      expect(state.db.calls).toHaveLength(0);
+    },
+  );
 
   it("expires the content tag when an admin changes content", () => {
     content.contentChanged();

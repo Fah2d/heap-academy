@@ -54,6 +54,14 @@ export function logRoute(method: string, pathname: string): LogRoute {
   return `${verb} /${shown.join("/")}` as LogRoute;
 }
 
+/**
+ * The `route` field for a read of public content, which runs inside the data
+ * cache with no request: `GET /content/published-course`.
+ */
+export function contentLogRoute(query: "published-courses" | "published-course"): LogRoute {
+  return `GET /content/${query}` as LogRoute;
+}
+
 const ACTION_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 /**

@@ -55,7 +55,7 @@ export function CourseList({ result, reorder, refresh }: CourseListProps) {
 
   const newCourse = (
     <div>
-      <Link href={ADMIN_NEW_COURSE_PATH} variant="standalone">
+      <Link href={ADMIN_NEW_COURSE_PATH} variant="action">
         {words.newCourse}
       </Link>
     </div>
@@ -127,7 +127,7 @@ export function CourseList({ result, reorder, refresh }: CourseListProps) {
                   itemId={course.id}
                   isFirst={index === 0}
                   isLast={index === last}
-                  isDisabled={pending}
+                  isPending={pending}
                   onMove={(direction) => onMove(course.id, direction)}
                 />
               </td>

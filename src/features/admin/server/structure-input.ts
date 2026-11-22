@@ -22,12 +22,13 @@ export const setCourseStatusInput = z.strictObject({
   status: z.enum(["draft", "published", "archived"]),
 });
 
-export const saveChapterInput = z.strictObject({
-  courseId: id,
-  id: id.optional(),
-  title: text(1, 60),
-  summary: text(0, 140),
-});
+const chapterText = { title: text(1, 60), summary: text(0, 140) };
+
+/** A new chapter, or a rename that names the version it loaded (FR-ADM-10). */
+export const saveChapterInput = z.union([
+  z.strictObject({ courseId: id, ...chapterText }),
+  z.strictObject({ courseId: id, id, loadedAt, ...chapterText }),
+]);
 
 export const deleteChapterInput = z.strictObject({ id });
 

@@ -75,6 +75,79 @@ test("[FR-ADM-03] [FR-ADM-10] the course editor's refusals and empty states, at 
   await saveScreen(page, "admin-course-states", 1280, { workPackage: "WP-4.1" });
 });
 
+test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, question and failure states, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.1" });
+
+  // A published course: its own moves, and each question before it acts.
+  const published = page.getByRole("region", { name: adminGallery.editorPublished });
+  await expect(
+    published.getByText(courseEditor.statusNow(courseEditor.statusName.published)),
+  ).toBeVisible();
+  await expect(
+    published.getByRole("button", { name: courseEditor.statusAction.draft }),
+  ).toBeVisible();
+  await published.getByRole("button", { name: courseEditor.statusAction.archived }).click();
+  const archive = page.getByRole("dialog", { name: courseEditor.confirmStatusTitle.archived });
+  await expect(archive).toContainText(courseEditor.confirmStatusBody.archived);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-course-archive-question");
+  await archive.getByRole("button", { name: courseEditor.cancel }).click();
+  await published.getByRole("button", { name: courseEditor.statusAction.draft }).click();
+  const draft = page.getByRole("dialog", { name: courseEditor.confirmStatusTitle.draft });
+  await expect(draft).toContainText(courseEditor.confirmStatusBody.draft);
+  await shot("admin-course-draft-question");
+  await draft.getByRole("button", { name: courseEditor.cancel }).click();
+  await published
+    .getByRole("button", { name: courseEditor.deleteChapter(adminGallery.secondChapter) })
+    .click();
+  const remove = page.getByRole("dialog", { name: courseEditor.deleteConfirmTitle });
+  await expect(remove).toContainText(courseEditor.deleteConfirmBody(adminGallery.secondChapter));
+  await shot("admin-chapter-delete-question");
+  await remove.getByRole("button", { name: courseEditor.cancel }).click();
+
+  // Rename in place takes focus; the saves never answer, so the pending states stay.
+  await published
+    .getByRole("button", { name: courseEditor.renameChapter(adminGallery.sampleChapter) })
+    .click();
+  await expect(
+    published.getByLabel(courseEditor.renameTitleLabel(adminGallery.sampleChapter)),
+  ).toBeFocused();
+  await published.getByRole("button", { name: courseEditor.saveChapter }).click();
+  await expect(published.getByRole("button", { name: courseEditor.savingChapter })).toBeFocused();
+  await published.getByLabel(courseEditor.summaryLabel).fill("Changed.");
+  await published.getByRole("button", { name: courseEditor.save }).click();
+  await expect(published.getByRole("button", { name: courseEditor.saving })).toBeFocused();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-course-editor-pending");
+
+  // Saves that succeed: the saved line, and focus on the new status.
+  const saving = page.getByRole("region", { name: adminGallery.editorSaving });
+  await saving.getByLabel(courseEditor.summaryLabel).fill("Saved here.");
+  await saving.getByRole("button", { name: courseEditor.save }).click();
+  await expect(saving.getByRole("status").filter({ hasText: courseEditor.saved })).toBeVisible();
+  await saving.getByRole("button", { name: courseEditor.statusAction.published }).click();
+  await expect(
+    saving.getByText(courseEditor.statusNow(courseEditor.statusName.published)),
+  ).toBeFocused();
+  await shot("admin-course-editor-saved");
+
+  const failed = page.getByRole("region", { name: adminGallery.editorFailed });
+  await expect(failed.getByText(courseEditor.loadFailed)).toBeVisible();
+  const taken = page.getByRole("region", { name: adminGallery.newCourseTaken });
+  await taken.getByLabel(courseEditor.titleLabel).fill("Taken");
+  await taken.getByLabel(courseEditor.slugLabel).fill("sample-course");
+  await taken.getByLabel(courseEditor.summaryLabel).fill("A course whose address is taken.");
+  await taken.getByRole("button", { name: courseEditor.create }).click();
+  await expect(taken.getByLabel(courseEditor.slugLabel)).toBeFocused();
+  await expect(taken.getByText(structure.failure.slug_taken)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-course-failures");
+});
+
 for (const width of [375, 800]) {
   test(`[FR-ADM-01] below 1024 px the admin frame asks for a wider window (${width} px)`, async ({
     page,

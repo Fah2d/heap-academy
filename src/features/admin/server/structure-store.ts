@@ -26,10 +26,18 @@ export type StructureFailure =
 
 type DbError = { code?: string; message?: string } | null;
 
-export function structureFailure(error: DbError): StructureFailure {
+/**
+ * The outcome for a database error. A broken reference (23503) means a
+ * chapter that still has lessons when deleting, and a course that is gone
+ * when adding a chapter to it.
+ */
+export function structureFailure(
+  error: DbError,
+  reference: "chapter_has_lessons" | "not_found" = "chapter_has_lessons",
+): StructureFailure {
   if (error === null) return "unavailable";
   if (error.code === "23505") return "slug_taken";
-  if (error.code === "23503") return "chapter_has_lessons";
+  if (error.code === "23503") return reference;
   if (error.code === "P0001" && error.message === "course_has_no_published_lesson") {
     return "no_published_lesson";
   }
@@ -114,21 +122,33 @@ export async function setCourseStatus(
   return updateCourse(db, id, loadedAt, { status });
 }
 
+export type ChapterSave =
+  | { courseId: string; title: string; summary: string }
+  | { courseId: string; id: string; loadedAt: string; title: string; summary: string };
+
 export async function saveChapter(
   db: SessionClient,
-  chapter: { courseId: string; id?: string | undefined; title: string; summary: string },
+  chapter: ChapterSave,
 ): Promise<Outcome<{ id: string }>> {
-  if (chapter.id !== undefined) {
+  if ("id" in chapter) {
+    // Written only if the chapter is still the version the editor loaded.
     const { data, error } = await db
       .from("chapters")
       .update({ title: chapter.title, summary: chapter.summary })
       .eq("id", chapter.id)
       .eq("course_id", chapter.courseId)
+      .eq("updated_at", chapter.loadedAt)
       .select("id")
       .maybeSingle();
     if (error !== null) return { ok: false, error: structureFailure(error) };
-    if (typeof data?.id !== "string") return { ok: false, error: "not_found" };
-    return { ok: true, value: { id: data.id } };
+    if (typeof data?.id === "string") return { ok: true, value: { id: data.id } };
+    // No row: newer than the editor's copy, or gone.
+    const { data: exists } = await db
+      .from("chapters")
+      .select("id")
+      .eq("id", chapter.id)
+      .maybeSingle();
+    return { ok: false, error: exists === null ? "not_found" : "stale" };
   }
   const { data: last } = await db
     .from("chapters")
@@ -149,7 +169,7 @@ export async function saveChapter(
     .select("id")
     .single();
   if (error !== null || typeof data?.id !== "string")
-    return { ok: false, error: structureFailure(error) };
+    return { ok: false, error: structureFailure(error, "not_found") };
   return { ok: true, value: { id: data.id } };
 }
 
@@ -169,7 +189,12 @@ export async function move(
   const query =
     target.kind === "course"
       ? db.from("courses").select("id").order("position").order("title")
-      : db.from("chapters").select("id").eq("course_id", target.courseId).order("position");
+      : db
+          .from("chapters")
+          .select("id")
+          .eq("course_id", target.courseId)
+          .order("position")
+          .order("id");
   const { data, error } = await query;
   if (error !== null || !Array.isArray(data)) return { ok: false, error: structureFailure(error) };
   const order = moveInOrder(

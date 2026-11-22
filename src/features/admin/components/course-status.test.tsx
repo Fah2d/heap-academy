@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { courseEditor as words, structure } from "@/messages/admin";
 import { CourseStatusPanel, type SetCourseStatus } from "./course-status";
@@ -30,6 +31,31 @@ describe("CourseStatusPanel [FR-ADM-03, FR-ADM-09]", () => {
     expect(screen.getByText(new RegExp(words.statusNow(words.statusName.draft)))).toBeTruthy();
     const buttons = screen.getAllByRole("button").map((button) => button.textContent);
     expect(buttons).toEqual([words.statusAction.published, words.statusAction.archived]);
+  });
+
+  it("moves focus to the new status once the pressed button is gone", async () => {
+    const user = userEvent.setup();
+    const setStatus = vi.fn<SetCourseStatus>(() =>
+      Promise.resolve({ ok: true, value: { updatedAt: NEWER } }),
+    );
+    function Panel() {
+      const [status, setNow] = useState<"draft" | "published" | "archived">("draft");
+      return (
+        <CourseStatusPanel
+          courseId={ID}
+          status={status}
+          loadedAt={LOADED}
+          setStatus={setStatus}
+          onChanged={(next) => setNow(next)}
+        />
+      );
+    }
+    render(<Panel />);
+    await user.click(screen.getByRole("button", { name: words.statusAction.published }));
+    expect(screen.queryByRole("button", { name: words.statusAction.published })).toBeNull();
+    expect(document.activeElement?.textContent).toContain(
+      words.statusNow(words.statusName.published),
+    );
   });
 
   it("offers an archived course only the way back to draft", () => {

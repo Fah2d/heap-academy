@@ -64,7 +64,21 @@ export const saveChapter = defineAction({
   access: "admin",
   input: saveChapterInput,
   maxBytes: MAX_STRUCTURE_BYTES,
-  run: (input, { services }) => changed(store.saveChapter(services.db, input)),
+  run: (input, { services }) =>
+    changed(
+      store.saveChapter(
+        services.db,
+        "id" in input
+          ? {
+              courseId: input.courseId,
+              id: input.id,
+              loadedAt: input.loadedAt,
+              title: input.title,
+              summary: input.summary,
+            }
+          : { courseId: input.courseId, title: input.title, summary: input.summary },
+      ),
+    ),
 });
 
 export const deleteChapter = defineAction({

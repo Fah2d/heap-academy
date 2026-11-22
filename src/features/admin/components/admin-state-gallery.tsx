@@ -5,6 +5,7 @@ import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
 import type { EditorCourse } from "../types";
 import { CourseEditor } from "./course-editor";
+import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
 import { NewCourseForm } from "./new-course-form";
 import { SecondStepForm } from "./second-step-form";
@@ -15,8 +16,9 @@ import { SetupFlow } from "./setup-flow";
 // gallery spec can check and photograph them (WP-2.3 design review 1).
 
 function Example({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  // As wide as the real pages, so a screenshot shows the layout they have.
   return (
-    <section aria-labelledby={id} className="flex max-w-prose flex-col gap-4">
+    <section aria-labelledby={id} className="flex max-w-page flex-col gap-4">
       <h2 id={id} className="text-lg font-semibold text-text">
         {title}
       </h2>
@@ -28,6 +30,11 @@ function Example({ id, title, children }: { id: string; title: string; children:
 const never = () => new Promise<never>(() => undefined);
 const refuse = (error: string) => () => Promise.resolve({ ok: false as const, error });
 const stay = () => undefined;
+const succeed =
+  <Value,>(value: Value) =>
+  () =>
+    Promise.resolve({ ok: true as const, value });
+const SAVED_AT = "2026-11-21T08:10:00.000000+00:00";
 
 const COURSE_ID = "5eed0000-0000-4000-8000-000000000001";
 
@@ -44,6 +51,7 @@ const refusingCourse: EditorCourse = {
       id: "5eed0000-0000-4000-8000-000000000101",
       title: m.sampleChapter,
       summary: "",
+      loadedAt: "2026-11-21T08:00:00.000000+00:00",
       lessons: [
         { id: "5eed0000-0000-4000-8000-000000000201", title: m.sampleLesson, status: "draft" },
       ],
@@ -52,6 +60,7 @@ const refusingCourse: EditorCourse = {
       id: "5eed0000-0000-4000-8000-000000000102",
       title: m.secondChapter,
       summary: "",
+      loadedAt: "2026-11-21T08:00:00.000000+00:00",
       lessons: [],
     },
   ],
@@ -119,8 +128,36 @@ export function AdminStateGallery() {
           refresh={stay}
         />
       </Example>
+      <Example id="gallery-editor-published" title={m.editorPublished}>
+        <CourseEditor
+          course={{ ...refusingCourse, status: "published" }}
+          saveCourse={never}
+          setStatus={never}
+          saveChapter={never}
+          deleteChapter={never}
+          reorder={never}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-saving" title={m.editorSaving}>
+        <CourseEditor
+          course={refusingCourse}
+          saveCourse={succeed({ id: COURSE_ID, updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
+          saveChapter={succeed({ id: COURSE_ID })}
+          deleteChapter={succeed(null)}
+          reorder={succeed(null)}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-failed" title={m.editorFailed}>
+        <CourseEditorFailed headingId="gallery-editor-failed-heading" />
+      </Example>
       <Example id="gallery-new-course" title={m.newCourse}>
         <NewCourseForm saveCourse={never} navigate={stay} />
+      </Example>
+      <Example id="gallery-new-course-taken" title={m.newCourseTaken}>
+        <NewCourseForm saveCourse={refuse("slug_taken")} navigate={stay} />
       </Example>
       <Example id="gallery-setup" title={m.setupFailed}>
         <SetupFlow

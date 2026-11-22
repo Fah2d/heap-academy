@@ -1,18 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import type { ContentStatus } from "@/domain/admin/structure";
 import { courseEditor as words } from "@/messages/admin";
 import type { EditorCourse } from "../types";
 import { type ChapterActions, ChapterList } from "./chapter-list";
 import { CourseDetailsForm, type SaveCourse } from "./course-details-form";
 import { CourseStatusPanel, type SetCourseStatus } from "./course-status";
+import { useLeaveWarning } from "./leave-warning";
 
 // The course editor (docs/spec/03-experience.md section 7.3): Details,
 // Status and Structure of one course. The details and the status share the
 // version the editor loaded, so either is refused once the course was
 // changed somewhere else (FR-ADM-10), and each successful save moves it on.
+// While the details or a chapter form hold unsaved text, leaving asks once.
 
 export type CourseEditorProps = ChapterActions & {
   course: EditorCourse;
@@ -37,6 +39,11 @@ export function CourseEditor({
   const [loadedAt, setLoadedAt] = useState(course.loadedAt);
   const [status, setStatusNow] = useState<ContentStatus>(course.status);
   const courseDetailsId = useId();
+  const [detailsUnsaved, setDetailsUnsaved] = useState(false);
+  const [chaptersUnsaved, setChaptersUnsaved] = useState(false);
+  useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
+  const onDetailsUnsaved = useCallback((unsaved: boolean) => setDetailsUnsaved(unsaved), []);
+  const onChaptersUnsaved = useCallback((unsaved: boolean) => setChaptersUnsaved(unsaved), []);
 
   return (
     <div className="flex flex-col gap-7">
@@ -48,6 +55,7 @@ export function CourseEditor({
           course={{ id: course.id, loadedAt }}
           initial={course}
           save={saveCourse}
+          onUnsavedChange={onDetailsUnsaved}
           onSaved={(updatedAt) => {
             setLoadedAt(updatedAt);
             reread();
@@ -72,6 +80,7 @@ export function CourseEditor({
         deleteChapter={deleteChapter}
         reorder={reorder}
         refresh={reread}
+        onUnsavedChange={onChaptersUnsaved}
       />
     </div>
   );
