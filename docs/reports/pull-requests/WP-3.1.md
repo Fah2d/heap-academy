@@ -1,4 +1,4 @@
-**Base: `main`.** #3 and #4 are merged, and `main` is merged into this branch (f617391). This is a **draft** until the browser tests run: no browser can start in the sandbox that built it. `pyodide@314.0.7` is now installed, `pnpm build` passes, and the worker core has run against real Pyodide under Node. See "Owner actions now due".
+**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run: no browser can start in the sandbox that built it. `pyodide@314.0.7` is now installed, `pnpm build` passes, and the worker core has run against real Pyodide under Node. See "Owner actions now due".
 
 ## What and why
 
@@ -41,27 +41,22 @@ The Python worker of architecture section 5: learner code runs in a module worke
 
 ## Up to date with main
 
-`main` at 037c4ad (#3 and #4) is merged in f617391. Four files conflicted:
+`main` at 0efe863 (#5, #6, #7 and #8 since the last merge) is merged in 5f72072. One file conflicted:
 
-- `next.config.ts`: `main`'s function form (`agentRules`, the `.dev.tsx` page extensions, the poll option), with this branch's `runtimeHeaders` added to `headers()`.
-- `playwright.config.ts`: one development server on port 3101, as the deviation below asks. It keeps `main`'s `environment` and this branch's 180 s start budget, and waits for `/dev/runtime`. The three engine projects ignore both the gallery and the runtime tests; the `gallery` project and the `runtime-*` projects run against port 3101.
-- `package.json`: `main`'s dependencies plus `pyodide`.
-- `pnpm-lock.yaml`: `main`'s lockfile plus this branch's pyodide entries (`pyodide`, `@types/emscripten`, `ws`), the same added lines as before. `pnpm install --frozen-lockfile` accepts it.
+- `playwright.config.ts`: `main`'s three `phone` projects (Pixel 7 at 412, 375 and 360 px against the development server on port 3101) are added beside this branch's `runtime-*` projects. The three engine projects ignore the gallery, the runtime tests and the phone tests (`developmentOnly`). Nothing else in the file changed.
 
-`pnpm verify` on f617391, exit 0:
+The earlier merge of `main` at 037c4ad (#3 and #4) is in f617391; it resolved `next.config.ts`, `playwright.config.ts`, `package.json` and `pnpm-lock.yaml`.
+
+`pnpm verify` on 5f72072, exit 0:
 
 ```
-$ prettier --check .
-All matched files use Prettier code style!
-$ eslint --max-warnings=0 .
-$ tsc --noEmit
-$ node scripts/check-attribution.mjs --branch && node scripts/check-attribution.mjs --files
-$ vitest run --coverage
- Test Files  32 passed (32)
-      Tests  788 passed (788)
+ Test Files  36 passed (36)
+      Tests  839 passed (839)
 ```
 
-Not run on the merge: `pnpm build` and the browser tests.
+`pnpm build` with CI's fake public values on 5f72072, exit 0. The runtime step printed `runtime: worker compiled`; the routes are `/_not-found`, `/api/csp-report` and `/api/health`, all dynamic. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+
+Not run on the merge: the browser tests (no browser can start in the sandbox). The commit hook's dependency check could not take pnpm's store lock in the sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed, and `node_modules` already held `pyodide@314.0.7`.
 
 ## How it was verified
 
@@ -360,10 +355,8 @@ On the development server, once #3's development-only page mechanism is merged:
 
 ## Opening this pull request
 
-`gh` cannot reach GitHub from the sandbox. From your terminal in the repository root:
+The draft pull request is #9. `gh` cannot reach GitHub from the sandbox. To update its description, from your terminal in the repository root on this branch:
 
 ```sh
-gh pr create --draft --base main --head wp/3.1-python-worker \
-  --title "feat(runtime): WP-3.1 the Python worker" \
-  --body-file docs/reports/pull-requests/WP-3.1.md
+gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md
 ```
