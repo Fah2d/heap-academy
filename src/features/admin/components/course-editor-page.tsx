@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { z } from "zod";
+import { z } from "@/domain/schema";
 import { ADMIN_PATHS } from "@/domain/admin/gate";
 import { createSessionClient } from "@/infrastructure/db/session-client";
 import { courseEditor as words } from "@/messages/admin";

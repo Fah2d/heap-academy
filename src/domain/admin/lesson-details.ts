@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../schema";
 import { SLUG_PATTERN, trimmedText } from "./course-details";
 
 // A lesson's draft as the owner writes it in the lesson editor
