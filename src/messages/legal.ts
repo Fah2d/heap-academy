@@ -3,10 +3,17 @@
 // section 7; the owner approves the words before they are published, because
 // they are his statement (section 8).
 
-/** A paragraph, or a list of short items. */
+/** A paragraph, a list of short items, or a sentence with one link in it. */
 export type LegalBlock =
   | { readonly kind: "paragraph"; readonly text: string }
-  | { readonly kind: "list"; readonly items: readonly string[] };
+  | { readonly kind: "list"; readonly items: readonly string[] }
+  | {
+      readonly kind: "link";
+      readonly before: string;
+      readonly label: string;
+      readonly href: string;
+      readonly after: string;
+    };
 
 export type LegalSection = {
   /** The section's id, for its heading's anchor. Lower case and hyphens. */
@@ -34,6 +41,10 @@ function list(...items: string[]): LegalBlock {
   return { kind: "list", items };
 }
 
+function link(before: string, label: string, href: string, after: string): LegalBlock {
+  return { kind: "link", before, label, href, after };
+}
+
 export const legal = {
   updatedLabel: "Last updated",
 } as const;
@@ -44,7 +55,7 @@ export const privacy: LegalDocument = {
     "What Heap Academy keeps about you, why, where, and for how long, and how to delete it.",
   updated: { iso: "2026-11-23", text: "23 November 2026" },
   intro:
-    "This page lists everything Heap Academy keeps about you, why we keep it, where it is kept, and for how long. We keep nothing that is not on this page.",
+    'This page lists what Heap Academy keeps about you, why we keep it, who holds it, and for how long. In this policy, "we" means Heap Academy.',
   sections: [
     {
       id: "guests",
@@ -66,8 +77,10 @@ export const privacy: LegalDocument = {
         list(
           "Your email address, so that you can sign in. Our sign-in provider keeps it.",
           "Your display name, which you see on your profile and can change.",
-          "Your time zone, which your browser tells us, so that a streak day starts and ends at your midnight.",
+          "Your time zone, which your browser tells us, so that a streak day starts and ends at midnight where you live.",
           "Each lesson you complete, with the code that passed its tests, so that your progress is the same on every device you use.",
+          "The time you last signed in, and the network address of each device where you are signed in. Our sign-in provider keeps these to protect your account.",
+          "If you sign in with Google, the profile that Google shares for sign-in: your email address, your name, and your profile picture. Our sign-in provider keeps it.",
         ),
         paragraph("We keep these until you delete your account."),
         paragraph(
@@ -77,11 +90,12 @@ export const privacy: LegalDocument = {
     },
     {
       id: "every-visitor",
-      heading: "What every visit leaves",
+      heading: "What we learn from every visit",
       blocks: [
         list(
-          "Page views are counted by our hosting provider without cookies. The count holds no email address, name, code, or text that you typed. The provider decides how long it keeps the count.",
+          "Our hosting provider counts page views without cookies. With each view it records the page, the site that sent you, your rough location, and your type of device, system, and browser. It holds no email address, name, code, or text that you typed. It can tell one visitor from another for one day only. The provider decides how long it keeps the count.",
           "Our hosting provider keeps server logs and error reports, so that we can find and fix problems. A log entry can include your network address and the page you asked for. The provider decides how long it keeps them.",
+          "To stop abuse, we count the requests that come from each network address.",
         ),
       ],
     },
@@ -92,9 +106,9 @@ export const privacy: LegalDocument = {
         list(
           "Vercel hosts the site, counts page views, and keeps the server logs.",
           "Supabase holds the database and handles sign-in.",
-          "Resend sends the email with your sign-in code.",
-          "Cloudflare runs the check, called Turnstile, that you are a person when you ask for a sign-in code.",
-          "Google tells us your email address, but only if you choose to sign in with Google.",
+          "Resend sends the email with your sign-in code, and the email that tells us an account was deleted.",
+          "A bot check service checks that you are a person when you ask for a sign-in code.",
+          "Google signs you in, but only if you choose to sign in with Google.",
           "GitHub stores the encrypted backups described below.",
         ),
         paragraph("We do not sell your data, and we show no advertising."),
@@ -105,7 +119,7 @@ export const privacy: LegalDocument = {
       heading: "Backups",
       blocks: [
         paragraph(
-          "Each night we make an encrypted copy of the database and keep it for 7 days, so that we can recover from a failure. Only the owner of Heap Academy has the key that opens it.",
+          "Each night we make an encrypted copy of the database and keep it for 7 days, so that we can recover from a failure. Only we have the key that opens it.",
         ),
         paragraph(
           "The code of this site is public, and the encrypted copies are stored with it. This means that anyone can download an encrypted copy and keep it after we delete ours. Without the key, it is encrypted data and not readable text.",
@@ -120,7 +134,7 @@ export const privacy: LegalDocument = {
           "You can delete your account yourself, on your profile page. You do not need to contact anyone. Deleting it erases your email address, display name, time zone, and completed lessons with their code.",
         ),
         paragraph(
-          "When you delete your account, the owner receives one email with the account's ID, and no name or email address. If we ever have to restore a backup, this ID lets us delete your account from it again. The owner deletes that email after 8 days, when no backup with your data is left.",
+          "When you delete your account, we receive one email with the account's ID, and no name or email address. If we ever have to restore a backup, this ID lets us delete your account from it again. We delete that email after 8 days, when no backup with your data is left.",
         ),
         paragraph(
           "Code and progress saved in your browser stay there until you clear this site's data in your browser.",
@@ -152,7 +166,8 @@ export const terms: LegalDocument = {
   title: "Terms of use",
   description: "The rules for using Heap Academy, its lessons, and your account.",
   updated: { iso: "2026-11-23", text: "23 November 2026" },
-  intro: "These terms apply when you use Heap Academy. By using the site, you agree to them.",
+  intro:
+    'These terms apply when you use Heap Academy. By using the site, you agree to them. In these terms, "we" means Heap Academy.',
   sections: [
     {
       id: "service",
@@ -184,8 +199,9 @@ export const terms: LegalDocument = {
       heading: "Your code",
       blocks: [
         paragraph(
-          "The code you write is yours. When you complete a lesson with an account, we keep the code that passed, to show your progress. The privacy policy explains what we keep and how to delete it.",
+          "The code you write is yours. When you complete a lesson with an account, we keep the code that passed, to show your progress.",
         ),
+        link("What we keep, and how to delete it, is in the ", "privacy policy", "/privacy", "."),
       ],
     },
     {
@@ -203,7 +219,7 @@ export const terms: LegalDocument = {
       blocks: [
         list(
           "Do not try to get into other people's accounts or into the parts of the site that are not open to you.",
-          "Do not try to overload the site, or get around its limits and protections.",
+          "Do not try to overload the site, or try to avoid its limits and protections.",
           "Do not use the site to attack other people, other sites, or other systems.",
         ),
       ],

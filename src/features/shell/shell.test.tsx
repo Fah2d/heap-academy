@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { gallery } from "@/messages/gallery";
 import { legal, privacy, terms } from "@/messages/legal";
 import { errorPage, notFound } from "@/messages/system";
 import { pageTitle, shell } from "@/messages/shell";
 import { ErrorView, errorReference } from "./components/error-view";
+import { GlobalErrorBody } from "./components/global-error-body";
 import { LegalPage } from "./components/legal-page";
 import { NotFoundView } from "./components/not-found-view";
 import { PrimitiveGallery } from "./components/primitive-gallery";
@@ -15,6 +18,13 @@ import { PrimitiveGallery } from "./components/primitive-gallery";
 import { FOOTER_LINKS, SiteFooter } from "./components/site-footer";
 import { SiteShell } from "./components/site-shell";
 
+// The footer reads the current address to mark its current link.
+const navigation = vi.hoisted(() => ({ pathname: "/" }));
+vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
+
+beforeEach(() => {
+  navigation.pathname = "/";
+});
 afterEach(cleanup);
 
 function serverError(digest: string): Error {
@@ -105,16 +115,37 @@ describe("site footer", () => {
       [shell.footer.privacy, "/privacy"],
       [shell.footer.terms, "/terms"],
     ]);
+    for (const link of links) expect(link.getAttribute("aria-current")).toBeNull();
   });
 
-  it("[FR-SYS-03] links only to pages that exist", () => {
-    const pages = new Set(["/privacy", "/terms"]);
-    for (const { href } of FOOTER_LINKS) expect(pages.has(href), href).toBe(true);
+  it("[FR-SYS-03] links only to pages that exist under src/app", () => {
+    for (const { href } of FOOTER_LINKS) {
+      expect(existsSync(join(process.cwd(), "src", "app", href, "page.tsx")), href).toBe(true);
+    }
   });
 
-  it("[FR-SYS-03] renders on its own, for the page that replaces the root layout", () => {
+  it("[FR-SYS-03] marks the link of the page that is open", () => {
+    navigation.pathname = "/terms";
     render(<SiteFooter />);
-    expect(within(screen.getByRole("contentinfo")).getAllByRole("link")).toHaveLength(2);
+    const footer = screen.getByRole("contentinfo");
+    expect(
+      within(footer).getByRole("link", { name: shell.footer.terms }).getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      within(footer).getByRole("link", { name: shell.footer.privacy }).getAttribute("aria-current"),
+    ).toBeNull();
+  });
+
+  it("[FR-SYS-03] is on the page that replaces a failed root layout", () => {
+    render(<GlobalErrorBody error={new Error("layout failed")} retry={() => undefined} />);
+    expect(screen.getByRole("heading", { level: 1, name: errorPage.heading })).toBeTruthy();
+    const footer = screen.getByRole("contentinfo");
+    expect(screen.getByRole("main").contains(footer)).toBe(false);
+    expect(
+      within(footer)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/privacy", "/terms"]);
   });
 });
 
@@ -131,16 +162,26 @@ describe("legal pages", () => {
       expect(headings.map((heading) => heading.textContent)).toEqual(
         content.sections.map((section) => section.heading),
       );
+      // Only the page's own landmarks: the sections are not regions.
+      expect(screen.queryAllByRole("region")).toEqual([]);
       for (const section of content.sections) {
-        const region = screen.getByRole("region", { name: section.heading });
+        const heading = screen.getByRole("heading", { level: 2, name: section.heading });
+        const body = heading.closest("section");
+        if (body === null) throw new Error(`${section.heading} is not in a section`);
         for (const block of section.blocks) {
           if (block.kind === "paragraph") {
-            expect(within(region).getByText(block.text).tagName).toBe("P");
-          } else {
-            const items = within(region)
+            expect(within(body).getByText(block.text).tagName).toBe("P");
+          } else if (block.kind === "list") {
+            const items = within(body)
               .getAllByRole("listitem")
               .map((item) => item.textContent);
             for (const item of block.items) expect(items).toContain(item);
+          } else {
+            const link = within(body).getByRole("link", { name: block.label });
+            expect(link.getAttribute("href")).toBe(block.href);
+            expect(link.closest("p")?.textContent).toBe(
+              `${block.before}${block.label}${block.after}`,
+            );
           }
         }
       }

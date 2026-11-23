@@ -57,12 +57,11 @@ for (const path of ["/privacy", "/terms", "/no-such-page"]) {
 test("[NFR-A11Y-03] the footer links are reached by keyboard after the page content", async ({
   page,
 }) => {
-  await page.goto("/terms");
-  const privacyLink = page
-    .getByRole("contentinfo")
-    .getByRole("link", { name: shell.footer.privacy });
-  const termsLink = page.getByRole("contentinfo").getByRole("link", { name: shell.footer.terms });
-  // Skip link, wordmark, then the footer: the terms page has no other control.
+  await page.goto("/privacy");
+  const footer = page.getByRole("contentinfo");
+  const privacyLink = footer.getByRole("link", { name: shell.footer.privacy });
+  const termsLink = footer.getByRole("link", { name: shell.footer.terms });
+  // Skip link, wordmark, then the footer: the privacy page has no other control.
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
@@ -71,6 +70,30 @@ test("[NFR-A11Y-03] the footer links are reached by keyboard after the page cont
   await expect(termsLink).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/terms$/);
+  await expect(page.getByRole("heading", { level: 1, name: terms.title })).toBeVisible();
+});
+
+for (const { path, content } of PAGES) {
+  test(`[FR-SYS-03] the footer marks ${path} as the current page`, async ({ page }) => {
+    await page.goto(path);
+    const current = page.getByRole("contentinfo").locator('[aria-current="page"]');
+    await expect(current).toHaveCount(1);
+    await expect(current).toHaveAttribute("href", path);
+    await expect(page.getByRole("heading", { level: 1, name: content.title })).toBeVisible();
+  });
+}
+
+test("[FR-SYS-03] the terms link to the privacy policy", async ({ page }) => {
+  const links = terms.sections.flatMap((section) =>
+    section.blocks.flatMap((block) => (block.kind === "link" ? [block] : [])),
+  );
+  for (const link of links) {
+    await page.goto("/terms");
+    await page.getByRole("main").getByRole("link", { name: link.label }).click();
+    await expect(page).toHaveURL(new RegExp(`${link.href}$`));
+  }
+  expect(links).toHaveLength(1);
+  await expect(page).toHaveURL(/\/privacy$/);
 });
 
 for (const width of WIDTHS) {

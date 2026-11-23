@@ -9,9 +9,11 @@ function words(content: LegalDocument): string[] {
     content.intro,
     ...content.sections.flatMap((section) => [
       section.heading,
-      ...section.blocks.flatMap((block) =>
-        block.kind === "paragraph" ? [block.text] : block.items,
-      ),
+      ...section.blocks.flatMap((block) => {
+        if (block.kind === "paragraph") return [block.text];
+        if (block.kind === "list") return block.items;
+        return [block.before, block.label, block.after];
+      }),
     ]),
   ];
 }
@@ -41,6 +43,8 @@ describe("legal text", () => {
 
     it(`[FR-SYS-03] writes the ${content.title} without empty text, em dashes or exclamation marks`, () => {
       for (const text of words(content)) {
+        // A link's closing full stop is a word of its own.
+        if (text === ".") continue;
         expect(text.trim()).not.toBe("");
         expect(text).not.toMatch(/[—!]/);
       }
@@ -49,7 +53,8 @@ describe("legal text", () => {
 
   // docs/spec/06-security-privacy.md section 7.2: the processors are listed.
   it("[NFR-PRIV-01] names every processor in the privacy policy", () => {
-    for (const name of ["Vercel", "Supabase", "Resend", "Cloudflare", "Google", "GitHub"]) {
+    // The bot check is named by its role until WP-2.2 chooses the vendor.
+    for (const name of ["Vercel", "Supabase", "Resend", "bot check service", "Google", "GitHub"]) {
       expect(privacyText, name).toContain(name);
     }
   });
@@ -62,22 +67,33 @@ describe("legal text", () => {
       "time zone",
       "code that passed",
       "saved code",
-      "Page views",
+      "counts page views",
       "server logs and error reports",
       "account's ID",
       "encrypted copy",
+      "last signed in",
+      "network address",
+      "your name, and your profile picture",
     ]) {
       expect(privacyText, data).toContain(data);
     }
   });
 
+  it("[FR-SYS-03] links the terms to the privacy policy", () => {
+    const links = terms.sections.flatMap((section) =>
+      section.blocks.filter((block) => block.kind === "link"),
+    );
+    expect(links.map((block) => block.href)).toEqual(["/privacy"]);
+  });
+
   it("[T-17] states how long the backups and the deletion email are kept", () => {
     expect(privacyText).toContain("keep it for 7 days");
-    expect(privacyText).toContain("deletes that email after 8 days");
+    expect(privacyText).toContain("delete that email after 8 days");
     expect(privacyText).toContain("anyone can download an encrypted copy");
   });
 
-  it("[FR-PRF-03] says that a learner deletes the account without contacting anyone", () => {
+  // docs/spec/06-security-privacy.md section 7.2.
+  it("[FR-SYS-03] says that a learner deletes the account without contacting anyone", () => {
     expect(privacyText).toContain("You can delete your account yourself");
     expect(privacyText).toContain("You do not need to contact anyone");
   });

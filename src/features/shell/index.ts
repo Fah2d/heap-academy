@@ -2,6 +2,7 @@
 // the not-found, error and legal pages, and the development-only primitive
 // gallery.
 export { ErrorView, errorReference } from "./components/error-view";
+export { GlobalErrorBody } from "./components/global-error-body";
 export { LegalPage } from "./components/legal-page";
 export { NotFoundView } from "./components/not-found-view";
 export { PrimitiveGallery } from "./components/primitive-gallery";
