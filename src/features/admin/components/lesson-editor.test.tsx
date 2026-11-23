@@ -336,11 +336,15 @@ describe("InstructionsPreview [NFR-SEC-07]", () => {
     setup({ render: () => Promise.resolve({ ok: false, error: "unavailable" }) });
     await userEvent.type(field(words.instructionsLabel), "!");
     await act(() => vi.advanceTimersByTimeAsync(PREVIEW_DELAY_MS));
-    expect(
-      screen
-        .getAllByRole("status")
-        .some((region) => region.textContent.includes(words.previewFailed)),
-    ).toBe(true);
+    // The notice's region is in the page first and its words follow a frame
+    // later (`LiveRegion`).
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByRole("status")
+          .some((region) => region.textContent.includes(words.previewFailed)),
+      ).toBe(true);
+    });
     expect(screen.getByTestId("instructions-preview").textContent).toBe("saved preview");
   });
 
