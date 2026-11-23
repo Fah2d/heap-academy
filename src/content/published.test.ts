@@ -27,6 +27,11 @@ vi.mock("@/infrastructure/logging/logger", () => ({ log: (entry: unknown) => log
 
 const content = await import("./index");
 
+/** The course list's answer naming `slug`, read before a course page. */
+function listed(slug: string) {
+  return { data: [{ slug, title: "Listed", summary: "S", lessons: [{ slug: "a" }] }] };
+}
+
 beforeEach(() => {
   state.db = fakeDb();
   state.updated.length = 0;
@@ -63,7 +68,7 @@ describe("published content [FR-ADM-11]", () => {
   });
 
   it("puts a course's chapters and lessons in their positions", async () => {
-    state.db.answer({
+    state.db.answer(listed("one"), {
       data: {
         slug: "one",
         title: "One",
@@ -99,7 +104,7 @@ describe("published content [FR-ADM-11]", () => {
       { slug: "a", title: "A" },
       { slug: "b", title: "B" },
     ]);
-    expect(state.db.calls[0]?.chain).toContainEqual(["eq", ["slug", "one"]]);
+    expect(state.db.calls[1]?.chain).toContainEqual(["eq", ["slug", "one"]]);
   });
 
   it("[FR-CAT-04] leaves out a course with no published lesson", async () => {
@@ -116,7 +121,7 @@ describe("published content [FR-ADM-11]", () => {
   });
 
   it("[FR-CAT-04] answers null for a published course with no published lesson", async () => {
-    state.db.answer({
+    state.db.answer(listed("empty"), {
       data: {
         slug: "empty",
         title: "Empty",
@@ -137,7 +142,7 @@ describe("published content [FR-ADM-11]", () => {
   });
 
   it("[FR-CRS-01] leaves out a chapter with no published lesson", async () => {
-    state.db.answer({
+    state.db.answer(listed("one"), {
       data: {
         slug: "one",
         title: "One",
@@ -165,9 +170,22 @@ describe("published content [FR-ADM-11]", () => {
     expect(result.ok && result.value?.chapters.map((chapter) => chapter.title)).toEqual(["Ready"]);
   });
 
-  it("answers null for a course that is not published", async () => {
-    state.db.answer({ data: null });
+  it("answers null for a listed course whose own read finds nothing", async () => {
+    state.db.answer(listed("draft-course"), { data: null });
     expect(await content.publishedCourse("draft-course")).toEqual({ ok: true, value: null });
+  });
+
+  it("[T-14] answers a well-formed address missing from the course list with no course query", async () => {
+    state.db.answer(listed("one"));
+    expect(await content.publishedCourse("made-up-course")).toEqual({ ok: true, value: null });
+    expect(state.db.calls).toHaveLength(1);
+    expect(state.db.calls[0]?.chain).not.toContainEqual(["eq", ["slug", "made-up-course"]]);
+  });
+
+  it("answers a failure for a course page when the course list cannot be read", async () => {
+    state.db.answer({ error: { code: "57014" } });
+    expect(await content.publishedCourse("one")).toEqual({ ok: false });
+    expect(state.db.calls).toHaveLength(1);
   });
 
   it("turns a database error or an unexpected shape into a failure", async () => {

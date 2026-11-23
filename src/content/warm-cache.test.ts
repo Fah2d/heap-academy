@@ -46,6 +46,8 @@ const course = {
   ],
 };
 
+const list = { data: [{ slug: "one", title: "One", summary: "S", lessons: [{ slug: "a" }] }] };
+
 beforeEach(() => {
   state.db = fakeDb();
   state.store.clear();
@@ -63,19 +65,21 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
   });
 
   it("reads a course page from the database once, then from the cache", async () => {
-    state.db.answer({ data: course });
+    state.db.answer(list, { data: course });
     const first = await content.publishedCourse("one");
     const second = await content.publishedCourse("one");
     expect(second).toEqual(first);
     expect(first.ok && first.value?.title).toBe("One");
-    expect(state.db.calls).toHaveLength(1);
+    // The course list, read first to rule out a made-up address, and the course.
+    expect(state.db.calls).toHaveLength(2);
   });
 
   it("keeps no failed read, so the next view asks the database again", async () => {
-    state.db.answer({ error: { code: "57014" } }, { data: course });
+    state.db.answer(list, { error: { code: "57014" } }, { data: course });
     expect(await content.publishedCourse("one")).toEqual({ ok: false });
     const retried = await content.publishedCourse("one");
     expect(retried.ok && retried.value?.slug).toBe("one");
-    expect(state.db.calls).toHaveLength(2);
+    // The list once (kept), the failed course read, then the course again.
+    expect(state.db.calls).toHaveLength(3);
   });
 });

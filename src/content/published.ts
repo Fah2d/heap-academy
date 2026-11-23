@@ -173,11 +173,16 @@ export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary
 
 /**
  * One published course by its address. An address that no course can have
- * is answered at once, so a made-up one costs no query and no cache entry.
+ * is answered at once, and a well-formed one that is not in the cached course
+ * list is answered from that list, so a made-up address costs no course
+ * query and no cache entry (T-14, T-25).
  */
-export function publishedCourse(slug: string): Promise<ContentResult<PublishedCourse | null>> {
-  if (slug.length > MAX_SLUG || !SLUG_PATTERN.test(slug)) {
-    return Promise.resolve({ ok: true, value: null });
-  }
+export async function publishedCourse(
+  slug: string,
+): Promise<ContentResult<PublishedCourse | null>> {
+  if (slug.length > MAX_SLUG || !SLUG_PATTERN.test(slug)) return { ok: true, value: null };
+  const listed = await publishedCourses();
+  if (!listed.ok) return listed;
+  if (!listed.value.some((course) => course.slug === slug)) return { ok: true, value: null };
   return settle("published-course", () => cachedCourse(slug));
 }
