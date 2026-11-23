@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 06:00), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 4, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first: the lesson's status in the editor's Publish section (`src/features/admin/components/lesson-status.tsx`). Publish appears only after a passing validation of the lesson as it is now; it saves with the validated hash, then calls `setLessonStatus` with the saved version. Move back to draft (from published) and Archive ask first and say what learners will see. Save on a published lesson validates first and saves nothing on a failed rule, a stop, or a Python that could not start. Gallery: status actions on every lesson editor, a new archived state; an e2e gallery test (written, not run).
+- Found by a test: React holds state updates inside an async transition until it ends, so "Validating" and Stop never showed during Save. The validation now runs outside the transition.
+- Commit bffeb6a at about 06:11. `pnpm verify`: exit 0, 96 files, 1811 tests.
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `c94215b..bffeb6a`. This progress commit is pushed after it.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with eleven open decisions (three new: Save on a published lesson validates even for a title-only change; Publish saves the editor's content first; status moves leave unsaved edits unsaved). Do not open it until part 5 is done.
+- No reviews yet. No e2e run, no screenshots, no database tests (no migration changed).
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 5, on `wp/4.3-validate-publish`: the runbook `docs/runbooks/published-lesson-wrong.md` (07-operations section 8.1); J-13 (written; e2e cannot run here); code, security and design review, with fixes. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-23 (from about 05:29), in `night-a`, on `wp/4.3-validate-publish`
 
 ### WP-4.3 Test cases, validation, publishing: part 3, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
