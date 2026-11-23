@@ -42,6 +42,8 @@ function setUp() {
   const workers: FakeWorker[] = [];
   const events: ControllerEvent[] = [];
   const reports: ControllerReport[] = [];
+  // Called after each event is recorded, as a page's handler would be.
+  const onEvents: ((event: ControllerEvent) => void)[] = [];
   let time = 0;
   const timers = new Map<number, { at: number; callback: () => void }>();
   let nextTimer = 1;
@@ -60,7 +62,10 @@ function setUp() {
       clearTimeout: (handle) => timers.delete(handle as number),
     },
     now: () => time,
-    onEvent: (event) => events.push(event),
+    onEvent: (event) => {
+      events.push(event);
+      for (const listener of onEvents) listener(event);
+    },
     report: (report) => reports.push(report),
   });
   const advance = (ms: number) => {
@@ -79,7 +84,17 @@ function setUp() {
       runtimeVersion: "314.0.7",
       capabilities: { interactiveInput: false },
     });
-  return { controller, workers, events, reports, advance, latest, makeReady, timers };
+  return {
+    controller,
+    workers,
+    events,
+    reports,
+    onEvents,
+    advance,
+    latest,
+    makeReady,
+    timers,
+  };
 }
 
 function started() {
@@ -578,6 +593,61 @@ describe("runtime controller: checks", () => {
       source: "print(1)",
       tests,
     });
+  });
+
+  it("[T-22] [T-23] [FR-RUN-02] a fresh check reaches the new worker before its ready is reported, so a run or check started then is refused and Stop ends the check", () => {
+    const setup = started();
+    const run = setup.controller.run("print(1)");
+    if (!run.ok) throw new Error("run refused");
+    setup.latest().send({
+      type: "run_done",
+      runId: run.runId,
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 4,
+    });
+    const request = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!request.ok) throw new Error("check refused");
+    const seen: { status: string; run: unknown; check: unknown }[] = [];
+    setup.onEvents.push((event) => {
+      if (event.type !== "ready") return;
+      seen.push({
+        status: setup.controller.status,
+        run: setup.controller.run("print(2)"),
+        check: setup.controller.check("print(3)", tests, { freshWorker: true }),
+      });
+    });
+    setup.makeReady();
+    expect(seen).toEqual([
+      {
+        status: "checking",
+        run: { ok: false, error: "not_ready" },
+        check: { ok: false, error: "not_ready" },
+      },
+    ]);
+    expect(setup.workers).toHaveLength(2);
+    expect(setup.latest().received).toEqual([
+      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/", harnessVersion: HARNESS_VERSION },
+      { type: "check", runId: request.runId, source: "print(1)", tests },
+    ]);
+    setup.controller.stop();
+    expect(setup.events.filter((event) => event.type === "check_done").at(-1)).toMatchObject({
+      runId: request.runId,
+    });
+    expect(setup.latest().terminated).toBe(false);
+    expect(setup.workers[1]?.terminated).toBe(true);
+    expect(setup.controller.status).toBe("restarting");
+  });
+
+  it("[T-22] a worker started after a time limit is new, so a fresh check uses it as it is", () => {
+    const setup = started();
+    expect(setup.controller.run("while True: pass").ok).toBe(true);
+    setup.advance(5_000);
+    expect(setup.workers).toHaveLength(2);
+    setup.makeReady();
+    expect(setup.controller.check("print(1)", tests, { freshWorker: true }).ok).toBe(true);
+    expect(setup.workers).toHaveLength(2);
+    expect(setup.controller.status).toBe("checking");
   });
 
   it("[T-22] with freshWorker, a worker that has only loaded is used as it is", () => {
