@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 32c642f, at 89875fd). Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in fff5ece, at 44d6425). Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
 
 ## What and why
 
@@ -19,6 +19,19 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
+`wp/3.3-grader` at 44d6425 is merged in fff5ece. It adds WP-3.1's proxy matcher fix (f8af00a, c03a7d0: the exclusions end at a slash or the path's end, and `/favicon.ico` gets the page policy) and the docs. One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, as the newer one. No code conflict. `main` is still at 0efe863.
+
+`pnpm verify` on fff5ece, exit 0:
+
+```
+ Test Files  46 passed (46)
+      Tests  1131 passed (1131)
+```
+
+`pnpm build` with CI's fake public values on fff5ece, exit 0. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+
+The merges before it:
+
 `wp/3.3-grader` at 89875fd is merged in 32c642f, with no conflict. It adds WP-3.3's test of the Node runner's harness-version check (f7261ad) and the docs. `main` is still at 0efe863.
 
 `pnpm verify` on 32c642f, exit 0:
@@ -29,8 +42,6 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 ```
 
 `pnpm build` with CI's fake public values on 32c642f, exit 0. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
-
-The merge before it:
 
 `wp/3.3-grader` at 99f61b4 is merged in 03102ba. It carries `main` at 0efe863 (#3 to #8), WP-3.1's round 4 fixes (58128a3) and WP-3.3's round 2 fixes (9043a9a, 06c39bb). The earlier merge, of `wp/3.3-grader` at 67787b4, is a83b326.
 
