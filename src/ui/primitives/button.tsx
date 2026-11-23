@@ -14,7 +14,7 @@ export type ButtonProps = Omit<AriaButtonProps, "className" | "style" | "childre
   surface?: ButtonSurface;
   /** An icon shown before the label; it is hidden from assistive technology. */
   icon?: ReactNode;
-  /** Full width, for the phone action of a view. */
+  /** Full width, as a view's main action is on a phone (03-experience.md section 6.8). */
   block?: boolean;
   children: ReactNode;
 };
