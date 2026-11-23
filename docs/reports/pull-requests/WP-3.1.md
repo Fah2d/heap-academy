@@ -60,6 +60,24 @@ Not run on the merge: the browser tests (no browser can start in the sandbox). T
 
 ## How it was verified
 
+**Round 4 review fixes (58128a3), 2026-11-24.** `pnpm verify`, exit 0:
+
+```
+ Test Files  37 passed (37)
+      Tests  842 passed (842)
+```
+
+`pnpm build` with CI's fake public values, exit 0; `check-bundle` and `check-static`, exit 0. Before the fix, the new run support test failed on its second and third programs:
+
+```
+-   "memory",
+-   "input_ended",
++   "runtime",
++   "runtime",
+      Tests  1 failed | 22 passed (23)
+```
+ With the runtime rules removed from `next.config.ts`, the new header test failed: `Tests 2 failed (2)`. The browser tests have not run.
+
 `pnpm verify` at 2d94ead:
 
 ```
@@ -184,7 +202,7 @@ runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)
 runtime: worker compiled
 ```
 
-`pnpm build` with the `.env.example` values, as CI sets them: exit 0, routes `/_not-found`, `/api/csp-report`, `/api/health`. `node scripts/check-bundle.mjs .next/static`: "No server variable (RESEND_API_KEY, HEAP_RELEASE) in 9 files under .next/static." The development page has no route on this branch; it routes once #3's development-only page mechanism is merged.
+`pnpm build` with the `.env.example` values, as CI sets them: exit 0, routes `/_not-found`, `/api/csp-report`, `/api/health`. `node scripts/check-bundle.mjs .next/static`: "No server variable (RESEND_API_KEY, HEAP_RELEASE) in 9 files under .next/static." The development page is left out of the production build: with #3 merged in (f617391), `.dev.tsx` is a page extension only on the development server.
 
 **Real Pyodide under Node.** The compiled worker core (`public/_runtime/worker/worker/core.js`) driven with Pyodide 314.0.7 under Node 26.13.1, through a fake host: files read from disk, and a lock-down that does nothing. This is not the browser: no lock-down, no worker policy, no page. Load to `ready`: 592 to 744 ms. Each line is the program, the `output` messages, and the outcome:
 
@@ -213,7 +231,7 @@ On a 32-bit WebAssembly build, a single allocation of 2 GiB or more is an `Overf
 
 - **No browser test has run.** No browser can start in this sandbox. Real Pyodide has run only under Node (above).
   - Not run, owner to run: `e2e/runtime.spec.ts`, 15 tests in each of `runtime-chromium`, `runtime-firefox` and `runtime-webkit`; and `e2e/runtime-headers.spec.ts`, 4 tests in each of `chromium`, `firefox` and `webkit`.
-  - On this branch alone they cannot run: `/dev/runtime` is a page only once #3's `pageExtensions` setting is merged.
+  - They can run on this branch as it is: #3's `pageExtensions` setting is merged in (f617391), so `/dev/runtime` is a page on the development server.
   - They cover every line of "Done when", with the limits below.
 - **The page policy without `'wasm-unsafe-eval'`** is checked on the production server's headers (`runtime-headers.spec.ts`), but the runtime itself loads only on the development server, whose page policy has `'unsafe-eval'`. What the browser tests do prove: evaluation inside the worker is refused and the violation names the worker's policy, so the worker does not run under the page's policy in any engine that passes. A production run of the runtime needs the development page in a test build, a decision for you with #3's mechanism.
 - **"A second visit loads the runtime from cache"** (FR-RUN-07) is checked as `transferSize` 0 for `pyodide.asm.wasm` after a reload, read from the worker's own resource timing. Not run. WebKit's support for `transferSize` in workers is not verified.
@@ -278,7 +296,14 @@ Four reviews, each by a reviewer with a fresh context. The reports are in `docs/
   - MINOR 1: the same as code review 3, MAJOR 1.
   - MINOR 2: the lock-down test requires `NameError` from `open_url` and no `/api/health` request.
   - MINOR 3: this description is brought up to date.
-- **No reviewer has seen the round-3 fixes** (7cf1ce6..2d94ead). They are tests, one three-line classification change, and one exported function.
+- **code-reviewer, round 4** (`code-review-4.md`, on the round-3 fixes be2c7c0..2d94ead, 2026-11-23): **APPROVE**, 3 MINOR. Every round-3 fix verified, each by a mutant that its new test catches. Acted on in 58128a3:
+  - MINOR 1: in this build no package wheel is served, so the loader test's Python checks pass with or without the lock-down; only the request log can fail. The test's comment now says so; the round-3 line above ("could never fail") was true then and stays true for this build.
+  - MINOR 2: an error whose attributes raise was reported as `runtime` unless its class was a `MemoryError`. It now keeps `input_ended` for an `EOFError` class, and `memory` when reading it runs out of memory. Test with three programs (2 of 3 failed before the fix).
+  - MINOR 3: the memory case has its own test.
+- **security-reviewer, round 4** (`security-review-4.md`, on the same range and the merges f617391 and 5f72072): **APPROVE**, 2 MINOR. The merges change nothing on the header or proxy paths; the lockfile hashes are unchanged. Acted on:
+  - MINOR 1: five passages of this description still said #3 was not merged. Corrected: the browser tests can run on this branch as it is.
+  - MINOR 2: no unit test tied `next.config.ts` to `runtimeHeaders`. `scripts/next-config.test.ts` now checks, in the build phase and the development phase, that the rules are the security headers and then the runtime's rules with the worker's policy last. Removing the runtime rules from `next.config.ts` fails both cases.
+- **No reviewer has seen the round 4 fixes (58128a3).** They are one test file, one test split, one classification change of six lines in the run support's fallback, and comments.
 - design-reviewer: not required. The only page is development-only, with no learner-facing screen or copy.
 
 Open MAJOR findings for you to waive:
@@ -288,7 +313,7 @@ Open MAJOR findings for you to waive:
 
 ## Try it
 
-On the development server, once #3's development-only page mechanism is merged:
+On the development server (`pnpm dev`):
 
 1. Open `/dev/runtime`. The status goes from "Starting Python" to "Ready".
 2. Run the sample with `Ada` in the input. The output is `Hello, Ada`.
@@ -297,7 +322,7 @@ On the development server, once #3's development-only page mechanism is merged:
 ## Owner actions now due
 
 1. Done: the dependency (be2c7c0), `pnpm why ws`, `pnpm audit --prod`, and the size lines (above).
-2. After #3 and #4 are merged, run the browser tests and paste the output:
+2. Run the browser tests on this branch and paste the output (#3 and #4 are merged in):
 
    ```sh
    pnpm test:e2e --project=runtime-chromium --project=runtime-firefox --project=runtime-webkit
@@ -325,7 +350,7 @@ On the development server, once #3's development-only page mechanism is merged:
 - **The development page waits for #3.** It uses #3's root layout and `.dev.tsx` page mechanism rather than copying them, which would conflict with #3. Its `page.dev.tsx` default-export exemption is the same line #3 adds to `eslint.config.mjs`.
 - **Test budgets.** `e2e/runtime.spec.ts` sets a 120 s budget for its own tests, not the default 30 s. Loading Pyodide takes seconds, and several tests wait for the 5 s limit and then a new worker. `scripts/build-runtime.test.ts` gives its worker compile test 60 s, because it runs `tsc`. Both are new tests; no existing limit was raised.
 - **Exactly 64,000 characters, then the time limit or Stop, is reported as cut** (code review 3, MINOR 1). The page cannot tell this from a program that reached the cap and caught the write error, because the worker never sends more than 64,000 characters. A run the worker ends itself is reported correctly. Telling the two apart needs a protocol field on the output message that carries the cut; proposed for a later package.
-- **`playwright.config.ts` adds a development server** on port 3101 and the `runtime-*` projects. #3 adds a development server on the same port for its gallery. When the branches meet, keep one `webServer` entry for port 3101.
+- **`playwright.config.ts` adds a development server** on port 3101 and the `runtime-*` projects. #3 adds a development server on the same port for its gallery. Done in the merges: there is one `webServer` entry for port 3101, and the gallery, phone and runtime projects all use it.
 
 ## Not fixed, for later packages or for you
 
