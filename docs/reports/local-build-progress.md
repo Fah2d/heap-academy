@@ -15,9 +15,22 @@ This file is kept whole on every branch this run touches; the newest copy is on 
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-2.1.md` has a new "Up to date with main" section. `gh` still cannot reach GitHub (certificate error), so the pull request text on GitHub is not updated; paste the file when opening or editing it.
 
+### Task 1b done: wp/2.2-sign-in
+
+- Merge commit 2f45f1d: `wp/2.1-schema-policies` (with `main`) into this branch. Conflicts: this file (took 2.1's copy) and `playwright.config.ts` (kept both the `stack` project and `main`'s `phone` projects).
+- After the merge 10 sign-in view tests failed: `main`'s `Notice` draws an announced notice's words one frame after its live region. 6bf689e makes those tests wait for the same words (`waitFor`, `findByText`); no assertion removed.
+- `pnpm verify`: exit 0, 42 files, 918 tests. `next build` with CI's public values (including the Turnstile test key): exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.2.md`, new "Up to date with main" section with decision A (CI's e2e job does not run `main`'s `phone` projects).
+
+### Owner: run this
+
+1. When `gh` works: paste the "Up to date with main" sections of `WP-2.1.md` and `WP-2.2.md` into the pull requests on GitHub.
+2. Decide WP-2.2 decision A (add the `phone` projects to the CI `e2e` job or not).
+
 ### Next
 
-- Task 1b: wp/2.2-sign-in (merge `main` and wp/2.1-schema-policies).
+- Task 1c: wp/2.3-admin-gate (merge `main` and wp/2.2-sign-in). Then wp/4.1, wp/4.2, wp/4.3, wp/5.1, then WP-5.1.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
 
