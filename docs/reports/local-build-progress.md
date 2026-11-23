@@ -2,9 +2,9 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 00:20), in `night-a`, on `wp/3.3-grader`
+## Session of 2026-11-24 (from about 00:20), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
-Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top.
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy), this section added on top, and the copy carried back to `wp/3.4-statechart` by the merge.
 
 ### Task 3, part 5 done: a test for the Node runner's harness-version check
 
@@ -14,8 +14,15 @@ Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branc
 - Decision: the stand-in lives in `scripts/testing/`, beside `property.ts`, so it is not counted in `src/grader`'s coverage and no file in `src` exists only for a test.
 - Description: the finding moved from "Not fixed, for you" to a "Fixed later" table; owner action 6 now names f7261ad; evidence added under "How it was verified".
 - Not run: the browser tests.
-- Push: `wp/3.3-grader` with f7261ad and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
-- `wp/3.4-statechart` does not have f7261ad yet.
+- Push: `wp/3.3-grader` with f7261ad and the docs commit (89875fd).
+
+### Task 3, part 6 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 32c642f: `wp/3.3-grader` at 89875fd merged. No conflict.
+- `pnpm verify` on 32c642f: exit 0, 46 files, 1128 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 32c642f and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
 
 ### Owner: run this
 
@@ -23,7 +30,6 @@ Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branc
 
 ### Next
 
-- Merge `wp/3.3-grader` into `wp/3.4-statechart` so it carries f7261ad; verify and build.
 - A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
 
 ## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
