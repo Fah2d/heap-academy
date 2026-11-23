@@ -10,7 +10,13 @@ import { NotFoundView } from "./components/not-found-view";
 // modules directly rather than through index.ts.
 import { SiteShell } from "./components/site-shell";
 
-afterEach(cleanup);
+const navigation = vi.hoisted(() => ({ pathname: "/courses" }));
+vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
+
+afterEach(() => {
+  cleanup();
+  navigation.pathname = "/courses";
+});
 
 function serverError(digest: string): Error {
   return Object.assign(new Error("An error occurred in the Server Components render."), { digest });
@@ -33,6 +39,13 @@ describe("error page", () => {
     await userEvent.click(screen.getByRole("button", { name: errorPage.retry }));
     expect(retry).toHaveBeenCalledOnce();
     expect(screen.getByRole("link", { name: errorPage.homeLink }).getAttribute("href")).toBe("/");
+  });
+
+  it("[FR-SYS-01] offers no way back to the home page when the home page is what failed", () => {
+    navigation.pathname = "/";
+    render(<ErrorView error={new Error("boom")} retry={() => undefined} />);
+    expect(screen.getByRole("button", { name: errorPage.retry })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: errorPage.homeLink })).toBeNull();
   });
 
   it("[FR-SYS-01] [NFR-OBS-01] shows the server's digest as the reference", () => {

@@ -26,7 +26,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
   const outcomes = course.outcomes.filter((outcome) => outcome.trim() !== "");
   return (
     <CatalogPage>
-      <header className="flex max-w-prose flex-col gap-3">
+      <header className="flex max-inline-prose flex-col gap-3">
         <h1 className="text-xl font-semibold text-balance text-text">{course.title}</h1>
         <p className="text-prose text-text">{course.summary}</p>
         <p className="text-xs text-text-muted tabular-nums">
@@ -34,7 +34,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
         </p>
       </header>
       {outcomes.length > 0 && (
-        <section aria-labelledby="course-outcomes" className="flex max-w-prose flex-col gap-3">
+        <section aria-labelledby="course-outcomes" className="flex max-inline-prose flex-col gap-3">
           <h2 id="course-outcomes" className="text-lg font-semibold text-text">
             {words.outcomesHeading}
           </h2>
@@ -49,11 +49,11 @@ export function CourseView({ course }: { course: PublishedCourse }) {
         </section>
       )}
       {/* At the prose width until a lesson row has something at its end (WP-5.4). */}
-      <section aria-labelledby="course-chapters" className="flex max-w-prose flex-col gap-4">
+      <section aria-labelledby="course-chapters" className="flex max-inline-prose flex-col gap-4">
         <h2 id="course-chapters" className="text-lg font-semibold text-text">
           {words.chaptersHeading}
         </h2>
-        <ol className="flex flex-col gap-4">
+        <ol aria-labelledby="course-chapters" className="flex flex-col gap-4">
           {course.chapters.map((chapter, chapterIndex) => {
             const headingId = `chapter-${chapter.id}`;
             return (
@@ -71,7 +71,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
                   <span>{chapter.title}</span>
                 </h3>
                 {chapter.summary !== "" && (
-                  <p className="max-w-prose text-base text-text-muted">{chapter.summary}</p>
+                  <p className="max-inline-prose text-base text-text-muted">{chapter.summary}</p>
                 )}
                 <ol aria-label={words.chapterLessonsLabel(chapter.title)} className="flex flex-col">
                   {chapter.lessons.map((lesson, lessonIndex) => (

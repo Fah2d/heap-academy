@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { PublishedCourse, PublishedCourseSummary } from "@/content";
 import { catalogGallery as m } from "@/messages/gallery";
+import { Link } from "@/ui";
 import { CourseListView } from "./course-list-page";
 import { CourseView } from "./course-page";
 import { HomeView } from "./home-page";
@@ -10,22 +11,9 @@ import { HomeView } from "./home-page";
 // check and photograph them (WP-5.1). The views are the ones the pages use,
 // given a fixed answer instead of a read. A read that fails ends on the shared
 // error page, which `/dev/error` shows.
-
-// Each example is a whole page in its own frame, as the page draws it, under
-// a gallery heading. Every example has its own `h1`, as its page does; the
-// gallery's own heading is the only difference from the product.
-function Example({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section aria-labelledby={id} className="border-bs border-border">
-      <div className="mx-auto max-w-page px-gutter pbs-7">
-        <h2 id={id} className="text-lg font-semibold text-text-muted">
-          {title}
-        </h2>
-      </div>
-      {children}
-    </section>
-  );
-}
+//
+// Each state has its own address and is drawn alone, exactly as its page
+// draws it, so a screen or an axe check sees the real page and nothing else.
 
 const ROWS: PublishedCourseSummary[] = [
   { slug: "python-basics", title: m.sampleCourse, summary: m.sampleSummary, lessonCount: 3 },
@@ -56,25 +44,32 @@ const COURSE: PublishedCourse = {
   ],
 };
 
-export function CatalogStateGallery() {
+const STATES: { state: string; label: string; view: () => ReactNode }[] = [
+  { state: "home-empty", label: m.homeEmpty, view: () => <HomeView courses={[]} /> },
+  { state: "list-empty", label: m.listEmpty, view: () => <CourseListView courses={[]} /> },
+  { state: "list-rows", label: m.listRows, view: () => <CourseListView courses={ROWS} /> },
+  { state: "course", label: m.courseNoOutcomes, view: () => <CourseView course={COURSE} /> },
+];
+
+export const CATALOG_STATE_PATH = "/dev/catalog";
+
+/** One state drawn alone when `state` names one; otherwise the list of states. */
+export function CatalogStateGallery({ state }: { state?: string | undefined }) {
+  const chosen = STATES.find((entry) => entry.state === state);
+  if (chosen !== undefined) return chosen.view();
   return (
-    <div className="flex flex-col">
-      <div className="mx-auto flex w-full max-w-page flex-col gap-3 px-gutter py-7">
-        <p className="text-xl font-semibold text-text">{m.title}</p>
-        <p className="max-w-prose text-base text-text-muted">{m.intro}</p>
-      </div>
-      <Example id="catalog-home-empty" title={m.homeEmpty}>
-        <HomeView courses={[]} />
-      </Example>
-      <Example id="catalog-empty" title={m.listEmpty}>
-        <CourseListView courses={[]} />
-      </Example>
-      <Example id="catalog-rows" title={m.listRows}>
-        <CourseListView courses={ROWS} />
-      </Example>
-      <Example id="catalog-course" title={m.courseNoOutcomes}>
-        <CourseView course={COURSE} />
-      </Example>
+    <div className="mx-auto flex max-inline-page flex-col gap-5 px-gutter py-7">
+      <h1 className="text-xl font-semibold text-text">{m.title}</h1>
+      <p className="max-inline-prose text-base text-text-muted">{m.intro}</p>
+      <ul className="flex flex-col gap-1">
+        {STATES.map((entry) => (
+          <li key={entry.state}>
+            <Link href={`${CATALOG_STATE_PATH}?state=${entry.state}`} variant="standalone">
+              {entry.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

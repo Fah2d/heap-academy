@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default function CatalogStatesPage() {
-  return <CatalogStateGallery />;
+export default async function CatalogStatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ state?: string | string[] }>;
+}) {
+  const { state } = await searchParams;
+  return <CatalogStateGallery state={typeof state === "string" ? state : undefined} />;
 }

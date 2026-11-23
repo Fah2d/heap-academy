@@ -106,7 +106,9 @@ describe("Link", () => {
       </h2>,
     );
     const classes = screen.getByRole("link", { name: "Python basics" }).className.split(/\s+/);
-    expect(classes).toEqual(expect.arrayContaining(["underline", "font-semibold", "min-h-target"]));
+    expect(classes).toEqual(
+      expect.arrayContaining(["underline", "font-semibold", "min-block-target"]),
+    );
     expect(classes).not.toContain("font-medium");
   });
 });

@@ -20,7 +20,7 @@ export type CourseRowsProps = {
  */
 export function CourseRows({ courses, labelledBy, titleLevel }: CourseRowsProps) {
   if (courses.length === 0) {
-    return <p className="max-w-prose text-base text-text-muted">{courseList.empty}</p>;
+    return <p className="max-inline-prose text-base text-text-muted">{courseList.empty}</p>;
   }
   const Title = titleLevel === 2 ? "h2" : "h3";
   return (
@@ -35,7 +35,7 @@ export function CourseRows({ courses, labelledBy, titleLevel }: CourseRowsProps)
               {course.title}
             </Link>
           </Title>
-          <p className="max-w-prose text-base text-text">{course.summary}</p>
+          <p className="max-inline-prose text-base text-text">{course.summary}</p>
           <p className="text-xs text-text-muted tabular-nums">
             {catalogCommon.lessonCount(course.lessonCount)}
           </p>

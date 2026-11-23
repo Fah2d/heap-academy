@@ -117,7 +117,7 @@ export const adminGallery = {
 export const catalogGallery = {
   title: "Catalog states",
   intro:
-    "The home page's, the course list's and the course page's states that need an empty database or content the local stack does not have. The rows are sample content, not published courses. A read that fails ends on the error page, shown at /dev/error.",
+    "The home page's, the course list's and the course page's states that need an empty database or content the local stack does not have. Each link opens one state as its whole page. The courses are sample content, not published ones. A read that fails ends on the error page, shown at /dev/error.",
   homeEmpty: "Home page with no course",
   listEmpty: "Course list with no course",
   listRows: "Course list with courses, one with the longest title the dashboard allows",

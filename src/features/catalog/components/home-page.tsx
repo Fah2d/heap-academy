@@ -17,14 +17,16 @@ export async function HomePage() {
 export function HomeView({ courses }: { courses: PublishedCourseSummary[] }) {
   return (
     <CatalogPage>
-      <h1 className="max-w-prose text-2xl font-semibold text-balance text-text">{home.heading}</h1>
+      <h1 className="max-inline-prose text-2xl font-semibold text-balance text-text">
+        {home.heading}
+      </h1>
       <section aria-labelledby="home-courses" className="flex flex-col gap-4">
         <h2 id="home-courses" className="text-lg font-semibold text-text">
           {home.coursesHeading}
         </h2>
         <CourseRows courses={courses} labelledBy="home-courses" titleLevel={3} />
       </section>
-      <section aria-labelledby="home-how" className="flex max-w-prose flex-col gap-3">
+      <section aria-labelledby="home-how" className="flex max-inline-prose flex-col gap-3">
         <h2 id="home-how" className="text-lg font-semibold text-text">
           {home.howHeading}
         </h2>

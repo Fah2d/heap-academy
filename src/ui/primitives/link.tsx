@@ -29,7 +29,7 @@ const underlined =
 const classes: Record<LinkVariant, string> = {
   inline: underlined,
   standalone: cx(underlined, "inline-flex min-h-target items-center font-medium"),
-  heading: cx(underlined, "inline-flex min-h-target items-center font-semibold"),
+  heading: cx(underlined, "inline-flex min-block-target items-center font-semibold"),
   nav: "inline-flex min-h-target min-w-target items-center justify-center border-be-(length:--marker-width) no-underline",
   action:
     "inline-flex min-h-target min-w-target items-center justify-center rounded-control border border-transparent bg-action px-4 text-base font-medium text-on-action no-underline transition-colors hover:bg-action-hover active:bg-action-press",

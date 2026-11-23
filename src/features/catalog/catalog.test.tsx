@@ -185,6 +185,8 @@ describe("the course page", () => {
   it("[FR-CRS-01] shows every chapter in order with its lessons in order and their numbers", async () => {
     state.course = { ok: true, value: COURSE };
     render(await CoursePage({ params: params("python-basics") }));
+    const chapterList = screen.getByRole("list", { name: coursePage.chaptersHeading });
+    expect(within(chapterList).getAllByRole("heading", { level: 3 })).toHaveLength(2);
     const chapters = screen.getAllByRole("heading", { level: 3 });
     expect(chapters.map((h) => h.textContent)).toEqual([
       `${coursePage.chapterNumber(1)} First steps`,
@@ -315,24 +317,64 @@ describe("titles, descriptions and canonical addresses [FR-SEO-01]", () => {
 });
 
 describe("the catalog state gallery (development only)", () => {
-  it("shows the whole home page and course list with no course, the filled list and a plain course page", () => {
+  function duplicateIds(): string[] {
+    const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
+    return ids.filter((id, index) => ids.indexOf(id) !== index);
+  }
+
+  it("lists each state as a link to its own address", () => {
     render(<CatalogStateGallery />);
-    const region = (name: string) => screen.getByRole("region", { name });
-    const emptyHome = within(region(catalogGallery.homeEmpty));
-    expect(emptyHome.getByRole("heading", { level: 1, name: home.heading })).toBeTruthy();
-    expect(emptyHome.getByText(courseList.empty)).toBeTruthy();
-    expect(emptyHome.getByText(home.how)).toBeTruthy();
-    const emptyList = within(region(catalogGallery.listEmpty));
-    expect(emptyList.getByRole("heading", { level: 1, name: courseList.heading })).toBeTruthy();
-    expect(emptyList.getByText(courseList.empty)).toBeTruthy();
-    const rows = within(region(catalogGallery.listRows));
-    expect(rows.getByRole("link", { name: catalogGallery.longCourse })).toBeTruthy();
-    expect(rows.getByText(catalogCommon.lessonCount(3))).toBeTruthy();
-    const course = within(region(catalogGallery.courseNoOutcomes));
-    expect(
-      course.getByRole("heading", { level: 1, name: catalogGallery.sampleCourse }),
-    ).toBeTruthy();
-    expect(course.getByText(coursePage.size(3, 2))).toBeTruthy();
-    expect(course.queryByRole("heading", { name: coursePage.outcomesHeading })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: catalogGallery.title })).toBeTruthy();
+    const links = within(screen.getByRole("list")).getAllByRole("link");
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      [catalogGallery.homeEmpty, "/dev/catalog?state=home-empty"],
+      [catalogGallery.listEmpty, "/dev/catalog?state=list-empty"],
+      [catalogGallery.listRows, "/dev/catalog?state=list-rows"],
+      [catalogGallery.courseNoOutcomes, "/dev/catalog?state=course"],
+    ]);
+  });
+
+  it("answers an unknown state with the list of states", () => {
+    render(<CatalogStateGallery state="nothing" />);
+    expect(screen.getByRole("heading", { level: 1, name: catalogGallery.title })).toBeTruthy();
+  });
+
+  it("draws the home page with no course as the whole page alone", () => {
+    render(<CatalogStateGallery state="home-empty" />);
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual([
+      home.heading,
+    ]);
+    expect(screen.getByText(courseList.empty)).toBeTruthy();
+    expect(screen.getByText(home.how)).toBeTruthy();
+    expect(screen.queryByText(catalogGallery.title)).toBeNull();
+    expect(duplicateIds()).toEqual([]);
+  });
+
+  it("draws the course list with no course as the whole page alone", () => {
+    render(<CatalogStateGallery state="list-empty" />);
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual([
+      courseList.heading,
+    ]);
+    expect(screen.getByText(courseList.empty)).toBeTruthy();
+    expect(screen.queryByRole("listitem")).toBeNull();
+    expect(duplicateIds()).toEqual([]);
+  });
+
+  it("draws the filled course list, with the longest title, as the whole page alone", () => {
+    render(<CatalogStateGallery state="list-rows" />);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: catalogGallery.longCourse })).toBeTruthy();
+    expect(screen.getByText(catalogCommon.lessonCount(3))).toBeTruthy();
+    expect(duplicateIds()).toEqual([]);
+  });
+
+  it("draws a course page with no outcomes as the whole page alone", () => {
+    render(<CatalogStateGallery state="course" />);
+    expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual([
+      catalogGallery.sampleCourse,
+    ]);
+    expect(screen.getByText(coursePage.size(3, 2))).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: coursePage.outcomesHeading })).toBeNull();
+    expect(duplicateIds()).toEqual([]);
   });
 });
