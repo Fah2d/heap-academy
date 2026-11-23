@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 17:15), in `night-a`, on `wp/4.3-validate-publish`
+
+Task list given by the owner for unattended runs: (1) merge `origin/wp/4.2-lesson-editor` into `wp/4.3-validate-publish`; (2) WP-4.3 part 8, verify and a second review; (3) WP-5.1 in `night-b` from `origin/wp/4.1-courses-chapters`, one part per run. This run did task 1.
+
+### Task 1 done: the CodeMirror lockfile merged into `wp/4.3-validate-publish`
+
+- The owner pushed 4148777 ("chore(deps): add CodeMirror to the lockfile") to `wp/4.2-lesson-editor`. Merged in 9538964. `pnpm-lock.yaml` merged with no conflict; all 41 `package.json` specifiers match the lockfile's importers (script check). `pnpm install` still cannot run in this sandbox (store lock), so CI's frozen install is the real test.
+- The first `pnpm verify` after the merge failed one test the merge did not touch: `course-details-form.test.tsx` > "names a taken address and keeps what was typed" (focus on the button, not the field). It passed 5 of 5 alone. Cause: the form moved focus on the next animation frame, but its state update inside an async transition commits only when the transition ends. `lesson-editor.tsx` had the same pattern for a taken address.
+- Fixed test first in 87af7ec: `src/features/admin/components/focus-after-commit.ts` (`useFocusAfterCommit`) focuses after the commit. Three new tests failed before the fix.
+- `pnpm verify`: exit 0, 98 files, 1837 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Commit ecbb815 (part 8's gallery states for design MINOR 11, at 10:48) was already pushed by an earlier session with no entry here. It is included in the verify run above. Its e2e gallery test was not run.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, with the merge evidence, owner action 1 marked done, and new decision 17 (the WP-4.1 focus fix carried on this branch; recommendation: cherry-pick 87af7ec onto `wp/4.1-courses-chapters`). Its opening paragraph still says "Parts 1 to 6"; part 8 rewrites it.
+- Push: see the line below.
+
+### Owner: run this
+
+1. If CI's frozen install fails on `wp/4.3-validate-publish`: `pnpm install` there and commit the lockfile.
+2. Decide decision 17 (cherry-pick 87af7ec onto `wp/4.1-courses-chapters` or not).
+3. If this sandbox still cannot run them: `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack.
+4. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- Task 2: WP-4.3 part 8, on `wp/4.3-validate-publish` in `night-a`: check ecbb815 against design MINOR 11; a second code, security and design review round on e1f1ce9..HEAD, with fixes; rewrite the description's opening paragraph and "Left for part 8".
+
 ## Session of 2026-11-23 (from about 10:05), in `night-a`, on `wp/4.3-validate-publish`
 
 ### WP-4.3 Test cases, validation, publishing: part 7, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
