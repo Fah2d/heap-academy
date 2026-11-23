@@ -17,7 +17,7 @@ Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.
 - Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now with the part 4 evidence, the review summary, the corrected Delivery Gate lines, two deviations (no primary action until WP-5.2; no per-segment `loading.tsx` or `error.tsx`), decisions 9, 10, 13 and 14 changed and 17 to 22 new.
 - Time: about 1.7 hours of the 3 hour box over four parts.
 - Servers this run and its reviewers could not stop (the sandbox hides them): `next start` on ports 3461, 3917 and 3918.
-- Push: see the line below.
+- Push: succeeded, `af42bd5..2879b2a` (55399e7 the content fix, 4a6628d the catalog fixes, dd515e1 the tests and journey, 2879b2a the reports, description and progress). This line is pushed after it.
 
 ### Owner: run this
 
