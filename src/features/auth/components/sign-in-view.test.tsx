@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,16 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
+
+/**
+ * An announced notice's region is in the page first and its words follow a
+ * frame later (`LiveRegion`), so the test waits for the words in the region.
+ */
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(text);
+  });
+}
 
 /** A challenge that hands out a fresh token on mount and on every reset. */
 function PassingChallenge({ onToken, resetKey }: BotChallengeProps) {
@@ -109,13 +119,13 @@ describe("sign-in view", () => {
     const { actions: given } = view({ Challenge: SilentChallenge });
     expect(screen.getByText(words.challengeLoading)).toBeTruthy();
     await sendCodeTo("ada@example.test");
-    expect(screen.getByText(words.challengeNeeded)).toBeTruthy();
+    expect(await screen.findByText(words.challengeNeeded)).toBeTruthy();
     expect(given.requestEmailCode).not.toHaveBeenCalled();
   });
 
-  it("[FR-AUTH-06] says when the bot challenge did not load", () => {
+  it("[FR-AUTH-06] says when the bot challenge did not load", async () => {
     view({ Challenge: BrokenChallenge });
-    expect(screen.getByRole("alert").textContent).toContain(words.challengeNotLoaded);
+    await expectAlert(words.challengeNotLoaded);
   });
 
   it("[FR-AUTH-02] [FR-AUTH-06] sends the code with the token, then asks for the code in the same view", async () => {
@@ -139,7 +149,7 @@ describe("sign-in view", () => {
   ])("[FR-AUTH-06] shows the send failure %s", async (error, text) => {
     view({}, actions({ requestEmailCode: () => Promise.resolve({ ok: false as const, error }) }));
     await sendCodeTo("ada@example.test");
-    expect((await screen.findByRole("alert")).textContent).toContain(text);
+    await expectAlert(text);
     expect(screen.getByRole("textbox", { name: words.emailLabel })).toBeTruthy();
   });
 
@@ -179,7 +189,7 @@ describe("sign-in view", () => {
     await sendCodeTo("ada@example.test");
     await userEvent.type(await screen.findByRole("textbox", { name: words.codeLabel }), "123456");
     await userEvent.click(screen.getByRole("button", { name: words.verify }));
-    expect((await screen.findByRole("alert")).textContent).toContain(text);
+    await expectAlert(text);
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByRole("textbox", { name: words.codeLabel })).toBeTruthy();
   });
@@ -276,13 +286,13 @@ describe("sign-in view", () => {
     await act(async () => {
       answer({ ok: false, error: "code_rejected" });
     });
-    expect((await screen.findByRole("alert")).textContent).toContain(words.codeRejected);
+    await expectAlert(words.codeRejected);
     expect(screen.getByRole("button", { name: words.verify }).hasAttribute("disabled")).toBe(false);
   });
 
   it("[FR-AUTH-02] an action that cannot be reached shows the provider-down notice, not the error page", async () => {
     view({}, actions({ requestEmailCode: () => Promise.reject(new Error("network")) }));
     await sendCodeTo("ada@example.test");
-    expect((await screen.findByRole("alert")).textContent).toContain(words.unavailable);
+    await expectAlert(words.unavailable);
   });
 });
