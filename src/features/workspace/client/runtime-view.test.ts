@@ -1,0 +1,84 @@
+import { describe, expect, it } from "vitest";
+import { createRunId } from "@/runtime/protocol";
+import { addReport, INITIAL_VIEW, reduceView, startRun } from "./runtime-view";
+
+const runId = createRunId(1);
+
+describe("runtime page view", () => {
+  it("[FR-RUN-01] joins output from one stream and keeps the streams apart", () => {
+    let view = INITIAL_VIEW;
+    view = reduceView(view, { type: "output", runId, stream: "stdout", text: "a" }, "running");
+    view = reduceView(view, { type: "output", runId, stream: "stdout", text: "b" }, "running");
+    view = reduceView(view, { type: "output", runId, stream: "stderr", text: "c" }, "running");
+    expect(view.output).toEqual([
+      { stream: "stdout", text: "ab" },
+      { stream: "stderr", text: "c" },
+    ]);
+  });
+
+  it("[FR-RUN-02] counts restarts and clears progress for the new worker", () => {
+    let view = reduceView(
+      INITIAL_VIEW,
+      { type: "progress", loadedBytes: 1, totalBytes: 2 },
+      "loading",
+    );
+    view = reduceView(view, { type: "restarting", reason: "time_limit" }, "restarting");
+    expect(view).toMatchObject({ status: "restarting", restarts: 1, progress: undefined });
+  });
+
+  it("[FR-RUN-01] a new run starts with no output and no result", () => {
+    let view = reduceView(
+      INITIAL_VIEW,
+      { type: "output", runId, stream: "stdout", text: "old" },
+      "running",
+    );
+    view = reduceView(
+      view,
+      {
+        type: "run_done",
+        result: { runId, outcome: { kind: "ok" }, truncated: false, durationMs: 1 },
+      },
+      "ready",
+    );
+    expect(startRun(view, "running")).toMatchObject({
+      output: [],
+      result: undefined,
+      status: "running",
+    });
+  });
+
+  it("[NFR-SEC-01] lists what the controller dropped", () => {
+    expect(addReport(INITIAL_VIEW, { code: "worker_error" }).dropped).toEqual(["worker_error"]);
+  });
+
+  it("[NFR-COMPAT-04] records at ready whether the runtime can pause a program", () => {
+    const view = reduceView(
+      INITIAL_VIEW,
+      { type: "ready", runtimeVersion: "314.0.7", interactiveInput: true },
+      "ready",
+    );
+    expect(view).toMatchObject({ status: "ready", interactiveInput: true });
+  });
+
+  it("[FR-WSP-08] shows the wait for input, and echoes the answer after the prompt", () => {
+    let view = reduceView(
+      INITIAL_VIEW,
+      { type: "output", runId, stream: "stdout", text: "Name? " },
+      "running",
+    );
+    view = reduceView(view, { type: "input_request", runId }, "awaitingInput");
+    expect(view.status).toBe("awaitingInput");
+    view = reduceView(view, { type: "input", runId, line: "Sara" }, "running");
+    view = reduceView(view, { type: "input", runId, line: "12" }, "running");
+    view = reduceView(view, { type: "input_end", runId }, "running");
+    expect(view.status).toBe("running");
+    expect(view.output).toEqual([
+      { stream: "stdout", text: "Name? " },
+      { stream: "input", text: "Sara\n12\n" },
+    ]);
+  });
+
+  it("[FR-RUN-06] shows that Python could not start", () => {
+    expect(reduceView(INITIAL_VIEW, { type: "failed" }, "failed").status).toBe("failed");
+  });
+});

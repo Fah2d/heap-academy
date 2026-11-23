@@ -37,6 +37,7 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "csp-report",
   "health",
   "dev",
+  "runtime",
   "primitives",
   "error",
 ]);

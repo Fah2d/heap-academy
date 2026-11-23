@@ -1,7 +1,13 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { DISABLED_FEATURES as HEADER_FEATURES } from "../src/infrastructure/http/security-headers";
+import {
+  DISABLED_FEATURES as HEADER_FEATURES,
+  IMMUTABLE,
+  RUNTIME_STATIC_POLICY,
+  workerContentSecurityPolicy,
+} from "../src/infrastructure/http/security-headers";
+import { RUNTIME_ASSET_BASE_URL, runtimeAssetBase, WORKER_URL } from "../src/runtime/assets";
 import {
   DISABLED_FEATURES,
   parsePolicy,
@@ -186,7 +192,11 @@ type Broken =
   | "report-200"
   | "get-200"
   | "not-html"
-  | "static-bare";
+  | "static-bare"
+  | "worker-page-policy"
+  | "worker-cached"
+  | "runtime-mutable"
+  | "runtime-miss-bare";
 
 /** A server that behaves as the application should. `broken` names one thing it gets wrong. */
 function application(broken?: Broken): Handler {
@@ -213,6 +223,40 @@ function application(broken?: Broken): Handler {
         "content-type": "application/javascript",
       });
       response.end("");
+      return;
+    }
+    if (path === WORKER_URL) {
+      response.writeHead(200, {
+        ...STATIC_HEADERS,
+        "content-type": "text/javascript",
+        "content-security-policy":
+          broken === "worker-page-policy"
+            ? GOOD_POLICY(nonce)
+            : workerContentSecurityPolicy(RUNTIME_ASSET_BASE_URL),
+        "cache-control": broken === "worker-cached" ? IMMUTABLE : "no-cache",
+      });
+      response.end("");
+      return;
+    }
+    if (path === `${runtimeAssetBase}manifest.json`) {
+      response.writeHead(200, {
+        ...STATIC_HEADERS,
+        "content-type": "application/json",
+        "content-security-policy": RUNTIME_STATIC_POLICY,
+        "cache-control": broken === "runtime-mutable" ? "public, max-age=0" : IMMUTABLE,
+      });
+      response.end("{}");
+      return;
+    }
+    if (path.startsWith("/_runtime/")) {
+      response.writeHead(404, {
+        ...STATIC_HEADERS,
+        "content-type": "text/html; charset=utf-8",
+        ...(broken === "runtime-miss-bare"
+          ? {}
+          : { "content-security-policy": RUNTIME_STATIC_POLICY }),
+      });
+      response.end("<html></html>");
       return;
     }
     if (path === "/api/health") {
@@ -284,6 +328,10 @@ describe("verifyDeployment", () => {
     ["get-200", "/api/csp-report refuses GET"],
     ["not-html", "page / is HTML"],
     ["static-bare", "a static file carries the security headers"],
+    ["worker-page-policy", "the Python worker carries its own policy"],
+    ["worker-cached", "the Python worker is revalidated"],
+    ["runtime-mutable", "the runtime files are immutable"],
+    ["runtime-miss-bare", "a miss under the runtime's path carries a policy"],
   ])(
     "[NFR-SEC-02] [FR-SYS-04] fails a deployment that gets one thing wrong: %s",
     async (broken, name) => {

@@ -107,3 +107,77 @@ export const SECURITY_HEADERS: readonly { key: string; value: string }[] = [
     value: DISABLED_FEATURES.map((feature) => `${feature}=()`).join(", "),
   },
 ];
+
+/**
+ * The Python worker script's own policy (section 5.1, threat T-01). A worker
+ * loaded from a URL takes its policy from its own response, not from the page
+ * (architecture section 14, pitfall 7). WebAssembly needs
+ * `'wasm-unsafe-eval'` (E-07); nothing allows `unsafe-eval`, so evaluating
+ * JavaScript from Python is refused. Network requests may only reach the
+ * origin, or the runtime's host when it moves to one.
+ */
+export function workerContentSecurityPolicy(runtimeAssetBase: string): string {
+  const sources = [
+    "'self'",
+    ...(runtimeAssetBase.startsWith("https://") ? [new URL(runtimeAssetBase).origin] : []),
+  ];
+  return [
+    ["default-src", "'none'"],
+    ["script-src", ...sources, "'wasm-unsafe-eval'"],
+    ["connect-src", ...sources],
+    ["frame-ancestors", "'none'"],
+    ["report-uri", CSP_REPORT_PATH],
+  ]
+    .map((directive) => directive.join(" "))
+    .join("; ");
+}
+
+/**
+ * For every other response under the runtime's path. The proxy skips that
+ * path, so a request for a file that is not there would otherwise get the
+ * not-found page with no policy at all (T-15). Nothing under it is a page:
+ * the policy of a module or WebAssembly response does not apply to the
+ * worker that loads it.
+ */
+export const RUNTIME_STATIC_POLICY = "default-src 'none'; frame-ancestors 'none'; sandbox";
+
+/** A year: the runtime files' path carries their version, so they never change. */
+export const IMMUTABLE = "public, max-age=31536000, immutable";
+
+/**
+ * Headers for the runtime's files (section 5.1): everything under the
+ * runtime's path gets a static policy, the Pyodide files are immutable, and
+ * the worker script carries its own policy and is checked again on every
+ * load, because its path does not change between releases.
+ *
+ * Order matters: when two rules set the same header, Next.js uses the later
+ * one ("the last header key will override the first", headers docs), so the
+ * worker's rule comes last.
+ */
+export function runtimeHeaders({
+  runtimeRoot,
+  runtimeAssetBase,
+  workerDirectory,
+}: {
+  runtimeRoot: string;
+  runtimeAssetBase: string;
+  workerDirectory: string;
+}): { source: string; headers: { key: string; value: string }[] }[] {
+  const everything = {
+    source: `${runtimeRoot}:path*`,
+    headers: [{ key: "Content-Security-Policy", value: RUNTIME_STATIC_POLICY }],
+  };
+  const worker = {
+    source: `${workerDirectory}:path*`,
+    headers: [
+      { key: "Content-Security-Policy", value: workerContentSecurityPolicy(runtimeAssetBase) },
+      { key: "Cache-Control", value: "no-cache" },
+    ],
+  };
+  if (!runtimeAssetBase.startsWith("/")) return [everything, worker];
+  return [
+    everything,
+    { source: `${runtimeAssetBase}:path*`, headers: [{ key: "Cache-Control", value: IMMUTABLE }] },
+    worker,
+  ];
+}
