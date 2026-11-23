@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
@@ -15,6 +15,16 @@ import { ValidationPanel, type ValidationPanelProps } from "./validation-panel";
 // Stop, and the states "Python loading", "validating" and "validation failed".
 
 afterEach(cleanup);
+
+/**
+ * An announced notice's region is in the page first and its words follow a
+ * frame later (`LiveRegion`), so a test waits for the words in the region.
+ */
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toBe(text);
+  });
+}
 
 const testCase = (id: string, name: string): TestCase => ({
   id: id as TestCaseId,
@@ -95,19 +105,16 @@ describe("ValidationPanel [FR-ADM-07]", () => {
 
   it("says Python could not start as an error, and Try again starts it", async () => {
     const { onRetry } = renderPanel({ python: "failed" });
-    expect(screen.getByRole("alert").textContent).toBe(
-      `${words.unavailableLabel}: ${words.python.failed}`,
-    );
+    await expectAlert(`${words.unavailableLabel}: ${words.python.failed}`);
     expect(screen.queryByText(`${words.pythonLabel}:`, { exact: false })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: words.retry }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("after Validate with a Python that could not start, points to Try again, in one error", () => {
+  it("after Validate with a Python that could not start, points to Try again, in one error", async () => {
     renderPanel({ python: "failed", state: { kind: "unavailable" } });
-    const errors = screen.getAllByRole("alert");
-    expect(errors).toHaveLength(1);
-    expect(errors[0]?.textContent).toBe(`${words.unavailableLabel}: ${words.unavailableStart}`);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    await expectAlert(`${words.unavailableLabel}: ${words.unavailableStart}`);
   });
 
   it("while Python loads, a pressed Validate says it runs when Python is ready", () => {
@@ -130,9 +137,9 @@ describe("ValidationPanel [FR-ADM-07]", () => {
     expect(items().every((row) => row.textContent.startsWith(words.state.not_run))).toBe(true);
   });
 
-  it("says when Python could not run the programs", () => {
+  it("says when Python could not run the programs", async () => {
     renderPanel({ state: { kind: "unavailable" } });
-    expect(screen.getByText(words.unavailable)).toBeTruthy();
+    expect(await screen.findByText(words.unavailable)).toBeTruthy();
   });
 
   it("[FR-GRD-05] gives each failed rule its reason, naming the test cases, wrong answers and programs", () => {
