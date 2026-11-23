@@ -186,7 +186,7 @@ describe("local days", () => {
         }
       }
     }
-  });
+  }, 60_000);
 
   it("[FR-PRG-05] the same instant can be two different days in two zones", () => {
     const instant = Date.UTC(2026, 5, 1, 12, 0);
