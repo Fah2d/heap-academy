@@ -2,6 +2,17 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (one more run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (41cc266 to cc5b327, another agent's branch; not touched).
+- WP-6.3, 6.4 and 7.1 to 7.5 in `docs/spec/08-delivery-plan.md` were read again. The logger's allowlist tests already exist in `main` (`src/infrastructure/logging/logger.test.ts`), so that WP-7.3 item needs no new part. The rest of the list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
 ## Session of 2026-11-24 (a further run), in `night-c`, on `wp/7.3-operations`
 
 Same task list. Still blocked: no new work package can start. No code was changed.
