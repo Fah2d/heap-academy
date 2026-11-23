@@ -4,12 +4,17 @@ import { errorPage } from "../src/messages/system";
 import { gallery } from "../src/messages/gallery";
 import { saveScreen } from "./screens";
 
-// The development-only primitive gallery and error page (WP-1.4). This file
-// runs against the development server: the production build has neither page.
+// The development-only primitive gallery and error pages (WP-1.4, WP-7.3).
+// This file runs against the development server: the production build has
+// none of these pages.
 
 // 320 px is the narrowest width NFR-A11Y-05 names; the rest are the screenshot widths.
 const WIDTHS = [320, 375, 768, 1280];
 const TARGET = 44;
+const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
+
+const sidewaysScroll = (page: Page) =>
+  page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
 // The overlay the development server draws over a page that threw. It is not
 // part of the product, so it is removed before the page is checked.
@@ -77,6 +82,38 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("button", { name: errorPage.retry })).toBeVisible();
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
       await saveScreen(page, "error", width);
+    });
+
+    test("[FR-SYS-01] [NFR-OBS-01] [NFR-A11Y-02] a browser error shows the report's reference and has no axe violation", async ({
+      page,
+    }) => {
+      const stored = page.waitForResponse("**/api/client-error");
+      await page.goto("/dev/client-error");
+      const reference = (await stored).headers()["x-request-id"] ?? "";
+      expect(reference).toMatch(REQUEST_ID);
+      await expect(page.getByRole("heading", { level: 1, name: errorPage.heading })).toBeVisible();
+      await hideDevelopmentOverlay(page);
+      await expect(page.locator("code")).toHaveText(reference);
+      await expect(page.getByText(errorPage.referenceHint)).toBeVisible();
+      expect(await sidewaysScroll(page)).toBe(0);
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await saveScreen(page, "error-browser", width, { folder: "WP-7.3" });
+    });
+
+    test("[FR-SYS-01] [NFR-A11Y-02] a browser error whose report failed shows no reference", async ({
+      page,
+    }) => {
+      await page.route("**/api/client-error", (route) => route.fulfill({ status: 503 }));
+      const refused = page.waitForResponse("**/api/client-error");
+      await page.goto("/dev/client-error");
+      expect((await refused).status()).toBe(503);
+      await expect(page.getByRole("heading", { level: 1, name: errorPage.heading })).toBeVisible();
+      await hideDevelopmentOverlay(page);
+      await expect(page.getByRole("button", { name: errorPage.retry })).toBeVisible();
+      await expect(page.getByText(errorPage.referenceLabel, { exact: false })).toHaveCount(0);
+      await expect(page.getByText(errorPage.referenceHint)).toHaveCount(0);
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await saveScreen(page, "error-browser-unreported", width, { folder: "WP-7.3" });
     });
   });
 }

@@ -1,19 +1,12 @@
-import type { ClientErrorReport } from "@/domain/client-error";
+import type { ErrorReporter } from "@/domain/client-error";
+import { parseRequestId, REQUEST_ID_HEADER } from "@/domain/request-id";
 
-// The error reporter port of ADR-0019, with its one adapter: a POST to
+// The one adapter of the error reporter port (ADR-0019): a POST to
 // /api/client-error, which writes the report to the host's logs. Tests pass
 // their own reporter. A report carries a code and the page's path, never an
 // error message (docs/spec/07-operations.md section 4.2).
 
 export const CLIENT_ERROR_PATH = "/api/client-error";
-
-/** The response header that carries the request ID proxy.ts gave the report. */
-const REQUEST_ID_HEADER = "x-request-id";
-/** The shape of a request ID (src/infrastructure/http/request-id.ts). Anything else is not shown. */
-const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
-
-/** Sends a report; resolves to the reference the server logged it under, or undefined when it was not stored. */
-export type ErrorReporter = (report: ClientErrorReport) => Promise<string | undefined>;
 
 export function createErrorReporter(send: typeof fetch): ErrorReporter {
   return async (report) => {
@@ -28,8 +21,8 @@ export function createErrorReporter(send: typeof fetch): ErrorReporter {
         keepalive: true,
       });
       if (!response.ok) return undefined;
-      const reference = response.headers.get(REQUEST_ID_HEADER);
-      return reference !== null && REQUEST_ID.test(reference) ? reference : undefined;
+      // The request ID proxy.ts gave the report. Anything else is not shown.
+      return parseRequestId(response.headers.get(REQUEST_ID_HEADER));
     } catch {
       // Offline, or the request was blocked: the error page shows no reference.
       return undefined;

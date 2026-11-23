@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { reportedRoute } from "@/domain/client-error";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { type ErrorReporter, reportedRoute } from "@/domain/client-error";
 import { errorPage } from "@/messages/system";
 import { Button, Link } from "@/ui";
-import { type ErrorReporter, reportClientError } from "../client/report-client-error";
+import { reportClientError } from "../client/report-client-error";
 import { SystemPage } from "./system-page";
 
 /**
@@ -61,6 +61,22 @@ function useReference(error: unknown, report: ErrorReporter): string | undefined
   return reported !== undefined && reported.error === error ? reported.reference : undefined;
 }
 
+/**
+ * A reference that wraps only after a hyphen, so a request ID breaks between
+ * its groups on a narrow screen. A value without hyphens may still wrap
+ * anywhere, through the class on its element. Copying it gives the value
+ * unchanged.
+ */
+function Breakable({ value }: { value: string }) {
+  const parts = value.split(/(?<=-)/);
+  return parts.map((part, index) => (
+    <Fragment key={index}>
+      {index > 0 && <wbr />}
+      {part}
+    </Fragment>
+  ));
+}
+
 export function ErrorView({
   error,
   retry,
@@ -84,7 +100,9 @@ export function ErrorView({
           <p>{errorPage.referenceHint}</p>
           <p>
             {errorPage.referenceLabel}{" "}
-            <code className="break-all text-text select-all">{reference}</code>
+            <code className="text-text select-all wrap-anywhere">
+              <Breakable value={reference} />
+            </code>
           </p>
         </div>
       )}

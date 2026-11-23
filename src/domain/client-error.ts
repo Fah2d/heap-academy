@@ -17,6 +17,13 @@ export type ClientErrorReport = {
   route: string;
 };
 
+/**
+ * The error reporter port of ADR-0019. Sends a report and resolves to the
+ * reference the server logged it under, or undefined when it was not stored.
+ * Code that cannot import a feature, such as the runtime, is given one.
+ */
+export type ErrorReporter = (report: ClientErrorReport) => Promise<string | undefined>;
+
 /** The longest path a report may carry. */
 export const MAX_REPORTED_ROUTE_LENGTH = 2048;
 

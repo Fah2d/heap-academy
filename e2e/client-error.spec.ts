@@ -26,7 +26,7 @@ test("[NFR-PRIV-03] [T-16] refuses a report that carries a message", async ({ re
   expect(response.status()).toBe(400);
 });
 
-test("[NFR-SEC-02] refuses a body over 8 kB", async ({ request }) => {
+test("[T-14] refuses a body over 8 kB", async ({ request }) => {
   const response = await request.post(PATH, {
     data: { code: "worker-crashed", route: `/${"a".repeat(9000)}` },
   });

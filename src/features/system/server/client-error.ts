@@ -11,8 +11,10 @@ import { readCapped } from "./read-capped";
 // code and the page's path. The body is untrusted: it is size-capped, and the
 // schema is strict, so a report that carries any other field, such as an
 // error message, is refused rather than trimmed (NFR-PRIV-03, T-16). The
-// path is logged only as its pattern, through `logRoute`, so nothing the
-// browser chose reaches the log line verbatim.
+// line's `route` is the reported page, as the GET that loaded it, logged only
+// as its pattern through `logRoute`, so nothing the browser chose reaches the
+// line verbatim. proxy.ts has already logged this POST under the same request
+// ID.
 //
 // The release on the line is the server's (NFR-OBS-02). The answer carries
 // the request ID that proxy.ts gave this request, which is also on the log

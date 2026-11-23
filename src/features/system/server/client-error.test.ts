@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createLogger, type LogEntry } from "@/infrastructure/logging/logger";
+import { MAX_REPORTED_ROUTE_LENGTH } from "@/domain/client-error";
 import { handleClientError, MAX_CLIENT_ERROR_BYTES } from "./client-error";
 
 vi.mock("server-only", () => ({}));
@@ -104,10 +105,47 @@ describe("client error reports", () => {
     expect(entries).toEqual([]);
   });
 
-  it("[NFR-SEC-02] refuses a body over the size cap with 413, declared or streamed, and logs nothing", async () => {
+  it("[T-14] accepts a body of exactly 8 kB and refuses one byte more", async () => {
+    expect(MAX_CLIENT_ERROR_BYTES).toBe(8000);
+    const padded = (bytes: number) => {
+      const body = report();
+      return body + " ".repeat(bytes - new TextEncoder().encode(body).byteLength);
+    };
     const { entries, log } = collect();
+    expect((await handleClientError(post(padded(8000)), log)).status).toBe(204);
+    expect((await handleClientError(post(padded(8001)), log)).status).toBe(413);
+    expect(entries).toHaveLength(1);
+  });
+
+  it("[NFR-OBS-02] accepts the longest route the browser may send", async () => {
+    const { entries, log } = collect();
+    const route = `/${"a".repeat(MAX_REPORTED_ROUTE_LENGTH - 1)}`;
+    expect((await handleClientError(post(report({ route })), log)).status).toBe(204);
+    expect(entries).toHaveLength(1);
+  });
+
+  it("[T-14] refuses a body over the size cap with 413, declared or streamed, and logs nothing", async () => {
+    const { entries, log } = collect();
+    // A string body carries no content-length in a Request, so this one is
+    // counted as it is read.
     const huge = report({ route: `/${"a".repeat(MAX_CLIENT_ERROR_BYTES)}` });
     expect((await handleClientError(post(huge), log)).status).toBe(413);
+
+    // A declared length over the cap is refused before the body is read.
+    let pulled = false;
+    // No chunk is pulled until someone reads.
+    const unread = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulled = true;
+          controller.close();
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const declared = post(unread, "application/json", { "content-length": "9000" });
+    expect((await handleClientError(declared, log)).status).toBe(413);
+    expect(pulled).toBe(false);
 
     const bytes = new TextEncoder().encode(huge);
     const stream = new ReadableStream<Uint8Array>({
@@ -121,12 +159,12 @@ describe("client error reports", () => {
     expect(entries).toEqual([]);
   });
 
-  it("[NFR-SEC-02] refuses another content type with 415", async () => {
+  it("[T-14] refuses another content type with 415", async () => {
     const response = await handleClientError(post(report(), "text/plain"), () => undefined);
     expect(response.status).toBe(415);
   });
 
-  it("[NFR-SEC-02] refuses a body that is not JSON, or not an object, with 400", async () => {
+  it("[T-14] refuses a body that is not JSON, or not an object, with 400", async () => {
     const { entries, log } = collect();
     for (const body of ["{", "[]", "null", '"worker-crashed"', ""]) {
       expect((await handleClientError(post(body), log)).status).toBe(400);

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { gallery } from "@/messages/gallery";
 import { errorPage, notFound } from "@/messages/system";
 import { pageTitle, shell } from "@/messages/shell";
-import type { ErrorReporter } from "./client/report-client-error";
+import type { ErrorReporter } from "@/domain/client-error";
 import { ErrorView, errorReference } from "./components/error-view";
 import { NotFoundView } from "./components/not-found-view";
 import { PrimitiveGallery } from "./components/primitive-gallery";
@@ -79,6 +79,20 @@ describe("error page", () => {
     expect(screen.getByText(errorPage.referenceHint)).toBeTruthy();
     expect(report).toHaveBeenCalledOnce();
     expect(report).toHaveBeenCalledWith({ code: "unexpected-exception", route: "/courses/python" });
+  });
+
+  it("[FR-SYS-01] lets the reference wrap only after its hyphens, and copies it unchanged", async () => {
+    render(
+      <ErrorView
+        error={new Error("thrown in the browser")}
+        retry={() => undefined}
+        report={() => Promise.resolve(REQUEST_ID)}
+      />,
+    );
+    const reference = await screen.findByText(REQUEST_ID);
+    expect(reference.textContent).toBe(REQUEST_ID);
+    expect(reference.innerHTML).toBe(REQUEST_ID.split("-").join("-<wbr>"));
+    expect(reference.className.split(/\s+/)).not.toContain("break-all");
   });
 
   it("[FR-SYS-01] shows no reference while the report is on its way, or when it fails", async () => {
