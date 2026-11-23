@@ -2,6 +2,42 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 00:25), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 7 took about 15 minutes, so the run went on with parts 8 and 9, which carry this copy to `wp/3.3-grader` and `wp/3.4-statechart`.
+
+### Task 3, part 7 done: the proxy matcher's exclusions (WP-3.1 security review 2, MINOR 7)
+
+- f8af00a: the matcher's exclusions for `_next/static`, `_next/image` and `favicon.ico` were prefixes, so `/favicon.icoX` and `/_next/imageX` skipped the proxy and their not-found page had no policy. Each exclusion now ends at a slash or at the end of the path. The matcher test uses Next.js's own `unstable_doesMiddlewareMatch` instead of a hand-built regular expression.
+- Security review round 1 on f8af00a: CHANGES REQUIRED, 3 MINOR. `/favicon.ico` itself still rendered the not-found page with no policy (there is no icon, ADR-0031); no production-server test; page-prefix mutants survived.
+- c03a7d0: `/favicon.ico` is no longer excluded; the test asserts `/admin`, `/sign-in`, `/courses`, `/learn`, `/profile` and states its no-basePath assumption; `e2e/csp.spec.ts` gains a request-only test that `/favicon.ico`, `/favicon.icoX`, `/_next/imageX` and `/_next/staticX` return 404 with the nonce policy and `frame-ancestors 'none'`.
+- Security review round 2 on c03a7d0: APPROVE. One note: add nested paths when `/admin` and the course routes land. Condensed in `docs/reports/reviews/WP-3.1/security-review-5.md`.
+- Mutants: the old matcher fails the prefix test; the favicon exclusion put back fails the favicon test.
+- `pnpm verify` on c03a7d0: exit 0, 37 files, 845 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the c03a7d0 build: the four paths above return 404 with the nonce policy; `/_runtime/no-such-file` keeps the runtime's static policy; `/_next/image?url=...` gets no page policy.
+- Not run by me: the new e2e test. `pnpm test:e2e` starts the development server too, and Turbopack fails in the sandbox (`unable to start FSEvent stream`). The reviewer ran it against a `next start` through a temporary config with no web servers: 1 passed.
+- Decision: fixed on `wp/3.1-python-worker`, not on a branch from `main`, because this branch already changes the matcher line.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, owner action 2, "Not fixed").
+- Push: `wp/3.1-python-worker` with f8af00a, c03a7d0 and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 8 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- 9e5ff23: `wp/3.1-python-worker` at d6ab769 merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on 9e5ff23: exit 0, 42 files, 1016 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten (7aa4f76).
+- Push: `wp/3.3-grader` with 9e5ff23, 7aa4f76 and the commit that adds these lines.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
+2. Stray servers the sandbox hides from me: a `next start` I launched holds port 3197, and something also answers on port 3100. In your own terminal: `lsof -ti:3197 | xargs kill`, and check `lsof -i:3100` before a local `pnpm test:e2e`, because Playwright reuses a server already on 3100.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+- Shared `$TMPDIR`: name logs by worktree (this run used `verify.log` and `build.log`; the counts it recorded match this branch, 842 plus 3 new tests).
+
 ## Session of 2026-11-24 (from about 00:20), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
 Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy), this section added on top, and the copy carried back to `wp/3.4-statechart` by the merge.

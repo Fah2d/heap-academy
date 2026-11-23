@@ -63,3 +63,15 @@ test("[NFR-SEC-02] an injected inline script is blocked", async ({ page }) => {
     .toBe(true);
   expect(await page.locator("html").getAttribute("data-injected")).toBeNull();
 });
+
+// The proxy sets the page policy. A path that only starts with one of its
+// exclusions, and /favicon.ico while there is no icon (ADR-0031), render the
+// not-found page and must carry the policy and its nonce like any page.
+test("[T-15] paths near the proxy's exclusions carry the page policy", async ({ request }) => {
+  for (const path of ["/favicon.ico", "/favicon.icoX", "/_next/imageX", "/_next/staticX"]) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(404);
+    expect(response.headers()["content-security-policy"], path).toMatch(/'nonce-[^']+'/);
+    expect(response.headers()["content-security-policy"], path).toContain("frame-ancestors 'none'");
+  }
+});

@@ -33,7 +33,7 @@ The Python worker of architecture section 5: learner code runs in a module worke
 | Run support (section 5.5): a fresh `__main__` namespace per run. The builtins, `sys.modules`, `sys.stdin`, `sys.stdout` and `sys.stderr` are restored by Python that holds every reference it needs and looks up no builtin by name (pitfall 3).<br>Learner code can still run after its program ends, in a `__str__` while its error is formatted or a `__del__` when its objects are freed. So the state is restored after the program, again after a garbage-collection pass, and before each run.<br>The report is built without `json`, which a program can replace. The summary is cut to 1,000 characters. The source is registered with `linecache`, and the traceback shows only the learner's frames. Outcomes: `syntax`, `runtime`, `input_ended`, `memory`; `exit(0)` counts as ok. | `src/runtime/worker/run-support.ts` |
 | Controller: `start`, `run`, `stop`, `dispose`. The time limit is enforced from the page. A new worker starts after `time_limit`, `stopped`, `crashed` (an `error` event or a `fatal` message, while running or idle), `memory` and `output_limit`; after the cap, text left in Python's buffers could otherwise reach the next run. A run that reached the cap and then ran into the time limit is still reported as cut. Late messages from a terminated worker are ignored. Malformed messages, and messages for another run, are dropped and reported. A run the worker would refuse is refused before sending. | `src/runtime/controller.ts` |
 | Build: `scripts/build-runtime.mjs` runs first in `pnpm build` and `pnpm dev`. It copies `pyodide.mjs`, `pyodide.asm.mjs`, `pyodide.asm.wasm`, `python_stdlib.zip` and `pyodide-lock.json`, and refuses any version but `RUNTIME_VERSION` (314.0.7). It writes `manifest.json` with raw, gzip and Brotli sizes, fails over 6,500,000 Brotli bytes, and compiles the worker with `tsc -p tsconfig.worker.json`.<br>Each folder is built in `node_modules/.cache/heap-runtime` and moved into place with two renames, so the two test servers building at once never serve half of one, and nothing half-built is ever under `public/`. It refuses an output folder that is not strictly inside `public/`, because the output is deleted first. Both folders are ignored by Git, ESLint and the type check. | `scripts/build-runtime.mjs`, `tsconfig.worker.json`, `package.json`, `.gitignore`, `eslint.config.mjs`, `tsconfig.json` |
-| Headers. The proxy skips `/_runtime/`, so the page policy cannot replace the worker's. The rules, in order:<br>1. Every response under `/_runtime/` gets `default-src 'none'; frame-ancestors 'none'; sandbox`, so a miss there is not a page without a policy (T-15).<br>2. `/_runtime/pyodide/` gets `public, max-age=31536000, immutable`.<br>3. `/_runtime/worker/` gets `default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; frame-ancestors 'none'; report-uri /api/csp-report` and `Cache-Control: no-cache`. It comes last, because Next.js uses the later rule when two set the same header ("the last header key will override the first", headers documentation, read 2026-11-17).<br>The page policy is unchanged: no `'wasm-unsafe-eval'`. `pnpm infra:verify` now checks the worker's policy and revalidation, the immutable runtime files, and a miss. | `src/infrastructure/http/security-headers.ts`, `next.config.ts`, `src/proxy.ts`, `scripts/infra-verify.mjs` |
+| Headers. The proxy skips `/_runtime/`, so the page policy cannot replace the worker's. Its other exclusions (`_next/static/`, `_next/image`) end at a slash or at the end of the path, so `/_next/imageX` still gets the page policy, and `/favicon.ico` is no longer excluded, because there is no icon and the path renders the not-found page (f8af00a, c03a7d0). The rules, in order:<br>1. Every response under `/_runtime/` gets `default-src 'none'; frame-ancestors 'none'; sandbox`, so a miss there is not a page without a policy (T-15).<br>2. `/_runtime/pyodide/` gets `public, max-age=31536000, immutable`.<br>3. `/_runtime/worker/` gets `default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; frame-ancestors 'none'; report-uri /api/csp-report` and `Cache-Control: no-cache`. It comes last, because Next.js uses the later rule when two set the same header ("the last header key will override the first", headers documentation, read 2026-11-17).<br>The page policy is unchanged: no `'wasm-unsafe-eval'`. `pnpm infra:verify` now checks the worker's policy and revalidation, the immutable runtime files, and a miss. | `src/infrastructure/http/security-headers.ts`, `next.config.ts`, `src/proxy.ts`, `scripts/infra-verify.mjs` |
 | One base path: `RUNTIME_ASSET_BASE_URL` in `src/runtime/assets.ts`, with the worker URL and the pinned version. The worker policy adds the runtime's host if the base becomes an `https://` URL. | `src/runtime/assets.ts` |
 | Development-only page `/dev/runtime`. It has a program, an input field, Run, Stop, a status line, the output, the outcome, and counts of restarts and dropped messages. Copy is in `src/messages/runtime-dev.ts`. | `src/app/dev/runtime/page.dev.tsx`, `src/features/workspace/` |
 | Browser tests for the "Done when" lines: 15 tests in each of three projects, `runtime-chromium`, `runtime-firefox` and `runtime-webkit`, against the development server on port 3101. Also 4 header tests on the production server, in the existing `chromium`, `firefox` and `webkit` projects. | `e2e/runtime.spec.ts`, `e2e/runtime-headers.spec.ts`, `playwright.config.ts` |
@@ -59,6 +59,27 @@ The earlier merge of `main` at 037c4ad (#3 and #4) is in f617391; it resolved `n
 Not run on the merge: the browser tests (no browser can start in the sandbox). The commit hook's dependency check could not take pnpm's store lock in the sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed, and `node_modules` already held `pyodide@314.0.7`.
 
 ## How it was verified
+
+**Proxy matcher fix (f8af00a, c03a7d0), 2026-11-24.** `pnpm verify` on c03a7d0, exit 0:
+
+```
+ Test Files  37 passed (37)
+      Tests  845 passed (845)
+```
+
+`pnpm build` with CI's fake public values, exit 0; `check-bundle` and `check-static`, exit 0. Mutants: with the old matcher, the prefix test fails (1 failed, 12 passed, on f8af00a); with the `favicon.ico` exclusion put back, the favicon test fails (1 failed, 13 passed, on c03a7d0). On `next start` of the c03a7d0 build, with the fake values of `playwright.config.ts` (`nonce` and `frame-ancestors-none` count the matching policy header):
+
+```
+/favicon.ico: HTTP/1.1 404 Not Found nonce=1 frame-ancestors-none=1
+/favicon.ico?x: HTTP/1.1 404 Not Found nonce=1 frame-ancestors-none=1
+/favicon.icoX: HTTP/1.1 404 Not Found nonce=1 frame-ancestors-none=1
+/_next/imageX: HTTP/1.1 404 Not Found nonce=1 frame-ancestors-none=1
+/_next/staticX: HTTP/1.1 404 Not Found nonce=1 frame-ancestors-none=1
+/_runtime/no-such-file: HTTP/1.1 404 Not Found nonce=0 frame-ancestors-none=1
+/_next/image?url=%2Fx.png&w=64&q=75: HTTP/1.1 404 Not Found nonce=0 frame-ancestors-none=0
+```
+
+The new test in `e2e/csp.spec.ts` was not run through `pnpm test:e2e`: Playwright starts the development server too, and Turbopack cannot start in the sandbox (`unable to start FSEvent stream`). The security reviewer ran it against a `next start` of this build through a temporary Playwright config with no web servers: 1 passed. It is in owner action 2.
 
 **Round 4 review fixes (58128a3), 2026-11-24.** `pnpm verify`, exit 0:
 
@@ -171,7 +192,8 @@ $ vitest run --coverage
 - `src/infrastructure/http/security-headers.test.ts`, `src/proxy.test.ts`:
   - the worker policy and the runtime headers;
   - the static policy for a miss under `/_runtime/`, and the worker's rule last;
-  - the matcher skips `/_runtime/` and still runs for pages.
+  - the matcher skips `/_runtime/`, the built files and the image optimizer, and still runs for pages, for `/favicon.ico`, and for a path that only starts with an excluded name. It is checked with Next.js's own `unstable_doesMiddlewareMatch`, not a hand-built regular expression, and assumes no `basePath`, i18n or `trailingSlash`.
+- `e2e/csp.spec.ts`: on the production server, `/favicon.ico`, `/favicon.icoX`, `/_next/imageX` and `/_next/staticX` carry the nonce policy and `frame-ancestors 'none'`.
 - `scripts/infra-verify.test.ts`: a deployment whose worker has the page policy, whose worker is cached, whose runtime files are not immutable, or whose miss under `/_runtime/` has no policy, each fails.
 - `src/features/workspace/client/runtime-view.test.ts`: the development page's view.
 
@@ -273,7 +295,7 @@ Four reviews, each by a reviewer with a fresh context. The reports are in `docs/
   - Fixed in 24bceee..cd42ab1: the report's escaping no longer depends on `json`'s module state; the error's real class decides the outcome; odd error attributes no longer stop the worker; `navigator.storageBuckets` is removed; the loader test has a control; the build is staged outside `public/`.
   - Not fixed:
     - MINOR 3, a miss under `/_runtime/worker/` gets the worker policy, not the static one. Defence in depth only.
-    - MINOR 7, the proxy matcher's exclusions are prefixes (`/favicon.icoX`, `/_next/imageX`). This is from WP-1.3, so it belongs to #4; listed under "Not fixed".
+    - MINOR 7, the proxy matcher's exclusions are prefixes (`/favicon.icoX`, `/_next/imageX`). This is from WP-1.3. Fixed later, in f8af00a (see below).
 - **code-reviewer, round 2** (`code-review-2.md`, at 17facd4): CHANGES REQUIRED, 1 BLOCKER, 2 MAJOR, 6 MINOR. Fixed in ce59773..a06e244, with the round-2 security fixes above:
   - a run of exactly 64,000 characters was reported as cut;
   - error attributes the program controls could stop the worker;
@@ -303,6 +325,9 @@ Four reviews, each by a reviewer with a fresh context. The reports are in `docs/
 - **security-reviewer, round 4** (`security-review-4.md`, on the same range and the merges f617391 and 5f72072): **APPROVE**, 2 MINOR. The merges change nothing on the header or proxy paths; the lockfile hashes are unchanged. Acted on:
   - MINOR 1: five passages of this description still said #3 was not merged. Corrected: the browser tests can run on this branch as it is.
   - MINOR 2: no unit test tied `next.config.ts` to `runtimeHeaders`. `scripts/next-config.test.ts` now checks, in the build phase and the development phase, that the rules are the security headers and then the runtime's rules with the worker's policy last. Removing the runtime rules from `next.config.ts` fails both cases.
+- **Fixed later, f8af00a (2026-11-24): security review 2, MINOR 7.** The matcher's exclusions for `_next/static`, `_next/image` and `favicon.ico` were prefixes, so `/favicon.icoX` and `/_next/imageX` skipped the proxy and their not-found page had no policy. Each exclusion now ends at a slash or at the end of the path: `_next/static/`, `_next/image$`. `/favicon.ico` is no longer excluded (c03a7d0): there is no icon (ADR-0031), so it rendered the not-found page with no policy. Evidence under "How it was verified".
+  - **security-reviewer, round 5** (`security-review-5.md`): CHANGES REQUIRED on f8af00a (3 MINOR: the favicon page, no production-server test, page-prefix mutants), all fixed in c03a7d0; **APPROVE** on c03a7d0. One note left: when `/admin` and the course routes land, add a nested path for each to the matcher test.
+  - Decision: fixed on this branch, not on a branch from `main`, because this branch already changes the matcher line (it adds `_runtime/`); a fix from `main` would conflict with it.
 - **No reviewer has seen the round 4 fixes (58128a3).** They are one test file, one test split, one classification change of six lines in the run support's fallback, and comments.
 - design-reviewer: not required. The only page is development-only, with no learner-facing screen or copy.
 
@@ -327,7 +352,10 @@ On the development server (`pnpm dev`):
    ```sh
    pnpm test:e2e --project=runtime-chromium --project=runtime-firefox --project=runtime-webkit
    pnpm test:e2e e2e/runtime-headers.spec.ts --project=chromium --project=firefox --project=webkit
+   pnpm test:e2e e2e/csp.spec.ts -g "paths near" --project=chromium --project=firefox --project=webkit
    ```
+
+   Stop any server already on port 3100 first: locally Playwright reuses it, so the tests would run against whatever build it serves. The last command runs only the new proxy test (c03a7d0). The two older tests in `e2e/csp.spec.ts` fail locally on `main` too; `wp/fix-smoke-and-runtime` fixes them.
 
 3. Decide ADR-0033.
 4. Decide the deviations below.
@@ -359,7 +387,6 @@ On the development server (`pnpm dev`):
 - **A miss under `/_runtime/pyodide/`** gets `immutable` too, so a cache in between could keep a 404 for a year. A deployment's pages only ever ask for their own release's files, so this needs a request for a file the release does not have.
 - **The runtime base path is a constant** (see Deviations).
 - **A miss under `/_runtime/worker/`** gets the worker policy, which has no `sandbox`, instead of the static one (security review 2, MINOR 3). No way to put content there is known. The fix is a worker rule that matches only the compiled `.js` files, once Next.js's path syntax for that is confirmed.
-- **The proxy matcher's exclusions are prefixes** (security review 2, MINOR 7, from WP-1.3). `/favicon.icoX` and `/_next/imageX` skip the proxy, so their not-found page has no policy. Anchor the exclusions in #4 or a follow-up.
 
 ## Risks and rollback
 
