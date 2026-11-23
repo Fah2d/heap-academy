@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { HARNESS_OUTPUT_LIMIT } from "../src/grader/harness";
 import { CHECK_TEST_LIMIT } from "../src/grader/test-case";
 import {
   adminArea,
@@ -14,6 +15,7 @@ import {
 } from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
 import { lessonContent } from "../src/messages/lesson";
+import { TIME_LIMIT_MS } from "../src/runtime/controller";
 import { saveScreen } from "./screens";
 
 // The admin states the J-12 journey cannot reach (WP-2.3 design review 1),
@@ -348,6 +350,9 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await shot("admin-validate-python-loading");
   await loading.getByRole("button", { name: validation.stop }).click();
   await expect(loading.getByText(validation.status.stopped)).toBeVisible();
+  await publishHeading(loading).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-stopped");
 
   // Python could not start: Try again, and Validate says nothing was checked.
   const failed = page.getByRole("region", { name: adminGallery.lessonPythonFailed });
@@ -355,6 +360,7 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await validate(failed);
   await expect(failed.getByText(validation.unavailableStart)).toBeVisible();
   await publishHeading(failed).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validate-python-failed");
 
   // Validating: the pending Validate and Stop.
@@ -362,6 +368,7 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await validate(running);
   await expect(running.getByText(validation.status.running)).toBeVisible();
   await publishHeading(running).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validating");
 
   // A failed rule names the test case; its verdict shows what the solution printed.
@@ -385,6 +392,11 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await expect(second.getByRole("textbox", { name: testCaseList.expectedLabel })).toBeFocused();
   await expect(second.getByText(validation.verdictOutdated)).toBeVisible();
   await expect(wrong.getByText(validation.outdated)).toBeVisible();
+  await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-outdated");
+  await publishHeading(wrong).scrollIntoViewIfNeeded();
+  await shot("admin-validation-outdated");
 
   // Validate again: every rule passes.
   await validate(wrong);
@@ -398,6 +410,96 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await expect(
     empty.getByText(validation.missing([validation.part.instructions, validation.part.test_cases])),
   ).toBeVisible();
+});
+
+test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line, cut and cleaned output, and Save on a published lesson validating first, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading });
+  const save = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: lessonEditor.save }).click();
+
+  // The starter reaches the time limit; the solution fails three ways.
+  const odd = page.getByRole("region", { name: adminGallery.lessonOddResults });
+  await odd.getByRole("button", { name: validation.validate }).click();
+  await expect(
+    odd.getByText(validation.timedOut(TIME_LIMIT_MS / 1000, [validation.program.starter])),
+  ).toBeVisible();
+  await publishHeading(odd).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-time-limit");
+
+  // Output with escape sequences is shown without them, and Fill is not offered.
+  await odd
+    .getByRole("button", { name: testCaseList.title(1, adminGallery.sampleTestName) })
+    .click();
+  const first = odd.getByRole("group", { name: testCaseList.group(1) });
+  await expect(first.getByText(validation.cleaned)).toBeVisible();
+  await expect(first.getByTestId("solution-output")).toHaveText(adminGallery.sampleTestExpected);
+  await expect(
+    first.getByRole("button", { name: validation.fillLabel(adminGallery.sampleTestName) }),
+  ).toHaveCount(0);
+  await first.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-cleaned");
+
+  // An error names its line.
+  await odd
+    .getByRole("button", { name: testCaseList.title(2, adminGallery.sampleTestName2) })
+    .click();
+  const second = odd.getByRole("group", { name: testCaseList.group(2) });
+  await expect(second.getByText(validation.reason.program_error)).toBeVisible();
+  await expect(second.getByText(validation.error(adminGallery.oddErrorMessage, 2))).toBeVisible();
+  await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-error-line");
+
+  // Output past the limit is cut, said so, and not fillable.
+  await odd.getByRole("button", { name: testCaseList.title(3, adminGallery.oddTestName3) }).click();
+  const third = odd.getByRole("group", { name: testCaseList.group(3) });
+  await expect(third.getByText(validation.reason.output_limit(HARNESS_OUTPUT_LIMIT))).toBeVisible();
+  await expect(third.getByText(validation.truncated(HARNESS_OUTPUT_LIMIT))).toBeVisible();
+  await expect(
+    third.getByRole("button", { name: validation.fillLabel(adminGallery.oddTestName3) }),
+  ).toHaveCount(0);
+  await third.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-truncated");
+
+  // Save on a published lesson validates first; Stop saves nothing.
+  const validating = page.getByRole("region", { name: adminGallery.lessonSaveValidating });
+  await save(validating);
+  await expect(validating.getByText(validation.status.running)).toBeVisible();
+  await expect(validating.getByRole("button", { name: validation.stop })).toBeVisible();
+  await publishHeading(validating).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-validating");
+  await validating.getByRole("button", { name: validation.stop }).click();
+  await expect(validating.getByText(lessonEditor.validateFirst.stopped)).toBeVisible();
+  await validating.getByText(lessonEditor.validateFirst.stopped).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-stopped");
+
+  // Python could not start: nothing is saved, and the way out is named.
+  const noPython = page.getByRole("region", { name: adminGallery.lessonSavePythonFailed });
+  await save(noPython);
+  await expect(noPython.getByText(lessonEditor.validateFirst.unavailableStart)).toBeVisible();
+  await noPython.getByText(lessonEditor.validateFirst.unavailableStart).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-python");
+
+  // A rule failed: nothing is saved, and the checklist says what to fix.
+  const ruleFailed = page.getByRole("region", { name: adminGallery.lessonSaveRuleFailed });
+  await save(ruleFailed);
+  await expect(ruleFailed.getByText(lessonEditor.validateFirst.failed)).toBeVisible();
+  await expect(ruleFailed.getByText(validation.status.failed(1))).toBeVisible();
+  await ruleFailed.getByText(lessonEditor.validateFirst.failed).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-rule");
 });
 
 test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, published, archived, at 1280 px", async ({
@@ -438,6 +540,7 @@ test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, 
   await confirm.getByRole("button", { name: lessonStatus.action.archived }).click();
   await expect(refusing.getByText(lessonStatus.failure.status_not_allowed)).toBeVisible();
   await statusGroup(refusing).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-lesson-status-refused");
 
   // A published lesson: Move back to draft asks and says what learners will see.
@@ -445,9 +548,11 @@ test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, 
   await published.getByRole("button", { name: lessonStatus.action.draft }).click();
   const unpublish = page.getByRole("dialog", { name: lessonStatus.confirmTitle.draft });
   await expect(unpublish.getByText(lessonStatus.confirmBody.draft)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-lesson-unpublish-confirm");
   await unpublish.getByRole("button", { name: lessonStatus.cancel }).click();
   await statusGroup(published).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-lesson-published");
 
   // An archived lesson: only Move back to draft, which asks nothing.

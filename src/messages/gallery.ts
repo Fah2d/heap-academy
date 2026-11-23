@@ -126,6 +126,18 @@ export const adminGallery = {
   lessonValidating: "Lesson editor whose validation never ends, to show Validating and Stop",
   lessonValidationFailed:
     "Lesson editor whose second test case expects the greeting without the prompt, so the solution fails it and Fill from solution is offered",
+  lessonSaveValidating:
+    "Lesson editor of a published lesson whose validation never ends: Save validates first, and Stop saves nothing",
+  lessonSavePythonFailed:
+    "Lesson editor of a published lesson whose Python could not start, so Save saves nothing",
+  lessonSaveRuleFailed:
+    "Lesson editor of a published lesson whose solution fails the second test case, so Save saves nothing",
+  lessonOddResults:
+    "Lesson editor whose solution prints color codes, stops with an error on line 2, and prints past the output limit, and whose starter reaches the time limit",
+  oddTestName3: "Greets Sara many times",
+  oddColoredOutput: "\u001b[31mWhat is your name? Hello, Sara!\u001b[0m\n",
+  oddErrorMessage: "NameError: name 'nme' is not defined",
+  oddRepeatedLine: "Hello, Sara!\n",
   samplePromptOnly: "What is your name? \n",
   wrongExpected: "Hello, Omar!",
   extraTestName: (n: number) => `Works for name ${String(n)}`,

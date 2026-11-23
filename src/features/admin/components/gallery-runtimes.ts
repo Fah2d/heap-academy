@@ -1,4 +1,4 @@
-import { grade } from "@/grader/grade";
+import { grade, type TestResult } from "@/grader/grade";
 import { HARNESS_VERSION } from "@/grader/harness";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { CheckProgram } from "../client/validate-lesson";
@@ -33,6 +33,21 @@ export function scriptedRuntime(
         }),
       ),
     );
+  return (onState) => {
+    onState("ready");
+    return { checkProgram, stop: noop, retry: noop, dispose: noop };
+  };
+}
+
+/**
+ * Python that is ready at once and gives each program the results
+ * `resultsFor` makes: the endings a printed output cannot reach, such as a
+ * time limit, an error on a line, or output cut at the limit.
+ */
+export function fixedResultsRuntime(
+  resultsFor: (source: string, tests: readonly TestCase[]) => TestResult[],
+): OpenValidationRuntime {
+  const checkProgram: CheckProgram = (source, tests) => Promise.resolve(resultsFor(source, tests));
   return (onState) => {
     onState("ready");
     return { checkProgram, stop: noop, retry: noop, dispose: noop };

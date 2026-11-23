@@ -4,12 +4,14 @@ import type { ReactNode } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
 import type { LessonDocument } from "@/content/markdown";
-import type { TestCaseId } from "@/grader/test-case";
+import { type TestResult, unfinished } from "@/grader/grade";
+import { HARNESS_VERSION } from "@/grader/harness";
+import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
-import { scriptedRuntime, stuckRuntime } from "./gallery-runtimes";
+import { fixedResultsRuntime, scriptedRuntime, stuckRuntime } from "./gallery-runtimes";
 import { LessonContent } from "@/features/workspace";
 import { LessonEditor } from "./lesson-editor";
 import { NewCourseForm } from "./new-course-form";
@@ -254,6 +256,74 @@ const wrongExpectedLesson: EditorLessonDetail = {
     index === 1 ? { ...testCase, expected: m.wrongExpected } : testCase,
   ),
 };
+
+/** A third test case, which the odd solution prints past the output limit for. */
+const oddLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  testCases: [
+    ...sampleLesson.testCases,
+    {
+      id: "greets-many-times" as TestCaseId,
+      name: m.oddTestName3,
+      stdin: m.sampleTestInput,
+      afterCode: "",
+      expected: m.sampleTestExpected,
+      match: "normalized",
+      hint: "",
+    },
+  ],
+};
+
+const failedResult = (
+  testCase: TestCase,
+  ending: Pick<
+    Extract<TestResult, { status: "failed" }>,
+    "reason" | "actual" | "truncated" | "error"
+  >,
+): TestResult => ({
+  testCaseId: testCase.id,
+  status: "failed",
+  harnessVersion: HARNESS_VERSION,
+  ...ending,
+});
+
+/**
+ * The solution prints escape sequences for the first test case, stops with
+ * an error on line 2 for the second, and prints past the output limit for
+ * the third; the starter reaches the time limit; the wrong answer prints
+ * only the prompt. A few lines stand for the cut output, so the picture
+ * stays readable.
+ */
+const oddRuntime = fixedResultsRuntime((source, tests) => {
+  if (source === m.sampleStarter) return unfinished(tests, "time_limit");
+  if (source !== m.sampleSolution) {
+    return tests.map((testCase) =>
+      failedResult(testCase, { reason: "mismatch", actual: m.samplePromptOnly, truncated: false }),
+    );
+  }
+  return tests.map((testCase, index) => {
+    if (index === 0) {
+      return failedResult(testCase, {
+        reason: "mismatch",
+        actual: m.oddColoredOutput,
+        truncated: false,
+      });
+    }
+    if (index === 1) {
+      return failedResult(testCase, {
+        reason: "program_error",
+        actual: m.samplePromptOnly,
+        truncated: false,
+        error: { kind: "runtime", message: m.oddErrorMessage, line: 2 },
+      });
+    }
+    return failedResult(testCase, {
+      reason: "output_limit",
+      actual: m.oddRepeatedLine.repeat(8),
+      truncated: true,
+    });
+  });
+});
 
 export function AdminStateGallery({ nonce }: { nonce: string }) {
   return (
@@ -515,6 +585,50 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={readyRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-validating" title={m.lessonSaveValidating}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={readyRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-python-failed" title={m.lessonSavePythonFailed}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={failedRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-rule-failed" title={m.lessonSaveRuleFailed}>
+        <LessonEditor
+          lesson={{ ...wrongExpectedLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-odd-results" title={m.lessonOddResults}>
+        <LessonEditor
+          lesson={oddLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={oddRuntime}
         />
       </Example>
       <Example id="gallery-lesson-validation-failed" title={m.lessonValidationFailed}>
