@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,16 @@ import { CourseStatusPanel, type SetCourseStatus } from "./course-status";
 // reason.
 
 afterEach(cleanup);
+
+/**
+ * An announced notice's region is in the page first and its words follow a
+ * frame later (`LiveRegion`), so the test waits for the words in the region.
+ */
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(text);
+  });
+}
 
 const ID = "00000000-0000-4000-8000-000000000c01";
 const LOADED = "2026-11-21T08:00:00.123456+00:00";
@@ -86,7 +96,7 @@ describe("CourseStatusPanel [FR-ADM-03, FR-ADM-09]", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: words.statusAction.published }));
-    expect(screen.getByRole("alert").textContent).toContain(structure.failure.no_published_lesson);
+    await expectAlert(structure.failure.no_published_lesson);
     expect(onChanged).not.toHaveBeenCalled();
   });
 
@@ -133,7 +143,7 @@ describe("CourseStatusPanel [FR-ADM-03, FR-ADM-09]", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: words.statusAction.published }));
-    expect(screen.getByRole("alert").textContent).toContain(structure.failure.stale);
+    await expectAlert(structure.failure.stale);
     expect(screen.getByRole("button", { name: structure.reload })).toBeTruthy();
   });
 });

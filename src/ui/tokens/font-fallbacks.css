@@ -1,0 +1,52 @@
+/*
+ * The metric-matched fallback for IBM Plex Mono (DESIGN.md section 5): local
+ * monospace faces scaled so each character is as wide as Plex Mono's and each
+ * line as tall, so the swap to Plex Mono moves nothing. One family per local
+ * font, with a face per weight Plex Mono ships; each bold measures the same as
+ * its regular face. The overrides follow next/font's fallback formula, and
+ * src/ui/tokens/font-fallbacks.test.ts recomputes them from the recorded
+ * metrics. Android is not covered: it ships none of these fonts, and no
+ * Android font file was at hand to measure.
+ */
+@font-face {
+  font-family: plex-mono-fallback-menlo;
+  font-weight: 400;
+  src: local("Menlo Regular"), local("Menlo-Regular");
+  size-adjust: 99.66%;
+  ascent-override: 102.85%;
+  descent-override: 27.59%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: plex-mono-fallback-courier;
+  font-weight: 400;
+  src:
+    local("Courier New"), local("CourierNewPSMT"), local("Liberation Mono"), local("LiberationMono");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: plex-mono-fallback-menlo;
+  font-weight: 600;
+  src: local("Menlo Bold"), local("Menlo-Bold");
+  size-adjust: 99.66%;
+  ascent-override: 102.85%;
+  descent-override: 27.59%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: plex-mono-fallback-courier;
+  font-weight: 600;
+  src:
+    local("Courier New Bold"), local("CourierNewPS-BoldMT"), local("Liberation Mono Bold"),
+    local("LiberationMono-Bold");
+  size-adjust: 99.98%;
+  ascent-override: 102.52%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
