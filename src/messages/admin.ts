@@ -222,6 +222,7 @@ export const lessonEditor = {
   publishedCodeNote:
     "This lesson is published. A change to its starter, solution, wrong answers or test cases is saved only together with a passing validation.",
   testCasesHeading: "Test cases",
+  publishHeading: "Publish",
   fieldInvalid: {
     title: "Enter a title of 1 to 60 characters.",
     slug: "Use lowercase letters, digits and single hyphens, up to 60 characters.",
@@ -295,6 +296,96 @@ export const testCaseList = {
       afterCode: (limit: number) => `Keep the follow-up code to ${count.format(limit)} characters.`,
     },
   },
+} as const;
+
+const listed = (items: readonly string[]) =>
+  items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1] ?? ""}`;
+
+/** Validate in the lesson editor (docs/spec/03-experience.md section 7.6; FR-ADM-06, FR-ADM-07). */
+export const validation = {
+  intro:
+    "Validate runs the solution, the starter and each wrong answer against every test case, in the same Python learners use. A lesson is published only when every rule passed for the lesson as it is in the editor.",
+  pythonLabel: "Python",
+  python: {
+    loading: "Loading. Validate waits for it.",
+    ready: "Ready.",
+    failed: "Could not start, so nothing can be validated.",
+  },
+  retry: "Try again",
+  checklistLabel: "Checklist",
+  rule: {
+    complete: "The lesson has a title, an address, instructions and at least one test case.",
+    solution_passes: "The solution passes every test case.",
+    starter_fails: "The starter fails at least one test case.",
+    wrong_answers_fail: "Every wrong answer fails at least one test case.",
+    no_time_limit: "No run reached the time limit.",
+  },
+  state: { passed: "Passed", failed: "Failed", not_run: "Not checked" },
+  part: {
+    title: "a title",
+    slug: "an address",
+    instructions: "instructions",
+    test_cases: "a test case",
+  },
+  missing: (parts: readonly string[]) => `Still missing: ${listed(parts)}.`,
+  testCaseRef: (n: number, name: string) =>
+    name.trim() === "" ? `test case ${String(n)}` : `test case ${String(n)} (${name})`,
+  solutionFailed: (cases: readonly string[]) =>
+    `The solution did not pass ${listed(cases)}. Open the test case to see what it printed.`,
+  starterPasses:
+    "The starter passes every test case, so a learner would have nothing to do. Change the starter, or make a test case stricter.",
+  wrongAnswersPass: (numbers: readonly number[]) =>
+    numbers.length === 1
+      ? `Wrong answer ${String(numbers[0])} passes every test case. Add a test case that this mistake fails.`
+      : `Wrong answers ${listed(numbers.map(String))} pass every test case. Add a test case that each of these mistakes fails.`,
+  program: {
+    solution: "the solution",
+    starter: "the starter",
+    wrongAnswer: (n: number) => `wrong answer ${String(n)}`,
+  },
+  timedOut: (programs: readonly string[]) =>
+    `Stopped at the 5 second limit: ${listed(programs)}. Look for a loop that never ends.`,
+  validate: "Validate",
+  validating: "Validating",
+  stop: "Stop",
+  status: {
+    running: "Validating the lesson.",
+    stopping: "Stopping the validation.",
+    passed: "Validation finished. Every rule passed.",
+    failed: (n: number) =>
+      n === 1
+        ? "Validation finished. 1 rule failed."
+        : `Validation finished. ${String(n)} rules failed.`,
+    stopped: "Validation stopped. No rule was decided.",
+  },
+  unavailableLabel: "Error",
+  unavailable:
+    "Python could not run the programs, so nothing was checked. Press Validate to try again.",
+  outdatedLabel: "Note",
+  outdated: "You changed the lesson after this validation. Validate again before publishing.",
+  /** The solution's result inside one test case (section 7.5). */
+  solutionHeading: "What the solution printed",
+  verdict: { pass: "Passed", fail: "Failed", not_run: "Not run" },
+  reason: {
+    mismatch: "The output is different from the expected output.",
+    program_error: "The solution stopped with an error.",
+    after_code_error: "The follow-up code stopped with an error.",
+    output_limit: "The solution printed more than 64,000 characters.",
+    time_limit: "The solution reached the 5 second limit.",
+    stopped: "The validation was stopped.",
+    crashed: "Python stopped working during this test case.",
+  },
+  /** Python's own message, which names the error, such as "ValueError: invalid literal". */
+  error: (message: string, line: number | undefined) =>
+    line === undefined ? message : `Line ${String(line)}: ${message}`,
+  noOutput: "Nothing was printed.",
+  truncated: "The output was cut at 64,000 characters.",
+  verdictOutdated:
+    "You changed the expected output or how to compare after this validation. Validate again for a verdict.",
+  fill: "Fill from solution",
+  fillLabel: (name: string) => `Fill from solution: ${name}`,
 } as const;
 
 /** Lessons in the course editor's chapters (docs/spec/03-experience.md section 7.3). */

@@ -155,4 +155,28 @@ describe("validateLessonContent [FR-ADM-06, FR-ADM-07]", () => {
       programs: [{ program: "wrong_answer", index: 1 }],
     });
   });
+
+  it("[FR-ADM-07] a stop pressed while a check waited for Python is a stop, not an unavailable runtime", async () => {
+    let stopped = false;
+    const check = vi.fn<CheckProgram>(() => {
+      stopped = true;
+      return Promise.resolve(undefined);
+    });
+    expect(await validateLessonContent(content, check, () => stopped)).toEqual({
+      kind: "stopped",
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+  });
+
+  it("[FR-ADM-07] runs nothing more once the stop is pressed, even when the last check ended on its own", async () => {
+    let stopped = false;
+    const check = vi.fn<CheckProgram>((source, tests) => {
+      stopped = true;
+      return honest(source, tests);
+    });
+    expect(await validateLessonContent(content, check, () => stopped)).toEqual({
+      kind: "stopped",
+    });
+    expect(check).toHaveBeenCalledTimes(1);
+  });
 });

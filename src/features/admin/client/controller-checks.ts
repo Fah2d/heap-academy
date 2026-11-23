@@ -21,12 +21,18 @@ export type ControllerChecks = {
   checkProgram: CheckProgram;
   /** Every controller event goes here. */
   handle: (event: ControllerEvent) => void;
+  /**
+   * The owner pressed Stop. A check that has begun is stopped by the
+   * controller, and its stopped results settle it; one still waiting for
+   * Python gets undefined and never begins.
+   */
+  cancel: () => void;
   /** The editor closed: whatever waits gets undefined, and nothing more runs. */
   dispose: () => void;
 };
 
 export function createControllerChecks(
-  controller: Pick<RuntimeController, "check">,
+  controller: Pick<RuntimeController, "check" | "stop">,
 ): ControllerChecks {
   let waiting: Waiting | undefined;
   let disposed = false;
@@ -63,6 +69,11 @@ export function createControllerChecks(
       ) {
         settle(event.results);
       }
+    },
+    cancel: () => {
+      if (waiting === undefined) return;
+      if (waiting.runId === undefined) settle(undefined);
+      else controller.stop();
     },
     dispose: () => {
       disposed = true;

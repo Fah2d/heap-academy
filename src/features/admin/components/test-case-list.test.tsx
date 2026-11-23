@@ -5,7 +5,8 @@ import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { TestCaseProblem } from "@/grader/test-case-list";
-import { testCaseList as words } from "@/messages/admin";
+import { validation, testCaseList as words } from "@/messages/admin";
+import type { SolutionView } from "../validation-view";
 import { TestCaseList } from "./test-case-list";
 
 // The test case list (docs/spec/03-experience.md section 7.5; FR-ADM-05):
@@ -28,15 +29,17 @@ const testCase = (id: string, name: string): TestCase => ({
 function Harness({
   initial,
   problems = new Map(),
+  solution = new Map(),
   onList,
 }: {
   initial: TestCase[];
   problems?: ReadonlyMap<TestCaseId, readonly TestCaseProblem[]>;
+  solution?: ReadonlyMap<TestCaseId, SolutionView>;
   onList?: (list: TestCase[]) => void;
 }) {
   const [list, setList] = useState(initial);
   const [open, setOpen] = useState<ReadonlySet<string>>(
-    () => new Set(problems.keys() as Iterable<string>),
+    () => new Set([...problems.keys(), ...solution.keys()] as Iterable<string>),
   );
   const next = useRef(0);
   return (
@@ -47,6 +50,7 @@ function Harness({
         onList?.(value);
       }}
       problems={problems}
+      solution={solution}
       expanded={open}
       onExpandedChange={(id, isOpen) =>
         setOpen((current) => {
@@ -219,5 +223,71 @@ describe("TestCaseList [FR-ADM-05]", () => {
     expect(
       fields.getByRole("textbox", { name: words.stdinLabel }).getAttribute("aria-invalid"),
     ).toBeNull();
+  });
+
+  it("[FR-ADM-06] shows the solution's verdict, the reason and what it printed", () => {
+    const solution = new Map<TestCaseId, SolutionView>([
+      [
+        "a" as TestCaseId,
+        {
+          actual: "8\n",
+          truncated: false,
+          verdict: { state: "fail", reason: "mismatch" },
+          fillable: true,
+        },
+      ],
+      [
+        "b" as TestCaseId,
+        {
+          actual: "",
+          truncated: false,
+          verdict: {
+            state: "fail",
+            reason: "program_error",
+            error: { kind: "runtime", message: "ValueError: invalid literal", line: 2 },
+          },
+          fillable: false,
+        },
+      ],
+    ]);
+    render(
+      <Harness initial={[testCase("a", "Doubles"), testCase("b", "Reads")]} solution={solution} />,
+    );
+    const first = within(group(1));
+    expect(first.getByRole("heading", { name: validation.solutionHeading })).toBeTruthy();
+    expect(first.getByText(validation.verdict.fail)).toBeTruthy();
+    expect(first.getByText(validation.reason.mismatch)).toBeTruthy();
+    expect(first.getByTestId("solution-output").textContent).toBe("8\n");
+    const second = within(group(2));
+    expect(second.getByText(validation.reason.program_error)).toBeTruthy();
+    expect(second.getByText(validation.error("ValueError: invalid literal", 2))).toBeTruthy();
+    expect(second.getByText(validation.noOutput)).toBeTruthy();
+    expect(second.queryByRole("button", { name: validation.fillLabel("Reads") })).toBeNull();
+  });
+
+  it("[FR-ADM-06] Fill from solution copies what the solution printed into the expected output, and focus moves there", async () => {
+    const onList = vi.fn();
+    const solution = new Map<TestCaseId, SolutionView>([
+      [
+        "a" as TestCaseId,
+        { actual: "6\n", truncated: false, verdict: { state: "pass" }, fillable: true },
+      ],
+    ]);
+    render(<Harness initial={[testCase("a", "Doubles")]} solution={solution} onList={onList} />);
+    await userEvent.click(screen.getByRole("button", { name: validation.fillLabel("Doubles") }));
+    expect(onList).toHaveBeenLastCalledWith([{ ...testCase("a", "Doubles"), expected: "6\n" }]);
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(group(1)).getByLabelText(words.expectedLabel)),
+    );
+  });
+
+  it("[FR-ADM-06] says when the verdict is about an older expected output, and when the output was cut", () => {
+    const solution = new Map<TestCaseId, SolutionView>([
+      ["a" as TestCaseId, { actual: "6", truncated: true, verdict: undefined, fillable: false }],
+    ]);
+    render(<Harness initial={[testCase("a", "Doubles")]} solution={solution} />);
+    expect(screen.getByText(validation.verdictOutdated)).toBeTruthy();
+    expect(screen.getByText(validation.truncated)).toBeTruthy();
+    expect(screen.queryByText(validation.verdict.pass)).toBeNull();
   });
 });

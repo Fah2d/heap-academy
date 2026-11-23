@@ -14,24 +14,43 @@ import type { TestCase, TestCaseId } from "@/grader/test-case";
 import { testCaseProblems, type TestCaseProblem } from "@/grader/test-case-list";
 import { lessonEditor as words, structure } from "@/messages/admin";
 import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
+import { validateLessonContent, type ValidationContent } from "../client/validate-lesson";
+import {
+  openBrowserValidationRuntime,
+  type OpenValidationRuntime,
+  type PythonState,
+  type ValidationRuntime,
+} from "../client/validation-runtime";
 import type { AdminAction, EditorLessonDetail } from "../types";
+import {
+  checkedNow,
+  solutionViews,
+  validatedHashFor,
+  type ValidationState,
+} from "../validation-view";
 import { InstructionsPreview, type RenderPreview } from "./instructions-preview";
 import { useLeaveWarning } from "./leave-warning";
 import { settle } from "./structure-controls";
 import { TestCaseList } from "./test-case-list";
+import { ValidationPanel } from "./validation-panel";
 
 // The lesson editor (docs/spec/03-experience.md section 7.4; FR-ADM-04,
 // FR-ADM-05, FR-ADM-10): Details, Instructions with a live preview and
-// hints, Code with the starter, the solution and the wrong answers, and the
-// test cases, on one page with a side list that jumps between them. A top bar shows the status, whether
-// anything is unsaved, and Save. Leaving with unsaved changes asks first. A
-// save names the version the editor loaded and is refused over a newer one.
+// hints, Code with the starter, the solution and the wrong answers, the test
+// cases, and Validate with its checklist (FR-ADM-06, FR-ADM-07), on one page
+// with a side list that jumps between them. A top bar shows the status,
+// whether anything is unsaved, and Save. Leaving with unsaved changes asks
+// first. A save names the version the editor loaded and is refused over a
+// newer one; it carries the validated hash only when the last validation
+// passed for exactly the gradable content it saves.
 
 export type SaveLessonInput = {
   id: string;
   loadedAt: string;
   draft: LessonDraft;
   testCases: TestCase[];
+  /** The hash of the gradable content a passing validation checked (section 4.2). */
+  validatedHash?: string;
 };
 export type SaveLesson = AdminAction<SaveLessonInput, { updatedAt: string }>;
 
@@ -73,6 +92,20 @@ const snapshot = (fields: EditorFields) =>
     wrongAnswers: fields.wrongAnswers.map(({ label, code }) => ({ label, code })),
   });
 
+/**
+ * What Validate checks. Wrong answer labels are trimmed as the save trims
+ * them, so a passing validation's hash matches the hash of what is saved.
+ */
+const contentOf = (fields: EditorFields): ValidationContent => ({
+  title: fields.title,
+  slug: fields.slug,
+  instructionsMd: fields.instructionsMd,
+  starterCode: fields.starterCode,
+  solutionCode: fields.solutionCode,
+  wrongAnswers: fields.wrongAnswers.map(({ label, code }) => ({ label: label.trim(), code })),
+  testCases: fields.testCases,
+});
+
 const FAILURES = Object.keys(words.failure) as (keyof typeof words.failure)[];
 const failureText = (error: string) =>
   words.failure[FAILURES.find((key) => key === error) ?? "unavailable"];
@@ -83,6 +116,7 @@ export const LESSON_SECTIONS = [
   { key: "instructions", title: words.instructionsHeading },
   { key: "code", title: words.codeHeading },
   { key: "testCases", title: words.testCasesHeading },
+  { key: "publish", title: words.publishHeading },
 ] as const;
 
 export type LessonEditorProps = {
@@ -93,6 +127,8 @@ export type LessonEditorProps = {
   renderPreview: RenderPreview;
   /** The ID of a new test case; random unless a test fixes it. */
   newTestCaseId?: () => string;
+  /** Starts the Python that Validate uses; the browser's unless a test gives its own. */
+  openRuntime?: OpenValidationRuntime;
 };
 
 const randomTestCaseId = () => crypto.randomUUID();
@@ -104,6 +140,7 @@ export function LessonEditor({
   save,
   renderPreview,
   newTestCaseId = randomTestCaseId,
+  openRuntime = openBrowserValidationRuntime,
 }: LessonEditorProps) {
   const [fields, setFields] = useState<EditorFields>(() => fieldsOf(lesson));
   const [saved, setSaved] = useState(() => snapshot(fieldsOf(lesson)));
@@ -114,6 +151,19 @@ export function LessonEditor({
   const [failure, setFailure] = useState<string | null>(null);
   const [savedNow, setSavedNow] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [python, setPython] = useState<PythonState>("loading");
+  const [validation, setValidation] = useState<ValidationState>({ kind: "idle" });
+  const runtime = useRef<ValidationRuntime | undefined>(undefined);
+  const stopPressed = useRef(false);
+  // Python starts with the editor, so it is ready when the owner presses Validate.
+  useEffect(() => {
+    const opened = openRuntime(setPython);
+    runtime.current = opened;
+    return () => {
+      opened.dispose();
+      runtime.current = undefined;
+    };
+  }, [openRuntime]);
   const form = useRef<HTMLFormElement>(null);
   const nextKey = useRef(lesson.wrongAnswers.length);
   const sectionPrefix = useId();
@@ -154,6 +204,35 @@ export function LessonEditor({
       ),
     }));
 
+  function validate() {
+    const current = runtime.current;
+    if (current === undefined || validation.kind === "running") return;
+    // A check waits for Python to be ready, which a failed start never is.
+    if (python === "failed") {
+      setValidation({ kind: "unavailable" });
+      return;
+    }
+    const checked = contentOf(fields);
+    stopPressed.current = false;
+    setValidation({ kind: "running", stopping: false });
+    void validateLessonContent(checked, current.checkProgram, () => stopPressed.current).then(
+      (outcome) =>
+        setValidation(outcome.kind === "done" ? { ...outcome, checked } : { kind: outcome.kind }),
+      (error: unknown) => {
+        // A defect, not a lesson problem: the panel leaves "Validating", and
+        // the error still reaches the page's error reporting.
+        setValidation({ kind: "unavailable" });
+        throw error;
+      },
+    );
+  }
+
+  function stopValidation() {
+    stopPressed.current = true;
+    setValidation({ kind: "running", stopping: true });
+    runtime.current?.stop();
+  }
+
   function focusFirstInvalid() {
     requestAnimationFrame(() =>
       form.current?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus(),
@@ -186,8 +265,22 @@ export function LessonEditor({
     setInvalid([]);
     const { draft } = checked;
     const submitted = fields;
+    const validatedHash = validatedHashFor(validation, {
+      ...contentOf(fields),
+      starterCode: draft.starterCode,
+      solutionCode: draft.solutionCode,
+      wrongAnswers: draft.wrongAnswers,
+    });
     startTransition(async () => {
-      const outcome = await settle(() => save({ id: lesson.id, loadedAt, draft, testCases }));
+      const outcome = await settle(() =>
+        save({
+          id: lesson.id,
+          loadedAt,
+          draft,
+          testCases,
+          ...(validatedHash === undefined ? {} : { validatedHash }),
+        }),
+      );
       if (!outcome.ok) {
         if (outcome.error === "slug_taken") {
           setInvalid([{ field: "slug" }]);
@@ -230,6 +323,8 @@ export function LessonEditor({
   }
 
   const stale = failure === words.failure.stale;
+  const content = contentOf(fields);
+  const solution = solutionViews(validation, content);
   return (
     <form ref={form} noValidate onSubmit={onSubmit} className="flex flex-col gap-6">
       <div className="sticky inset-bs-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-bg py-3">
@@ -466,6 +561,7 @@ export function LessonEditor({
               testCases={fields.testCases}
               onChange={(testCases) => edit({ testCases })}
               problems={testProblems}
+              solution={solution}
               expanded={openTestCases}
               onExpandedChange={(id, isOpen) =>
                 setOpenTestCases((current) => {
@@ -476,6 +572,20 @@ export function LessonEditor({
                 })
               }
               newId={newTestCaseId}
+            />
+          </section>
+
+          <section aria-labelledby={sectionId("publish")} className="flex flex-col gap-5">
+            <h2 id={sectionId("publish")} className="scroll-mbs-20 text-lg font-semibold text-text">
+              {words.publishHeading}
+            </h2>
+            <ValidationPanel
+              state={validation}
+              python={python}
+              outdated={!checkedNow(validation, content).whole}
+              onValidate={validate}
+              onStop={stopValidation}
+              onRetry={() => runtime.current?.retry()}
             />
           </section>
         </div>

@@ -49,9 +49,15 @@ export type ValidationOutcome =
 const wasStopped = (results: readonly TestResult[]) =>
   results.some((result) => result.status === "failed" && result.reason === "stopped");
 
+/**
+ * `isStopped` says whether the owner pressed Stop. It is read after every
+ * check, because a check that waited for Python ends without results when
+ * stopped, and that is a stop, not a runtime that cannot run.
+ */
 export async function validateLessonContent(
   content: ValidationContent,
   checkProgram: CheckProgram,
+  isStopped: () => boolean = () => false,
 ): Promise<ValidationOutcome> {
   const hash = await gradableHash(content);
   const basics = {
@@ -73,6 +79,7 @@ export async function validateLessonContent(
   const results: TestResult[][] = [];
   for (const source of programs) {
     const checked = await checkProgram(source, content.testCases);
+    if (isStopped()) return { kind: "stopped" };
     if (checked === undefined) return { kind: "unavailable" };
     if (wasStopped(checked)) return { kind: "stopped" };
     results.push(checked);

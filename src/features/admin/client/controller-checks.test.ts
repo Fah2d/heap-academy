@@ -39,6 +39,7 @@ const summary = {
 
 function fakeController(answers: RunRequest[]) {
   return {
+    stop: vi.fn(),
     check: vi.fn((_source: string, _tests: readonly TestCase[], _options?: unknown) => {
       const answer = answers.shift();
       if (answer === undefined) throw new Error("no answer left");
@@ -113,5 +114,48 @@ describe("createControllerChecks [FR-ADM-06]", () => {
     expect(await checks.checkProgram("y", tests)).toBeUndefined();
     checks.handle(done("r5"));
     expect(await first).toEqual(results);
+  });
+
+  it("[FR-ADM-06] cancel stops a check that has begun, and its stopped results settle it", async () => {
+    const controller = fakeController([{ ok: true, runId: runId("r6") }]);
+    const checks = createControllerChecks(controller);
+    const pending = checks.checkProgram("while True: pass", tests);
+    checks.cancel();
+    expect(controller.stop).toHaveBeenCalledTimes(1);
+    const stopped: TestResult[] = [
+      {
+        testCaseId: "t1" as TestCaseId,
+        status: "failed",
+        reason: "stopped",
+        actual: "",
+        truncated: false,
+        harnessVersion: HARNESS_VERSION,
+      },
+    ];
+    checks.handle({
+      type: "check_done",
+      runId: runId("r6"),
+      results: stopped,
+      summary: { ...summary, passed: 0, failed: 1, allPassed: false },
+      ended: "stopped",
+    });
+    expect(await pending).toEqual(stopped);
+  });
+
+  it("[FR-ADM-06] cancel gives undefined to a check still waiting for Python, which then never begins", async () => {
+    const controller = fakeController([{ ok: false, error: "not_ready" }]);
+    const checks = createControllerChecks(controller);
+    const pending = checks.checkProgram("x", tests);
+    checks.cancel();
+    expect(await pending).toBeUndefined();
+    expect(controller.stop).not.toHaveBeenCalled();
+    checks.handle({ type: "ready", runtimeVersion: "314.0.7", interactiveInput: true });
+    expect(controller.check).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancel does nothing when nothing waits", () => {
+    const controller = fakeController([]);
+    createControllerChecks(controller).cancel();
+    expect(controller.stop).not.toHaveBeenCalled();
   });
 });

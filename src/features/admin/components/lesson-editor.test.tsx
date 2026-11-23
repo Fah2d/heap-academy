@@ -3,8 +3,13 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LessonDocument } from "@/content/markdown";
-import type { TestCaseId } from "@/grader/test-case";
-import { lessonEditor as words, structure, testCaseList } from "@/messages/admin";
+import type { TestResult } from "@/grader/grade";
+import { HARNESS_VERSION } from "@/grader/harness";
+import type { TestCase, TestCaseId } from "@/grader/test-case";
+import { lessonEditor as words, structure, testCaseList, validation } from "@/messages/admin";
+import type { CheckProgram } from "../client/validate-lesson";
+import type { OpenValidationRuntime, PythonState } from "../client/validation-runtime";
+import { gradableHash } from "../gradable-hash";
 import type { EditorLessonDetail } from "../types";
 import { PREVIEW_DELAY_MS } from "./instructions-preview";
 import { LESSON_SECTIONS, LessonEditor, type SaveLesson } from "./lesson-editor";
@@ -75,10 +80,56 @@ const doc = (text: string): LessonDocument => ({
   blocks: [{ kind: "paragraph", children: [{ kind: "text", text }] }],
 });
 
+/** The solution prints each test case's expected output; every other program prints "x". */
+const honest: CheckProgram = (source, tests) =>
+  Promise.resolve(
+    tests.map((testCase: TestCase): TestResult => {
+      const actual = source === lesson.solutionCode ? `${testCase.expected}\n` : "x\n";
+      return actual === `${testCase.expected}\n`
+        ? {
+            testCaseId: testCase.id,
+            status: "passed",
+            actual,
+            truncated: false,
+            harnessVersion: HARNESS_VERSION,
+          }
+        : {
+            testCaseId: testCase.id,
+            status: "failed",
+            reason: "mismatch",
+            actual,
+            truncated: false,
+            harnessVersion: HARNESS_VERSION,
+          };
+    }),
+  );
+
+/** A Python runtime the test drives: its state, its checks, Stop and closing. */
+function fakeRuntime(checkProgram: CheckProgram = honest) {
+  let setState: (state: PythonState) => void = () => undefined;
+  const runtime = {
+    checkProgram: vi.fn(checkProgram),
+    stop: vi.fn(),
+    retry: vi.fn(),
+    dispose: vi.fn(),
+  };
+  const open = vi.fn<OpenValidationRuntime>((onState) => {
+    setState = onState;
+    onState("ready");
+    return runtime;
+  });
+  return { runtime, open, setState: (state: PythonState) => act(() => setState(state)) };
+}
+
 function setup(
-  overrides: { save?: SaveLesson; render?: (markdown: string) => Promise<unknown> } = {},
+  overrides: {
+    save?: SaveLesson;
+    render?: (markdown: string) => Promise<unknown>;
+    python?: ReturnType<typeof fakeRuntime>;
+  } = {},
   detail: EditorLessonDetail = lesson,
 ) {
+  const python = overrides.python ?? fakeRuntime();
   const save =
     overrides.save ??
     vi.fn<SaveLesson>(() => Promise.resolve({ ok: true, value: { updatedAt: NEWER } }));
@@ -95,9 +146,10 @@ function setup(
       save={save}
       renderPreview={renderPreview}
       newTestCaseId={() => "00000000-0000-4000-8000-0000000000a1"}
+      openRuntime={python.open}
     />,
   );
-  return { save, renderPreview };
+  return { save, renderPreview, python };
 }
 
 const field = (name: string) => screen.getByRole("textbox", { name });
@@ -194,6 +246,12 @@ describe("LessonEditor [FR-ADM-04]", () => {
         draft: expect.objectContaining({ title: "Ask one two" }),
       }),
     );
+    // React joins every async transition in flight, so a save left pending
+    // would keep the next test's Save button pending too.
+    await act(async () => {
+      finish({ ok: true, value: { updatedAt: NEWER } });
+      await Promise.resolve();
+    });
   });
 
   it("[FR-ADM-10] tidies a field after a save only where it still holds what was saved", async () => {
@@ -385,6 +443,157 @@ describe("LessonEditor [FR-ADM-04]", () => {
   it("notes that a published lesson's code changes only with a validation", () => {
     setup({}, { ...lesson, status: "published" });
     expect(screen.getByText(words.publishedCodeNote)).toBeTruthy();
+  });
+});
+
+const validate = () => userEvent.click(screen.getByRole("button", { name: validation.validate }));
+const liveStatus = () =>
+  screen
+    .getAllByRole("status")
+    .map((element) => element.textContent)
+    .join(" ");
+
+describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
+  it("starts Python when the editor opens, says while it loads, and closes it with the editor", async () => {
+    const python = fakeRuntime();
+    python.open.mockImplementation((onState) => {
+      onState("loading");
+      return python.runtime;
+    });
+    const { unmount } = render(
+      <LessonEditor
+        lesson={lesson}
+        initialPreview={doc("saved preview")}
+        nonce="bm9uY2U="
+        save={vi.fn<SaveLesson>()}
+        renderPreview={vi.fn()}
+        openRuntime={python.open}
+      />,
+    );
+    expect(python.open).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(validation.python.loading)).toBeTruthy();
+    unmount();
+    expect(python.runtime.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("[FR-GRD-05] Validate checks the solution, the starter and the wrong answer, then shows the checklist and each verdict", async () => {
+    const { python } = setup();
+    expect(screen.getByRole("heading", { level: 2, name: words.publishHeading })).toBeTruthy();
+    await validate();
+    await waitFor(() => expect(liveStatus()).toContain(validation.status.passed));
+    expect(python.runtime.checkProgram.mock.calls.map(([source]) => source)).toEqual([
+      lesson.solutionCode,
+      lesson.starterCode,
+      'print("x")',
+    ]);
+    await userEvent.click(
+      screen.getByRole("button", { name: testCaseList.title(1, "Echoes Ada") }),
+    );
+    const first = within(screen.getByRole("group", { name: testCaseList.group(1) }));
+    expect(first.getByText(validation.verdict.pass)).toBeTruthy();
+    expect(first.getByTestId("solution-output").textContent).toBe("Ada\n");
+  });
+
+  it("[FR-ADM-07] [T-22] a save after a passing validation sends its hash; one after a gradable edit does not", async () => {
+    const { save } = setup();
+    await validate();
+    await waitFor(() => expect(liveStatus()).toContain(validation.status.passed));
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const hash = await gradableHash({
+      starterCode: lesson.starterCode,
+      solutionCode: lesson.solutionCode,
+      wrongAnswers: lesson.wrongAnswers,
+      testCases: lesson.testCases,
+    });
+    expect(vi.mocked(save).mock.calls[0]?.[0].validatedHash).toBe(hash);
+    await screen.findByRole("button", { name: words.save });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: testCaseList.title(2, "Echoes Omar") }),
+    );
+    const second = within(screen.getByRole("group", { name: testCaseList.group(2) }));
+    await userEvent.type(second.getByLabelText(testCaseList.expectedLabel), "!");
+    expect(screen.getByText(validation.outdated)).toBeTruthy();
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(save).mock.calls[1]?.[0]).not.toHaveProperty("validatedHash");
+  });
+
+  it("[FR-ADM-07] sends no hash for a failed validation, and names the failed rule", async () => {
+    const starterPasses: CheckProgram = (source, tests) =>
+      honest(source === lesson.starterCode ? lesson.solutionCode : source, tests);
+    const { save } = setup({ python: fakeRuntime(starterPasses) });
+    await validate();
+    await waitFor(() => expect(liveStatus()).toContain(validation.status.failed(1)));
+    expect(screen.getByText(validation.starterPasses)).toBeTruthy();
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(save).mock.calls[0]?.[0]).not.toHaveProperty("validatedHash");
+  });
+
+  it("[FR-ADM-06] Stop stops the check in progress, and the checklist decides nothing", async () => {
+    let finish: (results: TestResult[] | undefined) => void = () => undefined;
+    const waiting: CheckProgram = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    const { python } = setup({ python: fakeRuntime(waiting) });
+    await validate();
+    expect(liveStatus()).toContain(validation.status.running);
+    await userEvent.click(screen.getByRole("button", { name: validation.stop }));
+    expect(python.runtime.stop).toHaveBeenCalledTimes(1);
+    expect(liveStatus()).toContain(validation.status.stopping);
+    await act(async () => {
+      finish(undefined);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(liveStatus()).toContain(validation.status.stopped));
+    expect(python.runtime.checkProgram).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not wait on a Python that could not start: Validate says nothing was checked at once", async () => {
+    const python = fakeRuntime();
+    python.open.mockImplementation((onState) => {
+      onState("failed");
+      return python.runtime;
+    });
+    setup({ python });
+    await validate();
+    expect(screen.getByText(validation.unavailable)).toBeTruthy();
+    expect(python.runtime.checkProgram).not.toHaveBeenCalled();
+  });
+
+  it("leaves Validating when the validation itself fails, and passes the error on", async () => {
+    const reported = vi.fn();
+    const onRejection = (event: PromiseRejectionEvent) => {
+      event.preventDefault();
+      reported(event.reason);
+    };
+    window.addEventListener("unhandledrejection", onRejection);
+    const unhandled = (reason: unknown) => reported(reason);
+    process.on("unhandledRejection", unhandled);
+    try {
+      // No result for either test case: the checklist cannot be decided, which is a defect.
+      setup({ python: fakeRuntime(() => Promise.resolve([])) });
+      await validate();
+      await waitFor(() => expect(screen.getByText(validation.unavailable)).toBeTruthy());
+      await waitFor(() =>
+        expect(reported).toHaveBeenCalledWith(new Error("validation_runs_do_not_match")),
+      );
+    } finally {
+      window.removeEventListener("unhandledrejection", onRejection);
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("says when Python could not run the programs, and Try again restarts a failed Python", async () => {
+    const { python } = setup({ python: fakeRuntime(() => Promise.resolve(undefined)) });
+    await validate();
+    await waitFor(() => expect(screen.getByText(validation.unavailable)).toBeTruthy());
+    python.setState("failed");
+    await userEvent.click(screen.getByRole("button", { name: validation.retry }));
+    expect(python.runtime.retry).toHaveBeenCalledTimes(1);
   });
 });
 

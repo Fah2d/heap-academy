@@ -8,6 +8,7 @@ import {
   secondStep,
   structure,
   testCaseList,
+  validation,
 } from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
 import { lessonContent } from "../src/messages/lesson";
@@ -322,4 +323,77 @@ test("[FR-ADM-05] the test case list: empty, full, and a test case with problems
   await expect(second.getByText(testCaseList.problem.tooLong.expected(5_000))).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-test-case-problems");
+});
+
+test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a failed rule with Fill from solution, and a pass, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const validate = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: validation.validate }).click();
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading });
+
+  // Python loading: Validate waits for it, and Stop ends the wait.
+  const loading = page.getByRole("region", { name: adminGallery.lessonPythonLoading });
+  await expect(loading.getByText(validation.python.loading)).toBeVisible();
+  await validate(loading);
+  await expect(loading.getByRole("button", { name: validation.stop })).toBeVisible();
+  await publishHeading(loading).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validate-python-loading");
+  await loading.getByRole("button", { name: validation.stop }).click();
+  await expect(loading.getByText(validation.status.stopped)).toBeVisible();
+
+  // Python could not start: Try again, and Validate says nothing was checked.
+  const failed = page.getByRole("region", { name: adminGallery.lessonPythonFailed });
+  await expect(failed.getByRole("button", { name: validation.retry })).toBeVisible();
+  await validate(failed);
+  await expect(failed.getByText(validation.unavailable)).toBeVisible();
+  await publishHeading(failed).scrollIntoViewIfNeeded();
+  await shot("admin-validate-python-failed");
+
+  // Validating: the pending Validate and Stop.
+  const running = page.getByRole("region", { name: adminGallery.lessonValidating });
+  await validate(running);
+  await expect(running.getByText(validation.status.running)).toBeVisible();
+  await publishHeading(running).scrollIntoViewIfNeeded();
+  await shot("admin-validating");
+
+  // A failed rule names the test case; its verdict shows what the solution printed.
+  const wrong = page.getByRole("region", { name: adminGallery.lessonValidationFailed });
+  await validate(wrong);
+  await expect(wrong.getByText(validation.status.failed(1))).toBeVisible();
+  await publishHeading(wrong).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-failed");
+  await wrong
+    .getByRole("button", { name: testCaseList.title(2, adminGallery.sampleTestName2) })
+    .click();
+  const second = wrong.getByRole("group", { name: testCaseList.group(2) });
+  await expect(second.getByText(validation.reason.mismatch)).toBeVisible();
+  await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-verdict");
+  await second
+    .getByRole("button", { name: validation.fillLabel(adminGallery.sampleTestName2) })
+    .click();
+  await expect(second.getByRole("textbox", { name: testCaseList.expectedLabel })).toBeFocused();
+  await expect(second.getByText(validation.verdictOutdated)).toBeVisible();
+  await expect(wrong.getByText(validation.outdated)).toBeVisible();
+
+  // Validate again: every rule passes.
+  await validate(wrong);
+  await expect(wrong.getByText(validation.status.passed)).toBeVisible();
+  await publishHeading(wrong).scrollIntoViewIfNeeded();
+  await shot("admin-validation-passed");
+
+  // An empty lesson: rule 1 names what is missing, and nothing runs.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await validate(empty);
+  await expect(
+    empty.getByText(validation.missing([validation.part.instructions, validation.part.test_cases])),
+  ).toBeVisible();
 });

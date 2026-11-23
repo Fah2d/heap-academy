@@ -118,6 +118,14 @@ export const adminGallery = {
     "Lesson editor with 12 test cases, so Add a test case and Duplicate are gone",
   lessonTestCaseProblem:
     "Lesson editor with a test case that has no name and an expected output over the limit",
+  lessonPythonLoading:
+    "Lesson editor while Python loads: Validate waits for it until Stop is pressed",
+  lessonPythonFailed: "Lesson editor whose Python could not start, with Try again",
+  lessonValidating: "Lesson editor whose validation never ends, to show Validating and Stop",
+  lessonValidationFailed:
+    "Lesson editor whose second test case expects the greeting without the prompt, so the solution fails it and Fill from solution is offered",
+  samplePromptOnly: "What is your name? \n",
+  wrongExpected: "Hello, Omar!",
   extraTestName: (n: number) => `Works for name ${String(n)}`,
   extraTestInput: (n: number) => `Name ${String(n)}\n`,
   extraTestExpected: (n: number) => `What is your name? Hello, Name ${String(n)}!`,

@@ -10,9 +10,10 @@ import {
   removeTestCase,
   type TestCaseProblem,
 } from "@/grader/test-case-list";
-import { testCaseList as words } from "@/messages/admin";
-import { Button, Disclosure, SelectField, TextArea, TextField } from "@/ui";
+import { validation, testCaseList as words } from "@/messages/admin";
+import { Button, Disclosure, SelectField, Status, TextArea, TextField } from "@/ui";
 import type { MoveDirection } from "../types";
+import type { SolutionVerdict, SolutionView } from "../validation-view";
 import { focusMoved, MoveButtons } from "./structure-controls";
 
 // The test case list of the lesson editor (docs/spec/03-experience.md
@@ -28,6 +29,8 @@ export type TestCaseListProps = {
   onChange: (next: TestCase[]) => void;
   /** Problems found at the last save, by test case. */
   problems: ReadonlyMap<TestCaseId, readonly TestCaseProblem[]>;
+  /** The solution's result at the last validation, for each test case it still describes. */
+  solution?: ReadonlyMap<TestCaseId, SolutionView>;
   expanded: ReadonlySet<string>;
   onExpandedChange: (id: string, isExpanded: boolean) => void;
   /** A new test case ID. Comes from the caller so the list stays free of randomness. */
@@ -37,6 +40,7 @@ export type TestCaseListProps = {
 type FocusTarget =
   | { kind: "name"; id: string }
   | { kind: "trigger"; id: string }
+  | { kind: "expected"; id: string }
   | { kind: "move"; id: string; direction: MoveDirection }
   | { kind: "add" };
 
@@ -52,6 +56,7 @@ export function TestCaseList({
   testCases,
   onChange,
   problems,
+  solution = new Map(),
   expanded,
   onExpandedChange,
   newId,
@@ -73,7 +78,9 @@ export function TestCaseList({
         ? "[data-add-test-case] button"
         : target.kind === "name"
           ? `[data-test-case="${target.id}"] [role="group"] input`
-          : `[data-test-case="${target.id}"] button[slot="trigger"]`;
+          : target.kind === "expected"
+            ? `[data-test-case="${target.id}"] [data-expected] textarea`
+            : `[data-test-case="${target.id}"] button[slot="trigger"]`;
     root.current.querySelector<HTMLElement>(selector)?.focus();
   }, [testCases]);
 
@@ -101,6 +108,7 @@ export function TestCaseList({
             const title = words.title(number, testCase.name);
             const label = testCase.name.trim() === "" ? words.group(number) : testCase.name;
             const found = problems.get(testCase.id) ?? [];
+            const result = solution.get(testCase.id);
             const problemFor = (field: TextKey) => found.find((entry) => entry.field === field);
             const text = (field: TextKey) => {
               const problem = problemFor(field);
@@ -143,16 +151,33 @@ export function TestCaseList({
                         onChange={(stdin) => edit(index, { stdin })}
                         {...text("stdin")}
                       />
-                      <TextArea
-                        label={words.expectedLabel}
-                        description={words.expectedHint}
-                        mono
-                        rows={4}
-                        value={testCase.expected}
-                        onChange={(expected) => edit(index, { expected })}
-                        {...text("expected")}
-                      />
+                      <div data-expected className="flex flex-col gap-2">
+                        <TextArea
+                          label={words.expectedLabel}
+                          description={words.expectedHint}
+                          mono
+                          rows={4}
+                          value={testCase.expected}
+                          onChange={(expected) => edit(index, { expected })}
+                          {...text("expected")}
+                        />
+                        {result?.fillable === true && (
+                          <div>
+                            <Button
+                              variant="secondary"
+                              aria-label={validation.fillLabel(label)}
+                              onPress={() => {
+                                focusAfter.current = { kind: "expected", id: testCase.id };
+                                edit(index, { expected: result.actual });
+                              }}
+                            >
+                              {validation.fill}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    {result !== undefined && <SolutionResult view={result} />}
                     <div className="max-w-prose">
                       <SelectField
                         label={words.matchLabel}
@@ -245,6 +270,55 @@ export function TestCaseList({
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+const statusState = { pass: "pass", fail: "fail", not_run: "not-run" } as const;
+
+function verdictDetail(verdict: SolutionVerdict): string[] {
+  if (verdict.state !== "fail") return [];
+  const { error } = verdict;
+  return [
+    validation.reason[verdict.reason],
+    ...(error === undefined ? [] : [validation.error(error.message, error.line)]),
+  ];
+}
+
+/** What the solution printed for one test case, and its verdict while that still applies. */
+function SolutionResult({ view }: { view: SolutionView }) {
+  return (
+    <div data-solution className="flex flex-col gap-2 rounded-panel border border-border p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <h4 className="text-base font-medium text-text">{validation.solutionHeading}</h4>
+        {view.verdict !== undefined && (
+          <Status
+            state={statusState[view.verdict.state]}
+            label={validation.verdict[view.verdict.state]}
+          />
+        )}
+      </div>
+      {view.verdict === undefined ? (
+        <p className="text-sm text-text-muted">{validation.verdictOutdated}</p>
+      ) : (
+        verdictDetail(view.verdict).map((line) => (
+          <p key={line} className="text-sm text-text">
+            {line}
+          </p>
+        ))
+      )}
+      {view.actual === "" ? (
+        <p className="text-sm text-text-muted">{validation.noOutput}</p>
+      ) : (
+        <pre
+          data-testid="solution-output"
+          className="code-surface overflow-x-auto whitespace-pre-wrap"
+          tabIndex={0}
+        >
+          {view.actual}
+        </pre>
+      )}
+      {view.truncated && <p className="text-sm text-text-muted">{validation.truncated}</p>}
     </div>
   );
 }

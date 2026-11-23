@@ -9,6 +9,7 @@ import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
+import { scriptedRuntime, stuckRuntime } from "./gallery-runtimes";
 import { LessonContent } from "@/features/workspace";
 import { LessonEditor } from "./lesson-editor";
 import { NewCourseForm } from "./new-course-form";
@@ -234,6 +235,26 @@ const refusingCourse: EditorCourse = {
   ],
 };
 
+/** What the sample solution prints for each test case: the expected output, with its line end. */
+const samplePrints = new Map(
+  twelveTestsLesson.testCases.map((testCase) => [testCase.id, `${testCase.expected}\n`]),
+);
+/** The starter and the wrong answers print only the prompt, so each fails every test case. */
+const sampleRuntime = scriptedRuntime(m.sampleSolution, samplePrints, m.samplePromptOnly);
+
+// Made once: the editor opens its runtime again whenever this function changes.
+const loadingRuntime = stuckRuntime("loading");
+const failedRuntime = stuckRuntime("failed");
+const readyRuntime = stuckRuntime("ready");
+
+/** The second test case expects the greeting without the prompt, so the solution fails it. */
+const wrongExpectedLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  testCases: sampleLesson.testCases.map((testCase, index) =>
+    index === 1 ? { ...testCase, expected: m.wrongExpected } : testCase,
+  ),
+};
+
 export function AdminStateGallery({ nonce }: { nonce: string }) {
   return (
     <div className="flex flex-col gap-7">
@@ -355,6 +376,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={succeed({ updatedAt: SAVED_AT })}
           renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-refusing" title={m.lessonRefusing}>
@@ -364,6 +386,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={refuse("stale")}
           renderPreview={refuse("unavailable")}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-published" title={m.lessonPublished}>
@@ -373,6 +396,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={never}
           renderPreview={never}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-full" title={m.lessonFull}>
@@ -382,6 +406,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={refuse("unavailable")}
           renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-taken" title={m.lessonTaken}>
@@ -391,6 +416,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={refuse("slug_taken")}
           renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-too-long" title={m.lessonTooLong}>
@@ -400,6 +426,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={never}
           renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-tests-full" title={m.lessonTestCasesFull}>
@@ -409,6 +436,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={never}
           renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-test-problem" title={m.lessonTestCaseProblem}>
@@ -418,6 +446,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={never}
           renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
       <Example id="gallery-lesson-content" title={m.lessonContent}>
@@ -432,6 +461,47 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           nonce={nonce}
           save={succeed({ updatedAt: SAVED_AT })}
           renderPreview={succeed({ blocks: [] })}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-python-loading" title={m.lessonPythonLoading}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={loadingRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-python-failed" title={m.lessonPythonFailed}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={failedRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-validating" title={m.lessonValidating}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={readyRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-validation-failed" title={m.lessonValidationFailed}>
+        <LessonEditor
+          lesson={wrongExpectedLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={succeed({ updatedAt: SAVED_AT })}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
         />
       </Example>
     </div>
