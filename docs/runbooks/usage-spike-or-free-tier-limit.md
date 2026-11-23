@@ -24,11 +24,11 @@ Vendor screens change. The menu names and figures below were checked against eac
 | Vendor | Figure | Free amount | Trigger | What stops when it is reached |
 |---|---|---|---|---|
 | Vercel Hobby | Fast data transfer | 100 GB a month | 50 GB (ADR-0029) | The site, for up to 30 days |
-| Vercel Hobby | Fast origin transfer | 10 GB a month | None in ADR-0029 | Every page: each renders per request (ADR-0028) and its response counts here, so this may be the first Hobby limit reached |
+| Vercel Hobby | Fast origin transfer | 10 GB a month | 5 GB (ADR-0029 wording, see below) | Every page: each renders per request (ADR-0028) and its response counts here, so this may be the first Hobby limit reached |
 | Vercel Hobby | Function invocations | 1,000,000 a month | 500,000 (ADR-0029) | Every page |
 | Vercel Hobby | Active CPU | 4 hours a month | 2 hours (ADR-0029) | Every page |
-| Vercel Hobby | Provisioned memory | 360 GB-hours a month | None in ADR-0029 | Every page |
-| Vercel Hobby | CDN requests | 1,000,000 a month | None in ADR-0029 | Not stated by Vercel; treat it like transfer |
+| Vercel Hobby | Provisioned memory | 360 GB-hours a month | 180 GB-hours (ADR-0029 wording, see below) | Every page |
+| Vercel Hobby | CDN requests | 1,000,000 a month | 500,000 (ADR-0029 wording, see below) | Not stated by Vercel; treat it like transfer |
 | Supabase Free | Database size | 500 MB | 400 MB (ADR-0029) | Restrictions after a warning: read-only, or 402 on every API request |
 | Supabase Free | Egress | 5 GB | 2.5 GB (ADR-0029) | Same as above |
 | Supabase Free | Monthly active users | 50,000 | 40,000 (`07-operations.md` section 9.2 only) | Same as above |
@@ -36,7 +36,7 @@ Vendor screens change. The menu names and figures below were checked against eac
 | Resend Free | Emails | 100 a day, 3,000 a month | 80 a day (ADR-0029); none for the month | Email sign-in codes until 00:00 UTC (or the month's end); Google sign-in still works |
 | GitHub Free | Artifact storage | 500 MB | None in ADR-0029; ADR-0030 is revisited when a dump passes 50 MB | Backups (later parts of WP-7.3, ADR-0030) |
 
-Where the trigger column says "None", NFR-COST-02 wants one. Setting it is a change to ADR-0029, decided by you; until then, act at half the free amount.
+ADR-0029's Vercel trigger reads "Any Vercel Hobby monthly figure passes 50 percent" and then names only transfer, invocations, and active CPU. Read literally it covers every Vercel figure, so act at half of each; the three rows marked "ADR-0029 wording" are that reading. Whether it does, and the triggers still missing for Resend's month and GitHub's storage (NFR-COST-02 wants one for every free-tier limit), is a change to ADR-0029, decided by you.
 
 ## 2. Vercel: a spike in transfer, invocations, or CPU
 
@@ -60,7 +60,7 @@ The figure that grows fastest after a video is likely transfer: once WP-3.1 ship
 
 1. [ ] Work out the day the figure reaches the free amount at today's rate: (amount left) / (today's use). Write it in the incident report.
 2. [ ] Transfer past 50 GB: `07-operations.md` section 9.2 says to point `RUNTIME_ASSET_BASE_URL` at an object store with no egress fees behind a CDN, with no code change. That variable does not exist yet (WP-3.1 builds the runtime files), and a runtime on another origin changes the page and worker script policies (`'self'` today) and T-13's "served by us". So it is a pull request with a `security-reviewer` review, probably an ADR, and a deploy. Start it the day the trigger fires.
-3. [ ] Invocations, CPU, origin transfer, or memory past half: the choice in ADR-0029 is static pages (ADR-0028 describes the route) or Vercel Pro. Both are your decision; static pages take days, Pro takes minutes. Decide before the limit, not after.
+3. [ ] Invocations, CPU, origin transfer, or memory past half: the choice is static pages (`07-operations.md` section 9.2; ADR-0028 describes the route) or Vercel Pro (ADR-0029). Both are your decision; static pages take days, Pro takes minutes. Decide before the limit, not after.
 4. [ ] Vercel's terms allow Hobby for personal or non-commercial use only. If the spike came with anything sold or advertised, ADR-0029 says move to Pro.
 
 ### 2.4 Attack Mode
@@ -85,7 +85,7 @@ Vercel's emergency challenge. ADR-0029 and T-25 call it Attack Challenge Mode; V
 Supabase pauses a Free project after a week of inactivity, and ADR-0029 says any pause of production is a trigger to move it to Pro. This is unpausing the project, not the restore-from-backup runbook.
 
 1. [ ] Supabase → the project's home page → **Restore project**. It is one button; a restored Free project moves to the latest minor version of Postgres. Supabase's page says a paused project can be restored for a limited window, and states that window inconsistently, so restore at once.
-2. [ ] When it is back: `pnpm infra:verify --url https://<domain>` passes, and a lesson page loads. (From WP-2.1 the health answer checks the database; from WP-2.2, also sign in.)
+2. [ ] When it is back: `pnpm infra:verify --url https://<domain>` passes. From WP-2.1 the health answer checks the database; from WP-5.1, also open the course list; from WP-5.2, a lesson page; from WP-2.2, sign in.
 3. [ ] The trigger fired. Decide on Supabase Pro for production (ADR-0029) and record the decision.
 
 ### 3.2 The staging project is paused
@@ -100,7 +100,7 @@ A paused staging project fails the Deploy workflow's `staging migrations` job, s
 1. [ ] Organization **Usage** shows which. Database size: the project's **Database** report shows the largest tables.
 2. [ ] Egress far above what learners explain: the browser never talks to the database (`02-architecture.md` section 9, ADR-0027); every read goes through the app on Vercel. So in the project's API logs, any Data API traffic that does not come from Vercel is suspect: the publishable key is public, and anyone can call the API with it (T-25). One address reading a lot is a finding for `security-reviewer`. Vercel's firewall (section 2.2) cannot block it: those calls go straight to Supabase.
 3. [ ] Over the trigger: move production to Supabase Pro (ADR-0029), your decision. Restrictions on Free come after a warning and lift at the start of the next billing cycle, or at once on upgrade.
-4. [ ] Separate from the 500 MB quota: when the project's disk (2 GB on Free) reaches 95 %, Supabase makes the database read-only. Writes then fail; lessons already in the data cache still show.
+4. [ ] Separate from the 500 MB quota: when the project's disk (2 GB on Free) reaches 95 %, Supabase makes the database read-only. Writes then fail; pages served from the data cache (from WP-5.1) still show.
 
 ## 4. Resend: email codes stopped
 

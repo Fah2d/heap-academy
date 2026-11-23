@@ -34,7 +34,8 @@ The Free plan allows two active projects (E-11, E-24). Both are needed: previews
    - The project reference (the `<ref>` in `https://<ref>.supabase.co`, shown in **Project Settings → General**).
    - **Project URL** and the **publishable key** (`sb_publishable_...`) from **Project Settings → API Keys**. Neither is secret; both go to the browser.
    - The **Session pooler** connection string from the project's **Connect** dialog (it is IPv4; the direct connection on Free is IPv6 only, E-24). Put the project's password into it, and add `?sslmode=require` at the end: `scripts/apply-migrations.sh` refuses a connection without TLS. The whole string is **secret**: `production database URL` and `staging database URL`.
-5. [ ] Do not create a secret key (`sb_secret_...`) yet. Only account deletion uses one (WP-6.2), and only in production.
+5. [ ] Do not create a secret key (`sb_secret_...`) yet. Only account deletion uses one (WP-6.3), and only in production.
+6. [ ] In each project, **Project Settings → API Keys**: deactivate the legacy `anon` and `service_role` keys. The app uses only the publishable key, and Supabase keeps the legacy keys valid until you deactivate them; a `service_role` key skips row level security (`rotate-a-secret.md` section 4).
 
 Not yet: the auth settings (Google, the email sender, redirect addresses). They come in step 10 once the pieces they point at exist.
 
