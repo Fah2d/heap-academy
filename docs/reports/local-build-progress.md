@@ -2,6 +2,264 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 18:15), in `night-b`, on `wp/5.1-catalog`
+
+Same task list as the sessions below. Tasks 1 and 2 were done; this run started task 3 and did WP-5.1 part 1.
+
+### Task 3, part 1 done: WP-5.1 content layer, sitemap and indexing rules
+
+- Branch `wp/5.1-catalog` from `origin/wp/4.1-courses-chapters` (962683c). The task list names `.claude/commands/work-package.md`, which does not exist; followed `.claude/skills/work-package/SKILL.md`.
+- Built test first in cdc4f17 and d41b2ad: a course or chapter with no published lesson is left out (FR-CAT-04, FR-CRS-01; 3 new tests failed before the change); a warm cache test shows a second view makes no database query and a failed read is not kept (passed on the existing wiring at once); `/sitemap.xml` per request and `/robots.txt` (FR-SEO-01); `metadataBase` set to `https://heapacademy.dev`.
+- `pnpm verify`: exit 0, 60 files, 1062 tests. `pnpm build` with CI's fake public values: exit 0 (`ƒ /sitemap.xml`, `○ /robots.txt`). `check-bundle` and `check-static`: exit 0.
+- Environment: night-b's `node_modules` was the old WP-3.4 install, without `@supabase/*`, and `pnpm install` cannot run here. It is moved to `$TMPDIR/night-b-aside/node_modules`, with the leftover untracked `public/_runtime/` from the WP-3.4 checkout. night-b now has an APFS copy of night-a's `node_modules` (lockfile superset, same versions for shared packages). A symlink failed: Turbopack will not read `node_modules` outside the project root. `/node_modules` is in `.git/info/exclude` for this clone only.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, with seven decisions taken with a safe default and the `gh pr create` line for later. Do not open it yet.
+- Time: about 0.3 hours of the 3 hour box.
+- Not run: e2e, axe, screenshots, database tests.
+
+### Owner: run this
+
+1. Nothing new for WP-5.1 yet. Read its decisions 1 to 7 when convenient (7: no lesson link or Begin action until WP-5.2's workspace route exists).
+2. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 3, WP-5.1 part 2, in `night-b` on `wp/5.1-catalog`: read `DESIGN.md`, `.claude/rules/ui-design.md` and the antislop skills; build the home page, `/courses` and `/courses/[course]` with their states, titles, descriptions and canonical paths, and Courses in the header; test that each page reads only through `src/content`.
+
+## Session of 2026-11-23 (from about 17:28), in `night-a`, on `wp/4.3-validate-publish`
+
+Same task list as the session below. This run did task 2.
+
+### Task 2 done: WP-4.3 part 8, the second review round and its fixes
+
+- ecbb815 checked against design MINOR 11: it covers the stopped validation, Save validating first and its refusals, the time limit, the error line, cut and cleaned output and the outdated notes, with axe. The reviewers found the gaps left (below).
+- Review round 2 on `e1f1ce9..c5902d0`, reports in `docs/reports/reviews/WP-4.3/` (`code-review-2.md`, `security-review-2.md`, `design-review-2.md`). Security: APPROVE. Code: CHANGES REQUIRED only for the e2e runs, no new BLOCKER or MAJOR. Design: CHANGES REQUIRED for the screenshots (BLOCKER 1, open since round 1) and MAJOR 2 (a real cut output made a test case thousands of pixels tall).
+- Fixed test first in bb1d583 (4 new tests failed before the change): Open labels from the list now; invisible characters removed from shown output (the zero-width joiner and non-joiner kept); the solution's output in the lesson code panel, scrolling inside a new `--spacing-output` token (20rem) with the focus ring inset; the name hint's limit from `TEST_CASE_LIMITS`; `testCaseList.title` from its parts; clearer failed-solution sentence; a test that focus moves only once (seen failing with the effect's dependency list removed); gallery states for Python that started but could not run the programs (Validate and Save), Open focusing a test case, rule 1's missing parts, axe on the passed state, the cut output at its real length.
+- A first try with `max-block-80` built to no CSS at all (the theme defines only its own spacing tokens); found by checking the built stylesheet, then replaced by the token.
+- `pnpm verify`: exit 0, 98 files, 1841 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. The built CSS holds `.max-block-output{max-block-size:var(--spacing-output)}`. No gallery string in `.next/static`.
+- Description rewritten: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (opening paragraph, part 8 evidence, "Left for the owner", decisions renumbered and three new: 18 invisible characters, 19 the new size token, 20 the T-21 bundle note). Time: about 3.6 hours of sessions against a box of 3.5, under 1.5 times.
+- Not run: e2e, screenshots, axe, database tests. No browser or local Supabase stack in this sandbox.
+- Push: succeeded, `c5902d0..ad1bd6a` (bb1d583 the fixes, 1110243 the review reports, ad1bd6a the description and progress). This line is pushed after it.
+
+### Owner: run this
+
+1. `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack; look at `docs/reports/screens/WP-4.3/`; then the Delivery Gate report. The new gallery checks have never run.
+2. Decide WP-4.3 decisions 17 to 20 (17: cherry-pick 87af7ec onto `wp/4.1-courses-chapters`; 19: accept `--spacing-output` and add it to DESIGN.md).
+3. Open the draft with the `gh pr create` line at the end of the description when you want it.
+4. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- Task 3: in `night-b`, create the WP-5.1 branch from `origin/wp/4.1-courses-chapters` and start WP-5.1 part 1 under `.claude/skills/work-package/SKILL.md` (the task list names `.claude/commands/work-package.md`, which does not exist; the skill is the same procedure).
+
+## Session of 2026-11-23 (from about 17:15), in `night-a`, on `wp/4.3-validate-publish`
+
+Task list given by the owner for unattended runs: (1) merge `origin/wp/4.2-lesson-editor` into `wp/4.3-validate-publish`; (2) WP-4.3 part 8, verify and a second review; (3) WP-5.1 in `night-b` from `origin/wp/4.1-courses-chapters`, one part per run. This run did task 1.
+
+### Task 1 done: the CodeMirror lockfile merged into `wp/4.3-validate-publish`
+
+- The owner pushed 4148777 ("chore(deps): add CodeMirror to the lockfile") to `wp/4.2-lesson-editor`. Merged in 9538964. `pnpm-lock.yaml` merged with no conflict; all 41 `package.json` specifiers match the lockfile's importers (script check). `pnpm install` still cannot run in this sandbox (store lock), so CI's frozen install is the real test.
+- The first `pnpm verify` after the merge failed one test the merge did not touch: `course-details-form.test.tsx` > "names a taken address and keeps what was typed" (focus on the button, not the field). It passed 5 of 5 alone. Cause: the form moved focus on the next animation frame, but its state update inside an async transition commits only when the transition ends. `lesson-editor.tsx` had the same pattern for a taken address.
+- Fixed test first in 87af7ec: `src/features/admin/components/focus-after-commit.ts` (`useFocusAfterCommit`) focuses after the commit. Three new tests failed before the fix.
+- `pnpm verify`: exit 0, 98 files, 1837 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Commit ecbb815 (part 8's gallery states for design MINOR 11, at 10:48) was already pushed by an earlier session with no entry here. It is included in the verify run above. Its e2e gallery test was not run.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, with the merge evidence, owner action 1 marked done, and new decision 17 (the WP-4.1 focus fix carried on this branch; recommendation: cherry-pick 87af7ec onto `wp/4.1-courses-chapters`). Its opening paragraph still says "Parts 1 to 6"; part 8 rewrites it.
+- Push: succeeded, `ecbb815..8f9a47a` (the merge 9538964, the fix 87af7ec, the docs commit 8f9a47a). This line is pushed after it.
+
+### Owner: run this
+
+1. If CI's frozen install fails on `wp/4.3-validate-publish`: `pnpm install` there and commit the lockfile.
+2. Decide decision 17 (cherry-pick 87af7ec onto `wp/4.1-courses-chapters` or not).
+3. If this sandbox still cannot run them: `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack.
+4. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- Task 2: WP-4.3 part 8, on `wp/4.3-validate-publish` in `night-a`: check ecbb815 against design MINOR 11; a second code, security and design review round on e1f1ce9..HEAD, with fixes; rewrite the description's opening paragraph and "Left for part 8".
+
+## Session of 2026-11-23 (from about 10:05), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 7, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first (10 tests failed before the change): design review MINOR 8 (each failed test case named in the checklist gets an Open button that opens it and focuses its title; none for one removed since), MINOR 9 (the test case number in Plex Mono), MINOR 10 (the limits in admin copy come from `CHECK_TEST_LIMIT`, `HARNESS_OUTPUT_LIMIT` and the runtime's `TIME_LIMIT_MS`, passed into the messages as numbers), and decision 14 (each verdict in its test case's title, read as "Test case 1: Doubles, Passed").
+- Commit e51304f at 10:22. `pnpm verify`: exit 0, 97 files, 1833 tests (the first two runs failed on Prettier for 3 files, then on a non-exhaustive switch; both fixed).
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `0a4541b..e51304f`. This progress commit is pushed after it.
+- Time box: the seven sessions add up to about 2.5 hours against 3.5. Recorded in the description.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), with sixteen open decisions (new: Open buttons under the failed rule; decision 14 is now built). Do not open it until part 8 is done.
+- Not run: e2e, screenshots, axe, database tests (no migration changed). No local Supabase stack or browser in this sandbox.
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. If this sandbox still cannot run them: `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack, which also writes the screenshots into `docs/reports/screens/WP-4.3/`.
+3. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 8, on `wp/4.3-validate-publish`: design MINOR 11 (gallery states for a stopped validation, Save validating first, the `validateFirst` refusals, a timed-out rule, an error verdict with its line, cut and cleaned output, the outdated notes); a second code, security and design review round on e1f1ce9..e51304f, with fixes; the e2e runs, screenshots, axe and the Delivery Gate report if a browser and the stack are available.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from about 09:40), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 6, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Review round 1 on `938a05d..1443296`: code, security and design, all CHANGES REQUIRED. Reports saved in `docs/reports/reviews/WP-4.3/` (`code-review-1.md`, `security-review-1.md`, `design-review-1.md`). The design review is code-only: no screenshots exist.
+- Fixed, test first (commit e1f1ce9 at 09:55): the code BLOCKER (Validate with a nameless test case said Python could not run; now it opens the test case and focuses the field); T-07 (`src/grader/console-text.ts` strips escape sequences, control and bidi characters from shown output and Python's message, and such output is never filled); separate pending states for Save and status moves, each disabling the other; the failed Python start as one error with a Try again instruction; J-13's status assertions; Reload on `status_not_allowed`; the status said once; the stored status parsed; controller reports sent by code to `reportError`; a trimmed title keeps Publish; no program on open (T-23 tests); the runbook's wrong-answer step.
+- `pnpm verify`: exit 0, 97 files, 1828 tests (the first run failed on Prettier for 3 files; formatted, then the run above).
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `1443296..8fadb66` (e1f1ce9 and the docs commit 8fadb66). This line is pushed after it.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), with fifteen open decisions (new: Delete has no undo; verdicts inside each test case; output with control characters is stripped and not fillable). Do not open it until part 7 is done.
+- Not run: e2e, screenshots, axe, database tests (no migration changed). No local Supabase stack or browser in this sandbox.
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. If this sandbox still cannot run them in part 7: `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack, which also writes the screenshots into `docs/reports/screens/WP-4.3/`.
+3. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 7, on `wp/4.3-validate-publish`: the design minors 8 to 11 and the verdict in each test case title (decision 14); a second review round on e1f1ce9 and later; the e2e runs, screenshots, axe and the Delivery Gate report if a browser and the stack are available.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from about 09:00), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 5, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- The runbook `docs/runbooks/published-lesson-wrong.md` (07-operations section 8.1), found as an untracked draft and checked against the code: corrected the button names ("Reload the page" appears only for a newer version), the section list, and the public addresses (`/learn/<course>/<lesson>`, `/courses/<course>`, `/courses` from 03-experience section 3).
+- J-13: `e2e/j13-publish-journey.spec.ts` (a failing solution and a passing starter are refused with the reason and get no Publish; a passing lesson is published, survives a reload, and moves back to draft after the dialog). Written, not run: no local Supabase stack here.
+- A flaky unit test fixed: the archive test in `lesson-editor.test.tsx` failed once in the full run (passed 5 of 5 alone). The status renders before the async transition ends, and React Aria's pending Button ignores presses; the test now waits for the button to settle. No component change.
+- Commit af0f0c1 at about 09:19. `pnpm verify`: exit 0, 96 files, 1811 tests (the first run failed on the flaky test, before the fix).
+- Push: succeeded, `5f0c307..af0f0c1`. This progress commit is pushed after it.
+- No `pnpm build` this part (no application code changed).
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with twelve open decisions (new: Publish is never offered to a broken lesson, so J-13's "refused with the reason" is the checklist). Do not open it until part 6 is done.
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 6, on `wp/4.3-validate-publish`: code, security and design review with fixes. The e2e runs and screenshots need the local stack and a browser, which this sandbox has not had; if they still cannot run, the description says so and the owner runs them.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from about 06:00), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 4, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first: the lesson's status in the editor's Publish section (`src/features/admin/components/lesson-status.tsx`). Publish appears only after a passing validation of the lesson as it is now; it saves with the validated hash, then calls `setLessonStatus` with the saved version. Move back to draft (from published) and Archive ask first and say what learners will see. Save on a published lesson validates first and saves nothing on a failed rule, a stop, or a Python that could not start. Gallery: status actions on every lesson editor, a new archived state; an e2e gallery test (written, not run).
+- Found by a test: React holds state updates inside an async transition until it ends, so "Validating" and Stop never showed during Save. The validation now runs outside the transition.
+- Commit bffeb6a at about 06:11. `pnpm verify`: exit 0, 96 files, 1811 tests.
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `c94215b..bffeb6a`. This progress commit is pushed after it.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with eleven open decisions (three new: Save on a published lesson validates even for a title-only change; Publish saves the editor's content first; status moves leave unsaved edits unsaved). Do not open it until part 5 is done.
+- No reviews yet. No e2e run, no screenshots, no database tests (no migration changed).
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 5, on `wp/4.3-validate-publish`: the runbook `docs/runbooks/published-lesson-wrong.md` (07-operations section 8.1); J-13 (written; e2e cannot run here); code, security and design review, with fixes. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from about 05:29), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 3, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first: Validate in the lesson editor. A "Publish" section with the checklist of section 7.6 (a state and a reason per rule), Validate and Stop, and Python's state (loading, ready, failed with Try again), on the learners' runtime controller started with the editor. Each test case shows the solution's verdict and output; "Fill from solution" copies it into the expected output. Save sends the validated hash only after a passing validation of exactly what it saves (T-22). Four new `/dev/admin` states (Python loading, Python failed, validating, a failed validation with Fill), and an e2e gallery test (written, not run).
+- Fixed in passing: an editor test left a save pending forever, which kept the next test's Save pending (React joins async transitions).
+- Commit 6ff2a5d at about 05:43. `pnpm verify`: exit 0, 96 files, 1797 tests.
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `438b73e..6ff2a5d`. This progress commit is pushed after it.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with eight open decisions (three new: Validate is the one action for the verdicts; Python starts when the editor opens; when a verdict stops showing). Do not open it until part 4 is done.
+- No reviews yet. No e2e run, no screenshots, no database tests (no migration changed).
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 4, on `wp/4.3-validate-publish`: Publish, Unpublish and Archive with confirmations (Publish only when `checkedNow(...).whole` and passed; it saves with the hash, then calls `setLessonStatus`); Save on a published lesson validating first; the runbook `docs/runbooks/published-lesson-wrong.md`; J-13; code, security and design review. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from about 05:01), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 2, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first: the test case list in the lesson editor (`src/features/admin/components/test-case-list.tsx`): add, duplicate, move up, move down, delete, the limit of 12, every field with its section 7.5 description, a message per field, focus kept in the list; Save checks the test cases, opens the one with a problem and focuses its field; test case edits count as unsaved; the `Disclosure` primitive takes controlled props; two new `/dev/admin` states; an e2e gallery test (written, not run).
+- Commit a95b8ba at 05:08. `pnpm verify`: exit 0, 93 files, 1755 tests.
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `4f90372..a95b8ba`. This progress commit is pushed after it.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with five open decisions (two new: plain text areas for test case fields; Delete asks nothing). Do not open it until part 3 is done.
+- No reviews yet. No e2e run, no screenshots, no database tests (no migration changed).
+- The runbook `docs/runbooks/published-lesson-wrong.md` waits for part 3, because it names the Unpublish control part 3 builds.
+
+### Owner: run this
+
+1. Unchanged from the session before: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 3, on `wp/4.3-validate-publish`: Validate and Stop with the checklist (section 7.6) on the runtime controller, the verdict per test case with actual output, "Fill from solution", Save on a published lesson validating first, Publish, Unpublish and Archive with confirmations, the states "Python loading", "validating" and "validation failed" with gallery states; the runbook; J-13; code, security and design review. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from about 04:20), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 1, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- `wp/3.4-statechart` merged in (938a05d). Conflicts resolved in `playwright.config.ts` (the `stack` project beside the three engines and the runtime projects), `scripts/eslint/module-boundaries.mjs` (both sets of messages), `src/features/workspace/index.ts` (all three exports), `security-headers.test.ts` and `proxy.test.ts` (both sides' tests). `pnpm verify` after the merge: 87 files, 1685 tests.
+- Built test first: the validation checklist and the test case list rules in `src/grader`; the gradable hash; `saveLesson` now carries the test cases and marks a save validated only when the hash matches; `setLessonStatus` (publish, unpublish, archive); the validation runner on the learners' runtime controller.
+- `pnpm verify` on 922accb: exit 0, 92 files, 1744 tests.
+- Push: succeeded (new branch). This progress commit is pushed after it.
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, with its `gh pr create` command (`--base wp/4.2-lesson-editor`) and three open decisions. Do not open it until part 2 is done.
+- No reviews yet. No e2e, no `next build`, no database tests run (no migration changed).
+- Setup: `night-a`'s `node_modules` now has `pyodide` 314.0.7 copied from `night-b` (`node_modules/pyodide`, with `ws` and `@types` in its own `node_modules`).
+
+### Owner: run this
+
+1. The WP-4.2 lockfile commit (below) is still due. Then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there, so the lockfile has both Pyodide and CodeMirror.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 2, on `wp/4.3-validate-publish`: the test case list, verdicts, "Fill from solution", the checklist with Validate and Stop, Publish, Unpublish and Archive in the lesson editor, with every state and the gallery; the runbook `docs/runbooks/published-lesson-wrong.md`; J-13; reviews. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
+## Session of 2026-11-23 (from 04:02), in `night-a`, detached HEAD pushed to `wp/4.2-lesson-editor`
+
+Sessions from 01:22 to 03:42 started and left no change. A session from 00:39 made 11 review-fix commits (6b799fe..7db29ac) on a detached HEAD in `night-a` and did not push them or record its reviews. This session recovered those reviews from that session's subagent transcripts, finished the two open findings, and wrote the description.
+
+### WP-4.2 The lesson editor: ready as a draft, `wp/4.2-lesson-editor` (base `wp/4.1-courses-chapters`)
+
+- Description: `docs/reports/pull-requests/WP-4.2.md`, with its `gh pr create` command and three decisions (the editor's nonce rule, where the lesson-content component lives, `save_lesson` keeping the position).
+- `pnpm verify` on 8b289f3: exit 0, 69 files, 1269 tests. `next build`, `check-static`, `check-bundle` pass.
+- PGlite: 365 assertions pass, with and without the seed (`12_lesson_order` now 27).
+- Review round 1 (code, security, design, on be24f80): all CHANGES REQUIRED. Saved in `docs/reports/reviews/WP-4.2/`. Every finding fixed or answered in the description, except those needing a browser or the lockfile. Not re-reviewed.
+- New this session:
+  - 3b1bcf8: `save_lesson` keeps the lesson's position unless the chapter changes (security MINOR 2), test first.
+  - 8b289f3: Zod `jitless` for every schema a browser loads, plus a lint rule (security MINOR 1), test first.
+- e2e written, not run.
+- Push: succeeded, `be24f80..c69e191`. This progress commit is pushed after it.
+- `wp/4.2-markdown-part-1` is superseded by `wp/4.2-lesson-editor`. Do not open a pull request for part 1.
+- The local branch `wp/4.2-lesson-editor` in the `night-c` worktree is behind the pushed branch. Run `git -C /private/tmp/claude-501/night-c pull --ff-only` before working there.
+
+### Owner: run this
+
+1. In a checkout of `wp/4.2-lesson-editor`, with dependencies installed, run `pnpm install && git add pnpm-lock.yaml && git commit -m "build: lock the CodeMirror packages" && git push`. The CodeMirror packages are not in `pnpm-lock.yaml`, so CI fails at the frozen install until this is done.
+2. Earlier owner actions for WP-2.2, WP-2.3 and WP-4.1 are still due.
+
+### Next
+
+- WP-4.3 (test cases, validation, publishing) depends on WP-4.1, WP-4.2 and WP-3.4. All three are built as drafts. Stack it on `wp/4.2-lesson-editor` and merge `wp/3.4-statechart` in. Expect conflicts with the 3.x line in `package.json` and the lockfile (Pyodide against CodeMirror).
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-22 (from 01:51), on `wp/4.1-courses-chapters`
 
 Order given by the owner: (1) update waiting branches, done 2026-11-20 and `main` has not moved (037c4ad); (2) to (4) WP-2.1, 2.2, 2.3, done; (5) WP-3.4; then the plan order. WP-4.1, pushed unfinished, first.
@@ -33,11 +291,6 @@ Picked up from an uncommitted draft a session at about 06:10 left in `$TMPDIR/wp
 ### WP-3.4: `wp/3.2-live-input` merged into `wp/3.4-statechart` (312bf29)
 
 Conflicts with WP-3.3 resolved in `controller.ts` (status has both `awaitingInput` and `checking`; the run record has `kind: "run"`; input only for runs), `worker/core.ts` (`Loaded` carries the input-capable runner and the harness checker), `runtime-dev.ts` and both tests. The Pyodide input tests now import `pyodide` by name (WP-3.3's fixed-import lint rule) and send `harnessVersion`. `pnpm verify`: 39 files, 1028 tests.
-
-### Owner: run this (this session)
-
-1. After WP-4.2 is pushed, in a checkout of `wp/4.2-lesson-editor` with dependencies installed: `pnpm install && git add pnpm-lock.yaml && git commit -m "build: lock the code editor packages" && git push`. Until then every CI job of WP-4.2 fails at the frozen install.
-2. Decide ADR-0034 (WP-3.4).
 
 ### Owner: run this
 
