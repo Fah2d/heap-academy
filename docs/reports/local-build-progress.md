@@ -80,6 +80,8 @@ WP-5.1's five parts are built and reviewed twice (see the 20:35 session below). 
 - Docker: `failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock ... no such file or directory`, so no `supabase start` and no `stack` journey.
 - Chromium: `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`, so no gallery spec, axe or screenshot.
 
+Checked once more at 23:52 in a fresh session: `git fetch` shows `origin/main` still at 0efe863 and none of the seven branches behind it, so task 1 needs no new merge. Docker and Chromium fail with the same two errors.
+
 No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
