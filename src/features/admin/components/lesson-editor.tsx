@@ -300,6 +300,16 @@ export function LessonEditor({
     );
   }
 
+  /** Opens a test case named in the checklist and moves focus to its title. */
+  function openTestCase(id: TestCaseId) {
+    setOpenTestCases((current) => new Set([...current, id]));
+    requestAnimationFrame(() =>
+      form.current
+        ?.querySelector<HTMLElement>(`[data-test-case="${id}"] button[slot="trigger"]`)
+        ?.focus(),
+    );
+  }
+
   /** Opens each test case with a problem and focuses the first wrong field. */
   function showTestCaseProblems(problems: TestCaseProblems) {
     // A test case with a problem opens in the same render, so focus can reach its field.
@@ -725,9 +735,11 @@ export function LessonEditor({
               state={validation}
               python={python}
               outdated={!checkedNow(validation, content).whole}
+              testCaseIds={new Set(fields.testCases.map((testCase) => testCase.id))}
               onValidate={validate}
               onStop={stopValidation}
               onRetry={() => runtime.current?.retry()}
+              onOpenTestCase={openTestCase}
             />
             <LessonStatusControls
               status={status}

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { RuleState } from "@/grader/validation";
 import { validation as words } from "@/messages/admin";
+import { TIME_LIMIT_MS } from "@/runtime/controller";
 import type { ValidationContent } from "../client/validate-lesson";
 import type { ValidationState } from "../validation-view";
 import { ValidationPanel, type ValidationPanelProps } from "./validation-panel";
@@ -45,12 +46,18 @@ const done = (rules: RuleState[], passed = false): ValidationState => ({
 });
 
 function renderPanel(props: Partial<ValidationPanelProps> = {}) {
-  const handlers = { onValidate: vi.fn(), onStop: vi.fn(), onRetry: vi.fn() };
+  const handlers = {
+    onValidate: vi.fn(),
+    onStop: vi.fn(),
+    onRetry: vi.fn(),
+    onOpenTestCase: vi.fn(),
+  };
   render(
     <ValidationPanel
       state={{ kind: "idle" }}
       python="ready"
       outdated={false}
+      testCaseIds={new Set(checked.testCases.map((entry) => entry.id))}
       {...handlers}
       {...props}
     />,
@@ -151,8 +158,30 @@ describe("ValidationPanel [FR-ADM-07]", () => {
     expect(rows[2]?.textContent).toContain(words.starterPasses);
     expect(rows[3]?.textContent).toContain(words.wrongAnswersPass([1, 3]));
     expect(rows[4]?.textContent).toContain(
-      words.timedOut([words.program.solution, words.program.wrongAnswer(2)]),
+      words.timedOut(TIME_LIMIT_MS / 1000, [words.program.solution, words.program.wrongAnswer(2)]),
     );
+    expect(rows[4]?.textContent).toContain(`${String(TIME_LIMIT_MS / 1000)} second`);
+  });
+
+  it("[FR-GRD-05] opens each test case the solution failed from the checklist, while it is still in the lesson", async () => {
+    const { onOpenTestCase } = renderPanel({
+      testCaseIds: new Set(["t2"] as TestCaseId[]),
+      state: done([
+        { rule: "complete", state: "passed" },
+        { rule: "solution_passes", state: "failed", testCaseIds: ["t1", "t2"] as TestCaseId[] },
+        { rule: "starter_fails", state: "passed" },
+        { rule: "wrong_answers_fail", state: "passed" },
+        { rule: "no_time_limit", state: "passed" },
+      ]),
+    });
+    const row = within(items()[1] as HTMLElement);
+    expect(
+      row.queryByRole("button", { name: words.openTestCase(words.testCaseRef(1, "Prints ok")) }),
+    ).toBeNull();
+    await userEvent.click(
+      row.getByRole("button", { name: words.openTestCase(words.testCaseRef(2, "")) }),
+    );
+    expect(onOpenTestCase).toHaveBeenCalledWith("t2");
   });
 
   it("names what an incomplete lesson is missing", () => {

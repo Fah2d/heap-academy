@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { FailureReason } from "@/grader/grade";
+import { HARNESS_OUTPUT_LIMIT } from "@/grader/harness";
 import { CHECK_TEST_LIMIT, MATCH_MODES, type MatchMode, type TestCase } from "@/grader/test-case";
 import type { TestCaseId } from "@/grader/test-case";
 import {
@@ -11,6 +13,7 @@ import {
   type TestCaseProblem,
 } from "@/grader/test-case-list";
 import { validation, testCaseList as words } from "@/messages/admin";
+import { TIME_LIMIT_MS } from "@/runtime/controller";
 import { Button, Disclosure, SelectField, Status, TextArea, TextField } from "@/ui";
 import type { MoveDirection } from "../types";
 import type { SolutionVerdict, SolutionView } from "../validation-view";
@@ -99,13 +102,12 @@ export function TestCaseList({
 
   return (
     <div ref={root} className="flex flex-col gap-4">
-      <p className="max-w-prose text-sm text-text-muted">{words.intro}</p>
+      <p className="max-w-prose text-sm text-text-muted">{words.intro(CHECK_TEST_LIMIT)}</p>
       {testCases.length === 0 && <p className="text-sm text-text-muted">{words.empty}</p>}
       {testCases.length > 0 && (
         <ol className="flex flex-col gap-3">
           {testCases.map((testCase, index) => {
             const number = index + 1;
-            const title = words.title(number, testCase.name);
             const label = testCase.name.trim() === "" ? words.group(number) : testCase.name;
             const found = problems.get(testCase.id) ?? [];
             const result = solution.get(testCase.id);
@@ -124,7 +126,9 @@ export function TestCaseList({
                 className="rounded-panel border border-border px-4 py-2"
               >
                 <Disclosure
-                  title={title}
+                  title={
+                    <TestCaseTitle number={number} name={testCase.name} verdict={result?.verdict} />
+                  }
                   level={3}
                   isExpanded={expanded.has(testCase.id)}
                   onExpandedChange={(isOpen) => onExpandedChange(testCase.id, isOpen)}
@@ -256,7 +260,7 @@ export function TestCaseList({
         </ol>
       )}
       {full ? (
-        <p className="text-sm text-text-muted">{words.full}</p>
+        <p className="text-sm text-text-muted">{words.full(CHECK_TEST_LIMIT)}</p>
       ) : (
         <div data-add-test-case>
           <Button
@@ -276,11 +280,66 @@ export function TestCaseList({
 
 const statusState = { pass: "pass", fail: "fail", not_run: "not-run" } as const;
 
+/**
+ * The number in Plex Mono as a structural label (DESIGN.md section 2), the
+ * name, and the solution's verdict while it applies, so every verdict shows
+ * with the test cases closed. Read as one name: "Test case 2: Doubles, Failed".
+ */
+function TestCaseTitle({
+  number,
+  name,
+  verdict,
+}: {
+  number: number;
+  name: string;
+  verdict: SolutionVerdict | undefined;
+}) {
+  return (
+    <span className="flex flex-wrap items-center gap-x-3">
+      <span>
+        <span data-test-case-number className="font-mono">
+          {words.group(number)}
+        </span>
+        {words.titleName(name)}
+      </span>
+      {verdict !== undefined && (
+        <>
+          <span aria-hidden="true" className="inline-flex">
+            <Status state={statusState[verdict.state]} label={validation.verdict[verdict.state]} />
+          </span>
+          <span className="sr-only">
+            {validation.titleVerdict(validation.verdict[verdict.state])}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function reasonText(reason: FailureReason): string {
+  switch (reason) {
+    case "output_limit":
+      return validation.reason.output_limit(HARNESS_OUTPUT_LIMIT);
+    case "time_limit":
+      return validation.reason.time_limit(TIME_LIMIT_MS / 1000);
+    case "mismatch":
+    case "program_error":
+    case "after_code_error":
+    case "stopped":
+    case "crashed":
+      return validation.reason[reason];
+    default: {
+      const unreachable: never = reason;
+      return unreachable;
+    }
+  }
+}
+
 function verdictDetail(verdict: SolutionVerdict): string[] {
   if (verdict.state !== "fail") return [];
   const { error } = verdict;
   return [
-    validation.reason[verdict.reason],
+    reasonText(verdict.reason),
     ...(error === undefined ? [] : [validation.error(error.message, error.line)]),
   ];
 }
@@ -318,7 +377,9 @@ function SolutionResult({ view }: { view: SolutionView }) {
           {view.actual}
         </pre>
       )}
-      {view.truncated && <p className="text-sm text-text-muted">{validation.truncated}</p>}
+      {view.truncated && (
+        <p className="text-sm text-text-muted">{validation.truncated(HARNESS_OUTPUT_LIMIT)}</p>
+      )}
       {view.cleaned && <p className="text-sm text-text-muted">{validation.cleaned}</p>}
     </div>
   );

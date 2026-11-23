@@ -528,7 +528,9 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
       'print("x")',
     ]);
     await userEvent.click(
-      screen.getByRole("button", { name: testCaseList.title(1, "Echoes Ada") }),
+      screen.getByRole("button", {
+        name: `${testCaseList.title(1, "Echoes Ada")}${validation.titleVerdict(validation.verdict.pass)}`,
+      }),
     );
     const first = within(screen.getByRole("group", { name: testCaseList.group(1) }));
     expect(first.getByText(validation.verdict.pass)).toBeTruthy();
@@ -551,7 +553,9 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
     await screen.findByRole("button", { name: words.save });
 
     await userEvent.click(
-      screen.getByRole("button", { name: testCaseList.title(2, "Echoes Omar") }),
+      screen.getByRole("button", {
+        name: `${testCaseList.title(2, "Echoes Omar")}${validation.titleVerdict(validation.verdict.pass)}`,
+      }),
     );
     const second = within(screen.getByRole("group", { name: testCaseList.group(2) }));
     await userEvent.type(second.getByLabelText(testCaseList.expectedLabel), "!");
@@ -571,6 +575,24 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
     await userEvent.click(saveButton());
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(vi.mocked(save).mock.calls[0]?.[0]).not.toHaveProperty("validatedHash");
+  });
+
+  it("[FR-GRD-05] opens a test case the solution failed from the checklist and focuses it", async () => {
+    const solutionFails: CheckProgram = (source, tests) =>
+      honest(source === lesson.solutionCode ? 'print("no")' : source, tests);
+    setup({ python: fakeRuntime(solutionFails) });
+    await validate();
+    await waitFor(() => expect(liveStatus()).toContain(validation.status.failed(1)));
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: validation.openTestCase(validation.testCaseRef(2, "Echoes Omar")),
+      }),
+    );
+    const opened = screen.getByRole("button", {
+      name: `${testCaseList.title(2, "Echoes Omar")}${validation.titleVerdict(validation.verdict.fail)}`,
+    });
+    expect(opened.getAttribute("aria-expanded")).toBe("true");
+    await waitFor(() => expect(document.activeElement).toBe(opened));
   });
 
   it("[FR-ADM-06] Stop stops the check in progress, and the checklist decides nothing", async () => {

@@ -3,9 +3,11 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TestCase, TestCaseId } from "@/grader/test-case";
+import { HARNESS_OUTPUT_LIMIT } from "@/grader/harness";
+import { CHECK_TEST_LIMIT, type TestCase, type TestCaseId } from "@/grader/test-case";
 import type { TestCaseProblem } from "@/grader/test-case-list";
 import { validation, testCaseList as words } from "@/messages/admin";
+import { TIME_LIMIT_MS } from "@/runtime/controller";
 import type { SolutionView } from "../validation-view";
 import { TestCaseList } from "./test-case-list";
 
@@ -193,13 +195,84 @@ describe("TestCaseList [FR-ADM-05]", () => {
       testCase(`t${String(index + 1)}`, `Case ${String(index + 1)}`),
     );
     render(<Harness initial={twelve} />);
-    expect(screen.getByText(words.full)).toBeTruthy();
+    expect(screen.getByText(words.intro(CHECK_TEST_LIMIT))).toBeTruthy();
+    expect(screen.getByText(words.full(CHECK_TEST_LIMIT))).toBeTruthy();
+    expect(screen.getByText(words.full(CHECK_TEST_LIMIT)).textContent).toContain("12");
     expect(screen.queryByRole("button", { name: words.add })).toBeNull();
     await userEvent.click(trigger(1, "Case 1"));
     expect(screen.queryByRole("button", { name: words.duplicate("Case 1") })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: words.remove("Case 1") }));
-    expect(screen.queryByText(words.full)).toBeNull();
+    expect(screen.queryByText(words.full(CHECK_TEST_LIMIT))).toBeNull();
     expect(screen.getByRole("button", { name: words.add })).toBeTruthy();
+  });
+
+  it("sets the test case number in the monospace face and the name in the interface face", () => {
+    render(<Harness initial={[testCase("t1", "Echoes Ada")]} />);
+    const number = trigger(1, "Echoes Ada").querySelector("[data-test-case-number]");
+    expect(number?.textContent).toBe(words.group(1));
+    expect(number?.className).toContain("font-mono");
+  });
+
+  it("[FR-ADM-06] shows each test case's verdict in its title, with the test case closed", () => {
+    const view = (state: "pass" | "fail"): SolutionView => ({
+      actual: "",
+      truncated: false,
+      cleaned: false,
+      verdict: state === "pass" ? { state } : { state, reason: "mismatch" },
+      fillable: false,
+    });
+    const solution = new Map<TestCaseId, SolutionView>([
+      ["a" as TestCaseId, view("pass")],
+      ["b" as TestCaseId, view("fail")],
+      ["c" as TestCaseId, { ...view("pass"), verdict: undefined }],
+    ]);
+    function Closed() {
+      return (
+        <TestCaseList
+          testCases={[testCase("a", "Doubles"), testCase("b", "Reads"), testCase("c", "Adds")]}
+          onChange={() => undefined}
+          problems={new Map()}
+          solution={solution}
+          expanded={new Set()}
+          onExpandedChange={() => undefined}
+          newId={() => "x"}
+        />
+      );
+    }
+    render(<Closed />);
+    const first = screen.getByRole("button", {
+      name: `${words.title(1, "Doubles")}${validation.titleVerdict(validation.verdict.pass)}`,
+    });
+    expect(first.getAttribute("aria-expanded")).toBe("false");
+    expect(within(first).getByText(validation.verdict.pass)).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: `${words.title(2, "Reads")}${validation.titleVerdict(validation.verdict.fail)}`,
+      }),
+    ).toBeTruthy();
+    // A verdict about an older expected output is not shown.
+    expect(trigger(3, "Adds")).toBeTruthy();
+  });
+
+  it("[FR-ADM-06] names the output and time limits of a failed verdict from the limits the runs use", () => {
+    const failed = (reason: "output_limit" | "time_limit"): SolutionView => ({
+      actual: "",
+      truncated: false,
+      cleaned: false,
+      verdict: { state: "fail", reason },
+      fillable: false,
+    });
+    const solution = new Map<TestCaseId, SolutionView>([
+      ["a" as TestCaseId, failed("output_limit")],
+      ["b" as TestCaseId, failed("time_limit")],
+    ]);
+    render(
+      <Harness initial={[testCase("a", "Prints"), testCase("b", "Loops")]} solution={solution} />,
+    );
+    const output = within(group(1)).getByText(validation.reason.output_limit(HARNESS_OUTPUT_LIMIT));
+    expect(output.textContent).toContain("64,000");
+    const time = within(group(2)).getByText(validation.reason.time_limit(TIME_LIMIT_MS / 1000));
+    expect(time.textContent).toContain("5 second");
   });
 
   it("puts each problem under its own field, with the limit", () => {
@@ -298,7 +371,10 @@ describe("TestCaseList [FR-ADM-05]", () => {
     ]);
     render(<Harness initial={[testCase("a", "Doubles")]} solution={solution} />);
     expect(screen.getByText(validation.verdictOutdated)).toBeTruthy();
-    expect(screen.getByText(validation.truncated)).toBeTruthy();
+    expect(screen.getByText(validation.truncated(HARNESS_OUTPUT_LIMIT))).toBeTruthy();
+    expect(screen.getByText(validation.truncated(HARNESS_OUTPUT_LIMIT)).textContent).toContain(
+      "64,000",
+    );
     expect(screen.queryByText(validation.verdict.pass)).toBeNull();
   });
 

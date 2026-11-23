@@ -308,15 +308,18 @@ const count = new Intl.NumberFormat("en");
 
 /** The test case list of the lesson editor (docs/spec/03-experience.md section 7.5; FR-ADM-05). */
 export const testCaseList = {
-  intro:
-    "Each test case runs the program on its own and compares what it prints. Learners see every test case, including its follow-up code. A lesson has 1 to 12.",
+  intro: (limit: number) =>
+    `Each test case runs the program on its own and compares what it prints. Learners see every test case, including its follow-up code. A lesson has 1 to ${count.format(limit)}.`,
   empty: "No test case yet. A lesson needs at least one before it can be published.",
-  full: "This lesson has 12 test cases, the most a lesson can have.",
+  full: (limit: number) =>
+    `This lesson has ${count.format(limit)} test cases, the most a lesson can have.`,
   add: "Add a test case",
   title: (n: number, name: string) =>
     name.trim() === "" ? `Test case ${String(n)}: no name yet` : `Test case ${String(n)}: ${name}`,
-  /** The group around one test case's fields, for screen readers. */
+  /** The group around one test case's fields, and the number at the start of its title. */
   group: (n: number) => `Test case ${String(n)}`,
+  /** The rest of the title after the number; title() is the two together. */
+  titleName: (name: string) => (name.trim() === "" ? ": no name yet" : `: ${name}`),
   nameLabel: "Name",
   nameHint:
     "What the learner reads, written as a requirement, such as: Prints the total on one line. 1 to 80 characters.",
@@ -387,7 +390,9 @@ export const validation = {
   testCaseRef: (n: number, name: string) =>
     name.trim() === "" ? `test case ${String(n)}` : `test case ${String(n)} (${name})`,
   solutionFailed: (cases: readonly string[]) =>
-    `The solution did not pass ${listed(cases)}. Open the test case to see what it printed.`,
+    `The solution did not pass ${listed(cases)}. Each test case shows what it printed.`,
+  /** Opens one of the test cases the solution failed, in the test case list. */
+  openTestCase: (ref: string) => `Open ${ref}`,
   starterPasses:
     "The starter passes every test case, so a learner would have nothing to do. Change the starter, or make a test case stricter.",
   wrongAnswersPass: (numbers: readonly number[]) =>
@@ -399,8 +404,8 @@ export const validation = {
     starter: "the starter",
     wrongAnswer: (n: number) => `wrong answer ${String(n)}`,
   },
-  timedOut: (programs: readonly string[]) =>
-    `Stopped at the 5 second limit: ${listed(programs)}. Look for a loop that never ends.`,
+  timedOut: (seconds: number, programs: readonly string[]) =>
+    `Stopped at the ${count.format(seconds)} second limit: ${listed(programs)}. Look for a loop that never ends.`,
   validate: "Validate",
   validating: "Validating",
   validatesWhenReady: "Validates when Python is ready",
@@ -425,12 +430,16 @@ export const validation = {
   /** The solution's result inside one test case (section 7.5). */
   solutionHeading: "What the solution printed",
   verdict: { pass: "Passed", fail: "Failed", not_run: "Not run" },
+  /** The verdict in a test case's title, as a screen reader reads it after the name. */
+  titleVerdict: (verdict: string) => `, ${verdict}`,
   reason: {
     mismatch: "The output is different from the expected output.",
     program_error: "The solution stopped with an error.",
     after_code_error: "The follow-up code stopped with an error.",
-    output_limit: "The solution printed more than 64,000 characters.",
-    time_limit: "The solution reached the 5 second limit.",
+    output_limit: (limit: number) =>
+      `The solution printed more than ${count.format(limit)} characters.`,
+    time_limit: (seconds: number) =>
+      `The solution reached the ${count.format(seconds)} second limit.`,
     stopped: "The validation was stopped.",
     crashed: "Python stopped working during this test case.",
   },
@@ -438,7 +447,7 @@ export const validation = {
   error: (message: string, line: number | undefined) =>
     line === undefined ? message : `Line ${String(line)}: ${message}`,
   noOutput: "Nothing was printed.",
-  truncated: "The output was cut at 64,000 characters.",
+  truncated: (limit: number) => `The output was cut at ${count.format(limit)} characters.`,
   cleaned:
     "Control characters were removed from this output, so it cannot be copied into the expected output.",
   verdictOutdated:

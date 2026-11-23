@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { CHECK_TEST_LIMIT } from "../src/grader/test-case";
 import {
   adminArea,
   courseEditor,
@@ -307,7 +308,7 @@ test("[FR-ADM-05] the test case list: empty, full, and a test case with problems
 
   // Twelve: no Add and no Duplicate, and the sentence that says why.
   const full = page.getByRole("region", { name: adminGallery.lessonTestCasesFull });
-  await expect(full.getByText(testCaseList.full)).toBeVisible();
+  await expect(full.getByText(testCaseList.full(CHECK_TEST_LIMIT))).toBeVisible();
   await expect(full.getByRole("button", { name: testCaseList.add })).toHaveCount(0);
   await full
     .getByRole("button", { name: testCaseList.title(1, adminGallery.sampleTestName) })

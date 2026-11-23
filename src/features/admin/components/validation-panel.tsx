@@ -1,8 +1,9 @@
 "use client";
 
-import type { TestCase } from "@/grader/test-case";
+import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { RuleState, TimedOutProgram, ValidationRule } from "@/grader/validation";
 import { validation as words } from "@/messages/admin";
+import { TIME_LIMIT_MS } from "@/runtime/controller";
 import { Button, Notice, Status } from "@/ui";
 import type { PythonState } from "../client/validation-runtime";
 import type { ValidationState } from "../validation-view";
@@ -16,9 +17,13 @@ export type ValidationPanelProps = {
   python: PythonState;
   /** The lesson changed after the last finished validation. */
   outdated: boolean;
+  /** The test cases in the editor now; only these can be opened from a failed rule. */
+  testCaseIds: ReadonlySet<TestCaseId>;
   onValidate: () => void;
   onStop: () => void;
   onRetry: () => void;
+  /** Opens a test case in the list and moves focus to it. */
+  onOpenTestCase: (id: TestCaseId) => void;
 };
 
 const RULES: readonly ValidationRule[] = [
@@ -29,13 +34,37 @@ const RULES: readonly ValidationRule[] = [
   "no_time_limit",
 ];
 
-type Row = { rule: ValidationRule; state: RuleState["state"]; why: string | undefined };
+type Opener = { id: TestCaseId; label: string };
+
+type Row = {
+  rule: ValidationRule;
+  state: RuleState["state"];
+  why: string | undefined;
+  open: readonly Opener[];
+};
 
 const statusState = { passed: "pass", failed: "fail", not_run: "not-run" } as const;
 
 function programName(program: TimedOutProgram): string {
   if (program.program === "wrong_answer") return words.program.wrongAnswer(program.index + 1);
   return words.program[program.program];
+}
+
+function testCaseRef(id: TestCaseId, testCases: readonly TestCase[]): string {
+  const index = testCases.findIndex((testCase) => testCase.id === id);
+  return words.testCaseRef(index + 1, testCases[index]?.name ?? "");
+}
+
+/** The failed test cases a button can open: those still in the editor. */
+function openers(
+  rule: RuleState,
+  testCases: readonly TestCase[],
+  present: ReadonlySet<TestCaseId>,
+): Opener[] {
+  if (rule.rule !== "solution_passes" || rule.state !== "failed") return [];
+  return rule.testCaseIds
+    .filter((id) => present.has(id))
+    .map((id) => ({ id, label: words.openTestCase(testCaseRef(id, testCases)) }));
 }
 
 /** What to fix, for a failed rule; the test cases are named as the checked lesson had them. */
@@ -45,18 +74,13 @@ function reason(rule: RuleState, testCases: readonly TestCase[]): string | undef
     case "complete":
       return words.missing(rule.missing.map((part) => words.part[part]));
     case "solution_passes":
-      return words.solutionFailed(
-        rule.testCaseIds.map((id) => {
-          const index = testCases.findIndex((testCase) => testCase.id === id);
-          return words.testCaseRef(index + 1, testCases[index]?.name ?? "");
-        }),
-      );
+      return words.solutionFailed(rule.testCaseIds.map((id) => testCaseRef(id, testCases)));
     case "starter_fails":
       return words.starterPasses;
     case "wrong_answers_fail":
       return words.wrongAnswersPass(rule.wrongAnswers.map((index) => index + 1));
     case "no_time_limit":
-      return words.timedOut(rule.programs.map(programName));
+      return words.timedOut(TIME_LIMIT_MS / 1000, rule.programs.map(programName));
     default: {
       const unreachable: never = rule;
       return unreachable;
@@ -88,9 +112,11 @@ export function ValidationPanel({
   state,
   python,
   outdated,
+  testCaseIds,
   onValidate,
   onStop,
   onRetry,
+  onOpenTestCase,
 }: ValidationPanelProps) {
   // Before a finished validation every rule, rule 1 too, is not checked.
   const rows: Row[] =
@@ -99,8 +125,9 @@ export function ValidationPanel({
           rule: rule.rule,
           state: rule.state,
           why: reason(rule, state.checked.testCases),
+          open: openers(rule, state.checked.testCases, testCaseIds),
         }))
-      : RULES.map((rule) => ({ rule, state: "not_run", why: undefined }));
+      : RULES.map((rule) => ({ rule, state: "not_run", why: undefined, open: [] }));
   const running = state.kind === "running";
   const live = liveText(state);
 
@@ -133,6 +160,19 @@ export function ValidationPanel({
               <span className="text-base text-text">{words.rule[row.rule]}</span>
             </div>
             {row.why !== undefined && <p className="text-sm text-text">{row.why}</p>}
+            {row.open.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {row.open.map((opener) => (
+                  <Button
+                    key={opener.id}
+                    variant="secondary"
+                    onPress={() => onOpenTestCase(opener.id)}
+                  >
+                    {opener.label}
+                  </Button>
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ol>
