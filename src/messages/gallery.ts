@@ -8,6 +8,8 @@ export const gallery = {
   buttons: "Buttons",
   rest: "At rest",
   disabled: "Disabled",
+  withIcon: "With an icon",
+  fullWidth: "Full width, as on a phone",
   check: "Check",
   run: "Run",
   deleteTestCase: "Delete test case",
