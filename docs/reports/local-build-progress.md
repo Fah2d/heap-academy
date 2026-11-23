@@ -13,6 +13,7 @@ Same task list as the sessions below. WP-6.3 part 1 and WP-7.3 part 1 were alrea
 - Commits: 1590d7b (runbooks), abe78e3, 2ce4040, e4638f2 (review fixes), then the description and this file.
 - `pnpm verify` exit 0 after each round (31 files, 722 tests). One unexplained exit 1 in a reviewer's run on 2ce4040; four other runs there and three `pnpm test` runs on e4638f2 passed.
 - Reviews in `docs/reports/reviews/WP-7.3/` (rounds 2 to 4 of `code-review-*` and `security-review-*`): every round CHANGES REQUIRED, every finding fixed; the round 4 fixes (e4638f2) were not reviewed again. No design review: no interface change.
+- Push: succeeded, `9638f9a..5a85da1`. This line is pushed after it.
 - Description: `docs/reports/pull-requests/WP-7.3-part-2.md`, with decisions C (analytics packages), D (spec drift for one `spec-change`: Attack Mode name, missing triggers, `RUNTIME_ASSET_BASE_URL`, a new evidence entry) and E (`workflow_dispatch` for `deploy.yml`), and the `gh` commands to open the pull request with both parts.
 
 ### Owner: run this
