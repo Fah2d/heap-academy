@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { gallery } from "@/messages/gallery";
 import { errorPage, notFound } from "@/messages/system";
 import { pageTitle, shell } from "@/messages/shell";
+import type { ErrorReporter } from "./client/report-client-error";
 import { ErrorView, errorReference } from "./components/error-view";
 import { NotFoundView } from "./components/not-found-view";
 import { PrimitiveGallery } from "./components/primitive-gallery";
@@ -13,6 +15,8 @@ import { PrimitiveGallery } from "./components/primitive-gallery";
 import { SiteShell } from "./components/site-shell";
 
 afterEach(cleanup);
+
+const REQUEST_ID = "9b2f6c1e-4a7d-4e0b-8f3a-2d5c7e9a1b4f";
 
 function serverError(digest: string): Error {
   return Object.assign(new Error("An error occurred in the Server Components render."), { digest });
@@ -30,7 +34,13 @@ describe("not-found page", () => {
 describe("error page", () => {
   it("[FR-SYS-01] says what happened and lets the learner try again", async () => {
     const retry = vi.fn();
-    render(<ErrorView error={new Error("boom")} retry={retry} />);
+    render(
+      <ErrorView
+        error={new Error("boom")}
+        retry={retry}
+        report={() => Promise.resolve(undefined)}
+      />,
+    );
     expect(screen.getByRole("heading", { level: 1, name: errorPage.heading })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: errorPage.retry }));
     expect(retry).toHaveBeenCalledOnce();
@@ -45,15 +55,70 @@ describe("error page", () => {
     expect(screen.getByText(errorPage.referenceHint)).toBeTruthy();
   });
 
-  it("[FR-SYS-01] asks for no reference when it has none to show", () => {
-    render(<ErrorView error={new Error("thrown in the browser")} retry={() => undefined} />);
+  it("[FR-SYS-01] [NFR-OBS-01] does not report a server error, which the server has logged", () => {
+    const report = vi.fn<ErrorReporter>(() => Promise.resolve(REQUEST_ID));
+    render(<ErrorView error={serverError("2741609137")} retry={() => undefined} report={report} />);
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it("[FR-SYS-01] [NFR-OBS-01] [NFR-OBS-02] reports a browser error once, then shows the server's request ID", async () => {
+    window.history.replaceState(null, "", "/courses/python?email=ada%40example.com#top");
+    const report = vi.fn<ErrorReporter>(() => Promise.resolve(REQUEST_ID));
+    render(
+      <StrictMode>
+        <ErrorView
+          error={new Error("thrown in the browser")}
+          retry={() => undefined}
+          report={report}
+        />
+      </StrictMode>,
+    );
+    const reference = await screen.findByText(REQUEST_ID);
+    expect(reference.tagName).toBe("CODE");
+    expect(reference.closest("p")?.textContent).toBe(`${errorPage.referenceLabel} ${REQUEST_ID}`);
+    expect(screen.getByText(errorPage.referenceHint)).toBeTruthy();
+    expect(report).toHaveBeenCalledOnce();
+    expect(report).toHaveBeenCalledWith({ code: "unexpected-exception", route: "/courses/python" });
+  });
+
+  it("[FR-SYS-01] shows no reference while the report is on its way, or when it fails", async () => {
+    let settle: (reference: string | undefined) => void = () => undefined;
+    const report = vi.fn<ErrorReporter>(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        }),
+    );
+    render(
+      <ErrorView
+        error={new Error("thrown in the browser")}
+        retry={() => undefined}
+        report={report}
+      />,
+    );
+    expect(screen.queryByText(errorPage.referenceLabel, { exact: false })).toBeNull();
+    await act(async () => {
+      settle(undefined);
+      await Promise.resolve();
+    });
+    expect(report).toHaveBeenCalledOnce();
     expect(screen.queryByText(errorPage.referenceLabel, { exact: false })).toBeNull();
     expect(screen.queryByText(errorPage.referenceHint)).toBeNull();
   });
 
-  // A browser error is logged nowhere until the client error report exists, so
-  // no reference could lead to it (owner's decision on pull request #3).
-  it("[FR-SYS-01] [NFR-OBS-01] shows only the server's digest, and invents nothing", () => {
+  it("[FR-SYS-01] [NFR-OBS-01] reports a new error again and never shows the reference of the one before", async () => {
+    const answers = [Promise.resolve(REQUEST_ID), new Promise<string | undefined>(() => undefined)];
+    const report = vi.fn<ErrorReporter>(() => answers.shift() ?? Promise.resolve(undefined));
+    const { rerender } = render(
+      <ErrorView error={new Error("first")} retry={() => undefined} report={report} />,
+    );
+    await screen.findByText(REQUEST_ID);
+    rerender(<ErrorView error={new Error("second")} retry={() => undefined} report={report} />);
+    expect(report).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(REQUEST_ID)).toBeNull();
+  });
+
+  it("[FR-SYS-01] [NFR-OBS-01] takes the digest as the reference, and invents nothing", () => {
     expect(errorReference(serverError("123"))).toBe("123");
     expect(errorReference(serverError(""))).toBeUndefined();
     expect(errorReference("a thrown string")).toBeUndefined();
