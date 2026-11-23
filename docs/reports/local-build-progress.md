@@ -32,14 +32,22 @@ This file is kept whole on every branch this run touches; the newest copy is on 
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-2.3.md`, new "Up to date with main" section.
 
+### Task 1d done: wp/4.1-courses-chapters
+
+- Merge commit 1696ef1: `wp/2.3-admin-gate` (with `main`) into this branch. One conflict: this file (took 2.3's copy).
+- After the merge 7 tests in four admin component test files failed, same `LiveRegion` cause. 9dfb2bd makes them wait for the same words (`waitFor`); no assertion removed.
+- `pnpm verify`: exit 0, 62 files, 1103 tests. `next build` with CI's public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.1.md`, new "Up to date with main" section.
+
 ### Owner: run this
 
-1. When `gh` works: paste the "Up to date with main" sections of `WP-2.1.md`, `WP-2.2.md` and `WP-2.3.md` into the pull requests on GitHub.
+1. When `gh` works: paste the "Up to date with main" sections of `WP-2.1.md`, `WP-2.2.md`, `WP-2.3.md` and `WP-4.1.md` into the pull requests on GitHub.
 2. Decide WP-2.2 decision A (add the `phone` projects to the CI `e2e` job or not).
 
 ### Next
 
-- Task 1d: wp/4.1-courses-chapters (merge wp/2.3-admin-gate, which has `main`). Then wp/4.2, wp/4.3, wp/5.1, then WP-5.1.
+- Task 1e: wp/4.2-lesson-editor (merge wp/2.3-admin-gate, which has `main`; 4.2 does not contain 4.1). Then wp/4.3, wp/5.1, then WP-5.1.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
 

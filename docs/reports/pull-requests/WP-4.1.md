@@ -1,5 +1,25 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## Up to date with main
+
+`main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/2.3-admin-gate`, which already has it (a9d23f1, with 1fb08e1 and 39c22f1): merge commit 1696ef1. No rebase, no force push.
+
+- One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/2.3-admin-gate` was taken, the newer one; its only difference in this branch's sections is a done owner step (the WP-4.2 lockfile commit) that a later session removed.
+- Four test files failed after the merge, 7 tests: `chapter-list.test.tsx`, `course-details-form.test.tsx`, `course-list.test.tsx`, `course-status.test.tsx` (for example `AssertionError: expected '' to contain 'This was changed somewhere else after…'`). Same cause as WP-2.2 and WP-2.3: `main`'s `Notice` puts an announced notice in a `LiveRegion` that is in the page first and gets its words one frame later. Fixed in 9dfb2bd: the tests wait for the same words in the same `alert` region (`waitFor`). No assertion was removed or loosened, and the components are unchanged.
+
+On 9dfb2bd, `pnpm verify`, exit 0:
+
+```
+ Test Files  62 passed (62)
+      Tests  1103 passed (1103)
+```
+
+`next build` with CI's public values (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` from `.github/workflows/ci.yml`), exit 0, routes `/_not-found`, `/admin`, `/admin/courses/[id]`, `/admin/courses/new`, `/admin/setup`, `/admin/verify`, `/api/csp-report`, `/api/health`, `/auth/callback`, `/sign-in`. `node scripts/check-bundle.mjs .next/static`: "No server variable (RESEND_API_KEY, HEAP_RELEASE) in 22 files under .next/static." `node scripts/check-static.mjs .next`: "No prerendered page in .next, apart from /_global-error, which Next.js always prerenders."
+
+Not run on the merge: `pnpm test:db` (no Docker on this machine) and e2e (no browser here).
+
+No new decision: the merge took no choice beyond WP-2.2's decision A (CI's `e2e` job does not run `main`'s `phone` projects).
+
 ## What and why
 
 Courses and chapters in the dashboard (FR-ADM-03, FR-ADM-09, FR-ADM-10, FR-ADM-11, T-20): the course list, the course editor, the server actions for course structure, and the cached queries for published content.
