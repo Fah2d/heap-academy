@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { courseEditor as words, structure } from "@/messages/admin";
@@ -11,6 +11,16 @@ import { type ChapterActions, ChapterList } from "./chapter-list";
 // down, rename, delete an empty chapter after a question, and add a chapter.
 
 afterEach(cleanup);
+
+/**
+ * An announced notice's region is in the page first and its words follow a
+ * frame later (`LiveRegion`), so the test waits for the words in the region.
+ */
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(text);
+  });
+}
 
 const COURSE = "00000000-0000-4000-8000-000000000c01";
 const ONE = "00000000-0000-4000-8000-000000000d01";
@@ -133,7 +143,7 @@ describe("ChapterList [FR-ADM-03]", () => {
     await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
     await user.type(screen.getByLabelText(words.renameTitleLabel("Loops")), " again");
     await user.click(screen.getByRole("button", { name: words.saveChapter }));
-    expect(screen.getByRole("alert").textContent).toContain(structure.failure.stale);
+    await expectAlert(structure.failure.stale);
     expect(screen.getByRole("button", { name: structure.reload })).toBeTruthy();
     // The typed title stays, so it can be copied before reloading.
     expect(screen.getByLabelText<HTMLInputElement>(words.renameTitleLabel("Loops")).value).toBe(
@@ -248,7 +258,7 @@ describe("ChapterList [FR-ADM-03]", () => {
       />,
     );
     await user.click(screen.getByRole("button", { name: structure.moveDown("Basics") }));
-    expect(screen.getByRole("alert").textContent).toContain(structure.failure.cannot_move);
+    await expectAlert(structure.failure.cannot_move);
     expect(refresh).not.toHaveBeenCalled();
   });
 });
