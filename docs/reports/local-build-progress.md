@@ -2,6 +2,18 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy) and this section added on top.
+
+### Task 3, part 3 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- f178765: `wp/3.1-python-worker` at c4ca7f1 merged (58128a3 and its docs). One conflict, this file; WP-3.1's copy was taken, as the newer one.
+- `pnpm verify` on f178765: exit 0, 42 files, 1012 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with f178765 and the docs commit. This line is pushed with the docs commit.
+
 ## Session of 2026-11-24 (from about 23:54 on 2026-11-23), in `night-a`, on `wp/3.3-grader`, then `wp/3.1-python-worker`
 
 Same task list. Tasks 1 and 2 were done (task 2 took about 6 minutes), so this run did task 3: the WP-3.x review findings still open. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top.
