@@ -49,10 +49,11 @@ type Outcome<Value> = { ok: true; value: Value } | { ok: false; error: LessonFai
 
 /**
  * Saves a draft over the version the editor loaded. The lesson keeps its
- * test cases (the test case editor is WP-4.3) and its place, read as it is
- * now: a move from the course editor keeps the lesson's version, so the
- * position the editor loaded may be out of date. A lesson moved to another
- * chapter goes last in it. Returns the new version, as Postgres wrote it.
+ * test cases (the test case editor is WP-4.3) and its place: a move from the
+ * course editor keeps the lesson's version, so save_lesson ignores the
+ * position it is given unless the chapter changes, and a move that lands
+ * between this read and the save is kept. A lesson moved to another chapter
+ * goes last in it. Returns the new version, as Postgres wrote it.
  */
 export async function saveLesson(
   db: SessionClient,

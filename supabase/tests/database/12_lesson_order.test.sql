@@ -2,10 +2,13 @@
 -- keeps (FR-ADM-10): an admin at aal2 rewrites a chapter's order in one
 -- statement; a stale, partial or foreign order is refused; everyone else is
 -- refused and changes nothing. A move keeps the lesson's updated_at; any
--- other change moves it, a save that changes only the solution included.
+-- other change moves it, a save that changes only the solution included. A
+-- save keeps the lesson's place in its chapter, so a move made while the
+-- editor was open is not undone; a save into another chapter takes the place
+-- it is given.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(27);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -147,6 +150,30 @@ select throws_ok($$select public.save_lesson('52000000-0000-4000-8000-0000000000
 reset role;
 select is((select position from public.lessons where slug = 'other'), 0,
   '[FR-ADM-03] another chapter''s order is untouched');
+
+-- A move lands between the editor's read and its save: the save keeps the
+-- place the move gave, in the same statement that checks the version.
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000502","role":"authenticated","aal":"aal2"}', true);
+set local role authenticated;
+update public.lessons set position = 3 where slug = 'other';
+select is((select updated_at from public.lessons where slug = 'other'), (select updated_at from resaved),
+  '[FR-ADM-10] the move kept the version the editor holds');
+insert into resaved
+  select public.save_lesson('52000000-0000-4000-8000-000000000003',
+    (select updated_at from resaved limit 1),
+    '51000000-0000-4000-8000-000000000002', 'other', 'Other, saved', 0, 10, '', '[]',
+    (select starter_code from public.lessons where slug = 'other'), '[]', 'print(2)', '[]', false);
+select is((select position from public.lessons where slug = 'other'), 3,
+  '[FR-ADM-10] a save in the same chapter keeps the place a move gave it while the editor was open');
+select lives_ok($$select public.save_lesson('52000000-0000-4000-8000-000000000003',
+    (select max(updated_at) from resaved),
+    '51000000-0000-4000-8000-000000000001', 'other', 'Other, saved', 7, 10, '', '[]',
+    (select starter_code from public.lessons where slug = 'other'), '[]', 'print(2)', '[]', false)$$,
+  '[FR-ADM-10] a save can move the lesson to another chapter');
+select is((select position from public.lessons where slug = 'other'), 7,
+  '[FR-ADM-10] a save into another chapter takes the place it is given');
+reset role;
 
 select * from finish();
 rollback;
