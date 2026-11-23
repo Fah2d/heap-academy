@@ -66,7 +66,12 @@ export type ContentResult<Value> = { ok: true; value: Value } | { ok: false };
 
 const byPosition = (a: { position: number }, b: { position: number }) => a.position - b.position;
 
-/** Every published course in the owner's order, with its published lesson count. */
+/**
+ * Every published course in the owner's order, with its published lesson
+ * count. A course with no published lesson is left out (FR-CAT-04): the
+ * publish guard refuses to publish one, but its lessons can be unpublished
+ * after it.
+ */
 export async function readPublishedCourses(db: PublicClient): Promise<PublishedCourseSummary[]> {
   const { data, error } = await db
     .from("courses")
@@ -77,6 +82,7 @@ export async function readPublishedCourses(db: PublicClient): Promise<PublishedC
   return z
     .array(courseRow)
     .parse(data)
+    .filter((row) => row.lessons.length > 0)
     .map((row) => ({
       slug: row.slug,
       title: row.title,
@@ -85,7 +91,11 @@ export async function readPublishedCourses(db: PublicClient): Promise<PublishedC
     }));
 }
 
-/** One published course with its chapters and published lessons in order, or null. */
+/**
+ * One published course with its chapters and published lessons in order, or
+ * null. A chapter with no published lesson is left out, and a course with
+ * none at all is null, as it is in the course list (FR-CAT-04).
+ */
 export async function readPublishedCourse(
   db: PublicClient,
   slug: string,
@@ -100,12 +110,10 @@ export async function readPublishedCourse(
   if (error !== null) throw new Error(`published course: ${error.code}`);
   if (data === null) return null;
   const course = courseDetail.parse(data);
-  return {
-    slug: course.slug,
-    title: course.title,
-    summary: course.summary,
-    outcomes: course.outcomes,
-    chapters: [...course.chapters].sort(byPosition).map((chapter) => ({
+  const chapters = [...course.chapters]
+    .sort(byPosition)
+    .filter((chapter) => chapter.lessons.length > 0)
+    .map((chapter) => ({
       id: chapter.id,
       title: chapter.title,
       summary: chapter.summary,
@@ -113,7 +121,14 @@ export async function readPublishedCourse(
         slug: lesson,
         title,
       })),
-    })),
+    }));
+  if (chapters.length === 0) return null;
+  return {
+    slug: course.slug,
+    title: course.title,
+    summary: course.summary,
+    outcomes: course.outcomes,
+    chapters,
   };
 }
 

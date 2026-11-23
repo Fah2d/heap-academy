@@ -45,14 +45,14 @@ describe("published content [FR-ADM-11]", () => {
     state.db.answer({
       data: [
         { slug: "one", title: "One", summary: "S1", lessons: [{ slug: "a" }, { slug: "b" }] },
-        { slug: "two", title: "Two", summary: "S2", lessons: [] },
+        { slug: "three", title: "Three", summary: "S3", lessons: [{ slug: "c" }] },
       ],
     });
     expect(await content.publishedCourses()).toEqual({
       ok: true,
       value: [
         { slug: "one", title: "One", summary: "S1", lessonCount: 2 },
-        { slug: "two", title: "Two", summary: "S2", lessonCount: 0 },
+        { slug: "three", title: "Three", summary: "S3", lessonCount: 1 },
       ],
     });
     expect(state.db.calls[0]?.chain).toEqual([
@@ -75,7 +75,7 @@ describe("published content [FR-ADM-11]", () => {
             title: "Second",
             summary: "",
             position: 1,
-            lessons: [],
+            lessons: [{ slug: "c", title: "C", position: 0 }],
           },
           {
             id: "00000000-0000-4000-8000-000000000d01",
@@ -100,6 +100,69 @@ describe("published content [FR-ADM-11]", () => {
       { slug: "b", title: "B" },
     ]);
     expect(state.db.calls[0]?.chain).toContainEqual(["eq", ["slug", "one"]]);
+  });
+
+  it("[FR-CAT-04] leaves out a course with no published lesson", async () => {
+    state.db.answer({
+      data: [
+        { slug: "empty", title: "Empty", summary: "S0", lessons: [] },
+        { slug: "one", title: "One", summary: "S1", lessons: [{ slug: "a" }] },
+      ],
+    });
+    expect(await content.publishedCourses()).toEqual({
+      ok: true,
+      value: [{ slug: "one", title: "One", summary: "S1", lessonCount: 1 }],
+    });
+  });
+
+  it("[FR-CAT-04] answers null for a published course with no published lesson", async () => {
+    state.db.answer({
+      data: {
+        slug: "empty",
+        title: "Empty",
+        summary: "S",
+        outcomes: [],
+        chapters: [
+          {
+            id: "00000000-0000-4000-8000-000000000d01",
+            title: "First",
+            summary: "",
+            position: 0,
+            lessons: [],
+          },
+        ],
+      },
+    });
+    expect(await content.publishedCourse("empty")).toEqual({ ok: true, value: null });
+  });
+
+  it("[FR-CRS-01] leaves out a chapter with no published lesson", async () => {
+    state.db.answer({
+      data: {
+        slug: "one",
+        title: "One",
+        summary: "S",
+        outcomes: [],
+        chapters: [
+          {
+            id: "00000000-0000-4000-8000-000000000d01",
+            title: "Drafts only",
+            summary: "",
+            position: 0,
+            lessons: [],
+          },
+          {
+            id: "00000000-0000-4000-8000-000000000d02",
+            title: "Ready",
+            summary: "",
+            position: 1,
+            lessons: [{ slug: "a", title: "A", position: 0 }],
+          },
+        ],
+      },
+    });
+    const result = await content.publishedCourse("one");
+    expect(result.ok && result.value?.chapters.map((chapter) => chapter.title)).toEqual(["Ready"]);
   });
 
   it("answers null for a course that is not published", async () => {

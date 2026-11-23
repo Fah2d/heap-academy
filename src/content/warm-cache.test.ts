@@ -1,0 +1,81 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeDb, type FakeDb } from "../../scripts/testing/fake-db";
+
+// WP-5.1: a page view with a warm cache makes no database query
+// (docs/spec/02-architecture.md section 12). The framework's data cache is
+// replaced by one that keeps each answer under its key parts and arguments,
+// as the real one does, and keeps nothing when the read throws.
+
+vi.mock("server-only", () => ({}));
+
+const state = vi.hoisted(() => ({
+  db: null as unknown as FakeDb,
+  store: new Map<string, unknown>(),
+}));
+
+vi.mock("next/cache", () => ({
+  unstable_cache:
+    (read: (...args: unknown[]) => Promise<unknown>, keyParts: string[]) =>
+    async (...args: unknown[]) => {
+      const key = JSON.stringify([keyParts, args]);
+      if (state.store.has(key)) return state.store.get(key);
+      const value = await read(...args);
+      state.store.set(key, value);
+      return value;
+    },
+  updateTag: () => undefined,
+}));
+vi.mock("@/infrastructure/db/public-client", () => ({ createPublicClient: () => state.db }));
+vi.mock("@/infrastructure/logging/logger", () => ({ log: () => undefined }));
+
+const content = await import("./index");
+
+const course = {
+  slug: "one",
+  title: "One",
+  summary: "S",
+  outcomes: [],
+  chapters: [
+    {
+      id: "00000000-0000-4000-8000-000000000d01",
+      title: "First",
+      summary: "",
+      position: 0,
+      lessons: [{ slug: "a", title: "A", position: 0 }],
+    },
+  ],
+};
+
+beforeEach(() => {
+  state.db = fakeDb();
+  state.store.clear();
+});
+
+describe("published content with a warm cache [FR-ADM-11]", () => {
+  it("reads the course list from the database once, then from the cache", async () => {
+    state.db.answer({
+      data: [{ slug: "one", title: "One", summary: "S", lessons: [{ slug: "a" }] }],
+    });
+    const first = await content.publishedCourses();
+    const second = await content.publishedCourses();
+    expect(second).toEqual(first);
+    expect(state.db.calls).toHaveLength(1);
+  });
+
+  it("reads a course page from the database once, then from the cache", async () => {
+    state.db.answer({ data: course });
+    const first = await content.publishedCourse("one");
+    const second = await content.publishedCourse("one");
+    expect(second).toEqual(first);
+    expect(first.ok && first.value?.title).toBe("One");
+    expect(state.db.calls).toHaveLength(1);
+  });
+
+  it("keeps no failed read, so the next view asks the database again", async () => {
+    state.db.answer({ error: { code: "57014" } }, { data: course });
+    expect(await content.publishedCourse("one")).toEqual({ ok: false });
+    const retried = await content.publishedCourse("one");
+    expect(retried.ok && retried.value?.slug).toBe("one");
+    expect(state.db.calls).toHaveLength(2);
+  });
+});
