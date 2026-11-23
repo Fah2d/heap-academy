@@ -8,6 +8,10 @@ const port = 3100;
 // server, so e2e/gallery.spec.ts runs against one beside the production build.
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
+// The same development pages on an emulated phone: a mobile viewport, touch,
+// and the phone's pixel density, not a resized desktop window.
+const phone = /phone\.spec\.ts$/;
+const developmentOnly = [gallery, phone];
 // The servers under test get the fake values of .env.example unless the
 // environment sets real ones. None of them is a secret, and no test reaches
 // Supabase or Resend.
@@ -27,14 +31,25 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", testIgnore: gallery, use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", testIgnore: gallery, use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", testIgnore: gallery, use: { ...devices["Desktop Safari"] } },
+    { name: "chromium", testIgnore: developmentOnly, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: developmentOnly, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: developmentOnly, use: { ...devices["Desktop Safari"] } },
     {
       name: "gallery",
       testMatch: gallery,
       use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${developmentPort}` },
     },
+    // Pixel 7 as it is (412 px), then at the 375 px review width and the
+    // common 360 px Android width, with the same touch and pixel density.
+    ...[undefined, 375, 360].map((width) => ({
+      name: width === undefined ? "phone" : `phone-${width}`,
+      testMatch: phone,
+      use: {
+        ...devices["Pixel 7"],
+        ...(width !== undefined && { viewport: { width, height: 667 } }),
+        baseURL: `http://127.0.0.1:${developmentPort}`,
+      },
+    })),
   ],
   // In order: the production build must finish before the development server
   // starts writing beside it.
