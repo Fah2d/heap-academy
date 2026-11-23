@@ -63,16 +63,30 @@ const NOT_INDEXED = new Set([
   "/admin/verify",
 ]);
 
-/** Every production page: `page.tsx`. A `.dev.tsx` page is not in the build. */
-function pageRoutes(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) return pageRoutes(path);
-    if (entry.name !== "page.tsx") return [];
-    const folder = relative(APP, directory);
-    return [folder === "" ? "/" : `/${folder.split(sep).join("/")}`];
-  });
+/**
+ * A production page file: `page` with one of the build's page extensions
+ * (`PAGE_EXTENSIONS` in next.config.ts). A `.dev.tsx` page is not in the build.
+ */
+export function isPageFile(name: string): boolean {
+  return /^page\.(tsx|ts|jsx|js)$/.test(name);
 }
+
+/** Every production page's route, with its file relative to src/app. */
+function pageFiles(directory: string): Map<string, string> {
+  const pages = new Map<string, string>();
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      for (const [route, file] of pageFiles(path)) pages.set(route, file);
+    } else if (isPageFile(entry.name)) {
+      const folder = relative(APP, directory);
+      pages.set(folder === "" ? "/" : `/${folder.split(sep).join("/")}`, relative(APP, path));
+    }
+  }
+  return pages;
+}
+
+const PAGES = pageFiles(APP);
 
 type PageModule = {
   metadata?: Metadata;
@@ -80,8 +94,9 @@ type PageModule = {
 };
 
 async function metadataOf(route: string): Promise<Metadata> {
-  const file = route === "/" ? "./page.tsx" : `.${route}/page.tsx`;
-  const page = (await import(/* @vite-ignore */ file)) as PageModule;
+  const file = PAGES.get(route);
+  if (file === undefined) throw new Error(`no page file for ${route}`);
+  const page = (await import(/* @vite-ignore */ `./${file.split(sep).join("/")}`)) as PageModule;
   if (page.generateMetadata !== undefined) {
     return page.generateMetadata({
       params: Promise.resolve({ course: "python-basics", id: "1" }),
@@ -102,7 +117,14 @@ describe("[FR-SEO-01] which pages are indexed", () => {
     state.decision = "allow";
   });
 
-  const routes = pageRoutes(APP);
+  const routes = [...PAGES.keys()];
+
+  it("counts every page extension of the build as a page, and no development page", () => {
+    expect(["page.tsx", "page.ts", "page.jsx", "page.js"].filter(isPageFile)).toHaveLength(4);
+    expect(["page.dev.tsx", "page.test.tsx", "layout.tsx", "apage.tsx"].filter(isPageFile)).toEqual(
+      [],
+    );
+  });
 
   it("finds the pages of the build", () => {
     expect(routes).toContain("/");

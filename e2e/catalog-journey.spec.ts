@@ -1,8 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { courseEditor } from "../src/messages/admin";
 import { catalogCommon, courseList, coursePage, home } from "../src/messages/catalog";
 import { shell } from "../src/messages/shell";
-import { sql, sqlRows } from "./admin-helpers";
+import { removeAdmin, signInAsAdmin, sql, sqlRows } from "./admin-helpers";
 import { saveScreen } from "./screens";
 
 // WP-5.1 against the local stack: the home page, the course list and a course
@@ -11,19 +14,18 @@ import { saveScreen } from "./screens";
 // canonical address and may be indexed (FR-SEO-01); nothing scrolls sideways
 // at 320 px (NFR-A11Y-05). Screens at 375, 768 and 1280 px.
 //
-// The course is written straight into the database as the seed writes its
-// sample course: each lesson saved through save_lesson as validated, then
-// published, so the publish rule holds.
+// The lessons are written straight into the database as the seed writes its
+// sample course: each saved through save_lesson as validated, then published,
+// so the publish rule holds. The course itself is published, and moved back
+// to draft at the end, by an admin in the dashboard: that expires the
+// published-content cache as a real change does, so no test waits for the
+// cache's minute.
 
 test.describe.configure({ mode: "serial" });
 
 const ORIGIN = "https://heapacademy.dev";
 const WIDTHS = [320, 375, 768, 1280];
-// The published content is cached for 60 seconds
-// (CONTENT_REVALIDATE_SECONDS in src/content/published.ts). A course list
-// read by an earlier test can hide a new course for that long, and the first
-// view after it still answers the old list while it refreshes.
-const CACHE_WINDOW_MS = 75_000;
+const SHOT_WIDTHS = [375, 768, 1280];
 
 const stamp = Date.now();
 const SLUG = `catalog-${String(stamp)}`;
@@ -34,11 +36,22 @@ const COURSE = {
   outcomes: ["Read a course page", "Count its lessons"],
   publishedChapter: "Published chapter",
   publishedChapterSummary: "Two published lessons and one draft.",
-  draftChapter: "Drafts only",
+  draftChapter: `Draft chapter ${String(stamp)}`,
   lessons: ["Print a line", "Print two lines"],
-  draftLesson: "Not ready yet",
-  draftCourse: "Draft course",
+  draftLesson: `Draft lesson ${String(stamp)}`,
+  draftCourse: `Draft course ${String(stamp)}`,
 };
+// Text that only an admin may read: none of it may reach a public response,
+// in the HTML or in the page data sent with it (T-21).
+const SOLUTION_MARK = `solution-mark-${String(stamp)}`;
+const WRONG_MARK = `wrong-answer-mark-${String(stamp)}`;
+const PRIVATE_MARKS = [
+  COURSE.draftLesson,
+  COURSE.draftChapter,
+  COURSE.draftCourse,
+  SOLUTION_MARK,
+  WRONG_MARK,
+];
 
 /** One lesson, saved as validated like the seed's, then published or left a draft. */
 function lessonStatements(
@@ -57,7 +70,8 @@ function lessonStatements(
     lesson, (select updated_at from public.lessons where id = lesson), ${chapter},
     '${slug}', '${title}', ${String(position)}, 10, 'Print one line.', '[]', '',
     '[{"id": "prints", "name": "Prints the line", "stdin": "", "expected": "hello"}]',
-    'print("hello")', '[]', true);
+    'print("hello")  # ${SOLUTION_MARK}',
+    '[{"label": "Prints nothing", "code": "pass  # ${WRONG_MARK}"}]', true);
   ${publish ? "update public.lessons set status = 'published' where id = lesson;" : ""}`;
 }
 
@@ -81,7 +95,6 @@ begin
   ${lessonStatements("course", "published_chapter", "second", COURSE.lessons[1] ?? "", 1, true)}
   ${lessonStatements("course", "published_chapter", "draft", COURSE.draftLesson, 2, false)}
   ${lessonStatements("course", "draft_chapter", "only-draft", COURSE.draftLesson, 0, false)}
-  update public.courses set status = 'published' where id = course;
 
   -- A draft course with a published lesson: the course's own status hides it.
   insert into public.courses (id, slug, title, summary) values (
@@ -141,25 +154,62 @@ async function expectRowsMatchDatabase(page: Page, heading: string) {
   }
 }
 
-test.beforeAll(() => {
-  seedCourses();
+const ADMIN = `admin-catalog-${String(stamp)}@example.test`;
+let admin: Page | undefined;
+
+/** Moves the course to a status in its editor, as the owner does. */
+async function setCourseStatus(page: Page, to: "published" | "draft") {
+  const [row] = sqlRows(`select id from public.courses where slug = '${SLUG}'`);
+  await page.goto(`/admin/courses/${row?.[0] ?? ""}`);
+  await page.getByRole("button", { name: courseEditor.statusAction[to] }).click();
+  const dialog = page.getByRole("dialog");
+  if (to === "draft")
+    await dialog.getByRole("button", { name: courseEditor.statusAction[to] }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    courseEditor.statusChanged(courseEditor.statusName[to]),
+  );
+}
+
+/** No private text in a public response's body, HTML and page data alike. */
+async function expectNoPrivateText(page: Page, path: string) {
+  const body = await (await page.request.get(path)).text();
+  for (const mark of PRIVATE_MARKS) expect(body, `${path} carries ${mark}`).not.toContain(mark);
+}
+
+test.beforeAll(async ({ browser, playwright }, testInfo) => {
+  const { baseURL } = testInfo.project.use;
+  if (baseURL === undefined) throw new Error("the stack project has no baseURL");
+  try {
+    seedCourses();
+    admin = await browser.newPage({ baseURL });
+    const request = await playwright.request.newContext({ baseURL });
+    await signInAsAdmin(admin, request, ADMIN);
+    await request.dispose();
+    await setCourseStatus(admin, "published");
+  } catch (error) {
+    removeAdmin(ADMIN);
+    removeCourses();
+    throw error;
+  }
 });
 
-test.afterAll(() => {
-  removeCourses();
+// Back to draft through the dashboard first, so the cache forgets the course
+// before its rows go; then later specs never see a course that answers 404.
+test.afterAll(async () => {
+  try {
+    if (admin !== undefined) await setCourseStatus(admin, "draft");
+  } finally {
+    await admin?.close();
+    removeAdmin(ADMIN);
+    removeCourses();
+  }
 });
 
 test("[FR-CAT-01] [FR-CAT-04] the course list shows only published courses, with the database's counts", async ({
   page,
 }) => {
-  test.setTimeout(CACHE_WINDOW_MS + 60_000);
-  await expect(async () => {
-    await page.goto("/courses");
-    await expect(page.getByRole("link", { name: COURSE.title, exact: true })).toBeVisible({
-      timeout: 1_000,
-    });
-  }).toPass({ timeout: CACHE_WINDOW_MS });
-
+  await page.goto("/courses");
+  await expect(page.getByRole("link", { name: COURSE.title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(courseList.heading);
   await expectRowsMatchDatabase(page, courseList.heading);
   await expect(page.getByRole("link", { name: COURSE.draftCourse })).toHaveCount(0);
@@ -175,21 +225,17 @@ test("[FR-CAT-01] [FR-CAT-04] the course list shows only published courses, with
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    if (width !== 320) await saveScreen(page, "courses", width, { workPackage: "WP-5.1" });
+    if (SHOT_WIDTHS.includes(width)) {
+      await saveScreen(page, "courses", width, { workPackage: "WP-5.1" });
+    }
   }
 });
 
 test("[FR-LND-02] [FR-LND-03] the home page says what this is and lists the published courses", async ({
   page,
 }) => {
-  test.setTimeout(CACHE_WINDOW_MS + 60_000);
-  await expect(async () => {
-    await page.goto("/");
-    await expect(page.getByRole("link", { name: COURSE.title, exact: true })).toBeVisible({
-      timeout: 1_000,
-    });
-  }).toPass({ timeout: CACHE_WINDOW_MS });
-
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: COURSE.title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(home.heading);
   await expectRowsMatchDatabase(page, home.coursesHeading);
   await expect(page.getByText(home.how)).toBeVisible();
@@ -200,7 +246,9 @@ test("[FR-LND-02] [FR-LND-03] the home page says what this is and lists the publ
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    if (width !== 320) await saveScreen(page, "home", width, { workPackage: "WP-5.1" });
+    if (SHOT_WIDTHS.includes(width)) {
+      await saveScreen(page, "home", width, { workPackage: "WP-5.1" });
+    }
   }
 });
 
@@ -244,7 +292,9 @@ test("[FR-CRS-01] [FR-SEO-01] the course page shows the published chapters and l
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-    if (width !== 320) await saveScreen(page, "course", width, { workPackage: "WP-5.1" });
+    if (SHOT_WIDTHS.includes(width)) {
+      await saveScreen(page, "course", width, { workPackage: "WP-5.1" });
+    }
   }
 });
 
@@ -259,6 +309,30 @@ test("[FR-CAT-04] a draft course answers not found and is left out of the sitema
   const sitemap = await (await request.get("/sitemap.xml")).text();
   expect(sitemap).toContain(`${ORIGIN}/courses/${SLUG}`);
   expect(sitemap).not.toContain(DRAFT_SLUG);
+});
+
+test("[T-21] no public response carries a draft, a solution or a wrong answer", async ({
+  page,
+}) => {
+  for (const path of ["/", "/courses", `/courses/${SLUG}`, "/sitemap.xml"]) {
+    await expectNoPrivateText(page, path);
+  }
+  // The page data a client navigation fetches, beside the HTML.
+  for (const path of ["/", "/courses", `/courses/${SLUG}`]) {
+    const data = await (await page.request.get(path, { headers: { RSC: "1" } })).text();
+    expect(data.length, path).toBeGreaterThan(0);
+    for (const mark of PRIVATE_MARKS)
+      expect(data, `${path} data carries ${mark}`).not.toContain(mark);
+  }
+});
+
+test("the three pages' screens are saved for the design review", () => {
+  for (const name of ["home", "courses", "course"]) {
+    for (const width of SHOT_WIDTHS) {
+      const file = join("docs", "reports", "screens", "WP-5.1", `${name}-${String(width)}.png`);
+      expect(existsSync(file), file).toBe(true);
+    }
+  }
 });
 
 test("[FR-SEO-01] sign-in and the admin door ask not to be indexed", async ({ page }) => {
