@@ -166,6 +166,29 @@ describe("the Node runner", () => {
   );
 
   it(
+    "[FR-RUN-06] a result from another harness version is a crash, and the rest are not run",
+    async () => {
+      // The stand-in answers with a result that would pass, except for its version.
+      const otherVersion = createNodeRunner({
+        threadUrl: new URL(
+          "../../../scripts/testing/other-harness-version-thread.ts",
+          import.meta.url,
+        ),
+      });
+      try {
+        const report = await otherVersion.check("", [one({}), one({ id: "next" as TestCaseId })]);
+        expect(report.results.map(verdictOf)).toEqual([
+          { status: "failed", reason: "crashed" },
+          { status: "not_run" },
+        ]);
+      } finally {
+        await otherVersion.close();
+      }
+    },
+    LOADING_MS,
+  );
+
+  it(
     "[FR-GRD-04] close ends the thread, and the runner starts a new one when used again",
     async () => {
       await runner.close();
