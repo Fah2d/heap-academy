@@ -1,5 +1,25 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## Up to date with main
+
+`main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/2.2-sign-in`, which already has it (2f45f1d, with 6bf689e): merge commit a9d23f1. No rebase, no force push.
+
+- One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/2.2-sign-in` was taken; it holds this branch's sections word for word and the newer ones. `playwright.config.ts` merged on its own, with `main`'s `phone` projects (decision A of WP-2.2 applies here too).
+- One test file failed after the merge: 4 tests in `src/features/admin/components/second-step-form.test.tsx` (`AssertionError: expected '' to contain 'That code did not work. A code change…'`). Same cause as WP-2.2: `main`'s `Notice` puts an announced notice in a `LiveRegion` that is in the page first and gets its words one frame later. Fixed in 1fb08e1: the tests wait for the same words in the same `alert` region (`waitFor`). No assertion was removed or loosened, and the form itself is unchanged.
+
+On 1fb08e1, `pnpm verify`, exit 0:
+
+```
+ Test Files  53 passed (53)
+      Tests  1010 passed (1010)
+```
+
+`next build` with CI's public values (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` from `.github/workflows/ci.yml`), exit 0, routes `/_not-found`, `/admin`, `/admin/setup`, `/admin/verify`, `/api/csp-report`, `/api/health`, `/auth/callback`, `/sign-in`. `node scripts/check-bundle.mjs .next/static`: "No server variable (RESEND_API_KEY, HEAP_RELEASE) in 22 files under .next/static." `node scripts/check-static.mjs .next`: "No prerendered page in .next, apart from /_global-error, which Next.js always prerenders."
+
+Not run on the merge: `pnpm test:db` (no Docker on this machine) and e2e (no browser here).
+
+No new decision: the merge took no choice beyond WP-2.2's decision A.
+
 ## What and why
 
 The admin gate (ADR-0025, `02-architecture.md` section 11.2): only an admin on the list who has passed the second sign-in step reaches the dashboard. Everyone else gets the standard not-found page at every `/admin` address.
