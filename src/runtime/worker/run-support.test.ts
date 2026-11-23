@@ -272,10 +272,28 @@ describe("run support (CPython)", () => {
       'print("next")',
     ]);
     expect(results.map((result) => result.report?.kind)).toEqual(["runtime", "runtime", "ok"]);
-    // A memory error whose attributes raise is still memory, so the worker is replaced.
-    const [memory] = runAll([property("__traceback__", "MemoryError")]);
-    expect(memory?.report?.kind).toBe("memory");
     expect(results[2]?.stdout).toBe("next\n");
+  });
+
+  it("[FR-RUN-06] an error whose attributes raise keeps the kind its class names, so a memory error still replaces the worker", () => {
+    const raising = (base: string, raised: string) =>
+      [
+        `class Bad(${base}):`,
+        "    @property",
+        "    def __traceback__(self):",
+        `        raise ${raised}("no")`,
+        'raise Bad("x")',
+      ].join("\n");
+    const results = runAll([
+      raising("MemoryError", "ValueError"),
+      raising("ValueError", "MemoryError"),
+      raising("EOFError", "ValueError"),
+    ]);
+    expect(results.map((result) => result.report?.kind)).toEqual([
+      "memory",
+      "memory",
+      "input_ended",
+    ]);
   });
 
   it("[FR-RUN-01] cuts a long error summary to its limit", () => {

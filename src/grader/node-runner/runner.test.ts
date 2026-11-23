@@ -150,6 +150,22 @@ describe("the Node runner", () => {
   );
 
   it(
+    "[FR-RUN-06] after a memory error the next test case runs on a new thread",
+    async () => {
+      // A module attribute outlives the harness's soft reset (ADR-0004), so
+      // it shows whether the second test case ran on the same interpreter.
+      const source =
+        'import json\nprint(hasattr(json, "heap_marker"))\njson.heap_marker = 1\nraise MemoryError';
+      const report = await runner.check(source, [one({}), one({ id: "next" as TestCaseId })]);
+      expect(report.results).toMatchObject([
+        { status: "failed", reason: "program_error", actual: "False\n" },
+        { status: "failed", reason: "program_error", actual: "False\n" },
+      ]);
+    },
+    LOADING_MS,
+  );
+
+  it(
     "[FR-GRD-04] close ends the thread, and the runner starts a new one when used again",
     async () => {
       await runner.close();

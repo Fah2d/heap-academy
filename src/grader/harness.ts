@@ -1,7 +1,7 @@
 // The Python harness (docs/spec/04-content-system.md section 3.1). It runs one
 // test case as section 2.2 describes, with the isolation of
 // docs/spec/02-architecture.md section 5.5, and returns a structured result.
-// It never raises to its caller.
+// It does not raise to its caller because of the program's own errors.
 //
 // The Python worker and the Node runner evaluate this same text in Pyodide, so
 // the two cannot run test cases differently (FR-GRD-04). It is trusted code
@@ -19,8 +19,9 @@
 // a fresh namespace. Changes to a standard library module's attributes are
 // not undone (ADR-0004). Nor is the harness itself protected: a program can
 // reach its closure and change what later test cases on the same worker
-// report, so a check is evidence only for code that is not hostile, and
-// Validate starts a new worker for each program (`freshWorker`).
+// report, so a check is evidence only for code that is not hostile. Validate
+// (WP-4.3) must start a new worker for each program (`freshWorker`); the spec
+// text for that is an open owner decision.
 //
 // This file must stay erasable TypeScript: the Node runner's thread loads it
 // with Node's own type stripping.
@@ -114,9 +115,10 @@ def _heap_make_grader():
 
     # Standard output of the program and the follow-up code, and how much
     # room is left. Past the limit a write keeps what fits and raises, so a
-    # flood stops at its next print. The count lives in the closure, not on
-    # the stream the program can reach; the result is cut to the limit again
-    # in any case.
+    # flood stops at its next print. A program can still reach the count,
+    # through the write method's closure, or write around the capture; the
+    # result is cut to the limit again at the end, and the grade is the
+    # output limit. Memory is not bounded on those routes.
     def make_capture():
         state = {"room": output_limit, "truncated": False}
 
@@ -235,13 +237,19 @@ def _heap_make_grader():
             parts.append(', "name": ' + ("null" if name is None else quote(name)) + "}}")
         return join("", parts)
 
-    # The harness never raises to its caller (section 3.1). Learner code can
-    # still reach the harness's own steps, through a hook or an object the
-    # harness touches; then the test case is the program's runtime error.
+    # The harness does not raise to its caller because of the program's own
+    # errors (section 3.1). Learner code can still reach the harness's own
+    # steps, through a hook or an object the harness touches; then the test
+    # case is a runtime error of the program, with no message and no output,
+    # whichever stage it came from. The hooks are cleared first, before any
+    # call that could run them. Code that rewrites the harness's closure can
+    # still make it raise; the worker then gives up and is replaced.
     def check(source, stdin, after_code):
         try:
             return run_case(source, stdin, after_code)
         except base_exception:
+            set_profile(None)
+            set_trace(None)
             try:
                 restore()
             except base_exception:

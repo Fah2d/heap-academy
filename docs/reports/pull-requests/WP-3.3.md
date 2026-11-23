@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (4e255ef), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in f178765, at c4ca7f1), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
 
 ## What and why
 
@@ -37,20 +37,44 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
-`wp/3.1-python-worker` at e06e9c3 is merged in 4e255ef. It carries `main` at 0efe863 (#5, #6, #7 and #8 since the last merge, in WP-3.1's 5f72072). Nothing conflicted. `playwright.config.ts` now has `main`'s three `phone` projects beside the `runtime-*` projects, as WP-3.1 resolved it. The earlier merge, of `main` at 037c4ad through WP-3.1, is 6f0cfe8.
+`wp/3.1-python-worker` at c4ca7f1 is merged in f178765. It carries `main` at 0efe863 (#3 to #8) and WP-3.1's round 4 fixes (58128a3). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds this branch's section. No code conflicted. The earlier merges: WP-3.1 at e06e9c3 with `main` at 0efe863 in 4e255ef, and `main` at 037c4ad through WP-3.1 in 6f0cfe8.
 
-`pnpm verify` on 4e255ef, exit 0:
+`pnpm verify` on f178765, exit 0:
 
 ```
- Test Files  41 passed (41)
-      Tests  1002 passed (1002)
+ Test Files  42 passed (42)
+      Tests  1012 passed (1012)
 ```
 
-`pnpm build` with CI's fake public values on 4e255ef, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+`pnpm build` with CI's fake public values on f178765, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
 
 Not run on the merge: the browser tests.
 
 ## How it was verified
+
+**Round 2 review fixes (9043a9a, 06c39bb), 2026-11-24.** `pnpm verify` on 06c39bb, exit 0:
+
+```
+ Test Files  41 passed (41)
+      Tests  1009 passed (1009)
+```
+
+`pnpm build` with CI's fake public values on 06c39bb, exit 0; `check-bundle` and `check-static`, exit 0. Each new test was run against a mutant of its fix, or against the code before it, and failed:
+
+```
+controller, before the fix:   × a fresh check reaches the new worker before its ready is reported ...  Tests 1 failed | 34 passed (35)
+controller, used = false removed:   × a worker started after a time limit is new ...  Tests 1 failed | 34 passed (35)
+harness, before the fix: the hook-chain test and every later test on that interpreter failed (9 failed)
+harness, outer guard removed:   Tests 10 failed | 22 passed (32)
+harness, finished guard removed:   × an exit whose code raises is described from the exit itself ...
+harness, set_profile(None) removed from restore:   × a profile hook that never raises is removed before the next test case
+harness, name limit > changed to >=:   × a missing name that is empty or too long is left out ...
+harness, inline hook clear removed:   Tests 9 failed | 23 passed (32)
+runner, memory discard removed:   × after a memory error the next test case runs on a new thread  Tests 1 failed | 20 passed (21)
+grade, before the fix:   × fails at the output limit, even when the kept output would match
+```
+
+Each mutant run also failed the hash test, which fails on any edit to the Python. The browser tests have not run.
 
 **Up to date with main.** `wp/3.1-python-worker` at a288083 (WP-3.1 with `main` merged in) is merged into this branch (6f0cfe8), with no conflict. `pnpm verify` on 6f0cfe8, exit 0:
 
@@ -158,7 +182,34 @@ Round 1, on 942ff46..1da8b48:
 | Code MINOR 9: evidence | Counts and the NFR-PERF-06 scope corrected in this description. |
 | Security MINOR 4: the Node runner reachable through a test file or a computed import | Both refused by the lint rule, with tests. Moving `pyodide` to `devDependencies` is a lockfile change for you to decide. |
 
-No second review round ran. The fixes have not been reviewed.
+Round 2, on the round-1 fixes 1da8b48..bce0f08, run on 2026-11-24 at 67787b4:
+
+- Code review: `docs/reports/reviews/WP-3.3/code-review-2.md`. CHANGES REQUIRED: no blocker, one major, six minors.
+- Security review: `docs/reports/reviews/WP-3.3/security-review-2.md`. CHANGES REQUIRED: no blocker, one major, seven minors.
+
+Fixed in 9043a9a and 06c39bb, each new test seen failing without its fix (a mutant of the fix, or the code before it):
+
+| Finding | What was done |
+|---|---|
+| Code MAJOR 1, security MAJOR 1: during a fresh-worker check the controller reported `ready` before sending the check, so a page acting on `ready` could start a run or a second check, orphan the first and make Stop end nothing | The pending check is sent first, so the status goes from `restarting` to `checking`, and `ready` is reported after. Test: a listener on `ready` sees `checking`, its `run()` and `check()` are refused, the new worker gets exactly `init` and the check, and Stop ends the check. |
+| Code MINOR 2: a profile hook that puts back a raising trace hook made the harness raise on that and every later test case | The fallback in `check` clears the profile and trace hooks before any other call. Test with the reviewer's program, and the next test case. |
+| Code MINOR 3, security MINOR 2: the guards were not tested one at a time | Three tests: a hook that raises only in the harness's own frames (removing the outer guard fails it); the `Odd` exit with its full error, message `Odd`, line 5 (removing the guard in `finished` fails it); a profile hook that never raises, then `sys.getprofile()` is `None` (removing `set_profile(None)` fails it). |
+| Security MINOR 3: output cut around the capture ended as `mismatch` | `grade` treats `truncated` with no error as `output_limit`, as the controller does for runs. The direct-write test asserts no error; the grade test asserts the reason. |
+| Code MINOR 4, security MINOR 7: the runner's thread replacement after a memory error had no test | Test: a module attribute set before a memory error is gone in the next test case (removing the discard fails it). |
+| Code MINOR 5: limits a boundary mutant got past | A name of exactly 200 characters is kept (`>=` fails it); `CHECK_TEST_LIMIT` is pinned to 12, with 12 accepted and 13 refused. |
+| Code MINOR 6: `used = false` in `spawn` had no test | Test: after a time limit restart, a fresh check uses the new worker as it is (removing the line fails it). |
+| Code MINOR 7, security MINOR 2 and 3: comments | The harness header and `check` say the harness does not raise because of the program's own errors, and that code rewriting its closure can still make it raise (the worker then gives up and is replaced); the fallback has no message and no output whichever stage failed. The capture comment says the count can be reached and memory is not bounded on that route. Both Validate comments say "must", and that the spec text is an open owner decision. |
+
+Not fixed, for you:
+
+- **Security MINOR 1:** `freshWorker` is optional and off by default. Making it required changes the controller's API for every caller; it belongs with owner action 3.
+- **Security MINOR 4:** further ways past the lint rule (an import through `scripts/`, `createRequire`, an aliased `require`, `module.require`, a `Worker` URL, a `?raw` suffix), and no build-output check for Node-runner symbols. `scripts/eslint/module-boundaries.mjs` is an enforcement control; changing it is left to you.
+- **Security MINOR 5:** `sys.monitoring`, `gc.callbacks`, audit hooks, `sys.excepthook` and `sys.unraisablehook` survive into later test cases on the same worker. Covered by "a check is evidence only for code that is not hostile" and `freshWorker`; listed under "Not fixed".
+- **Security MINOR 6:** a learner function that calls `exit()` during the follow-up code ends that stage cleanly. See the new deviation.
+- **Security MINOR 7 (version part), code MINOR 4 (version part):** the runner's harness-version check has no test; a test needs a seam for the version.
+- The `restore` order (profile hook first) was tried and reverted: with the fallback clearing the hooks, no test could tell the two orders apart.
+
+No third review round has run on 9043a9a and 06c39bb.
 
 ## Try it
 
@@ -175,7 +226,8 @@ pnpm vitest run src/grader
 3. Decide whether to open a `spec-change` that adds to WP-4.3's "Done when": Validate uses `check(..., { freshWorker: true })` for every program, with a test that a tampering program in one validation does not change the next one's verdict; and adds to T-23 that Validate is no evidence for hostile imported code, so the owner reads imported code before pressing Validate.
 4. Decide whether `pyodide` moves to `devDependencies` (security review, MINOR 4).
 5. Decide whether `contains` with an empty expected text should be refused; today it always passes (code review, design notes).
-6. Ask for a second review round on the fixes, or accept them on this evidence.
+6. Ask for a third review round on the round 2 fixes (9043a9a, 06c39bb), or accept them on this evidence.
+7. Decide security review 2, MINOR 1 (make `freshWorker` required) with action 3, and MINOR 4 (the lint rule's remaining bypasses and a build-output check).
 
 ## Deviations from the plan or the spec
 
@@ -184,12 +236,17 @@ pnpm vitest run src/grader
 - **Each test case gets its own 5 second clock.** Section 5.4 counts a run's budget from `run` to `run_done`; section 2.2 makes each test case its own run.
 - **`exit(0)` in the program still runs the follow-up code**, because the program finished without an error (section 2.2, step 4).
 - **The property tests use a 70-line seeded generator** (`scripts/testing/property.ts`) instead of a new dependency. It has no shrinking: a failure names the seed and the input as drawn.
+- **A learner function that calls `exit()` while the follow-up code runs ends that stage cleanly** (security review 2, MINOR 6). Python ends with status 0, so the harness counts it as finished, as for `exit(0)` in the program. A test case whose follow-up code only asserts, with an empty expected text, then passes. Section 2.2 says a test case fails when the follow-up code raises an error; whether `SystemExit` there counts is for you, with action 5.
+- **Output cut with no error is graded `output_limit`** (security review 2, MINOR 3). The spec does not name the reason for this case; the controller already reports a cut run this way.
+- **`HARNESS_VERSION` stays "1"** although the Python changed again. No harness version has shipped, so no cached worker holds an older one; the hash in `harness.test.ts` is updated.
 - **The worker's URL moved** to `/_runtime/worker/runtime/worker/python-worker.js`, because the worker now compiles from `src`.
 
 ## Not fixed, for later packages or for you
 
 - **Validate must ask for a fresh worker before each program it validates** (WP-3.1 security review 3, MAJOR 1; WP-3.3 security review 1, MAJOR 1). A program can rewrite the harness's closure, as it can the run support's, and the change lasts until the worker is replaced. For a learner this only touches their own results. The controller now offers `freshWorker`; WP-4.3 must use it. No isolation stops a hostile lesson from forging its own pass.
 - **The run support and the harness each restore the state** with their own copy of the same routine. Moving Run onto the harness would leave one copy; that changes WP-3.1's tested code and is left for WP-3.4 or later.
+- **Hooks other than trace and profile** (security review 2, MINOR 5): `sys.monitoring` callbacks, `gc.callbacks`, audit hooks, `sys.excepthook` and `sys.unraisablehook` set by one test case stay for the later ones on the same worker. A fresh worker is the control.
+- **The lint rule's remaining bypasses** (security review 2, MINOR 4), for you.
 - **FR-GRD-07** (naming a near miss) is a Should requirement for a later package.
 
 ## Risks and rollback
@@ -205,7 +262,7 @@ pnpm vitest run src/grader
 - [x] Every state of every changed view exists. The development page shows `checking`.
 - [x] No stub, dead control, placeholder, commented-out code, or invented number.
 - [x] No new tables. No new server actions.
-- [x] Every reviewer blocker is fixed. There were none; every major and minor was acted on. See Reviews.
+- [x] Every reviewer blocker is fixed. There were none. Both round 2 majors are fixed; the minors not fixed are listed under Reviews for you.
 - [x] No AI attribution in any commit or in this description.
 
 ## Opening this pull request

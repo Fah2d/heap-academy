@@ -2,6 +2,54 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy) and this section added on top.
+
+### Task 3, part 3 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- f178765: `wp/3.1-python-worker` at c4ca7f1 merged (58128a3 and its docs). One conflict, this file; WP-3.1's copy was taken, as the newer one.
+- `pnpm verify` on f178765: exit 0, 42 files, 1012 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with f178765 and the docs commit. This line is pushed with the docs commit.
+
+## Session of 2026-11-24 (from about 23:54 on 2026-11-23), in `night-a`, on `wp/3.3-grader`, then `wp/3.1-python-worker`
+
+Same task list. Tasks 1 and 2 were done (task 2 took about 6 minutes), so this run did task 3: the WP-3.x review findings still open. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top.
+
+### Task 3, part 1 done: the review rounds the descriptions said were missing, and the WP-3.3 fixes
+
+- Four reviews, each by a fresh reviewer: WP-3.3 round 2 (code and security, on the round-1 fixes 1da8b48..bce0f08) and WP-3.1 round 4 (code and security, on the round-3 fixes be2c7c0..2d94ead and the merges). Reports in `docs/reports/reviews/WP-3.3/*-review-2.md` and `docs/reports/reviews/WP-3.1/*-review-4.md`.
+- WP-3.1 round 4: both APPROVE, five minors in all.
+- WP-3.3 round 2: both CHANGES REQUIRED, no blocker. Both found the same major: during a fresh-worker check the controller reported `ready` before sending the check, so a page acting on `ready` could orphan the check and make Stop end nothing.
+- 9043a9a: the controller sends the pending check before it reports `ready`. Two new tests; the first failed before the fix, the second fails with `used = false` removed.
+- 06c39bb: the harness's fallback clears the hooks first; cut output with no error grades as `output_limit`; tests that pin each guard, the name and test case limits, and the runner's new thread after a memory error; comments corrected. Each new test failed against a mutant of its fix or the code before it.
+- `pnpm verify` on 06c39bb: exit 0, 41 files, 1009 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Decisions, in the WP-3.3 description: cut output grades as `output_limit`; `HARNESS_VERSION` stays "1" with the hash updated; `exit()` during the follow-up code recorded as a deviation for the owner; the lint rule's bypasses, a required `freshWorker`, and the extra Python hooks left for the owner.
+- Not run: the browser tests.
+- Push: `wp/3.3-grader` with 9043a9a, 06c39bb and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 2 done: the WP-3.1 round 4 minors
+
+- 58128a3 on `wp/3.1-python-worker`: an error whose attributes raise keeps `input_ended` and `memory` (the new test failed 2 of 3 before); `scripts/next-config.test.ts` checks that `next.config.ts` serves the security headers and then the runtime's rules, worker policy last (both cases fail with the runtime rules removed); the loader test's comment says the request log is its evidence in this build; the memory case has its own test.
+- The WP-3.1 description: round 4 in Reviews, the five passages that said #3 was not merged corrected, the round 4 evidence.
+- `pnpm verify` on 58128a3: exit 0, 37 files, 842 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Push: `wp/3.1-python-worker` with 58128a3 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- `wp/3.3-grader` and `wp/3.4-statechart` do not have 58128a3 yet, and `wp/3.4-statechart` does not have the WP-3.3 round 2 fixes yet.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. WP-3.3 owner actions 6 and 7 in its description (a third review round, or accept; the security minors left for you).
+3. Decide whether `wp/3.2-live-input` should also get `main` merged in.
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Merge `wp/3.1-python-worker` into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`, so both carry the round 4 and round 2 fixes; verify and build each.
+- A review round on 58128a3 (WP-3.1) and on 9043a9a and 06c39bb (WP-3.3), if the owner wants one.
+
 ## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, each in under 20 minutes. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.

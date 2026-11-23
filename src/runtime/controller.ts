@@ -129,7 +129,8 @@ export type RuntimeController = {
    * Runs the test cases against the program (architecture section 5.2,
    * `check`). With `freshWorker`, on a worker that has run anything, a new
    * worker starts first: a program can change what later checks on its
-   * worker report, so Validate uses this for every program (T-22, T-23).
+   * worker report (T-22, T-23). Validate (WP-4.3) must use it for every
+   * program; the spec text for that is an open owner decision.
    */
   check: (source: string, tests: readonly TestCase[], options?: CheckOptions) => RunRequest;
   /** Answers the program's request for a line, and its clock starts again. */
@@ -324,19 +325,22 @@ export function createRuntimeController({
         return;
       case "ready":
         if (status !== "loading" && status !== "restarting") return unexpected();
-        status = "ready";
         interactiveInput = message.capabilities.interactiveInput;
+        // A check that asked for a new worker goes to it before anything is
+        // reported, so a page that acts on "ready" finds the controller
+        // checking, and cannot start a run or a second check in between.
+        if (pending !== undefined && current?.kind === "check") {
+          const check = pending;
+          pending = undefined;
+          send(current, check);
+        } else {
+          status = "ready";
+        }
         onEvent({
           type: "ready",
           runtimeVersion: message.runtimeVersion,
           interactiveInput: message.capabilities.interactiveInput,
         });
-        // A check that asked for a new worker goes to it now.
-        if (pending !== undefined && current?.kind === "check") {
-          const check = pending;
-          pending = undefined;
-          send(current, check);
-        }
         return;
       case "output":
         if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
