@@ -14,7 +14,7 @@ Task list given by the owner for unattended runs: (1) merge `origin/wp/4.2-lesso
 - `pnpm verify`: exit 0, 98 files, 1837 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
 - Commit ecbb815 (part 8's gallery states for design MINOR 11, at 10:48) was already pushed by an earlier session with no entry here. It is included in the verify run above. Its e2e gallery test was not run.
 - Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, with the merge evidence, owner action 1 marked done, and new decision 17 (the WP-4.1 focus fix carried on this branch; recommendation: cherry-pick 87af7ec onto `wp/4.1-courses-chapters`). Its opening paragraph still says "Parts 1 to 6"; part 8 rewrites it.
-- Push: see the line below.
+- Push: succeeded, `ecbb815..8f9a47a` (the merge 9538964, the fix 87af7ec, the docs commit 8f9a47a). This line is pushed after it.
 
 ### Owner: run this
 
