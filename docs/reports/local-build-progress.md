@@ -17,7 +17,7 @@ Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.
 - Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now part 5 of 5, with items 26 to 35, part 5 evidence, round 2 summary, corrected Delivery Gate lines, decisions 9 and 22 changed and 23 to 25 new, owner actions 4 to 6.
 - Time: about 2.2 hours of the 3 hour box over five parts.
 - Servers: the reviewers' `next start` servers on ports 4138, 4317 and 4518 were stopped by the sandbox's time limit; none is left from this run.
-- Push: see the line below.
+- Push: succeeded, `08c8087..fd4c6bf` (4cd37c7 the fixes, dff1adb the tests and journey, fd4c6bf the reports, description and progress). This line is pushed after it.
 
 ### Owner: run this
 
