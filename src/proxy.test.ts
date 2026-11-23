@@ -1,3 +1,4 @@
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config, proxy } from "./proxy";
@@ -96,12 +97,19 @@ describe("proxy", () => {
 });
 
 describe("proxy matcher", () => {
-  const matches = (path: string) =>
-    config.matcher.some((pattern) => new RegExp(`^${pattern}$`).test(path));
+  // Next.js's own matcher, not a hand-built regular expression, so the test
+  // follows how Next.js compiles the pattern (anchors, the data route prefix).
+  const matches = (url: string) => unstable_doesMiddlewareMatch({ config, nextConfig: {}, url });
 
   it("[T-01] leaves the runtime's files alone, so the worker keeps its own policy", () => {
     expect(matches("/_runtime/worker/worker/python-worker.js")).toBe(false);
     expect(matches("/_runtime/pyodide/314.0.7/pyodide.asm.wasm")).toBe(false);
+  });
+
+  it("[NFR-SEC-02] leaves the built files, the image optimizer and the icon alone", () => {
+    expect(matches("/_next/static/chunks/main.js")).toBe(false);
+    expect(matches("/_next/image?url=%2Fa.png&w=64&q=75")).toBe(false);
+    expect(matches("/favicon.ico")).toBe(false);
   });
 
   it("[NFR-SEC-02] still runs for pages and route handlers", () => {
@@ -109,5 +117,13 @@ describe("proxy matcher", () => {
     expect(matches("/dev/runtime")).toBe(true);
     expect(matches("/api/health")).toBe(true);
     expect(matches("/_runtimes")).toBe(true);
+  });
+
+  it("[NFR-SEC-02] runs for a path that only starts with an excluded name", () => {
+    expect(matches("/favicon.icoX")).toBe(true);
+    expect(matches("/faviconXico")).toBe(true);
+    expect(matches("/_next/imageX")).toBe(true);
+    expect(matches("/_next/image/x")).toBe(true);
+    expect(matches("/_next/staticX")).toBe(true);
   });
 });
