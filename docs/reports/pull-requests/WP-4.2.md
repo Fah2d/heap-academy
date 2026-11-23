@@ -1,5 +1,25 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## Up to date with main
+
+`main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/4.1-courses-chapters`, its base, which already has it through `wp/2.3-admin-gate` (1696ef1, with 9dfb2bd): merge commit c7ecb24. No rebase, no force push.
+
+- One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/4.1-courses-chapters` was taken, the newer one; in this branch's sections it differs only in a later status line for WP-3.4 and WP-4.2.
+- One test failed after the merge: `InstructionsPreview [NFR-SEC-07] > keeps the last preview and says so when the renderer fails` in `src/features/admin/components/lesson-editor.test.tsx` (`AssertionError: expected false to be true`). Same cause as WP-2.2 to WP-4.1: `main`'s `Notice` puts an announced notice in a `LiveRegion` that is in the page first and gets its words one frame later. Fixed in 45a4e2f: the test waits for the same words in a `status` region (`waitFor`). No assertion was removed or loosened, and the editor is unchanged.
+
+On 45a4e2f, `pnpm verify`, exit 0:
+
+```
+ Test Files  73 passed (73)
+      Tests  1320 passed (1320)
+```
+
+`next build` with CI's public values (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` from `.github/workflows/ci.yml`), exit 0, routes `/_not-found`, `/admin`, `/admin/courses/[id]`, `/admin/courses/new`, `/admin/lessons/[id]`, `/admin/setup`, `/admin/verify`, `/api/csp-report`, `/api/health`, `/auth/callback`, `/sign-in`. `node scripts/check-bundle.mjs .next/static`: "No server variable (RESEND_API_KEY, HEAP_RELEASE) in 22 files under .next/static." `node scripts/check-static.mjs .next`: "No prerendered page in .next, apart from /_global-error, which Next.js always prerenders."
+
+Not run on the merge: `pnpm test:db` (no Docker on this machine) and e2e (no browser here).
+
+No new decision: the merge took no choice beyond WP-2.2's decision A (CI's `e2e` job does not run `main`'s `phone` projects).
+
 ## What and why
 
 The lesson editor (FR-ADM-04, FR-ADM-10, NFR-SEC-07, T-06): the Markdown renderer, the one lesson-content component, the code editor, and the admin editor that saves a draft through `save_lesson`.
