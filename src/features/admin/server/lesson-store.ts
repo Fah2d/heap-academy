@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import { freeSlug, type LessonDraft, slugFromTitle } from "@/domain/admin/lesson-details";
 import type { ContentStatus } from "@/domain/admin/structure";
 import type { TestCase } from "@/grader/test-case";
@@ -108,6 +109,8 @@ export async function saveLesson(
   return { ok: true, value: { updatedAt: data } };
 }
 
+const storedStatus = z.enum(["draft", "published", "archived"]);
+
 /**
  * Publishes, unpublishes or archives the version the editor loaded. The
  * database refuses to publish a lesson that was not validated since its last
@@ -126,8 +129,10 @@ export async function setLessonStatus(
     .eq("id", id)
     .maybeSingle();
   if (readError !== null) return { ok: false, error: lessonFailure(readError) };
-  const from = current?.status as ContentStatus | undefined;
-  if (from === undefined) return { ok: false, error: "not_found" };
+  if (current === null) return { ok: false, error: "not_found" };
+  const parsed = storedStatus.safeParse(current.status);
+  if (!parsed.success) return { ok: false, error: "unavailable" };
+  const from: ContentStatus = parsed.data;
   if (!allowed(from)) return { ok: false, error: "status_not_allowed" };
   const { data, error } = await db
     .from("lessons")

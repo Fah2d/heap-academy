@@ -64,6 +64,14 @@ type EditorFields = Omit<LessonFields, "wrongAnswers"> & {
   testCases: TestCase[];
 };
 type TestCaseProblems = ReadonlyMap<TestCaseId, readonly TestCaseProblem[]>;
+
+const findTestCaseProblems = (testCases: readonly TestCase[]): TestCaseProblems =>
+  new Map(
+    testCases.flatMap((testCase) => {
+      const found = testCaseProblems(testCase);
+      return found.length === 0 ? [] : [[testCase.id, found] as const];
+    }),
+  );
 type Invalid = { field: LessonField; index?: number }[];
 
 /** The five hint lines the form shows, filled from the saved hints. */
@@ -122,9 +130,13 @@ const covers = (state: ValidationState, content: ValidationContent) =>
   state.kind === "done" && state.passed && checkedNow(state, content).whole;
 
 /** Why Save on a published lesson saved nothing, after the validation it ran first. */
-function validateFirstText(state: ValidationState): string {
+function validateFirstText(state: ValidationState, python: PythonState): string {
   if (state.kind === "stopped") return words.validateFirst.stopped;
-  if (state.kind === "unavailable") return words.validateFirst.unavailable;
+  if (state.kind === "unavailable") {
+    return python === "failed"
+      ? words.validateFirst.unavailableStart
+      : words.validateFirst.unavailable;
+  }
   return words.validateFirst.failed;
 }
 
@@ -176,7 +188,11 @@ export function LessonEditor({
   const [openTestCases, setOpenTestCases] = useState<ReadonlySet<string>>(() => new Set());
   const [failure, setFailure] = useState<string | null>(null);
   const [savedNow, setSavedNow] = useState(false);
-  const [pending, startTransition] = useTransition();
+  // Saving and moving the status are told apart, so each says only what it
+  // does; while one runs, the other waits, so both use the same version.
+  const [savePending, startSave] = useTransition();
+  const [statusPending, startStatus] = useTransition();
+  const [moveTarget, setMoveTarget] = useState<ContentStatus | null>(null);
   const [python, setPython] = useState<PythonState>("loading");
   const [validation, setValidation] = useState<ValidationState>({ kind: "idle" });
   const runtime = useRef<ValidationRuntime | undefined>(undefined);
@@ -261,6 +277,13 @@ export function LessonEditor({
 
   function validate() {
     if (validation.kind === "running") return;
+    // The worker refuses a test case with a problem, so it is shown and fixed first.
+    const problems = findTestCaseProblems(fields.testCases);
+    setTestProblems(problems);
+    if (problems.size > 0) {
+      showTestCaseProblems(problems);
+      return;
+    }
     // A rejection is a defect: it reaches the page's error reporting.
     void runValidation(contentOf(fields));
   }
@@ -277,6 +300,13 @@ export function LessonEditor({
     );
   }
 
+  /** Opens each test case with a problem and focuses the first wrong field. */
+  function showTestCaseProblems(problems: TestCaseProblems) {
+    // A test case with a problem opens in the same render, so focus can reach its field.
+    setOpenTestCases((current) => new Set([...current, ...problems.keys()]));
+    focusFirstInvalid();
+  }
+
   /** Checks the form; on a problem, marks and focuses it and returns nothing. */
   function prepare(): Prepared | undefined {
     const { testCases, ...lessonFields } = fields;
@@ -284,18 +314,11 @@ export function LessonEditor({
       ...lessonFields,
       wrongAnswers: fields.wrongAnswers.map(({ label, code }) => ({ label, code })),
     });
-    const problems = new Map(
-      testCases.flatMap((testCase) => {
-        const found = testCaseProblems(testCase);
-        return found.length === 0 ? [] : [[testCase.id, found] as const];
-      }),
-    );
+    const problems = findTestCaseProblems(testCases);
     setTestProblems(problems);
     if (!checked.ok || problems.size > 0) {
       setInvalid(checked.ok ? [] : checked.invalid);
-      // A test case with a problem opens in the same render, so focus can reach its field.
-      setOpenTestCases((current) => new Set([...current, ...problems.keys()]));
-      focusFirstInvalid();
+      showTestCaseProblems(problems);
       return undefined;
     }
     setInvalid([]);
@@ -379,7 +402,7 @@ export function LessonEditor({
     const prepared = prepare();
     if (prepared === undefined) return;
     const saveAfter = (checked: ValidationState) =>
-      startTransition(async () => {
+      startSave(async () => {
         const outcome = await store(prepared, checked);
         if (!outcome.ok) {
           setFailure(failureText(outcome.error));
@@ -394,7 +417,7 @@ export function LessonEditor({
     if (status === "published" && !covers(validation, content)) {
       void validateForSave(content).then((checked) => {
         if (covers(checked, content)) saveAfter(checked);
-        else setFailure(validateFirstText(checked));
+        else setFailure(validateFirstText(checked, python));
       });
       return;
     }
@@ -407,7 +430,8 @@ export function LessonEditor({
     // Publish puts the lesson on the site as it is in the editor, so it saves first.
     const prepared = to === "published" ? prepare() : undefined;
     if (to === "published" && prepared === undefined) return;
-    startTransition(async () => {
+    setMoveTarget(to);
+    startStatus(async () => {
       let version = loadedAt;
       if (prepared !== undefined) {
         const saved = await store(prepared, validation);
@@ -435,6 +459,9 @@ export function LessonEditor({
   const solution = solutionViews(validation, content);
   // On a published lesson Save validates first, so it waits for a validation in progress.
   const saveWaits = status === "published" && validation.kind === "running";
+  // Publish saves first, so the top bar says so while it runs.
+  const publishing = statusPending && moveTarget === "published";
+  const saving = savePending || publishing;
   return (
     <form ref={form} noValidate onSubmit={onSubmit} className="flex flex-col gap-6">
       <div className="sticky inset-bs-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-bg py-3">
@@ -448,8 +475,13 @@ export function LessonEditor({
             {unsaved ? words.unsaved : words.allSaved}
           </span>
         </p>
-        <Button type="submit" variant="primary" isPending={pending || saveWaits}>
-          {pending ? words.saving : words.save}
+        <Button
+          type="submit"
+          variant="primary"
+          isPending={saving || saveWaits}
+          isDisabled={statusPending && !publishing}
+        >
+          {saving ? words.saving : words.save}
         </Button>
       </div>
 
@@ -700,10 +732,12 @@ export function LessonEditor({
             <LessonStatusControls
               status={status}
               canPublish={covers(validation, content)}
-              pending={pending}
+              pending={statusPending}
+              busy={savePending || saveWaits}
               failure={statusFailure}
               stale={
                 statusFailure === lessonStatus.failure.stale ||
+                statusFailure === lessonStatus.failure.status_not_allowed ||
                 statusFailure === words.failure.stale
               }
               changed={statusChanged}

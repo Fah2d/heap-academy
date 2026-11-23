@@ -89,6 +89,11 @@ describe("checkedNow [FR-ADM-07]", () => {
     });
   });
 
+  it("still covers the whole lesson once a save trims the title it checked", () => {
+    const checked = done({ checked: { ...content, title: "  Double " } });
+    expect(checkedNow(checked, content)).toEqual({ gradable: true, whole: true });
+  });
+
   it("says neither once a test case changes", () => {
     const changed = { ...content, testCases: [testCase("t1", { expected: "7" })] };
     expect(checkedNow(done(), changed)).toEqual({ gradable: false, whole: false });
@@ -116,18 +121,21 @@ describe("solutionViews [FR-ADM-06]", () => {
     expect(views.get("t1" as TestCaseId)).toEqual({
       actual: "6\n",
       truncated: false,
+      cleaned: false,
       verdict: { state: "pass" },
       fillable: true,
     });
     expect(views.get("t2" as TestCaseId)).toEqual({
       actual: "8\n",
       truncated: false,
+      cleaned: false,
       verdict: { state: "fail", reason: "mismatch" },
       fillable: true,
     });
     expect(views.get("t3" as TestCaseId)).toEqual({
       actual: "",
       truncated: false,
+      cleaned: false,
       verdict: {
         state: "fail",
         reason: "program_error",
@@ -155,6 +163,7 @@ describe("solutionViews [FR-ADM-06]", () => {
     expect(solutionViews(done(), edited).get("t2" as TestCaseId)).toEqual({
       actual: "8\n",
       truncated: false,
+      cleaned: false,
       verdict: undefined,
       fillable: true,
     });
@@ -175,6 +184,7 @@ describe("solutionViews [FR-ADM-06]", () => {
     expect(solutionViews(done({ solution: notRun }), content).get("t1" as TestCaseId)).toEqual({
       actual: "",
       truncated: false,
+      cleaned: false,
       verdict: { state: "not_run" },
       fillable: false,
     });
@@ -198,5 +208,40 @@ describe("solutionViews [FR-ADM-06]", () => {
     expect(solutionViews(done({ solution: cut }), content).get("t1" as TestCaseId)?.fillable).toBe(
       false,
     );
+  });
+
+  it("[T-07] shows output and Python's message without control characters, and does not fill from it", () => {
+    const printed: TestResult[] = [
+      {
+        testCaseId: "t1" as TestCaseId,
+        status: "failed",
+        reason: "mismatch",
+        actual: "\u001b[2J6\u202e\n",
+        truncated: false,
+        harnessVersion: HARNESS_VERSION,
+      },
+      {
+        testCaseId: "t3" as TestCaseId,
+        status: "failed",
+        reason: "program_error",
+        actual: "",
+        truncated: false,
+        error: { kind: "runtime", message: "ValueError: \u001b[31mbad\u0007" },
+        harnessVersion: HARNESS_VERSION,
+      },
+    ];
+    const views = solutionViews(done({ solution: printed }), content);
+    expect(views.get("t1" as TestCaseId)).toEqual({
+      actual: "6\n",
+      truncated: false,
+      cleaned: true,
+      verdict: { state: "fail", reason: "mismatch" },
+      fillable: false,
+    });
+    expect(views.get("t3" as TestCaseId)?.verdict).toEqual({
+      state: "fail",
+      reason: "program_error",
+      error: { kind: "runtime", message: "ValueError: bad" },
+    });
   });
 });

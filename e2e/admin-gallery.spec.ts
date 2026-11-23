@@ -352,7 +352,7 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   const failed = page.getByRole("region", { name: adminGallery.lessonPythonFailed });
   await expect(failed.getByRole("button", { name: validation.retry })).toBeVisible();
   await validate(failed);
-  await expect(failed.getByText(validation.unavailable)).toBeVisible();
+  await expect(failed.getByText(validation.unavailableStart)).toBeVisible();
   await publishHeading(failed).scrollIntoViewIfNeeded();
   await shot("admin-validate-python-failed");
 
@@ -420,7 +420,8 @@ test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-lesson-publish-ready");
   await publish(draft).click();
-  await expect(draft.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeVisible();
+  // Read out by the live region; the focused status line shows it.
+  await expect(draft.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeAttached();
   await expect(
     draft.getByText(lessonStatus.now(lessonStatus.name.published), { exact: false }),
   ).toBeFocused();

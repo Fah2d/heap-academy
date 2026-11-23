@@ -232,6 +232,7 @@ describe("TestCaseList [FR-ADM-05]", () => {
         {
           actual: "8\n",
           truncated: false,
+          cleaned: false,
           verdict: { state: "fail", reason: "mismatch" },
           fillable: true,
         },
@@ -241,6 +242,7 @@ describe("TestCaseList [FR-ADM-05]", () => {
         {
           actual: "",
           truncated: false,
+          cleaned: false,
           verdict: {
             state: "fail",
             reason: "program_error",
@@ -270,7 +272,13 @@ describe("TestCaseList [FR-ADM-05]", () => {
     const solution = new Map<TestCaseId, SolutionView>([
       [
         "a" as TestCaseId,
-        { actual: "6\n", truncated: false, verdict: { state: "pass" }, fillable: true },
+        {
+          actual: "6\n",
+          truncated: false,
+          cleaned: false,
+          verdict: { state: "pass" },
+          fillable: true,
+        },
       ],
     ]);
     render(<Harness initial={[testCase("a", "Doubles")]} solution={solution} onList={onList} />);
@@ -283,11 +291,40 @@ describe("TestCaseList [FR-ADM-05]", () => {
 
   it("[FR-ADM-06] says when the verdict is about an older expected output, and when the output was cut", () => {
     const solution = new Map<TestCaseId, SolutionView>([
-      ["a" as TestCaseId, { actual: "6", truncated: true, verdict: undefined, fillable: false }],
+      [
+        "a" as TestCaseId,
+        { actual: "6", truncated: true, cleaned: false, verdict: undefined, fillable: false },
+      ],
     ]);
     render(<Harness initial={[testCase("a", "Doubles")]} solution={solution} />);
     expect(screen.getByText(validation.verdictOutdated)).toBeTruthy();
     expect(screen.getByText(validation.truncated)).toBeTruthy();
     expect(screen.queryByText(validation.verdict.pass)).toBeNull();
+  });
+
+  it("[T-07] shows a name, an expected output and printed output with markup as text, and says when control characters were removed", () => {
+    const payload = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
+    const solution = new Map<TestCaseId, SolutionView>([
+      [
+        "a" as TestCaseId,
+        {
+          actual: `${payload}\n`,
+          truncated: false,
+          cleaned: true,
+          verdict: { state: "fail", reason: "mismatch" },
+          fillable: false,
+        },
+      ],
+    ]);
+    const { container } = render(
+      <Harness initial={[{ ...testCase("a", payload), expected: payload }]} solution={solution} />,
+    );
+    expect(container.querySelector("img, script")).toBeNull();
+    const first = within(group(1));
+    expect(first.getByTestId("solution-output").textContent).toBe(`${payload}\n`);
+    expect((first.getByLabelText(words.nameLabel) as HTMLInputElement).value).toBe(payload);
+    expect((first.getByLabelText(words.expectedLabel) as HTMLTextAreaElement).value).toBe(payload);
+    expect(first.getByText(validation.cleaned)).toBeTruthy();
+    expect(first.queryByRole("button", { name: validation.fillLabel(payload) })).toBeNull();
   });
 });

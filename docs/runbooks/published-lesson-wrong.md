@@ -31,7 +31,7 @@ Learners who had the lesson open keep their copy until they leave the page. Thei
 
 ## 3. Fix it and publish it again
 
-1. [ ] In the lesson editor, correct what was wrong: the instructions, a test case's expected output or comparison, the solution, the starter, or the wrong answers. If a test case refused correct code, add a wrong answer that the old test case let through, so the mistake cannot return unnoticed.
+1. [ ] In the lesson editor, correct what was wrong: the instructions, a test case's expected output or comparison, the solution, the starter, or the wrong answers. If a test case accepted wrong code, add that code as a wrong answer, so the mistake cannot return unnoticed. If a test case refused correct code, fix its expected output or loosen its comparison.
 2. [ ] Press **Save**.
 3. [ ] Under **Publish**, press **Validate**. Every rule must say "Passed". A failed rule says what to fix; fix it and validate again.
 4. [ ] Read each test case's "What the solution printed". It is the output a learner who writes the solution will get. Check it against the expected output with your own eyes: the checklist proves the solution and the test cases agree, not that both are right.

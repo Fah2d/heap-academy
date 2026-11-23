@@ -384,6 +384,15 @@ describe("setLessonStatus for an admin [FR-ADM-07, FR-ADM-09]", () => {
     ).toEqual({ ok: false, error: "not_found" });
   });
 
+  it("answers a status the database should never hold as unavailable, before writing", async () => {
+    asAdmin();
+    state.db.answer({ data: { status: "deleted" } });
+    expect(
+      await actions.setLessonStatus({ id: LESSON, loadedAt: LOADED, status: "draft" }),
+    ).toEqual({ ok: false, error: "unavailable" });
+    expect(state.db.calls).toHaveLength(1);
+  });
+
   it("answers a failed read as unavailable, not as gone", async () => {
     asAdmin();
     state.db.answer({ error: { code: "XX000", message: "boom" } });

@@ -2,6 +2,7 @@ import { runtimeAssetBase } from "@/runtime/assets";
 import { createPythonWorker } from "@/runtime/browser";
 import {
   type ControllerEvent,
+  type ControllerReport,
   createRuntimeController,
   type RuntimeController,
 } from "@/runtime/controller";
@@ -58,6 +59,20 @@ export function connectValidationRuntime(
   };
 }
 
+/**
+ * A message the controller dropped, or a worker that failed, goes to the
+ * page's error reporting (.claude/rules/runtimes.md: drop and report). Only
+ * the code is sent; the message's content stays in the page.
+ */
+export function reportControllerProblem(
+  report: ControllerReport,
+  send: (error: Error) => void = (error) => {
+    reportError(error);
+  },
+): void {
+  send(new Error(`validation_runtime_${report.code}`));
+}
+
 /** The runtime in a browser: a module worker running Pyodide (architecture section 5.1). */
 export const openBrowserValidationRuntime: OpenValidationRuntime = (onState) =>
   connectValidationRuntime(
@@ -73,9 +88,9 @@ export const openBrowserValidationRuntime: OpenValidationRuntime = (onState) =>
         },
         now: () => performance.now(),
         onEvent,
-        // Dropped messages are already handled by the controller (it restarts
-        // the worker on a fatal one); a validation that cannot finish says so.
-        report: () => undefined,
+        // The controller already recovers (it restarts the worker on a fatal
+        // message); a validation that cannot finish says so in the editor.
+        report: (report) => reportControllerProblem(report),
       }),
     onState,
   );

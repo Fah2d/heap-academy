@@ -107,17 +107,24 @@ export function ValidationPanel({
   return (
     <div className="flex max-w-prose flex-col gap-5">
       <p className="text-sm text-text-muted">{words.intro}</p>
-      <div className="flex flex-wrap items-center gap-3">
+      {python === "failed" ? (
+        // One error for a failed start, which Validate cannot get past.
+        <div className="flex flex-col gap-3">
+          <Notice kind="error" kindLabel={words.unavailableLabel} announce="assertive">
+            {state.kind === "unavailable" ? words.unavailableStart : words.python.failed}
+          </Notice>
+          <div>
+            <Button variant="secondary" onPress={onRetry}>
+              {words.retry}
+            </Button>
+          </div>
+        </div>
+      ) : (
         <p className="text-base text-text">
           <span className="text-text-muted">{words.pythonLabel}: </span>
           {words.python[python]}
         </p>
-        {python === "failed" && (
-          <Button variant="secondary" onPress={onRetry}>
-            {words.retry}
-          </Button>
-        )}
-      </div>
+      )}
       <ol aria-label={words.checklistLabel} className="flex flex-col gap-3">
         {rows.map((row) => (
           <li key={row.rule} className="flex flex-col gap-1">
@@ -134,14 +141,18 @@ export function ValidationPanel({
           {words.outdated}
         </Notice>
       )}
-      {state.kind === "unavailable" && (
+      {state.kind === "unavailable" && python !== "failed" && (
         <Notice kind="error" kindLabel={words.unavailableLabel} announce="assertive">
           {words.unavailable}
         </Notice>
       )}
       <div className="flex flex-wrap gap-3">
         <Button variant="secondary" isPending={running} onPress={onValidate}>
-          {running ? words.validating : words.validate}
+          {!running
+            ? words.validate
+            : python === "loading"
+              ? words.validatesWhenReady
+              : words.validating}
         </Button>
         {running && (
           <Button variant="secondary" isPending={state.stopping} onPress={onStop}>

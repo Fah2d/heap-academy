@@ -256,6 +256,8 @@ export const lessonEditor = {
       "This lesson is published, so Save validates it first. The validation was stopped, so nothing was saved.",
     unavailable:
       "This lesson is published, so Save validates it first. Python could not run the programs, so nothing was saved. Press Save to try again.",
+    unavailableStart:
+      "This lesson is published, so Save validates it first. Python could not start, so nothing was saved. Press Try again under Publish, then Save.",
   },
 } as const;
 
@@ -293,7 +295,7 @@ export const lessonStatus = {
     published_incomplete:
       "A published lesson needs instructions and at least one test case, so it was not published.",
     status_not_allowed:
-      "The lesson's status was changed somewhere else, so this change was not made. Reload the page to see it.",
+      "The lesson's status was changed somewhere else, so this change was not made. Reloading shows it and drops what you typed here, so copy anything you want to keep first.",
     stale:
       "This lesson was changed somewhere else after you opened it, so its status did not change. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
     not_found: "This lesson no longer exists. Go back to the course.",
@@ -363,7 +365,7 @@ export const validation = {
   python: {
     loading: "Loading. Validate waits for it.",
     ready: "Ready.",
-    failed: "Could not start, so nothing can be validated.",
+    failed: "Python could not start, so nothing can be validated.",
   },
   retry: "Try again",
   checklistLabel: "Checklist",
@@ -401,6 +403,7 @@ export const validation = {
     `Stopped at the 5 second limit: ${listed(programs)}. Look for a loop that never ends.`,
   validate: "Validate",
   validating: "Validating",
+  validatesWhenReady: "Validates when Python is ready",
   stop: "Stop",
   status: {
     running: "Validating the lesson.",
@@ -415,6 +418,8 @@ export const validation = {
   unavailableLabel: "Error",
   unavailable:
     "Python could not run the programs, so nothing was checked. Press Validate to try again.",
+  unavailableStart:
+    "Python could not start, so nothing was checked. Press Try again, then Validate.",
   outdatedLabel: "Note",
   outdated: "You changed the lesson after this validation. Validate again before publishing.",
   /** The solution's result inside one test case (section 7.5). */
@@ -434,6 +439,8 @@ export const validation = {
     line === undefined ? message : `Line ${String(line)}: ${message}`,
   noOutput: "Nothing was printed.",
   truncated: "The output was cut at 64,000 characters.",
+  cleaned:
+    "Control characters were removed from this output, so it cannot be copied into the expected output.",
   verdictOutdated:
     "You changed the expected output or how to compare after this validation. Validate again for a verdict.",
   fill: "Fill from solution",

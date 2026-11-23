@@ -1,3 +1,4 @@
+import { consoleText } from "@/grader/console-text";
 import type { FailureReason, GradedError, TestResult } from "@/grader/grade";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import { gradableText } from "@/grader/test-case-list";
@@ -37,7 +38,8 @@ export function checkedNow(
   const gradable = gradableText(state.checked) === gradableText(content);
   const whole =
     gradable &&
-    state.checked.title === content.title &&
+    // A save trims the title, which changes nothing a learner sees.
+    state.checked.title.trim() === content.title.trim() &&
     state.checked.slug === content.slug &&
     state.checked.instructionsMd === content.instructionsMd;
   return { gradable, whole };
@@ -60,6 +62,8 @@ export type SolutionVerdict =
 export type SolutionView = {
   actual: string;
   truncated: boolean;
+  /** Control characters or escape sequences were removed from `actual` (T-07). */
+  cleaned: boolean;
   /** Absent once the expected output or the comparison changed: the verdict was about the old one. */
   verdict: SolutionVerdict | undefined;
   /** Whether "Fill from solution" may copy `actual` into the expected output. */
@@ -74,14 +78,17 @@ function verdictOf(result: TestResult): SolutionVerdict {
   return {
     state: "fail",
     reason: result.reason,
-    ...(result.error === undefined ? {} : { error: result.error }),
+    ...(result.error === undefined
+      ? {}
+      : { error: { ...result.error, message: consoleText(result.error.message).text } }),
   };
 }
 
 /**
  * The solution's result for each test case it still describes: the same
  * solution, and the same input and follow-up code. Output is copied only
- * from a program that ran to its end and was not cut at the limit.
+ * from a program that ran to its end, was not cut at the limit, and printed
+ * no control character.
  */
 export function solutionViews(
   state: ValidationState,
@@ -94,18 +101,22 @@ export function solutionViews(
     const checked = state.checked.testCases.find((entry) => entry.id === testCase.id);
     const result = state.solution.find((entry) => entry.testCaseId === testCase.id);
     if (checked === undefined || result === undefined || !sameRun(checked, testCase)) continue;
-    const actual = result.status === "not_run" ? "" : result.actual;
+    // Output with control characters is shown without them and never
+    // copied: the copy would not be what the solution printed (T-07).
+    const printed = consoleText(result.status === "not_run" ? "" : result.actual);
+    const actual = printed.text;
     const truncated = result.status === "failed" && result.truncated;
     const ranToEnd =
       result.status === "passed" || (result.status === "failed" && result.reason === "mismatch");
     views.set(testCase.id, {
       actual,
       truncated,
+      cleaned: printed.removed,
       verdict:
         checked.expected === testCase.expected && checked.match === testCase.match
           ? verdictOf(result)
           : undefined,
-      fillable: ranToEnd && !truncated && testCase.expected !== actual,
+      fillable: ranToEnd && !truncated && !printed.removed && testCase.expected !== actual,
     });
   }
   return views;

@@ -86,11 +86,26 @@ describe("ValidationPanel [FR-ADM-07]", () => {
     expect(screen.getByRole("button", { name: words.validate })).toBeTruthy();
   });
 
-  it("says Python could not start, and Try again starts it", async () => {
+  it("says Python could not start as an error, and Try again starts it", async () => {
     const { onRetry } = renderPanel({ python: "failed" });
-    expect(screen.getByText(words.python.failed)).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toBe(
+      `${words.unavailableLabel}: ${words.python.failed}`,
+    );
+    expect(screen.queryByText(`${words.pythonLabel}:`, { exact: false })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: words.retry }));
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("after Validate with a Python that could not start, points to Try again, in one error", () => {
+    renderPanel({ python: "failed", state: { kind: "unavailable" } });
+    const errors = screen.getAllByRole("alert");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.textContent).toBe(`${words.unavailableLabel}: ${words.unavailableStart}`);
+  });
+
+  it("while Python loads, a pressed Validate says it runs when Python is ready", () => {
+    renderPanel({ python: "loading", state: { kind: "running", stopping: false } });
+    expect(screen.getByRole("button", { name: words.validatesWhenReady })).toBeTruthy();
   });
 
   it("while validating: Validate is pending, Stop stops, and the live region says so", async () => {

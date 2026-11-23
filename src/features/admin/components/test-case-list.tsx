@@ -319,6 +319,7 @@ function SolutionResult({ view }: { view: SolutionView }) {
         </pre>
       )}
       {view.truncated && <p className="text-sm text-text-muted">{validation.truncated}</p>}
+      {view.cleaned && <p className="text-sm text-text-muted">{validation.cleaned}</p>}
     </div>
   );
 }

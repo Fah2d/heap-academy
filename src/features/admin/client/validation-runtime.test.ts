@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { TestCase } from "@/grader/test-case";
 import type { ControllerEvent, RunRequest } from "@/runtime/controller";
 import type { RunId } from "@/runtime/protocol";
-import { connectValidationRuntime, type PythonState } from "./validation-runtime";
+import {
+  connectValidationRuntime,
+  type PythonState,
+  reportControllerProblem,
+} from "./validation-runtime";
 
 function fakeController() {
   let emit: (event: ControllerEvent) => void = () => undefined;
@@ -87,5 +91,17 @@ describe("connectValidationRuntime [FR-ADM-06]", () => {
     runtime.dispose();
     expect(await pending).toBeUndefined();
     expect(fake.controller.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("reportControllerProblem", () => {
+  it("passes each dropped message or worker failure on, by its code only", () => {
+    const report = vi.fn<(error: Error) => void>();
+    reportControllerProblem({ code: "unexpected_message", messageType: "secret" }, report);
+    reportControllerProblem({ code: "worker_error" }, report);
+    expect(report.mock.calls.map(([error]) => error.message)).toEqual([
+      "validation_runtime_unexpected_message",
+      "validation_runtime_worker_error",
+    ]);
   });
 });

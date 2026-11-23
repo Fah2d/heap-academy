@@ -40,6 +40,9 @@ function rule(page: Page, text: string) {
 
 const publishButton = (page: Page) =>
   page.getByRole("button", { name: lessonStatus.action.published, exact: true });
+/** The status sentence, which names the status and says who can see the lesson. */
+const statusLine = (status: "draft" | "published") =>
+  `${lessonStatus.now(lessonStatus.name[status])} ${lessonStatus.explain[status]}`;
 
 test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson cannot go live; a validated one is published and moved back to draft", async ({
   page,
@@ -101,18 +104,15 @@ test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson can
   await page.getByRole("button", { name: validation.validate }).click();
   await expect(page.getByText(validation.status.passed)).toBeVisible();
   await publishButton(page).click();
-  await expect(page.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeVisible();
-  await expect(
-    page.getByText(lessonStatus.now(lessonStatus.name.published), { exact: true }),
-  ).toBeVisible();
+  // Read out by the live region; the focused status line shows it.
+  await expect(page.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeAttached();
+  await expect(page.getByText(statusLine("published"), { exact: true })).toBeVisible();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
   // The database holds the status: it survives a reload.
   await page.reload();
-  await expect(
-    page.getByText(lessonStatus.now(lessonStatus.name.published), { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(statusLine("published"), { exact: true })).toBeVisible();
 
   // 4. Moving it back to draft asks first and says what learners will see.
   await page.getByRole("button", { name: lessonStatus.action.draft, exact: true }).click();
@@ -120,9 +120,7 @@ test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson can
   await expect(dialog).toContainText(lessonStatus.confirmBody.draft);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await dialog.getByRole("button", { name: lessonStatus.action.draft, exact: true }).click();
-  await expect(
-    page.getByText(lessonStatus.now(lessonStatus.name.draft), { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(statusLine("draft"), { exact: true })).toBeVisible();
 
   removeAdmin(address);
 });

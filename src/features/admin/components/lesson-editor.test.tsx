@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LessonDocument } from "@/content/markdown";
 import type { TestResult } from "@/grader/grade";
 import { HARNESS_VERSION } from "@/grader/harness";
-import type { TestCase, TestCaseId } from "@/grader/test-case";
+import { parseTestCases, type TestCase, type TestCaseId } from "@/grader/test-case";
 import {
   lessonStatus,
   lessonEditor as words,
@@ -88,28 +88,34 @@ const doc = (text: string): LessonDocument => ({
   blocks: [{ kind: "paragraph", children: [{ kind: "text", text }] }],
 });
 
-/** The solution prints each test case's expected output; every other program prints "x". */
+/**
+ * The solution prints each test case's expected output; every other program
+ * prints "x". Test cases the worker protocol refuses (it parses them with
+ * `parseTestCases`) get no result, as from the controller.
+ */
 const honest: CheckProgram = (source, tests) =>
   Promise.resolve(
-    tests.map((testCase: TestCase): TestResult => {
-      const actual = source === lesson.solutionCode ? `${testCase.expected}\n` : "x\n";
-      return actual === `${testCase.expected}\n`
-        ? {
-            testCaseId: testCase.id,
-            status: "passed",
-            actual,
-            truncated: false,
-            harnessVersion: HARNESS_VERSION,
-          }
-        : {
-            testCaseId: testCase.id,
-            status: "failed",
-            reason: "mismatch",
-            actual,
-            truncated: false,
-            harnessVersion: HARNESS_VERSION,
-          };
-    }),
+    !parseTestCases(tests).ok
+      ? undefined
+      : tests.map((testCase: TestCase): TestResult => {
+          const actual = source === lesson.solutionCode ? `${testCase.expected}\n` : "x\n";
+          return actual === `${testCase.expected}\n`
+            ? {
+                testCaseId: testCase.id,
+                status: "passed",
+                actual,
+                truncated: false,
+                harnessVersion: HARNESS_VERSION,
+              }
+            : {
+                testCaseId: testCase.id,
+                status: "failed",
+                reason: "mismatch",
+                actual,
+                truncated: false,
+                harnessVersion: HARNESS_VERSION,
+              };
+        }),
   );
 
 /** A Python runtime the test drives: its state, its checks, Stop and closing. */
@@ -486,8 +492,29 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
     );
     expect(python.open).toHaveBeenCalledTimes(1);
     expect(screen.getByText(validation.python.loading)).toBeTruthy();
+    act(() => python.open.mock.calls[0]?.[0]("ready"));
+    expect(python.runtime.checkProgram).not.toHaveBeenCalled();
     unmount();
     expect(python.runtime.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("[T-23] runs no program when a published lesson opens", () => {
+    const { python } = setup({}, { ...lesson, status: "published" });
+    expect(python.runtime.checkProgram).not.toHaveBeenCalled();
+  });
+
+  it("[FR-ADM-05] Validate opens a test case with a problem and focuses its field, and runs nothing", async () => {
+    const { python } = setup({}, {
+      ...lesson,
+      testCases: [lesson.testCases[0], { ...lesson.testCases[1], name: "" }],
+    } as EditorLessonDetail);
+    await validate();
+    expect(python.runtime.checkProgram).not.toHaveBeenCalled();
+    const group = screen.getByRole("group", { name: testCaseList.group(2) });
+    const name = within(group).getByRole("textbox", { name: testCaseList.nameLabel });
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    expect(within(group).getByText(testCaseList.problem.nameMissing)).toBeTruthy();
+    expect(screen.queryByText(validation.unavailable)).toBeNull();
   });
 
   it("[FR-GRD-05] Validate checks the solution, the starter and the wrong answer, then shows the checklist and each verdict", async () => {
@@ -574,7 +601,7 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
     });
     setup({ python });
     await validate();
-    expect(screen.getByText(validation.unavailable)).toBeTruthy();
+    expect(screen.getByText(validation.unavailableStart)).toBeTruthy();
     expect(python.runtime.checkProgram).not.toHaveBeenCalled();
   });
 
@@ -687,6 +714,37 @@ describe("LessonEditor status [FR-ADM-09]", () => {
     expect(screen.getByText(words.statusNow.draft)).toBeTruthy();
   });
 
+  it("[FR-ADM-10] offers Reload when the status was changed somewhere else", async () => {
+    setup({
+      setStatus: vi.fn<SetLessonStatus>(() =>
+        Promise.resolve({ ok: false, error: "status_not_allowed" }),
+      ),
+    });
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.archived }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: lessonStatus.action.archived,
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(lessonStatus.failure.status_not_allowed)).toBeTruthy(),
+    );
+    const publish = screen.getByRole("group", { name: lessonStatus.heading });
+    expect(within(publish).getByRole("button", { name: structure.reload })).toBeTruthy();
+  });
+
+  it("[NFR-A11Y-03] says the new status once: focus reads it, and the live region stays out of sight", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.archived }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: lessonStatus.action.archived,
+      }),
+    );
+    const changed = await screen.findByText(lessonStatus.changed(lessonStatus.name.archived));
+    expect(changed.className).toBe("sr-only");
+  });
+
   it("says why the database refused to publish", async () => {
     setup({
       setStatus: vi.fn<SetLessonStatus>(() =>
@@ -762,6 +820,31 @@ describe("LessonEditor status [FR-ADM-09]", () => {
       }),
     );
   });
+
+  it("[FR-ADM-10] Save does not say a status is changing, and the moves wait for it", async () => {
+    const save = vi.fn<SaveLesson>(() => new Promise(() => undefined));
+    setup({ save });
+    await userEvent.type(field(words.titleLabel), "!");
+    await userEvent.click(saveButton());
+    expect(screen.getByRole("button", { name: words.saving })).toBeTruthy();
+    expect(liveStatus()).not.toContain(lessonStatus.changing);
+    const archive = screen.getByRole("button", { name: lessonStatus.action.archived });
+    expect(archive.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("[FR-ADM-10] Archive does not say the lesson is saving, and Save waits for it", async () => {
+    const setStatus = vi.fn<SetLessonStatus>(() => new Promise(() => undefined));
+    setup({ setStatus });
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.archived }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: lessonStatus.action.archived,
+      }),
+    );
+    await waitFor(() => expect(liveStatus()).toContain(lessonStatus.changing));
+    expect(screen.queryByRole("button", { name: words.saving })).toBeNull();
+    expect(saveButton().hasAttribute("disabled")).toBe(true);
+  });
 });
 
 describe("LessonEditor Save on a published lesson [FR-ADM-07, FR-ADM-09]", () => {
@@ -821,7 +904,9 @@ describe("LessonEditor Save on a published lesson [FR-ADM-07, FR-ADM-09]", () =>
     });
     const { save } = setup({ python }, published);
     await userEvent.click(saveButton());
-    await waitFor(() => expect(screen.getByText(words.validateFirst.unavailable)).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText(words.validateFirst.unavailableStart)).toBeTruthy(),
+    );
     expect(save).not.toHaveBeenCalled();
   });
 

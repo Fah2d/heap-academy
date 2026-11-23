@@ -22,8 +22,10 @@ export type LessonStatusControlsProps = {
   /** A passing validation covers the lesson as it is in the editor. */
   canPublish: boolean;
   pending: boolean;
+  /** A save is running: the moves wait, so they use the version it leaves. */
+  busy: boolean;
   failure: string | null;
-  /** The failure is a newer version: offer a reload. */
+  /** The failure is a newer version or status: offer a reload. */
   stale: boolean;
   /** The status the last move reached, for the live region. */
   changed: ContentStatus | null;
@@ -38,6 +40,7 @@ export function LessonStatusControls({
   status,
   canPublish,
   pending,
+  busy,
   failure,
   stale,
   changed,
@@ -90,11 +93,10 @@ export function LessonStatusControls({
           )}
         </div>
       )}
-      {/* Kept in the page for the live region, and out of the layout while empty. */}
-      <p
-        role="status"
-        className={pending || changed !== null ? "text-sm text-text-muted" : "sr-only"}
-      >
+      {/* Kept in the page for the live region. After a move, focus on the
+          status line already shows the new status, so only "Changing status"
+          is shown. */}
+      <p role="status" className={pending ? "text-sm text-text-muted" : "sr-only"}>
         {pending ? words.changing : changed === null ? "" : words.changed(words.name[changed])}
       </p>
       <div className="flex flex-wrap gap-3">
@@ -104,7 +106,13 @@ export function LessonStatusControls({
           const label = words.action[to];
           if (!asks(status, to)) {
             return (
-              <Button key={to} variant={variant} isPending={pending} onPress={() => move(to)}>
+              <Button
+                key={to}
+                variant={variant}
+                isPending={pending}
+                isDisabled={busy}
+                onPress={() => move(to)}
+              >
                 {label}
               </Button>
             );
@@ -115,7 +123,7 @@ export function LessonStatusControls({
               key={to}
               title={words.confirmTitle[key]}
               trigger={
-                <Button variant={variant} isPending={pending}>
+                <Button variant={variant} isPending={pending} isDisabled={busy}>
                   {label}
                 </Button>
               }
