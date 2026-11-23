@@ -2,9 +2,9 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`
+## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
 
-Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.
+Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`, then for `wp/3.3-grader`. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.
 
 ### Task 2, part 1 done: `main` merged into `wp/3.1-python-worker`
 
@@ -15,6 +15,14 @@ Same task list as the session below. Task 1 was done; this run did task 2 for `w
 - Description: "Up to date with main" in `docs/reports/pull-requests/WP-3.1.md` rewritten; the `gh pr create` command replaced with `gh pr edit 9`, because the draft is open.
 - Push: `wp/3.1-python-worker` with 5f72072 and the docs commit. This line is pushed with the docs commit.
 
+### Task 2, part 2 done: `wp/3.1-python-worker` (with `main`) merged into `wp/3.3-grader`
+
+- 4e255ef: `wp/3.1-python-worker` at e06e9c3 merged; it carries `main` at 0efe863. No conflict.
+- `pnpm verify` on 4e255ef: exit 0, 41 files, 1002 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.3.md`. No pull request is open for WP-3.3, so its `gh pr create` command stays.
+- Push: `wp/3.3-grader` with 4e255ef and the docs commit. This line is pushed with the docs commit.
+
 ### Owner: run this
 
 1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker` (`gh` cannot reach GitHub from the sandbox).
@@ -22,7 +30,7 @@ Same task list as the session below. Task 1 was done; this run did task 2 for `w
 
 ### Next
 
-- Task 2: merge `origin/main` and `wp/3.1-python-worker` into `wp/3.3-grader`, then the same for `wp/3.4-statechart`.
+- Task 2: merge `wp/3.3-grader` (which carries `main` and WP-3.1) into `wp/3.4-statechart`.
 
 ## Session of 2026-11-23 (from about 23:25), in `night-a`, on `wp/fix-smoke-and-runtime`
 
