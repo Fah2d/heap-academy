@@ -82,6 +82,8 @@ WP-5.1's five parts are built and reviewed twice (see the 20:35 session below). 
 
 Checked once more at 23:52 in a fresh session: `git fetch` shows `origin/main` still at 0efe863 and none of the seven branches behind it, so task 1 needs no new merge. Docker and Chromium fail with the same two errors.
 
+Checked again at 23:54 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`, and each stacked branch already contains the one before it (2.1 in 2.2, 2.2 in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, 4.1 in 5.1). Local and remote branches match. Docker and Chromium fail with the same two errors.
+
 No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
