@@ -2,6 +2,17 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from 00:55), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Blocked for the same reason as the run below: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `wp/7.3-operations` matched its remote (b5e3a8d) before this note.
+- The plan was read again (`docs/spec/08-delivery-plan.md`, Days 6 and 7). Every package left needs an unmerged WP-2.x, 3.x, 4.x or 5.x, or the owner's decision C on analytics. The list in the section below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
 ## Session of 2026-11-24 (later run), in `night-c`, on `wp/7.3-operations`
 
 Same task list as the sessions below. Blocked: no new work package can start. No code was changed.
