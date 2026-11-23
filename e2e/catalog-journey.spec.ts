@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { courseEditor } from "../src/messages/admin";
@@ -165,9 +165,30 @@ async function setCourseStatus(page: Page, to: "published" | "draft") {
   const dialog = page.getByRole("dialog");
   if (to === "draft")
     await dialog.getByRole("button", { name: courseEditor.statusAction[to] }).click();
-  await expect(page.getByRole("status")).toHaveText(
-    courseEditor.statusChanged(courseEditor.statusName[to]),
-  );
+  // The editor has a status line per panel; this is the one in the Status panel.
+  await expect(
+    page.getByRole("region", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
+  ).toHaveText(courseEditor.statusChanged(courseEditor.statusName[to]));
+}
+
+function courseStatus(): string | undefined {
+  return sqlRows(`select status from public.courses where slug = '${SLUG}'`)[0]?.[0];
+}
+
+// A published course goes back to draft through the dashboard first, so the
+// cache forgets it before its rows go; then later specs never see a course
+// that answers 404. Safe to call twice.
+async function cleanUp() {
+  try {
+    if (admin !== undefined && courseStatus() === "published") {
+      await setCourseStatus(admin, "draft");
+    }
+  } finally {
+    await admin?.close();
+    admin = undefined;
+    removeAdmin(ADMIN);
+    removeCourses();
+  }
 }
 
 /** No private text in a public response's body, HTML and page data alike. */
@@ -187,23 +208,12 @@ test.beforeAll(async ({ browser, playwright }, testInfo) => {
     await request.dispose();
     await setCourseStatus(admin, "published");
   } catch (error) {
-    removeAdmin(ADMIN);
-    removeCourses();
+    await cleanUp();
     throw error;
   }
 });
 
-// Back to draft through the dashboard first, so the cache forgets the course
-// before its rows go; then later specs never see a course that answers 404.
-test.afterAll(async () => {
-  try {
-    if (admin !== undefined) await setCourseStatus(admin, "draft");
-  } finally {
-    await admin?.close();
-    removeAdmin(ADMIN);
-    removeCourses();
-  }
-});
+test.afterAll(cleanUp);
 
 test("[FR-CAT-01] [FR-CAT-04] the course list shows only published courses, with the database's counts", async ({
   page,
@@ -319,8 +329,10 @@ test("[T-21] no public response carries a draft, a solution or a wrong answer", 
   }
   // The page data a client navigation fetches, beside the HTML.
   for (const path of ["/", "/courses", `/courses/${SLUG}`]) {
-    const data = await (await page.request.get(path, { headers: { RSC: "1" } })).text();
-    expect(data.length, path).toBeGreaterThan(0);
+    const response = await page.request.get(path, { headers: { RSC: "1" } });
+    // Page data, not the HTML again: Next.js redirects to `?_rsc` first.
+    expect(response.headers()["content-type"], path).toMatch(/^text\/x-component/);
+    const data = await response.text();
     for (const mark of PRIVATE_MARKS)
       expect(data, `${path} data carries ${mark}`).not.toContain(mark);
   }
@@ -331,6 +343,8 @@ test("the three pages' screens are saved for the design review", () => {
     for (const width of SHOT_WIDTHS) {
       const file = join("docs", "reports", "screens", "WP-5.1", `${name}-${String(width)}.png`);
       expect(existsSync(file), file).toBe(true);
+      // Saved by this run, not left from an earlier one.
+      expect(statSync(file).mtimeMs, file).toBeGreaterThanOrEqual(stamp);
     }
   }
 });

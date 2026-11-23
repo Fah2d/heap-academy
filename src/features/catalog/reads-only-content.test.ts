@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Public pages read only through `src/content`, with a client that carries no
@@ -7,16 +7,9 @@ import { describe, expect, it } from "vitest";
 // not reach a database client, identity, or another feature's queries.
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
-const CATALOG = join(ROOT, "src", "features", "catalog");
-// Every route file that composes the catalog.
-const ROUTES = [
-  join(ROOT, "src", "app", "page.tsx"),
-  join(ROOT, "src", "app", "courses", "page.tsx"),
-  join(ROOT, "src", "app", "courses", "[course]", "page.tsx"),
-  join(ROOT, "src", "app", "sitemap.ts"),
-  join(ROOT, "src", "app", "robots.ts"),
-  join(ROOT, "src", "app", "dev", "catalog", "page.dev.tsx"),
-];
+const SRC = join(ROOT, "src");
+const CATALOG = join(SRC, "features", "catalog");
+const APP = join(SRC, "app");
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -28,12 +21,34 @@ function sourceFiles(directory: string): string[] {
 
 /**
  * Every module a source text names: static imports and exports, side-effect
- * imports, and `import("...")` calls, which the lint boundary rule does not see.
+ * imports, `import("...")` with any quote (lint does not check a backtick
+ * one), and `require("...")`.
  */
-export function importsOf(text: string): string[] {
-  return [...text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["'`]([^"'`]+)["'`]/g)].map(
+function importsOf(text: string): string[] {
+  return [...text.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g)].map(
     (match) => match[1] ?? "",
   );
+}
+
+/** A relative specifier as the `@/` path it points at, so `../../infrastructure` is seen too. */
+function aliased(from: string, specifier: string): string {
+  if (!specifier.startsWith(".")) return specifier;
+  return `@/${relative(SRC, resolve(dirname(from), specifier))}`;
+}
+
+/** What a catalog file or route may not import (CLAUDE.md rules 8 and 9). */
+function forbiddenImports(from: string, specifiers: string[]): string[] {
+  return specifiers.filter((specifier) => {
+    const target = aliased(from, specifier);
+    return (
+      target.startsWith("@/infrastructure") ||
+      target.startsWith("@supabase/") ||
+      target === "next/headers" ||
+      (target.startsWith("@/features/") &&
+        target !== "@/features/catalog" &&
+        !target.startsWith("@/features/catalog/"))
+    );
+  });
 }
 
 function imports(path: string): string[] {
@@ -64,24 +79,54 @@ describe("the catalog reads only through src/content", () => {
       "@/infrastructure/db/session-client",
       "@supabase/ssr",
     ]);
+    expect(importsOf('const a = require("next/headers");')).toEqual(["next/headers"]);
   });
 
-  const files = [...sourceFiles(CATALOG), ...ROUTES];
+  it("[T-21] forbids the request's headers and a relative path into another layer", () => {
+    const from = join(CATALOG, "server", "reads.ts");
+    expect(
+      forbiddenImports(from, [
+        "next/headers",
+        "../../../infrastructure/db/session-client",
+        "../../admin",
+        "@/features/catalog/paths",
+        "../paths",
+        "@/content",
+      ]),
+    ).toEqual(["next/headers", "../../../infrastructure/db/session-client", "../../admin"]);
+  });
 
-  it("checks the catalog's own files and its route files", () => {
-    expect(files.length).toBeGreaterThan(ROUTES.length);
+  // Every route file that composes the catalog, found by what it imports, so a
+  // new one (an image route, say) cannot slip past. The root layout frames
+  // every page, so it takes the header link from here and the shell and
+  // sign-in from their features; it is not a catalog route.
+  const routes = sourceFiles(APP).filter(
+    (path) =>
+      !/^layout\.tsx?$/.test(path.split("/").at(-1) ?? "") &&
+      imports(path).some(
+        (specifier) =>
+          specifier === "@/features/catalog" || specifier.startsWith("@/features/catalog/"),
+      ),
+  );
+  const files = [...sourceFiles(CATALOG), ...routes];
+
+  it("finds the catalog's route files", () => {
+    expect(routes.map((path) => relative(ROOT, path)).sort()).toEqual(
+      expect.arrayContaining([
+        "src/app/courses/[course]/page.tsx",
+        "src/app/courses/page.tsx",
+        "src/app/dev/catalog/page.dev.tsx",
+        "src/app/page.tsx",
+        "src/app/robots.ts",
+        "src/app/sitemap.ts",
+      ]),
+    );
   });
 
   it.each(files.map((path) => [relative(ROOT, path), path]))(
-    "%s imports no database client, identity or other feature",
+    "%s imports no database client, identity, request headers or other feature",
     (_name, path) => {
-      const forbidden = imports(path).filter(
-        (specifier) =>
-          specifier.startsWith("@/infrastructure") ||
-          specifier.startsWith("@supabase/") ||
-          (specifier.startsWith("@/features/") && specifier !== "@/features/catalog"),
-      );
-      expect(forbidden).toEqual([]);
+      expect(forbiddenImports(path, imports(path))).toEqual([]);
     },
   );
 

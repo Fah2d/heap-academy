@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { Metadata } from "next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,12 +63,14 @@ const NOT_INDEXED = new Set([
   "/admin/verify",
 ]);
 
-/**
- * A production page file: `page` with one of the build's page extensions
- * (`PAGE_EXTENSIONS` in next.config.ts). A `.dev.tsx` page is not in the build.
- */
-export function isPageFile(name: string): boolean {
-  return /^page\.(tsx|ts|jsx|js)$/.test(name);
+// The build's page extensions, as `PAGE_EXTENSIONS` in next.config.ts names
+// them. Importing that file would parse the server environment, so a test
+// below reads it and fails when the two lists differ.
+const BUILD_PAGE_EXTENSIONS = ["tsx", "ts", "jsx", "js"];
+
+/** A production page file. A `.dev.tsx` page is not in the build. */
+function isPageFile(name: string): boolean {
+  return BUILD_PAGE_EXTENSIONS.some((extension) => name === `page.${extension}`);
 }
 
 /** Every production page's route, with its file relative to src/app. */
@@ -123,6 +125,13 @@ describe("[FR-SEO-01] which pages are indexed", () => {
     expect(["page.tsx", "page.ts", "page.jsx", "page.js"].filter(isPageFile)).toHaveLength(4);
     expect(["page.dev.tsx", "page.test.tsx", "layout.tsx", "apage.tsx"].filter(isPageFile)).toEqual(
       [],
+    );
+  });
+
+  it("uses the same page extensions as the build", () => {
+    const config = readFileSync(join(import.meta.dirname, "..", "..", "next.config.ts"), "utf8");
+    expect(config).toContain(
+      `const PAGE_EXTENSIONS = ${JSON.stringify(BUILD_PAGE_EXTENSIONS).replaceAll(",", ", ")};`,
     );
   });
 
