@@ -31,7 +31,14 @@ export function Tabs({ label, items, defaultSelectedKey, onSelectionChange }: Ta
       <TabList aria-label={label} className="flex gap-1 border-be border-border">
         {items.map((item) => (
           <Tab key={item.id} id={item.id} className={tab}>
-            {item.title}
+            {/* A hidden weight-600 copy holds the width, so selecting a tab
+                does not move its neighbors. */}
+            <span className="grid">
+              <span aria-hidden="true" className="invisible col-start-1 row-start-1 font-semibold">
+                {item.title}
+              </span>
+              <span className="col-start-1 row-start-1">{item.title}</span>
+            </span>
           </Tab>
         ))}
       </TabList>
