@@ -165,8 +165,8 @@ Open MAJOR findings for the owner to waive: none of the code; the owner decision
 4. **Confirm the age rule.** The terms say an account needs age 13, from charter A-10, which is a placeholder until a legal review.
 5. **Who "we" are, and a contact address.** Neither text names the operator or gives a way to write to us; nothing in the spec says who or where, and I did not invent one. The Saudi law of section 8 question 1 will likely ask for both. Tell me the name and the address to add, or approve the text without them.
 6. **Two terms lines to confirm:** "We may close an account that breaks these terms" (no tool for it exists or is planned), and "The lessons ... belong to Heap Academy".
-8. **Two settings that decide what the policy says**, for WP-2.2 and WP-7.1: whether the sign-in provider writes its event log to the database (`auth.audit_log_entries`, a dashboard switch no spec line sets) and how long the free plan keeps that log; and how long the per-address request counts are kept. Today the text says only "for as long as the provider keeps its logs" and names no period for the counts.
 7. **Name the bot check vendor** when WP-2.2 settles it (its branch uses Cloudflare Turnstile). The processor line then names it.
+8. **Two settings that decide what the policy says**, for WP-2.2 and WP-7.1: whether the sign-in provider writes its event log to the database (`auth.audit_log_entries`, a dashboard switch no spec line sets) and how long the free plan keeps that log; and how long the per-address request counts are kept. Today the text says only "for as long as the provider keeps its logs" and names no period for the counts.
 
 ## Deviations from the plan or the spec
 
