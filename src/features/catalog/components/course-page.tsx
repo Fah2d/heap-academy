@@ -18,7 +18,8 @@ export async function CoursePage({ params }: { params: Promise<{ course: string 
   return <CourseView course={result.value} />;
 }
 
-function CourseLoadFailed() {
+/** The course page when its read failed: no title to show, so its own heading. */
+export function CourseLoadFailed() {
   return (
     <CatalogPage>
       <section className="flex max-w-prose flex-col gap-4">
@@ -33,7 +34,7 @@ function CourseLoadFailed() {
 // (WP-5.2), and a link to a page that does not exist is a dead control
 // (CLAUDE.md rule 3). The begin or continue action and each lesson's state
 // arrive with progress (WP-5.4).
-function CourseView({ course }: { course: PublishedCourse }) {
+export function CourseView({ course }: { course: PublishedCourse }) {
   const lessonCount = course.chapters.reduce((sum, chapter) => sum + chapter.lessons.length, 0);
   const outcomes = course.outcomes.filter((outcome) => outcome.trim() !== "");
   return (

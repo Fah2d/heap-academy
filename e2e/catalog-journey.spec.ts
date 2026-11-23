@@ -1,0 +1,269 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+import { catalogCommon, courseList, coursePage, home } from "../src/messages/catalog";
+import { shell } from "../src/messages/shell";
+import { sql, sqlRows } from "./admin-helpers";
+import { saveScreen } from "./screens";
+
+// WP-5.1 against the local stack: the home page, the course list and a course
+// page show only published content, with the counts the database holds
+// (FR-LND-02, FR-CAT-01, FR-CAT-04, FR-CRS-01); each page has its title and
+// canonical address and may be indexed (FR-SEO-01); nothing scrolls sideways
+// at 320 px (NFR-A11Y-05). Screens at 375, 768 and 1280 px.
+//
+// The course is written straight into the database as the seed writes its
+// sample course: each lesson saved through save_lesson as validated, then
+// published, so the publish rule holds.
+
+test.describe.configure({ mode: "serial" });
+
+const ORIGIN = "https://heapacademy.dev";
+const WIDTHS = [320, 375, 768, 1280];
+// The published content is cached for 60 seconds
+// (CONTENT_REVALIDATE_SECONDS in src/content/published.ts). A course list
+// read by an earlier test can hide a new course for that long, and the first
+// view after it still answers the old list while it refreshes.
+const CACHE_WINDOW_MS = 75_000;
+
+const stamp = Date.now();
+const SLUG = `catalog-${String(stamp)}`;
+const DRAFT_SLUG = `catalog-draft-${String(stamp)}`;
+const COURSE = {
+  title: "Catalog check",
+  summary: "A course made by the catalog journey.",
+  outcomes: ["Read a course page", "Count its lessons"],
+  publishedChapter: "Published chapter",
+  publishedChapterSummary: "Two published lessons and one draft.",
+  draftChapter: "Drafts only",
+  lessons: ["Print a line", "Print two lines"],
+  draftLesson: "Not ready yet",
+  draftCourse: "Draft course",
+};
+
+/** One lesson, saved as validated like the seed's, then published or left a draft. */
+function lessonStatements(
+  course: string,
+  chapter: string,
+  slug: string,
+  title: string,
+  position: number,
+  publish: boolean,
+): string {
+  return `
+  insert into public.lessons (course_id, chapter_id, slug, title, position)
+    values (${course}, ${chapter}, '${slug}', '${title}', ${String(position)})
+    returning id into lesson;
+  perform public.save_lesson(
+    lesson, (select updated_at from public.lessons where id = lesson), ${chapter},
+    '${slug}', '${title}', ${String(position)}, 10, 'Print one line.', '[]', '',
+    '[{"id": "prints", "name": "Prints the line", "stdin": "", "expected": "hello"}]',
+    'print("hello")', '[]', true);
+  ${publish ? "update public.lessons set status = 'published' where id = lesson;" : ""}`;
+}
+
+function seedCourses() {
+  sql(`do $journey$
+declare
+  course uuid := gen_random_uuid();
+  draft_course uuid := gen_random_uuid();
+  published_chapter uuid := gen_random_uuid();
+  draft_chapter uuid := gen_random_uuid();
+  other_chapter uuid := gen_random_uuid();
+  lesson uuid;
+begin
+  insert into public.courses (id, slug, title, summary, outcomes) values (
+    course, '${SLUG}', '${COURSE.title}', '${COURSE.summary}',
+    '${JSON.stringify(COURSE.outcomes)}');
+  insert into public.chapters (id, course_id, title, summary, position) values
+    (published_chapter, course, '${COURSE.publishedChapter}', '${COURSE.publishedChapterSummary}', 0),
+    (draft_chapter, course, '${COURSE.draftChapter}', '', 1);
+  ${lessonStatements("course", "published_chapter", "first", COURSE.lessons[0] ?? "", 0, true)}
+  ${lessonStatements("course", "published_chapter", "second", COURSE.lessons[1] ?? "", 1, true)}
+  ${lessonStatements("course", "published_chapter", "draft", COURSE.draftLesson, 2, false)}
+  ${lessonStatements("course", "draft_chapter", "only-draft", COURSE.draftLesson, 0, false)}
+  update public.courses set status = 'published' where id = course;
+
+  -- A draft course with a published lesson: the course's own status hides it.
+  insert into public.courses (id, slug, title, summary) values (
+    draft_course, '${DRAFT_SLUG}', '${COURSE.draftCourse}', '${COURSE.summary}');
+  insert into public.chapters (id, course_id, title) values
+    (other_chapter, draft_course, '${COURSE.publishedChapter}');
+  ${lessonStatements("draft_course", "other_chapter", "first", COURSE.lessons[0] ?? "", 0, true)}
+end;
+$journey$;`);
+}
+
+function removeCourses() {
+  const slugs = `('${SLUG}', '${DRAFT_SLUG}')`;
+  const ids = `(select id from public.courses where slug in ${slugs})`;
+  sql(`delete from public.lessons where course_id in ${ids};
+delete from public.chapters where course_id in ${ids};
+delete from public.courses where slug in ${slugs};`);
+}
+
+/** The published courses with their published lesson counts, as the database holds them. */
+function publishedCounts(): Map<string, number> {
+  const rows = sqlRows(`select c.title, count(l.id)
+from public.courses c
+join public.lessons l on l.course_id = c.id and l.status = 'published'
+where c.status = 'published'
+group by c.id, c.title`);
+  return new Map(rows.map(([title, count]) => [title ?? "", Number(count)]));
+}
+
+async function noSidewaysScroll(page: Page) {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+}
+
+async function indexableAt(page: Page, path: string) {
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
+    "href",
+    path === "/" ? ORIGIN : `${ORIGIN}${path}`,
+  );
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+}
+
+/** Every row of the course list under `heading` shows the database's count, and only those rows. */
+async function expectRowsMatchDatabase(page: Page, heading: string) {
+  const counts = publishedCounts();
+  expect(counts.get(COURSE.title)).toBe(COURSE.lessons.length);
+  expect(counts.has(COURSE.draftCourse)).toBe(false);
+  const list = page.getByRole("list", { name: heading });
+  await expect(list.getByRole("listitem")).toHaveCount(counts.size);
+  for (const [title, count] of counts) {
+    const row = list
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("link", { name: title, exact: true }) });
+    await expect(row.getByText(catalogCommon.lessonCount(count), { exact: true })).toBeVisible();
+  }
+}
+
+test.beforeAll(() => {
+  seedCourses();
+});
+
+test.afterAll(() => {
+  removeCourses();
+});
+
+test("[FR-CAT-01] [FR-CAT-04] the course list shows only published courses, with the database's counts", async ({
+  page,
+}) => {
+  test.setTimeout(CACHE_WINDOW_MS + 60_000);
+  await expect(async () => {
+    await page.goto("/courses");
+    await expect(page.getByRole("link", { name: COURSE.title, exact: true })).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: CACHE_WINDOW_MS });
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(courseList.heading);
+  await expectRowsMatchDatabase(page, courseList.heading);
+  await expect(page.getByRole("link", { name: COURSE.draftCourse })).toHaveCount(0);
+  await expect(page).toHaveTitle(`${courseList.title} | Heap Academy`);
+  await indexableAt(page, "/courses");
+  await expect(
+    page
+      .getByRole("navigation", { name: shell.mainNavigation })
+      .getByRole("link", { name: catalogCommon.coursesLink }),
+  ).toHaveAttribute("aria-current", "page");
+
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    await noSidewaysScroll(page);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    if (width !== 320) await saveScreen(page, "courses", width, { workPackage: "WP-5.1" });
+  }
+});
+
+test("[FR-LND-02] [FR-LND-03] the home page says what this is and lists the published courses", async ({
+  page,
+}) => {
+  test.setTimeout(CACHE_WINDOW_MS + 60_000);
+  await expect(async () => {
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: COURSE.title, exact: true })).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: CACHE_WINDOW_MS });
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(home.heading);
+  await expectRowsMatchDatabase(page, home.coursesHeading);
+  await expect(page.getByText(home.how)).toBeVisible();
+  await expect(page).toHaveTitle(home.title);
+  await indexableAt(page, "/");
+
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    await noSidewaysScroll(page);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    if (width !== 320) await saveScreen(page, "home", width, { workPackage: "WP-5.1" });
+  }
+});
+
+test("[FR-CRS-01] [FR-SEO-01] the course page shows the published chapters and lessons in order", async ({
+  page,
+}) => {
+  await page.goto("/courses");
+  await page.getByRole("link", { name: COURSE.title, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/courses/${SLUG}$`));
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(COURSE.title);
+  await expect(page.getByText(COURSE.summary, { exact: true })).toBeVisible();
+  await expect(page.getByText(coursePage.size(COURSE.lessons.length, 1))).toBeVisible();
+  await expect(page.getByRole("list", { name: coursePage.outcomesHeading })).toHaveText(
+    new RegExp(COURSE.outcomes.join(".*")),
+  );
+  await expect(page.getByRole("heading", { level: 3 })).toHaveCount(1);
+  await expect(page.getByRole("heading", { level: 3 })).toContainText(COURSE.publishedChapter);
+  await expect(page.getByText(COURSE.publishedChapterSummary)).toBeVisible();
+  const lessons = page
+    .getByRole("list", { name: coursePage.chapterLessonsLabel(COURSE.publishedChapter) })
+    .getByRole("listitem");
+  await expect(lessons).toHaveText([
+    `${coursePage.lessonNumber(1, 1)} ${COURSE.lessons[0] ?? ""}`,
+    `${coursePage.lessonNumber(1, 2)} ${COURSE.lessons[1] ?? ""}`,
+  ]);
+  await expect(page.getByText(COURSE.draftLesson)).toHaveCount(0);
+  await expect(page.getByText(COURSE.draftChapter)).toHaveCount(0);
+
+  await expect(page).toHaveTitle(`${COURSE.title} | Heap Academy`);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", COURSE.summary);
+  await indexableAt(page, `/courses/${SLUG}`);
+  // A course page is not the course list, so Courses is not marked current.
+  await expect(
+    page
+      .getByRole("navigation", { name: shell.mainNavigation })
+      .getByRole("link", { name: catalogCommon.coursesLink }),
+  ).not.toHaveAttribute("aria-current");
+
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    await noSidewaysScroll(page);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    if (width !== 320) await saveScreen(page, "course", width, { workPackage: "WP-5.1" });
+  }
+});
+
+test("[FR-CAT-04] a draft course answers not found and is left out of the sitemap", async ({
+  page,
+  request,
+}) => {
+  const response = await page.goto(`/courses/${DRAFT_SLUG}`);
+  expect(response?.status()).toBe(404);
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+
+  const sitemap = await (await request.get("/sitemap.xml")).text();
+  expect(sitemap).toContain(`${ORIGIN}/courses/${SLUG}`);
+  expect(sitemap).not.toContain(DRAFT_SLUG);
+});
+
+test("[FR-SEO-01] sign-in and the admin door ask not to be indexed", async ({ page }) => {
+  for (const path of ["/sign-in", "/admin", "/admin/setup", "/admin/verify"]) {
+    await page.goto(path);
+    await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", /noindex/);
+  }
+});

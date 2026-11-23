@@ -109,3 +109,27 @@ export const adminGallery = {
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",
 } as const;
+
+// The development-only page that shows the catalog's states that the local
+// stack cannot show on demand: no course, and a read that failed (WP-5.1).
+export const catalogGallery = {
+  title: "Catalog states",
+  intro:
+    "The course list's and the course page's states that need an empty or a failing database. The rows are sample content, not published courses.",
+  listEmpty: "Course list with no course",
+  listFailed: "Course list that could not load",
+  listRows: "Course list with courses, one with the longest title the dashboard allows",
+  courseFailed: "Course page that could not load",
+  courseNoOutcomes: "Course page with no outcomes, one chapter with no summary",
+  sampleCourse: "Python basics",
+  sampleSummary: "Print text, keep values in names, and do sums.",
+  longCourse: "Reading and writing text files, one careful line at a time",
+  longSummary:
+    "Open a file, read it line by line, and write what you found to a new file without losing a word.",
+  firstChapter: "First steps",
+  firstChapterSummary: "Your first program, and what print does.",
+  secondChapter: "Numbers and the arithmetic you already know from school",
+  lessonHello: "Say hello",
+  lessonNames: "Keep a value in a name",
+  lessonSums: "Add two numbers that someone typed",
+} as const;

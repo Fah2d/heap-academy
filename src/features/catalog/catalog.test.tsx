@@ -2,6 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { catalogCommon, courseList, coursePage, home } from "@/messages/catalog";
+import { catalogGallery } from "@/messages/gallery";
 import { notFound as notFoundWords } from "@/messages/system";
 
 // The home page, the course list and the course page (WP-5.1;
@@ -38,6 +39,7 @@ const { HomePage } = await import("./components/home-page");
 const { CourseListPage } = await import("./components/course-list-page");
 const { CoursePage } = await import("./components/course-page");
 const { CoursesNavLink } = await import("./components/courses-nav-link");
+const { CatalogStateGallery } = await import("./components/catalog-state-gallery");
 const { courseListMetadata, courseMetadata, homeMetadata } = await import("./server/metadata");
 
 const TWO_COURSES = [
@@ -301,5 +303,27 @@ describe("titles, descriptions and canonical addresses [FR-SEO-01]", () => {
       title: coursePage.loadFailedTitle,
       robots: { index: false },
     });
+  });
+});
+
+describe("the catalog state gallery (development only)", () => {
+  it("shows the empty, failed and filled course list and the failed and plain course page", () => {
+    render(<CatalogStateGallery />);
+    const region = (name: string) => screen.getByRole("region", { name });
+    expect(within(region(catalogGallery.listEmpty)).getByText(courseList.empty)).toBeTruthy();
+    expect(within(region(catalogGallery.listFailed)).getByText(courseList.loadFailed)).toBeTruthy();
+    const rows = within(region(catalogGallery.listRows));
+    expect(rows.getByRole("link", { name: catalogGallery.longCourse })).toBeTruthy();
+    expect(rows.getByText(catalogCommon.lessonCount(3))).toBeTruthy();
+    const failed = within(region(catalogGallery.courseFailed));
+    expect(
+      failed.getByRole("heading", { level: 1, name: coursePage.loadFailedTitle }),
+    ).toBeTruthy();
+    const course = within(region(catalogGallery.courseNoOutcomes));
+    expect(
+      course.getByRole("heading", { level: 1, name: catalogGallery.sampleCourse }),
+    ).toBeTruthy();
+    expect(course.getByText(coursePage.size(3, 2))).toBeTruthy();
+    expect(course.queryByRole("heading", { name: coursePage.outcomesHeading })).toBeNull();
   });
 });
