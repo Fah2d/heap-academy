@@ -2,6 +2,33 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 18:40), in `night-b`, on `wp/5.1-catalog`
+
+Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 2 (task 3).
+
+### Task 3, part 2 done: the home page, the course list, the course page, and Courses in the header
+
+- Read `DESIGN.md` (signed, revision 2), `.claude/rules/ui-design.md`, 03-experience sections 3 to 5, 8 and 9, and the antislop skills; antislop in `during` mode.
+- Built test first in 1fba0b1 and 7ac30d7: `/`, `/courses` and `/courses/[course]` from `src/content`, with the empty and could-not-load states, 404 for a course that is not published, titles, descriptions and canonical paths, and `noindex` when a read fails; Courses in a "Main" header landmark, current only on `/courses`; a test that the catalog reads only through `src/content`.
+- The first build logged two failed content reads: the build tried to prerender the pages. Each catalog read now waits for the request (`connection()`); the next build logged none.
+- `pnpm verify`: exit 0, 62 files, 1104 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- The built app under `next start` with no database: `/` and `/courses` 200 with the error notice and `noindex`; `/courses/python-basics` 200 "This course could not be loaded" with `noindex`; `/courses/Not_A_Slug` 404. One read per request.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now with twelve decisions (new: 8 the home paragraph describes the lesson page before it exists; 9 a failed read is shown in the page with `noindex`; 10 the course title link is weight 500; 11 `aria-current` only on `/courses`; 12 the header wraps).
+- Time: about 0.75 hours of the 3 hour box over two parts.
+- Not run: e2e, axe, screenshots, database tests. No browser or local Supabase stack here.
+- Two `next start` servers from this run may still be listening on ports 3451 and 3452. The sandbox hides them from `ps` and `pkill`, so they could not be stopped from here.
+- Push: see the line after this one.
+
+### Owner: run this
+
+1. If `lsof -ti:3451,3452` shows anything: `lsof -ti:3451,3452 | xargs kill`.
+2. Read WP-5.1 decisions 8 to 12 when convenient.
+3. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 3, WP-5.1 part 3, in `night-b` on `wp/5.1-catalog`: e2e for the three pages against the local stack (counts against the database, 320 px with no page scroll, every non-indexed page `noindex`), a way to show the empty and failed states in a browser, screenshots, axe, and the Delivery Gate report. If this sandbox still has no browser, write the specs and the gallery and leave the runs to the owner.
+
 ## Session of 2026-11-23 (from about 18:15), in `night-b`, on `wp/5.1-catalog`
 
 Same task list as the sessions below. Tasks 1 and 2 were done; this run started task 3 and did WP-5.1 part 1.
