@@ -80,9 +80,12 @@ export const privacy: LegalDocument = {
           "Your time zone, which your browser tells us, so that a streak day starts and ends at midnight where you live.",
           "Each lesson you complete, with the code that passed its tests, so that your progress is the same on every device you use.",
           "The time you last signed in, and the network address of each device where you are signed in. Our sign-in provider keeps these to protect your account.",
-          "If you sign in with Google, the profile that Google shares for sign-in: your email address, your name, and your profile picture. Our sign-in provider keeps it.",
+          "If you sign in with Google, the profile that Google shares for sign-in: your email address, your name, your profile picture, and your Google account ID. Our sign-in provider keeps it.",
         ),
         paragraph("We keep these until you delete your account."),
+        paragraph(
+          "Our sign-in provider also keeps a log of account events, such as each sign-in and sign-out. Each entry has the time, your account's ID, the type of device and browser, and sometimes the network address. This log can stay after you delete your account, for as long as the provider keeps its logs.",
+        ),
         paragraph(
           "When you sign in, your browser stores a cookie that keeps you signed in. We do not use cookies for advertising or to follow you to other sites.",
         ),
@@ -93,9 +96,9 @@ export const privacy: LegalDocument = {
       heading: "What we learn from every visit",
       blocks: [
         list(
-          "Our hosting provider counts page views without cookies. With each view it records the page, the site that sent you, your rough location, and your type of device, system, and browser. It holds no email address, name, code, or text that you typed. It can tell one visitor from another for one day only. The provider decides how long it keeps the count.",
+          "Our hosting provider counts page views without cookies. With each view it records the page, the site that sent you, the place you are in (such as your city), and your type of device, system, and browser. It holds no email address, name, code, or text that you typed. It can tell one visitor from another for one day only. The provider decides how long it keeps the count.",
           "Our hosting provider keeps server logs and error reports, so that we can find and fix problems. A log entry can include your network address and the page you asked for. The provider decides how long it keeps them.",
-          "To stop abuse, we count the requests that come from each network address.",
+          "To stop abuse, our hosting provider and our database count the requests that come from each network address.",
         ),
       ],
     },
@@ -131,10 +134,10 @@ export const privacy: LegalDocument = {
       heading: "Deleting your account",
       blocks: [
         paragraph(
-          "You can delete your account yourself, on your profile page. You do not need to contact anyone. Deleting it erases your email address, display name, time zone, and completed lessons with their code.",
+          'You can delete your account yourself, on your profile page. You do not need to contact anyone. Deleting it erases everything listed under "When you have an account", except the log of account events.',
         ),
         paragraph(
-          "When you delete your account, we receive one email with the account's ID, and no name or email address. If we ever have to restore a backup, this ID lets us delete your account from it again. We delete that email after 8 days, when no backup with your data is left.",
+          "When you delete your account, we receive one email in our own inbox, with the account's ID and no name or email address. If we ever have to restore a backup, this ID lets us delete your account from it again. We delete that email after 8 days, when no backup with your data is left.",
         ),
         paragraph(
           "Code and progress saved in your browser stay there until you clear this site's data in your browser.",
@@ -146,7 +149,7 @@ export const privacy: LegalDocument = {
       heading: "What we do not collect",
       blocks: [
         paragraph(
-          "We do not collect advertising identifiers or contact lists, and we do not ask for your location. Your time zone tells us roughly where you are, and nothing more.",
+          "We do not collect advertising identifiers or contact lists, and we do not ask for your location. We learn roughly where you are only from your time zone, and from the place that our hosting provider records with each page view.",
         ),
       ],
     },

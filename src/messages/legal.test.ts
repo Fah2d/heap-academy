@@ -43,8 +43,6 @@ describe("legal text", () => {
 
     it(`[FR-SYS-03] writes the ${content.title} without empty text, em dashes or exclamation marks`, () => {
       for (const text of words(content)) {
-        // A link's closing full stop is a word of its own.
-        if (text === ".") continue;
         expect(text.trim()).not.toBe("");
         expect(text).not.toMatch(/[—!]/);
       }
@@ -73,7 +71,8 @@ describe("legal text", () => {
       "encrypted copy",
       "last signed in",
       "network address",
-      "your name, and your profile picture",
+      "your name, your profile picture, and your Google account ID",
+      "log of account events",
     ]) {
       expect(privacyText, data).toContain(data);
     }
