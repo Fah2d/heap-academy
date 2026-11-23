@@ -2,6 +2,32 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 19:10), in `night-b`, on `wp/5.1-catalog`
+
+Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 3 (task 3).
+
+### Task 3, part 3 done: the indexing test, the catalog gallery, the e2e specs, the Delivery Gate report
+
+- d231b32: `src/app/indexing.test.ts` finds every `page.tsx` and fails on a page missing from the indexing table of 03-experience section 3; sign-in and every admin page (at each stage of the admin door) must say `noindex`, the catalog pages must not. Two mutations (sign-in indexed; `noindex` removed from `adminMetadata`) each failed it.
+- 173ba6a: `/dev/catalog`, a development-only gallery of the course list's and course page's empty and failed states; `e2e/catalog-gallery.spec.ts` (320 to 1280 px, axe, screenshots); `e2e/catalog-journey.spec.ts` against the local stack (counts equal the database, only published content, titles, canonical addresses, 404 and sitemap for a draft course, `noindex` on sign-in and the admin door, 320 px, axe, screenshots); `sqlRows` in `e2e/admin-helpers.ts`; `catalog` added to the log route segments.
+- `pnpm verify`: exit 0, 63 files, 1131 tests. `pnpm build` with CI's fake public values: exit 0, no `/dev` route in the build. `check-bundle` and `check-static`: exit 0.
+- Not run: every e2e spec, so no axe result, 320 px measurement or screenshot. In this sandbox `next dev` fails (`unable to start FSEvent stream`; with polling, `EMFILE` and restarts), Chromium cannot start (`MachPortRendezvousServer ... Permission denied (1100)`), and Docker is not running.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now with the part 3 evidence, the Delivery Gate report (from source, with NOT VERIFIED lines), and sixteen decisions (new: 13 the journey waits up to 75 seconds for the content cache; 14 it writes content through `save_lesson` like the seed; 15 `/admin/courses/new` not indexed; 16 the gallery's sample content).
+- Time: about 1.3 hours of the 3 hour box over three parts.
+- Servers this run could not stop (the sandbox hides them from `pkill`): a `next dev` on port 3101 (it may be in a restart loop) and a `next start` on port 3453.
+- Push: see the line below.
+
+### Owner: run this
+
+1. `lsof -ti:3101,3451,3452,3453 | xargs kill` if anything is listed.
+2. With `supabase start`: `pnpm test:e2e --project=stack e2e/catalog-journey.spec.ts` and `pnpm test:e2e --project=gallery e2e/catalog-gallery.spec.ts`; look at `docs/reports/screens/WP-5.1/` and commit the screens.
+3. Read WP-5.1 decisions 13 to 16 when convenient.
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 3, WP-5.1 part 4, in `night-b` on `wp/5.1-catalog`: `code-reviewer`, `security-reviewer` and `design-reviewer` on `origin/wp/4.1-courses-chapters..HEAD`, reports in `docs/reports/reviews/WP-5.1/`, fix the findings test first, verify and build again, finish the description. The design review will lack screenshots unless the owner has run the e2e specs.
+
 ## Session of 2026-11-23 (from about 18:40), in `night-b`, on `wp/5.1-catalog`
 
 Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 2 (task 3).
