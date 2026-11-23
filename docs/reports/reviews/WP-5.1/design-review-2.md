@@ -1,0 +1,26 @@
+# WP-5.1 design review 2 (condensed)
+
+Reviewer: design-reviewer, of `af42bd5..08c8087`, checked against `origin/wp/4.1-courses-chapters..HEAD` where the fixes touch it; from source, the build of HEAD, and `next start` on port 4317 with no database (every read fails). antislop active: during (global preference). Verdict: CHANGES REQUIRED: no screenshots exist yet, and the gallery spec would fail before it saves `catalog-states`.
+
+Round 1 status:
+
+- BLOCKER 1 (no screenshots, axe, 320 px, click-through): open. `docs/reports/screens/` has only `WP-1.4`. Finding 1 also stops the gallery spec from saving its screens.
+- BLOCKER 2 (the stack project saved no screens): fixed. `e2e/screens.ts:10` includes `stack`; `catalog-journey.spec.ts:293-300` checks the nine files. Passed to code review: that check also passes on files left from an earlier run.
+- BLOCKER 3 (three wrong Gate lines): fixed (no footer, focal point, accent). New wrong lines in finding 3.
+- MAJOR 4 (no primary action): listed as Deviation 1 with a recommendation and a default; open until the owner decides the merge order.
+- MAJOR 5 (empty pages never shown whole): fixed in code (`catalog-state-gallery.tsx:66-71`), not seen.
+- MINOR 6 (course page failure looked different): gone with the in-page failure; its replacement is the shared error page approved in WP-1.4.
+- MINORs 7 to 10 (heading sizes, heading link at 600, metadata `text-xs`, chapters at `max-w-prose`): fixed.
+- MINOR 11 (copy): fixed in the catalog; the vague phrase now reaches visitors through the error page (finding 4).
+- MINOR 12 (gallery frames and `h1`s): fixed in part; decision 18 records it. The rework causes finding 1.
+
+Findings:
+
+1. BLOCKER, `catalog-state-gallery.tsx:69-74`, `course-list-page.tsx:15-16`, `course-rows.tsx:27`: `CourseListView` is rendered twice, so `id="courses-heading"` appears twice and is named by `aria-labelledby` from the section and the `ul`. axe-core 4.14.0's `duplicate-id-aria` (wcag2a, wcag412) fails, and three regions named "Courses" fail `landmark-unique`. The check at `catalog-gallery.spec.ts:48` fails at every width, so `saveScreen` never runs. Fix: one state per request (for example `/dev/catalog?state=home-empty`), so each screen is the real page alone; do not exclude the rules.
+2. MAJOR, `reads.ts:19-32`, `metadata.ts`: the "Could not load" state is drawn only by JavaScript and has never been seen in the catalog. On port 4317, `/`, `/courses` and `/courses/python-basics` answer 500 with `<html id="__next_error__">`, no `lang`, no `<title>`, no visible text; first byte after 7.0 s, the whole document after 14.0 s; two `content-read-failed` lines per request where part 2 had one. On `/`, "Go to the home page" leads back to the page that failed. Fix: owner confirms decision 9 with these measurements; photograph and axe the real failure (the `chromium` project serves the production build with the fake Supabase address); leave out the home link when the failed page is `/`; pass the doubled read to code review.
+3. BLOCKER, PR description Delivery Gate: five lines contradict the code or the build. R-39 "lists named by their headings": the chapters `<ol>` (`course-page.tsx:56`) has no name, and "`lang` and `<title>` from the root layout" is false for the 500 document. R-27 is PASS for "could not load" and says nothing loads in the browser; that state is drawn only in the browser and was not seen: NOT VERIFIED. R-26 "No button": the failure state has Try again. R-35 and the Gate's header cite part 2's built HTML, which part 4 replaced. Block 3 "one column at the page width": chapters stop at 68ch. Fix: correct each line; add `aria-labelledby` to the chapters `ol`.
+4. MINOR, `system.ts:13` (WP-1.4): "Something failed on our side while we prepared this page. Try again." is now what visitors see when the catalog fails. Fix in a separate copy change: "We could not prepare this page. Try again."
+
+Checks out: no em or en dash in changed `src` or `e2e` files; no stale `loadFailed`, `errorLabel` or `CourseLoadFailed` in the catalog; every new utility class is in the built CSS and reads from tokens; `.next/server/app/dev` absent and `/dev/catalog` 404; `/courses/Not_A_Slug` 404 "Page not found | Heap Academy"; `robots.txt` 200; amber only on links and the current-page bar; each item heading one step below its section heading; the empty home page reads as 03-experience 5.1 orders it.
+
+Ran: `git log` and `git diff` over both ranges; read DESIGN.md, 03-experience 1-5 and 8-10.9, round 1, the description, components, messages, `link.tsx`, `error-view.tsx`, `screens.ts`, `playwright.config.ts`, both catalog specs; `pnpm build` with CI's fake values (a clean build of HEAD from 20:38 was served); `next start -p 4317` and `curl` of `/`, `/courses`, `/courses/python-basics`, `/courses/Not_A_Slug`, `/sitemap.xml`, `/robots.txt`, `/dev/catalog` (500, 500, 500, 404, 500, 200, 404) with timings and the server log; `vitest run` on catalog, primitives, content and indexing (`Tests 118 passed (118)`); axe-core rule tags from `node_modules`. Not run: any browser (no screenshots, axe, 320 px, focus, keyboard, reduced motion); pages with published content; any e2e spec. Screenshots looked at: `docs/reports/screens/WP-1.4/error-375.png` and `error-1280.png`; no WP-5.1 screenshot exists.

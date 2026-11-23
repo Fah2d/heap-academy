@@ -2,6 +2,35 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
+
+Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 5 (task 3), the last part.
+
+### Task 3, part 5 done: review round 2 and its fixes
+
+- Review round 2 on `af42bd5..08c8087`, reports `docs/reports/reviews/WP-5.1/*-review-2.md`. Security: APPROVE with three minors. Code: CHANGES REQUIRED (BLOCKER 1: the journey's setup checked an unscoped `role="status"` on a page with three, so it could never pass). Design: CHANGES REQUIRED (round 1 BLOCKER 1 still open, no screenshots; new BLOCKER: the gallery repeated an id, so axe would fail before any screen; new BLOCKER: five wrong Delivery Gate lines; MAJOR: the failure state is drawn only by JavaScript).
+- 4cd37c7: each gallery state at its own address (`/dev/catalog?state=...`), drawn alone; the chapter list named by its heading; `max-inline-*` and `min-block-target` in what this branch adds (decision 22 was wrong); the error page leaves out its home link on `/`.
+- dff1adb: the journey's status check scoped to the Status panel; one cleanup that moves a published course back to draft through the dashboard first; the page data check asserts `text/x-component`; the screens check wants files from this run; the boundary test finds route files by their imports and sees `require`, `next/headers` and relative paths (two mutations failed it); the indexing test fails when its page extensions differ from `next.config.ts` (one mutation failed it).
+- `pnpm verify`: exit 0, 63 files, 1149 tests. `next build` with CI's fake values: exit 0, no `/dev` route, no gallery string in `.next/static`, the logical classes in the built CSS. `check-bundle` and `check-static`: exit 0.
+- Not changed, for the owner: security MINOR A (a backtick `import()` passes `scripts/eslint/module-boundaries.mjs`; an enforcement control, older than this branch); design finding 4 (the WP-1.4 error page wording); the cause of two content reads per failed request (recorded in decision 9).
+- Not run: every e2e spec (no browser, `next dev` fails, no Docker).
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now part 5 of 5, with items 26 to 35, part 5 evidence, round 2 summary, corrected Delivery Gate lines, decisions 9 and 22 changed and 23 to 25 new, owner actions 4 to 6.
+- Time: about 2.2 hours of the 3 hour box over five parts.
+- Servers: the reviewers' `next start` servers on ports 4138, 4317 and 4518 were stopped by the sandbox's time limit; none is left from this run.
+- Push: see the line below.
+
+### Owner: run this
+
+1. `lsof -ti:3101,3451,3452,3453,3461,3917,3918 | xargs kill` if anything is listed (from earlier runs).
+2. With `supabase start`: `pnpm test:e2e --project=stack e2e/catalog-journey.spec.ts` and `pnpm test:e2e --project=gallery e2e/catalog-gallery.spec.ts`; commit `docs/reports/screens/WP-5.1/`; then ask `design-reviewer` for its approval with the screens.
+3. Decide WP-5.1 deviation 1 (merge order with WP-5.2 for the Begin action), decision 9 (500 with the error page, now with the round 2 measurements), and owner actions 5 and 6 in the description.
+4. Create the draft pull request with the `gh` command at the end of the description, after step 2.
+5. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 3 is done as far as this sandbox allows: WP-5.1 waits for the owner's e2e run and decisions. No task is left in the list.
+
 ## Session of 2026-11-23 (from about 19:55), in `night-b`, on `wp/5.1-catalog`
 
 Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 4 (task 3).
