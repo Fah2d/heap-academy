@@ -2,12 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { AccountControl } from "@/features/auth";
+import { SITE_ORIGIN } from "@/features/catalog";
 import { fontVariables, SiteShell } from "@/features/shell";
 import { documentAttributes, LOCALE } from "@/messages/locale";
 import { shell } from "@/messages/shell";
 import "@/ui/styles.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_ORIGIN),
   title: { default: shell.productName, template: shell.titleTemplate },
   description: shell.description,
 };
