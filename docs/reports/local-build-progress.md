@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 05:01), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 2, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first: the test case list in the lesson editor (`src/features/admin/components/test-case-list.tsx`): add, duplicate, move up, move down, delete, the limit of 12, every field with its section 7.5 description, a message per field, focus kept in the list; Save checks the test cases, opens the one with a problem and focuses its field; test case edits count as unsaved; the `Disclosure` primitive takes controlled props; two new `/dev/admin` states; an e2e gallery test (written, not run).
+- Commit a95b8ba at 05:08. `pnpm verify`: exit 0, 93 files, 1755 tests.
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `4f90372..a95b8ba`. This progress commit is pushed after it.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with five open decisions (two new: plain text areas for test case fields; Delete asks nothing). Do not open it until part 3 is done.
+- No reviews yet. No e2e run, no screenshots, no database tests (no migration changed).
+- The runbook `docs/runbooks/published-lesson-wrong.md` waits for part 3, because it names the Unpublish control part 3 builds.
+
+### Owner: run this
+
+1. Unchanged from the session before: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 3, on `wp/4.3-validate-publish`: Validate and Stop with the checklist (section 7.6) on the runtime controller, the verdict per test case with actual output, "Fill from solution", Save on a published lesson validating first, Publish, Unpublish and Archive with confirmations, the states "Python loading", "validating" and "validation failed" with gallery states; the runbook; J-13; code, security and design review. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-23 (from about 04:20), in `night-a`, on `wp/4.3-validate-publish`
 
 ### WP-4.3 Test cases, validation, publishing: part 1, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
