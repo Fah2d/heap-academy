@@ -2,6 +2,30 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from 00:25), in `night-c`, on `wp/7.3-operations`
+
+Same task list as the sessions below. WP-6.3 part 1 and WP-7.3 part 1 were already done, so this run did WP-7.3 part 2 on the same branch. `origin/main` is still 0efe863.
+
+### WP-7.3 part 2 done: two runbooks, `wp/7.3-operations`
+
+- Scope: `docs/runbooks/rotate-a-secret.md` and `docs/runbooks/usage-spike-or-free-tier-limit.md`, plus two small corrections in `deploy-and-rollback.md` (where an expired Vercel token fails) and `infrastructure-setup.md` (deactivate Supabase's legacy keys; account deletion is WP-6.3). Every vendor step was checked against current vendor documentation; each runbook lists its sources and what was not confirmed.
+- Analytics **not built**: Vercel's documented HTML snippet needs a per-build script path that only its npm packages know, and installing packages is not allowed in these runs. Decision C in the description.
+- Commits: 1590d7b (runbooks), abe78e3, 2ce4040, e4638f2 (review fixes), then the description and this file.
+- `pnpm verify` exit 0 after each round (31 files, 722 tests). One unexplained exit 1 in a reviewer's run on 2ce4040; four other runs there and three `pnpm test` runs on e4638f2 passed.
+- Reviews in `docs/reports/reviews/WP-7.3/` (rounds 2 to 4 of `code-review-*` and `security-review-*`): every round CHANGES REQUIRED, every finding fixed; the round 4 fixes (e4638f2) were not reviewed again. No design review: no interface change.
+- Description: `docs/reports/pull-requests/WP-7.3-part-2.md`, with decisions C (analytics packages), D (spec drift for one `spec-change`: Attack Mode name, missing triggers, `RUNTIME_ASSET_BASE_URL`, a new evidence entry) and E (`workflow_dispatch` for `deploy.yml`), and the `gh` commands to open the pull request with both parts.
+
+### Owner: run this
+
+1. **Now**: deactivate the legacy `anon` and `service_role` keys in both Supabase projects (`rotate-a-secret.md` section 4 steps 1 to 3).
+2. Decide C, D and E in `docs/reports/pull-requests/WP-7.3-part-2.md`.
+3. The part 1 steps below are still due; then open the pull request with the command at the end of the part 2 description.
+
+### Next
+
+- WP-7.3 analytics after decision C. The backup workflow, restore and deletion request runbooks, and the backup secrets' rotation sections after WP-2.1 (and WP-6.3 part 2) merge.
+- No other Day 6 or Day 7 package depends only on `main` (see the 23:40 session's "Next"). The next run should check `origin/main` first; if nothing has merged, there is no new package to start under this task list.
+
 ## Session of 2026-11-24 (from 00:05), in `night-c`, on `wp/7.3-operations`
 
 Same task list as the session below. This file is the copy from `origin/wp/6.3-legal-pages-footer` (00:02) with this section added. Other agents' branches (`wp/3.1-python-worker`, `wp/3.3-grader`, `wp/5.1-catalog`) hold newer copies with their own sections; nothing of theirs is copied here.
