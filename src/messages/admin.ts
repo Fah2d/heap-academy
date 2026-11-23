@@ -306,6 +306,9 @@ export const lessonStatus = {
 
 const count = new Intl.NumberFormat("en");
 
+const testCaseGroup = (n: number) => `Test case ${String(n)}`;
+const testCaseTitleName = (name: string) => (name.trim() === "" ? ": no name yet" : `: ${name}`);
+
 /** The test case list of the lesson editor (docs/spec/03-experience.md section 7.5; FR-ADM-05). */
 export const testCaseList = {
   intro: (limit: number) =>
@@ -314,15 +317,14 @@ export const testCaseList = {
   full: (limit: number) =>
     `This lesson has ${count.format(limit)} test cases, the most a lesson can have.`,
   add: "Add a test case",
-  title: (n: number, name: string) =>
-    name.trim() === "" ? `Test case ${String(n)}: no name yet` : `Test case ${String(n)}: ${name}`,
   /** The group around one test case's fields, and the number at the start of its title. */
-  group: (n: number) => `Test case ${String(n)}`,
+  group: testCaseGroup,
   /** The rest of the title after the number; title() is the two together. */
-  titleName: (name: string) => (name.trim() === "" ? ": no name yet" : `: ${name}`),
+  titleName: testCaseTitleName,
+  title: (n: number, name: string) => `${testCaseGroup(n)}${testCaseTitleName(name)}`,
   nameLabel: "Name",
-  nameHint:
-    "What the learner reads, written as a requirement, such as: Prints the total on one line. 1 to 80 characters.",
+  nameHint: (limit: number) =>
+    `What the learner reads, written as a requirement, such as: Prints the total on one line. 1 to ${count.format(limit)} characters.`,
   stdinLabel: "Input",
   stdinHint: "What the program is given, one answer per line. It may be empty.",
   expectedLabel: "Expected output",
@@ -390,7 +392,9 @@ export const validation = {
   testCaseRef: (n: number, name: string) =>
     name.trim() === "" ? `test case ${String(n)}` : `test case ${String(n)} (${name})`,
   solutionFailed: (cases: readonly string[]) =>
-    `The solution did not pass ${listed(cases)}. Each test case shows what it printed.`,
+    cases.length === 1
+      ? `The solution did not pass ${listed(cases)}. Open it to see what the solution printed.`
+      : `The solution did not pass ${listed(cases)}. Open each to see what the solution printed.`,
   /** Opens one of the test cases the solution failed, in the test case list. */
   openTestCase: (ref: string) => `Open ${ref}`,
   starterPasses:

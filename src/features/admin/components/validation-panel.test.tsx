@@ -57,7 +57,7 @@ function renderPanel(props: Partial<ValidationPanelProps> = {}) {
       state={{ kind: "idle" }}
       python="ready"
       outdated={false}
-      testCaseIds={new Set(checked.testCases.map((entry) => entry.id))}
+      testCases={checked.testCases}
       {...handlers}
       {...props}
     />,
@@ -165,7 +165,7 @@ describe("ValidationPanel [FR-ADM-07]", () => {
 
   it("[FR-GRD-05] opens each test case the solution failed from the checklist, while it is still in the lesson", async () => {
     const { onOpenTestCase } = renderPanel({
-      testCaseIds: new Set(["t2"] as TestCaseId[]),
+      testCases: [testCase("t2", "")],
       state: done([
         { rule: "complete", state: "passed" },
         { rule: "solution_passes", state: "failed", testCaseIds: ["t1", "t2"] as TestCaseId[] },
@@ -175,13 +175,29 @@ describe("ValidationPanel [FR-ADM-07]", () => {
       ]),
     });
     const row = within(items()[1] as HTMLElement);
-    expect(
-      row.queryByRole("button", { name: words.openTestCase(words.testCaseRef(1, "Prints ok")) }),
-    ).toBeNull();
+    expect(row.getAllByRole("button")).toHaveLength(1);
     await userEvent.click(
-      row.getByRole("button", { name: words.openTestCase(words.testCaseRef(2, "")) }),
+      row.getByRole("button", { name: words.openTestCase(words.testCaseRef(1, "")) }),
     );
     expect(onOpenTestCase).toHaveBeenCalledWith("t2");
+  });
+
+  it("[FR-GRD-05] names each Open button by the test case's place and name in the list now, after a move or a rename", () => {
+    renderPanel({
+      testCases: [testCase("t2", ""), testCase("t1", "Prints OK")],
+      state: done([
+        { rule: "complete", state: "passed" },
+        { rule: "solution_passes", state: "failed", testCaseIds: ["t1"] as TestCaseId[] },
+        { rule: "starter_fails", state: "passed" },
+        { rule: "wrong_answers_fail", state: "passed" },
+        { rule: "no_time_limit", state: "passed" },
+      ]),
+    });
+    const row = within(items()[1] as HTMLElement);
+    expect(
+      row.getByRole("button", { name: words.openTestCase(words.testCaseRef(2, "Prints OK")) }),
+    ).toBeDefined();
+    expect(row.getAllByRole("button")).toHaveLength(1);
   });
 
   it("names what an incomplete lesson is missing", () => {

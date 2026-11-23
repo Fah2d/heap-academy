@@ -731,7 +731,7 @@ export function LessonEditor({
               state={validation}
               python={python}
               outdated={!checkedNow(validation, content).whole}
-              testCaseIds={new Set(fields.testCases.map((testCase) => testCase.id))}
+              testCases={fields.testCases}
               onValidate={validate}
               onStop={stopValidation}
               onRetry={() => runtime.current?.retry()}

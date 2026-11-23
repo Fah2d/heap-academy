@@ -1,8 +1,10 @@
 // Program output as the interface may show it (docs/spec/06-security-privacy.md
 // T-07): terminal escape sequences, control characters and the characters
 // that reorder text are removed, so printed text cannot clear, recolor or
-// disguise what is around it. Line breaks and tabs stay. React already
-// renders the rest as text.
+// disguise what is around it, and invisible characters are removed, so what
+// is shown, and what Fill from solution copies, is what a reader sees. Line
+// breaks and tabs stay, and so do the zero-width joiner and non-joiner, which
+// Persian, Indic and emoji text need. React already renders the rest as text.
 
 export type ConsoleText = {
   text: string;
@@ -14,16 +16,27 @@ const ESC = 0x1b;
 const BEL = 0x07;
 const KEPT = new Set([0x09, 0x0a, 0x0d]);
 
-/** C0 controls but tab, line feed and carriage return; DEL and C1; bidirectional marks, embeddings, overrides and isolates. */
+/**
+ * C0 controls but tab, line feed and carriage return; DEL and C1; bidirectional
+ * marks, embeddings, overrides and isolates; the soft hyphen, zero-width space,
+ * word joiner, invisible operators, byte order mark, and line and paragraph
+ * separators.
+ */
 function isControl(code: number): boolean {
   if (code < 0x20) return !KEPT.has(code);
   return (
     (code >= 0x7f && code <= 0x9f) ||
+    code === 0x00ad ||
     code === 0x061c ||
+    code === 0x200b ||
     code === 0x200e ||
     code === 0x200f ||
     (code >= 0x202a && code <= 0x202e) ||
-    (code >= 0x2066 && code <= 0x2069)
+    code === 0x2028 ||
+    code === 0x2029 ||
+    (code >= 0x2060 && code <= 0x2064) ||
+    (code >= 0x2066 && code <= 0x2069) ||
+    code === 0xfeff
   );
 }
 

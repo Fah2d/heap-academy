@@ -371,6 +371,14 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validating");
 
+  // Python started but could not run the programs: nothing was checked.
+  const cannotRun = page.getByRole("region", { name: adminGallery.lessonPythonCannotRun });
+  await validate(cannotRun);
+  await expect(cannotRun.getByText(validation.unavailable)).toBeVisible();
+  await publishHeading(cannotRun).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-python-cannot-run");
+
   // A failed rule names the test case; its verdict shows what the solution printed.
   const wrong = page.getByRole("region", { name: adminGallery.lessonValidationFailed });
   await validate(wrong);
@@ -378,10 +386,20 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await publishHeading(wrong).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validation-failed");
+  // Open, under the failed rule, opens the test case and focuses its title.
   await wrong
-    .getByRole("button", { name: testCaseList.title(2, adminGallery.sampleTestName2) })
+    .getByRole("button", {
+      name: validation.openTestCase(validation.testCaseRef(2, adminGallery.sampleTestName2)),
+    })
     .click();
   const second = wrong.getByRole("group", { name: testCaseList.group(2) });
+  const secondTitle = wrong.getByRole("button", {
+    name: testCaseList.title(2, adminGallery.sampleTestName2),
+  });
+  await expect(secondTitle).toBeFocused();
+  await expect(secondTitle).toHaveAttribute("aria-expanded", "true");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-opened");
   await expect(second.getByText(validation.reason.mismatch)).toBeVisible();
   await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -402,6 +420,7 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await validate(wrong);
   await expect(wrong.getByText(validation.status.passed)).toBeVisible();
   await publishHeading(wrong).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validation-passed");
 
   // An empty lesson: rule 1 names what is missing, and nothing runs.
@@ -410,6 +429,9 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await expect(
     empty.getByText(validation.missing([validation.part.instructions, validation.part.test_cases])),
   ).toBeVisible();
+  await publishHeading(empty).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-missing");
 });
 
 test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line, cut and cleaned output, and Save on a published lesson validating first, at 1280 px", async ({
@@ -466,6 +488,12 @@ test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line,
   await expect(
     third.getByRole("button", { name: validation.fillLabel(adminGallery.oddTestName3) }),
   ).toHaveCount(0);
+  // The whole cut output scrolls inside a box of a fixed height.
+  const cut = await third
+    .getByTestId("solution-output")
+    .evaluate((box) => ({ shown: box.clientHeight, whole: box.scrollHeight }));
+  expect(cut.whole).toBeGreaterThan(cut.shown);
+  expect(cut.shown).toBeLessThan(400);
   await third.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-verdict-truncated");
@@ -491,6 +519,15 @@ test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line,
   await noPython.getByText(lessonEditor.validateFirst.unavailableStart).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-save-refused-python");
+
+  // Python started but could not run the programs: nothing is saved.
+  const cannotRun = page.getByRole("region", { name: adminGallery.lessonSavePythonCannotRun });
+  await save(cannotRun);
+  await expect(cannotRun.getByText(lessonEditor.validateFirst.unavailable)).toBeVisible();
+  await expect(cannotRun.getByText(validation.unavailable)).toBeVisible();
+  await cannotRun.getByText(lessonEditor.validateFirst.unavailable).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-cannot-run");
 
   // A rule failed: nothing is saved, and the checklist says what to fix.
   const ruleFailed = page.getByRole("region", { name: adminGallery.lessonSaveRuleFailed });

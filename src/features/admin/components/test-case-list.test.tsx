@@ -4,7 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HARNESS_OUTPUT_LIMIT } from "@/grader/harness";
-import { CHECK_TEST_LIMIT, type TestCase, type TestCaseId } from "@/grader/test-case";
+import {
+  CHECK_TEST_LIMIT,
+  TEST_CASE_LIMITS,
+  type TestCase,
+  type TestCaseId,
+} from "@/grader/test-case";
 import type { TestCaseProblem } from "@/grader/test-case-list";
 import { validation, testCaseList as words } from "@/messages/admin";
 import { TIME_LIMIT_MS } from "@/runtime/controller";
@@ -103,6 +108,7 @@ describe("TestCaseList [FR-ADM-05]", () => {
     ]) {
       expect(fields.getByRole("textbox", { name: label })).toBeTruthy();
     }
+    expect(fields.getByText(words.nameHint(TEST_CASE_LIMITS.name))).toBeTruthy();
     expect(fields.getByText(words.stdinHint)).toBeTruthy();
     expect(fields.getByText(words.expectedHint)).toBeTruthy();
     expect(fields.getByText(words.afterCodeHint)).toBeTruthy();

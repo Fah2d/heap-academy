@@ -73,10 +73,16 @@ describe("CourseDetailsForm [FR-ADM-03, FR-ADM-10]", () => {
     const slug = screen.getByLabelText<HTMLInputElement>(words.slugLabel);
     expect(slug.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByText(structure.failure.slug_taken)).toBeTruthy();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(document.activeElement).toBe(slug);
     expect(slug.value).toBe("taken");
     expect(screen.queryByRole("alert")).toBeNull();
+    // Focus moves once: typing in another field afterwards stays there.
+    const title = screen.getByLabelText<HTMLInputElement>(words.titleLabel);
+    await user.click(title);
+    await user.type(title, "itle");
+    expect(document.activeElement).toBe(title);
+    expect(title.value).toBe("Title");
+    expect(slug.value).toBe("taken");
   });
 
   it.each([

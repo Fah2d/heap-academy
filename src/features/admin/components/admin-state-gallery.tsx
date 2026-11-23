@@ -5,7 +5,7 @@ import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
 import type { LessonDocument } from "@/content/markdown";
 import { type TestResult, unfinished } from "@/grader/grade";
-import { HARNESS_VERSION } from "@/grader/harness";
+import { HARNESS_OUTPUT_LIMIT, HARNESS_VERSION } from "@/grader/harness";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
@@ -248,6 +248,8 @@ const sampleRuntime = scriptedRuntime(m.sampleSolution, samplePrints, m.samplePr
 const loadingRuntime = stuckRuntime("loading");
 const failedRuntime = stuckRuntime("failed");
 const readyRuntime = stuckRuntime("ready");
+/** Python that started, but whose every check ends with no results. */
+const cannotRunRuntime = fixedResultsRuntime(() => undefined);
 
 /** The second test case expects the greeting without the prompt, so the solution fails it. */
 const wrongExpectedLesson: EditorLessonDetail = {
@@ -291,8 +293,8 @@ const failedResult = (
  * The solution prints escape sequences for the first test case, stops with
  * an error on line 2 for the second, and prints past the output limit for
  * the third; the starter reaches the time limit; the wrong answer prints
- * only the prompt. A few lines stand for the cut output, so the picture
- * stays readable.
+ * only the prompt. The cut output is as long as the harness keeps, so the
+ * picture shows the box at its real size.
  */
 const oddRuntime = fixedResultsRuntime((source, tests) => {
   if (source === m.sampleStarter) return unfinished(tests, "time_limit");
@@ -319,7 +321,9 @@ const oddRuntime = fixedResultsRuntime((source, tests) => {
     }
     return failedResult(testCase, {
       reason: "output_limit",
-      actual: m.oddRepeatedLine.repeat(8),
+      actual: m.oddRepeatedLine
+        .repeat(Math.ceil(HARNESS_OUTPUT_LIMIT / m.oddRepeatedLine.length))
+        .slice(0, HARNESS_OUTPUT_LIMIT),
       truncated: true,
     });
   });
@@ -587,6 +591,17 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           openRuntime={readyRuntime}
         />
       </Example>
+      <Example id="gallery-lesson-python-cannot-run" title={m.lessonPythonCannotRun}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={cannotRunRuntime}
+        />
+      </Example>
       <Example id="gallery-lesson-save-validating" title={m.lessonSaveValidating}>
         <LessonEditor
           lesson={{ ...sampleLesson, status: "published" }}
@@ -607,6 +622,17 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={failedRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-python-cannot-run" title={m.lessonSavePythonCannotRun}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={cannotRunRuntime}
         />
       </Example>
       <Example id="gallery-lesson-save-rule-failed" title={m.lessonSaveRuleFailed}>

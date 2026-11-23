@@ -42,10 +42,11 @@ export function scriptedRuntime(
 /**
  * Python that is ready at once and gives each program the results
  * `resultsFor` makes: the endings a printed output cannot reach, such as a
- * time limit, an error on a line, or output cut at the limit.
+ * time limit, an error on a line, or output cut at the limit. No results
+ * stand for Python that could not run the programs.
  */
 export function fixedResultsRuntime(
-  resultsFor: (source: string, tests: readonly TestCase[]) => TestResult[],
+  resultsFor: (source: string, tests: readonly TestCase[]) => TestResult[] | undefined,
 ): OpenValidationRuntime {
   const checkProgram: CheckProgram = (source, tests) => Promise.resolve(resultsFor(source, tests));
   return (onState) => {

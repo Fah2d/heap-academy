@@ -84,6 +84,9 @@
   /* The icon sizes of DESIGN.md section 8. */
   --spacing-icon: 1rem;
   --spacing-icon-lg: 1.25rem;
+  /* The tallest a box of program output grows before it scrolls, about 12
+     lines of code text. */
+  --spacing-output: 20rem;
 
   /* Lesson prose measure, 60 to 75 characters. */
   --container-prose: 68ch;

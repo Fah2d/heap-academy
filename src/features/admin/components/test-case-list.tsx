@@ -3,7 +3,13 @@
 import { useEffect, useRef } from "react";
 import type { FailureReason } from "@/grader/grade";
 import { HARNESS_OUTPUT_LIMIT } from "@/grader/harness";
-import { CHECK_TEST_LIMIT, MATCH_MODES, type MatchMode, type TestCase } from "@/grader/test-case";
+import {
+  CHECK_TEST_LIMIT,
+  MATCH_MODES,
+  TEST_CASE_LIMITS,
+  type MatchMode,
+  type TestCase,
+} from "@/grader/test-case";
 import type { TestCaseId } from "@/grader/test-case";
 import {
   addTestCase,
@@ -140,7 +146,7 @@ export function TestCaseList({
                   >
                     <TextField
                       label={words.nameLabel}
-                      description={words.nameHint}
+                      description={words.nameHint(TEST_CASE_LIMITS.name)}
                       value={testCase.name}
                       onChange={(name) => edit(index, { name })}
                       {...text("name")}
@@ -369,13 +375,18 @@ function SolutionResult({ view }: { view: SolutionView }) {
       {view.actual === "" ? (
         <p className="text-sm text-text-muted">{validation.noOutput}</p>
       ) : (
-        <pre
-          data-testid="solution-output"
-          className="code-surface overflow-x-auto whitespace-pre-wrap"
-          tabIndex={0}
-        >
-          {view.actual}
-        </pre>
+        // The panel of a code block in a lesson. Output can be as long as the
+        // harness limit, so the box scrolls, with the focus ring inset
+        // (DESIGN.md section 4.5).
+        <div className="rounded-panel border border-border bg-surface-editor p-3">
+          <pre
+            data-testid="solution-output"
+            className="code-surface max-block-output overflow-auto whitespace-pre-wrap focus-visible:-outline-offset-2"
+            tabIndex={0}
+          >
+            {view.actual}
+          </pre>
+        </div>
       )}
       {view.truncated && (
         <p className="text-sm text-text-muted">{validation.truncated(HARNESS_OUTPUT_LIMIT)}</p>

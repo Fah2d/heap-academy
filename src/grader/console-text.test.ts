@@ -23,6 +23,19 @@ describe("consoleText", () => {
     });
   });
 
+  it("[T-07] removes invisible characters that would hide in a copied expected output", () => {
+    expect(consoleText("6\u200b")).toEqual({ text: "6", removed: true });
+    expect(consoleText("a\u00adb\u2060c\u2064d\ufeffe\u2028f\u2029g")).toEqual({
+      text: "abcdefg",
+      removed: true,
+    });
+  });
+
+  it("[T-07] keeps the joiners that Persian, Indic and emoji text need", () => {
+    const text = "می\u200cخواهم 👩\u200d💻";
+    expect(consoleText(text)).toEqual({ text, removed: false });
+  });
+
   it("[T-07] keeps line breaks, tabs and ordinary text, markup included", () => {
     const text = "Hello, Ada!\n\tindented\r\n<img src=x onerror=alert(1)> é 😀";
     expect(consoleText(text)).toEqual({ text, removed: false });
@@ -30,7 +43,21 @@ describe("consoleText", () => {
   });
 
   it("[T-07] leaves nothing to remove a second time", () => {
-    const anyText = textFrom(["a", "\n", "\t", ESC, "[", "2", "J", "]", "\u0007", "‮", "é"]);
+    const anyText = textFrom([
+      "a",
+      "\n",
+      "\t",
+      ESC,
+      "[",
+      "2",
+      "J",
+      "]",
+      "\u0007",
+      "‮",
+      "\u200b",
+      "\ufeff",
+      "é",
+    ]);
     forAll(anyText, (text) => {
       const once = consoleText(text);
       const twice = consoleText(once.text);

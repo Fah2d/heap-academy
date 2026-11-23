@@ -17,8 +17,8 @@ export type ValidationPanelProps = {
   python: PythonState;
   /** The lesson changed after the last finished validation. */
   outdated: boolean;
-  /** The test cases in the editor now; only these can be opened from a failed rule. */
-  testCaseIds: ReadonlySet<TestCaseId>;
+  /** The test cases in the editor now; only these can be opened from a failed rule, named by their place now. */
+  testCases: readonly TestCase[];
   onValidate: () => void;
   onStop: () => void;
   onRetry: () => void;
@@ -55,16 +55,16 @@ function testCaseRef(id: TestCaseId, testCases: readonly TestCase[]): string {
   return words.testCaseRef(index + 1, testCases[index]?.name ?? "");
 }
 
-/** The failed test cases a button can open: those still in the editor. */
-function openers(
-  rule: RuleState,
-  testCases: readonly TestCase[],
-  present: ReadonlySet<TestCaseId>,
-): Opener[] {
+/**
+ * The failed test cases a button can open: those still in the editor, named
+ * by their place and name there now, so a label matches the test case it opens
+ * after a move or a rename.
+ */
+function openers(rule: RuleState, current: readonly TestCase[]): Opener[] {
   if (rule.rule !== "solution_passes" || rule.state !== "failed") return [];
   return rule.testCaseIds
-    .filter((id) => present.has(id))
-    .map((id) => ({ id, label: words.openTestCase(testCaseRef(id, testCases)) }));
+    .filter((id) => current.some((testCase) => testCase.id === id))
+    .map((id) => ({ id, label: words.openTestCase(testCaseRef(id, current)) }));
 }
 
 /** What to fix, for a failed rule; the test cases are named as the checked lesson had them. */
@@ -112,7 +112,7 @@ export function ValidationPanel({
   state,
   python,
   outdated,
-  testCaseIds,
+  testCases,
   onValidate,
   onStop,
   onRetry,
@@ -125,7 +125,7 @@ export function ValidationPanel({
           rule: rule.rule,
           state: rule.state,
           why: reason(rule, state.checked.testCases),
-          open: openers(rule, state.checked.testCases, testCaseIds),
+          open: openers(rule, testCases),
         }))
       : RULES.map((rule) => ({ rule, state: "not_run", why: undefined, open: [] }));
   const running = state.kind === "running";

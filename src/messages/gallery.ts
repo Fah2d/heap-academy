@@ -124,12 +124,16 @@ export const adminGallery = {
     "Lesson editor while Python loads: Validate waits for it until Stop is pressed",
   lessonPythonFailed: "Lesson editor whose Python could not start, with Try again",
   lessonValidating: "Lesson editor whose validation never ends, to show Validating and Stop",
+  lessonPythonCannotRun:
+    "Lesson editor whose Python started but could not run the programs, so Validate checked nothing",
   lessonValidationFailed:
     "Lesson editor whose second test case expects the greeting without the prompt, so the solution fails it and Fill from solution is offered",
   lessonSaveValidating:
     "Lesson editor of a published lesson whose validation never ends: Save validates first, and Stop saves nothing",
   lessonSavePythonFailed:
     "Lesson editor of a published lesson whose Python could not start, so Save saves nothing",
+  lessonSavePythonCannotRun:
+    "Lesson editor of a published lesson whose Python started but could not run the programs, so Save saves nothing",
   lessonSaveRuleFailed:
     "Lesson editor of a published lesson whose solution fails the second test case, so Save saves nothing",
   lessonOddResults:

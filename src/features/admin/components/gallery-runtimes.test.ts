@@ -39,4 +39,9 @@ describe("fixedResultsRuntime", () => {
     expect(seen).toEqual(["while True: pass"]);
     expect(results).toEqual([timedOut]);
   });
+
+  it("[FR-ADM-06] gives no results when the gallery stands for Python that could not run the programs", async () => {
+    const runtime = fixedResultsRuntime(() => undefined)(() => undefined);
+    expect(await runtime.checkProgram("print(1)", [testCase])).toBeUndefined();
+  });
 });
