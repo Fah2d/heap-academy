@@ -2,9 +2,35 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 00:25), in `night-a`, on `wp/3.1-python-worker`
+## Session of 2026-11-24 (from about 02:50), in `night-a`, on `wp/3.1-python-worker`
 
-Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. The copies on `wp/3.3-grader` and `wp/3.4-statechart` are now older than this one.
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 9 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. The copies on `wp/3.3-grader` and `wp/3.4-statechart` are now older than this one.
+
+### Task 3, part 10 done: the worker's header rule (WP-3.1 security review 2, MINOR 3)
+
+- e340e4f: the worker's header rule was `/_runtime/worker/:path*`, so a miss under that folder got the worker's policy (no `sandbox`) instead of the runtime's static policy. The rule is now `/_runtime/worker/:path+.js`. `:path*.js` was tried first and rejected: its compiled regex also matches `/_runtime/worker.js`.
+- `scripts/next-config.test.ts` runs `next.config.ts` through Next.js's own `unstable_getResponseFromNextConfig`: the seven compiled worker files get the worker's policy and `no-cache`; six misses get the static policy.
+- Mutants: `:path*` fails 7 of 10; `:path*.js` fails 3 of 11.
+- Security review round 6 (`docs/reports/reviews/WP-3.1/security-review-6.md`): APPROVE, 3 MINOR, two fixed (comment, all seven files tested), one recorded (a miss ending in `.js`, in any case, still gets the worker's policy).
+- `pnpm verify` on e340e4f: exit 0, 37 files, 858 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the build: compiled files 200 with the worker policy and `no-cache`; `no-such-file`, `core.jsx`, `x.js/more`, `/_runtime/worker.js` 404 with the static policy; `missing.js` 404 with the worker policy.
+- Decision: the rule matches by extension, not by naming the seven files, so the file list stays in one place.
+- Not run: the browser tests.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, "Not fixed").
+- Push: `wp/3.1-python-worker` with e340e4f and the docs commit. This line is pushed with the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.1-python-worker` (with e340e4f) into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`. On those branches the compiled worker folder also holds `runtime/` and `grader/`; the rule matches them, but `scripts/next-config.test.ts`'s list of seven files must then follow `scripts/build-runtime.test.ts` there.
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 00:25), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 7 took about 15 minutes, so the run went on with parts 8 and 9, which carry this copy to `wp/3.3-grader` and `wp/3.4-statechart`.
 
 ### Task 3, part 7 done: the proxy matcher's exclusions (WP-3.1 security review 2, MINOR 7)
 
@@ -19,15 +45,30 @@ Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branc
 - Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, owner action 2, "Not fixed").
 - Push: `wp/3.1-python-worker` with f8af00a, c03a7d0 and the docs commit. This line is pushed with the docs commit.
 
+### Task 3, part 8 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- 9e5ff23: `wp/3.1-python-worker` at d6ab769 merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on 9e5ff23: exit 0, 42 files, 1016 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten (7aa4f76).
+- Push: `wp/3.3-grader` with 9e5ff23, 7aa4f76 and the commit that adds these lines.
+
+### Task 3, part 9 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- fff5ece: `wp/3.3-grader` at 44d6425 merged. One conflict, this file; WP-3.3's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on fff5ece: exit 0, 46 files, 1131 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with fff5ece and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
 ### Owner: run this
 
-1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
 2. Stray servers the sandbox hides from me: a `next start` I launched holds port 3197, and something also answers on port 3100. In your own terminal: `lsof -ti:3197 | xargs kill`, and check `lsof -i:3100` before a local `pnpm test:e2e`, because Playwright reuses a server already on 3100.
 3. The owner actions of the sections below are still due.
 
 ### Next
 
-- Merge `wp/3.1-python-worker` (with c03a7d0) into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`, so the later branches carry the matcher fix.
 - A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
 - Shared `$TMPDIR`: name logs by worktree (this run used `verify.log` and `build.log`; the counts it recorded match this branch, 842 plus 3 new tests).
 
