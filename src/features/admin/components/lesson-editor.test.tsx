@@ -6,13 +6,20 @@ import type { LessonDocument } from "@/content/markdown";
 import type { TestResult } from "@/grader/grade";
 import { HARNESS_VERSION } from "@/grader/harness";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
-import { lessonEditor as words, structure, testCaseList, validation } from "@/messages/admin";
+import {
+  lessonStatus,
+  lessonEditor as words,
+  structure,
+  testCaseList,
+  validation,
+} from "@/messages/admin";
 import type { CheckProgram } from "../client/validate-lesson";
 import type { OpenValidationRuntime, PythonState } from "../client/validation-runtime";
 import { gradableHash } from "../gradable-hash";
 import type { EditorLessonDetail } from "../types";
 import { PREVIEW_DELAY_MS } from "./instructions-preview";
 import { LESSON_SECTIONS, LessonEditor, type SaveLesson } from "./lesson-editor";
+import type { SetLessonStatus } from "./lesson-status";
 
 // The lesson editor (FR-ADM-04, FR-ADM-10, docs/spec/03-experience.md section
 // 7.4): its sections, saving through the action with the loaded version, the
@@ -34,6 +41,7 @@ const CHAPTER = "00000000-0000-4000-8000-000000000d01";
 const OTHER = "00000000-0000-4000-8000-000000000d02";
 const LOADED = "2026-11-22T08:00:00.123456+00:00";
 const NEWER = "2026-11-22T08:05:00.654321+00:00";
+const STATUS_AT = "2026-11-22T08:06:00.111111+00:00";
 
 const lesson: EditorLessonDetail = {
   id: "00000000-0000-4000-8000-000000000e01",
@@ -124,6 +132,7 @@ function fakeRuntime(checkProgram: CheckProgram = honest) {
 function setup(
   overrides: {
     save?: SaveLesson;
+    setStatus?: SetLessonStatus;
     render?: (markdown: string) => Promise<unknown>;
     python?: ReturnType<typeof fakeRuntime>;
   } = {},
@@ -133,6 +142,9 @@ function setup(
   const save =
     overrides.save ??
     vi.fn<SaveLesson>(() => Promise.resolve({ ok: true, value: { updatedAt: NEWER } }));
+  const setStatus =
+    overrides.setStatus ??
+    vi.fn<SetLessonStatus>(() => Promise.resolve({ ok: true, value: { updatedAt: STATUS_AT } }));
   const renderPreview = vi.fn(({ markdown }: { markdown: string }) =>
     overrides.render === undefined
       ? Promise.resolve({ ok: true as const, value: doc(`rendered: ${markdown}`) })
@@ -144,12 +156,13 @@ function setup(
       initialPreview={doc("saved preview")}
       nonce="bm9uY2U="
       save={save}
+      setStatus={setStatus}
       renderPreview={renderPreview}
       newTestCaseId={() => "00000000-0000-4000-8000-0000000000a1"}
       openRuntime={python.open}
     />,
   );
-  return { save, renderPreview, python };
+  return { save, setStatus, renderPreview, python };
 }
 
 const field = (name: string) => screen.getByRole("textbox", { name });
@@ -466,6 +479,7 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
         initialPreview={doc("saved preview")}
         nonce="bm9uY2U="
         save={vi.fn<SaveLesson>()}
+        setStatus={vi.fn<SetLessonStatus>()}
         renderPreview={vi.fn()}
         openRuntime={python.open}
       />,
@@ -594,6 +608,224 @@ describe("LessonEditor validation [FR-ADM-06, FR-ADM-07]", () => {
     python.setState("failed");
     await userEvent.click(screen.getByRole("button", { name: validation.retry }));
     expect(python.runtime.retry).toHaveBeenCalledTimes(1);
+  });
+});
+
+const publishButton = () => screen.queryByRole("button", { name: lessonStatus.action.published });
+const passValidation = async () => {
+  await validate();
+  await waitFor(() => expect(liveStatus()).toContain(validation.status.passed));
+};
+const expectedHash = () =>
+  gradableHash({
+    starterCode: lesson.starterCode,
+    solutionCode: lesson.solutionCode,
+    wrongAnswers: lesson.wrongAnswers,
+    testCases: lesson.testCases,
+  });
+
+describe("LessonEditor status [FR-ADM-09]", () => {
+  it("[FR-ADM-07] offers Publish only after a passing validation of the lesson as it is now", async () => {
+    setup();
+    expect(
+      screen.getByText(lessonStatus.now(lessonStatus.name.draft), { exact: false }),
+    ).toBeTruthy();
+    expect(screen.getByText(lessonStatus.publishWaits)).toBeTruthy();
+    expect(publishButton()).toBeNull();
+    await passValidation();
+    expect(publishButton()).toBeTruthy();
+    expect(screen.queryByText(lessonStatus.publishWaits)).toBeNull();
+    // Rule 1 reads the title too, so any edit after the validation takes Publish away.
+    await userEvent.type(field(words.titleLabel), "!");
+    expect(publishButton()).toBeNull();
+    expect(screen.getByText(lessonStatus.publishWaits)).toBeTruthy();
+  });
+
+  it("[FR-ADM-07] offers no Publish after a failed validation", async () => {
+    const starterPasses: CheckProgram = (source, tests) =>
+      honest(source === lesson.starterCode ? lesson.solutionCode : source, tests);
+    setup({ python: fakeRuntime(starterPasses) });
+    await validate();
+    await waitFor(() => expect(liveStatus()).toContain(validation.status.failed(1)));
+    expect(publishButton()).toBeNull();
+  });
+
+  it("[T-22] Publish saves what was validated with its hash, then publishes the saved version", async () => {
+    const { save, setStatus } = setup();
+    await passValidation();
+    await userEvent.click(publishButton() as HTMLElement);
+    await waitFor(() =>
+      expect(setStatus).toHaveBeenCalledWith({
+        id: lesson.id,
+        loadedAt: NEWER,
+        status: "published",
+      }),
+    );
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(save).mock.calls[0]?.[0].validatedHash).toBe(await expectedHash());
+    await waitFor(() =>
+      expect(liveStatus()).toContain(lessonStatus.changed(lessonStatus.name.published)),
+    );
+    expect(screen.getByText(words.statusNow.published)).toBeTruthy();
+    expect(screen.getByText(words.publishedCodeNote)).toBeTruthy();
+    expect(document.activeElement?.textContent).toContain(
+      lessonStatus.now(lessonStatus.name.published),
+    );
+    expect(publishButton()).toBeNull();
+  });
+
+  it("does not publish when the save before it is refused, and says why in the Publish section", async () => {
+    const { setStatus } = setup({
+      save: vi.fn<SaveLesson>(() => Promise.resolve({ ok: false, error: "stale" })),
+    });
+    await passValidation();
+    await userEvent.click(publishButton() as HTMLElement);
+    const publish = screen.getByRole("region", { name: words.publishHeading });
+    await waitFor(() => expect(within(publish).getByText(words.failure.stale)).toBeTruthy());
+    expect(within(publish).getByRole("button", { name: structure.reload })).toBeTruthy();
+    expect(setStatus).not.toHaveBeenCalled();
+    expect(screen.getByText(words.statusNow.draft)).toBeTruthy();
+  });
+
+  it("says why the database refused to publish", async () => {
+    setup({
+      setStatus: vi.fn<SetLessonStatus>(() =>
+        Promise.resolve({ ok: false, error: "needs_validation" }),
+      ),
+    });
+    await passValidation();
+    await userEvent.click(publishButton() as HTMLElement);
+    await waitFor(() =>
+      expect(screen.getByText(lessonStatus.failure.needs_validation)).toBeTruthy(),
+    );
+    expect(screen.getByText(words.statusNow.draft)).toBeTruthy();
+  });
+
+  it("does not publish while a field is wrong, and focuses it", async () => {
+    const { save, setStatus } = setup();
+    await passValidation();
+    await userEvent.clear(field(words.xpLabel));
+    await userEvent.type(field(words.xpLabel), "500");
+    // XP is not part of the checklist, so Publish stays.
+    await userEvent.click(publishButton() as HTMLElement);
+    await waitFor(() => expect(document.activeElement).toBe(field(words.xpLabel)));
+    expect(save).not.toHaveBeenCalled();
+    expect(setStatus).not.toHaveBeenCalled();
+  });
+
+  it("asks before taking a published lesson off the site, and says what learners will see", async () => {
+    const { setStatus } = setup({}, { ...lesson, status: "published" });
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.draft }));
+    const dialog = screen.getByRole("dialog", { name: lessonStatus.confirmTitle.draft });
+    expect(within(dialog).getByText(lessonStatus.confirmBody.draft)).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: lessonStatus.cancel }));
+    expect(setStatus).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.draft }));
+    await userEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: lessonStatus.action.draft }),
+    );
+    await waitFor(() =>
+      expect(setStatus).toHaveBeenCalledWith({ id: lesson.id, loadedAt: LOADED, status: "draft" }),
+    );
+    await waitFor(() => expect(screen.getByText(words.statusNow.draft)).toBeTruthy());
+    expect(screen.queryByText(words.publishedCodeNote)).toBeNull();
+  });
+
+  it("asks before archiving, then moves an archived lesson back to draft without asking", async () => {
+    const { setStatus } = setup();
+    expect(publishButton()).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.archived }));
+    const dialog = screen.getByRole("dialog", { name: lessonStatus.confirmTitle.archived });
+    expect(within(dialog).getByText(lessonStatus.confirmBody.archived)).toBeTruthy();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: lessonStatus.action.archived }),
+    );
+    await waitFor(() => expect(screen.getByText(words.statusNow.archived)).toBeTruthy());
+    expect(setStatus).toHaveBeenLastCalledWith({
+      id: lesson.id,
+      loadedAt: LOADED,
+      status: "archived",
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.draft }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() =>
+      expect(setStatus).toHaveBeenLastCalledWith({
+        id: lesson.id,
+        loadedAt: STATUS_AT,
+        status: "draft",
+      }),
+    );
+  });
+});
+
+describe("LessonEditor Save on a published lesson [FR-ADM-07, FR-ADM-09]", () => {
+  const published = { ...lesson, status: "published" as const };
+
+  it("[T-22] validates first, then saves with the hash of what passed", async () => {
+    const { save, python } = setup({}, published);
+    await userEvent.type(field(words.titleLabel), "!");
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(python.runtime.checkProgram).toHaveBeenCalledTimes(3);
+    expect(liveStatus()).toContain(validation.status.passed);
+    expect(vi.mocked(save).mock.calls[0]?.[0].validatedHash).toBe(await expectedHash());
+  });
+
+  it("does not validate again when a passing validation covers the lesson as it is", async () => {
+    const { save, python } = setup({}, published);
+    await passValidation();
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(python.runtime.checkProgram).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(save).mock.calls[0]?.[0].validatedHash).toBe(await expectedHash());
+  });
+
+  it("saves nothing when a rule fails, and says where to look", async () => {
+    const starterPasses: CheckProgram = (source, tests) =>
+      honest(source === lesson.starterCode ? lesson.solutionCode : source, tests);
+    const { save } = setup({ python: fakeRuntime(starterPasses) }, published);
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(screen.getByText(words.validateFirst.failed)).toBeTruthy());
+    expect(screen.getByText(validation.starterPasses)).toBeTruthy();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("[FR-ADM-06] saves nothing when the validation is stopped", async () => {
+    let finish: (results: TestResult[] | undefined) => void = () => undefined;
+    const waiting: CheckProgram = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    const { save } = setup({ python: fakeRuntime(waiting) }, published);
+    await userEvent.click(saveButton());
+    await userEvent.click(await screen.findByRole("button", { name: validation.stop }));
+    await act(async () => {
+      finish(undefined);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(screen.getByText(words.validateFirst.stopped)).toBeTruthy());
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("saves nothing when Python could not start", async () => {
+    const python = fakeRuntime();
+    python.open.mockImplementation((onState) => {
+      onState("failed");
+      return python.runtime;
+    });
+    const { save } = setup({ python }, published);
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(screen.getByText(words.validateFirst.unavailable)).toBeTruthy());
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("saves a draft without validating", async () => {
+    const { save, python } = setup();
+    await userEvent.click(saveButton());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(python.runtime.checkProgram).not.toHaveBeenCalled();
   });
 });
 

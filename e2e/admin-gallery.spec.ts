@@ -5,6 +5,7 @@ import {
   courseEditor,
   dashboard,
   lessonEditor,
+  lessonStatus,
   secondStep,
   structure,
   testCaseList,
@@ -396,4 +397,62 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await expect(
     empty.getByText(validation.missing([validation.part.instructions, validation.part.test_cases])),
   ).toBeVisible();
+});
+
+test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, published, archived, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const statusGroup = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("group", { name: lessonStatus.heading });
+  const publish = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: lessonStatus.action.published });
+
+  // A draft: Publish waits for a pass, then saves and publishes.
+  const draft = page.getByRole("region", { name: adminGallery.lessonEditor });
+  await expect(draft.getByText(lessonStatus.publishWaits)).toBeVisible();
+  await expect(publish(draft)).toHaveCount(0);
+  await draft.getByRole("button", { name: validation.validate }).click();
+  await expect(draft.getByText(validation.status.passed)).toBeVisible();
+  await statusGroup(draft).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-publish-ready");
+  await publish(draft).click();
+  await expect(draft.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeVisible();
+  await expect(
+    draft.getByText(lessonStatus.now(lessonStatus.name.published), { exact: false }),
+  ).toBeFocused();
+  await shot("admin-lesson-published-now");
+
+  // The status change is refused: the reason, in the Publish section.
+  const refusing = page.getByRole("region", { name: adminGallery.lessonRefusing });
+  await refusing.getByRole("button", { name: lessonStatus.action.archived }).click();
+  const confirm = page.getByRole("dialog", { name: lessonStatus.confirmTitle.archived });
+  await expect(confirm.getByText(lessonStatus.confirmBody.archived)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-archive-confirm");
+  await confirm.getByRole("button", { name: lessonStatus.action.archived }).click();
+  await expect(refusing.getByText(lessonStatus.failure.status_not_allowed)).toBeVisible();
+  await statusGroup(refusing).scrollIntoViewIfNeeded();
+  await shot("admin-lesson-status-refused");
+
+  // A published lesson: Move back to draft asks and says what learners will see.
+  const published = page.getByRole("region", { name: adminGallery.lessonPublished });
+  await published.getByRole("button", { name: lessonStatus.action.draft }).click();
+  const unpublish = page.getByRole("dialog", { name: lessonStatus.confirmTitle.draft });
+  await expect(unpublish.getByText(lessonStatus.confirmBody.draft)).toBeVisible();
+  await shot("admin-lesson-unpublish-confirm");
+  await unpublish.getByRole("button", { name: lessonStatus.cancel }).click();
+  await statusGroup(published).scrollIntoViewIfNeeded();
+  await shot("admin-lesson-published");
+
+  // An archived lesson: only Move back to draft, which asks nothing.
+  const archived = page.getByRole("region", { name: adminGallery.lessonArchived });
+  await expect(archived.getByRole("button", { name: lessonStatus.action.draft })).toBeVisible();
+  await expect(publish(archived)).toHaveCount(0);
+  await statusGroup(archived).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-archived");
 });

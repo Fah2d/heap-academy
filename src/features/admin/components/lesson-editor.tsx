@@ -9,10 +9,11 @@ import {
   type LessonField,
   type LessonFields,
 } from "@/domain/admin/lesson-details";
+import type { ContentStatus } from "@/domain/admin/structure";
 import { CodeEditor } from "@/features/workspace";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import { testCaseProblems, type TestCaseProblem } from "@/grader/test-case-list";
-import { lessonEditor as words, structure } from "@/messages/admin";
+import { lessonStatus, lessonEditor as words, structure } from "@/messages/admin";
 import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
 import { validateLessonContent, type ValidationContent } from "../client/validate-lesson";
 import {
@@ -21,7 +22,7 @@ import {
   type PythonState,
   type ValidationRuntime,
 } from "../client/validation-runtime";
-import type { AdminAction, EditorLessonDetail } from "../types";
+import type { ActionOutcome, AdminAction, EditorLessonDetail } from "../types";
 import {
   checkedNow,
   solutionViews,
@@ -30,6 +31,7 @@ import {
 } from "../validation-view";
 import { InstructionsPreview, type RenderPreview } from "./instructions-preview";
 import { useLeaveWarning } from "./leave-warning";
+import { LessonStatusControls, type SetLessonStatus } from "./lesson-status";
 import { settle } from "./structure-controls";
 import { TestCaseList } from "./test-case-list";
 import { ValidationPanel } from "./validation-panel";
@@ -37,12 +39,14 @@ import { ValidationPanel } from "./validation-panel";
 // The lesson editor (docs/spec/03-experience.md section 7.4; FR-ADM-04,
 // FR-ADM-05, FR-ADM-10): Details, Instructions with a live preview and
 // hints, Code with the starter, the solution and the wrong answers, the test
-// cases, and Validate with its checklist (FR-ADM-06, FR-ADM-07), on one page
-// with a side list that jumps between them. A top bar shows the status,
-// whether anything is unsaved, and Save. Leaving with unsaved changes asks
-// first. A save names the version the editor loaded and is refused over a
-// newer one; it carries the validated hash only when the last validation
-// passed for exactly the gradable content it saves.
+// cases, and Publish with the checklist (FR-ADM-06, FR-ADM-07) and the
+// status (FR-ADM-09), on one page with a side list that jumps between them.
+// A top bar shows the status, whether anything is unsaved, and Save. Leaving
+// with unsaved changes asks first. A save names the version the editor
+// loaded and is refused over a newer one; it carries the validated hash only
+// when the last validation passed for exactly the gradable content it saves.
+// On a published lesson Save validates first, and Publish saves first
+// (section 7.6).
 
 export type SaveLessonInput = {
   id: string;
@@ -109,6 +113,23 @@ const contentOf = (fields: EditorFields): ValidationContent => ({
 const FAILURES = Object.keys(words.failure) as (keyof typeof words.failure)[];
 const failureText = (error: string) =>
   words.failure[FAILURES.find((key) => key === error) ?? "unavailable"];
+const STATUS_FAILURES = Object.keys(lessonStatus.failure) as (keyof typeof lessonStatus.failure)[];
+const statusFailureText = (error: string) =>
+  lessonStatus.failure[STATUS_FAILURES.find((key) => key === error) ?? "unavailable"];
+
+/** A passing validation of exactly this content, title and instructions included: what Publish needs. */
+const covers = (state: ValidationState, content: ValidationContent) =>
+  state.kind === "done" && state.passed && checkedNow(state, content).whole;
+
+/** Why Save on a published lesson saved nothing, after the validation it ran first. */
+function validateFirstText(state: ValidationState): string {
+  if (state.kind === "stopped") return words.validateFirst.stopped;
+  if (state.kind === "unavailable") return words.validateFirst.unavailable;
+  return words.validateFirst.failed;
+}
+
+/** A form that passed its checks, ready to send. */
+type Prepared = { draft: LessonDraft; testCases: TestCase[]; submitted: EditorFields };
 
 /** The editor's sections, in order. Their IDs are made per editor, so two on a page never share one. */
 export const LESSON_SECTIONS = [
@@ -124,6 +145,7 @@ export type LessonEditorProps = {
   initialPreview: LessonDocument;
   nonce: string;
   save: SaveLesson;
+  setStatus: SetLessonStatus;
   renderPreview: RenderPreview;
   /** The ID of a new test case; random unless a test fixes it. */
   newTestCaseId?: () => string;
@@ -138,6 +160,7 @@ export function LessonEditor({
   initialPreview,
   nonce,
   save,
+  setStatus,
   renderPreview,
   newTestCaseId = randomTestCaseId,
   openRuntime = openBrowserValidationRuntime,
@@ -145,6 +168,9 @@ export function LessonEditor({
   const [fields, setFields] = useState<EditorFields>(() => fieldsOf(lesson));
   const [saved, setSaved] = useState(() => snapshot(fieldsOf(lesson)));
   const [loadedAt, setLoadedAt] = useState(lesson.loadedAt);
+  const [status, setCurrentStatus] = useState<ContentStatus>(lesson.status);
+  const [statusFailure, setStatusFailure] = useState<string | null>(null);
+  const [statusChanged, setStatusChanged] = useState<ContentStatus | null>(null);
   const [invalid, setInvalid] = useState<Invalid>([]);
   const [testProblems, setTestProblems] = useState<TestCaseProblems>(() => new Map());
   const [openTestCases, setOpenTestCases] = useState<ReadonlySet<string>>(() => new Set());
@@ -204,27 +230,39 @@ export function LessonEditor({
       ),
     }));
 
-  function validate() {
+  /**
+   * Validates `checked` and shows the result. A defect, not a lesson
+   * problem, rejects: the panel leaves "Validating" first.
+   */
+  async function runValidation(checked: ValidationContent): Promise<ValidationState> {
     const current = runtime.current;
-    if (current === undefined || validation.kind === "running") return;
     // A check waits for Python to be ready, which a failed start never is.
-    if (python === "failed") {
+    if (current === undefined || python === "failed") {
       setValidation({ kind: "unavailable" });
-      return;
+      return { kind: "unavailable" };
     }
-    const checked = contentOf(fields);
     stopPressed.current = false;
     setValidation({ kind: "running", stopping: false });
-    void validateLessonContent(checked, current.checkProgram, () => stopPressed.current).then(
-      (outcome) =>
-        setValidation(outcome.kind === "done" ? { ...outcome, checked } : { kind: outcome.kind }),
-      (error: unknown) => {
-        // A defect, not a lesson problem: the panel leaves "Validating", and
-        // the error still reaches the page's error reporting.
-        setValidation({ kind: "unavailable" });
-        throw error;
-      },
-    );
+    let next: ValidationState;
+    try {
+      const outcome = await validateLessonContent(
+        checked,
+        current.checkProgram,
+        () => stopPressed.current,
+      );
+      next = outcome.kind === "done" ? { ...outcome, checked } : { kind: outcome.kind };
+    } catch (error) {
+      setValidation({ kind: "unavailable" });
+      throw error;
+    }
+    setValidation(next);
+    return next;
+  }
+
+  function validate() {
+    if (validation.kind === "running") return;
+    // A rejection is a defect: it reaches the page's error reporting.
+    void runValidation(contentOf(fields));
   }
 
   function stopValidation() {
@@ -239,10 +277,8 @@ export function LessonEditor({
     );
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setFailure(null);
-    setSavedNow(false);
+  /** Checks the form; on a problem, marks and focuses it and returns nothing. */
+  function prepare(): Prepared | undefined {
     const { testCases, ...lessonFields } = fields;
     const checked = checkLessonFields({
       ...lessonFields,
@@ -260,77 +296,151 @@ export function LessonEditor({
       // A test case with a problem opens in the same render, so focus can reach its field.
       setOpenTestCases((current) => new Set([...current, ...problems.keys()]));
       focusFirstInvalid();
-      return;
+      return undefined;
     }
     setInvalid([]);
-    const { draft } = checked;
-    const submitted = fields;
-    const validatedHash = validatedHashFor(validation, {
-      ...contentOf(fields),
+    return { draft: checked.draft, testCases, submitted: fields };
+  }
+
+  /**
+   * Saves a prepared form, with the hash of `checked` when it passed for
+   * exactly what is saved, and takes the saved version as the editor's.
+   */
+  async function store(
+    { draft, testCases, submitted }: Prepared,
+    checked: ValidationState,
+  ): Promise<ActionOutcome<{ updatedAt: string }>> {
+    const validatedHash = validatedHashFor(checked, {
+      ...contentOf(submitted),
       starterCode: draft.starterCode,
       solutionCode: draft.solutionCode,
       wrongAnswers: draft.wrongAnswers,
     });
-    startTransition(async () => {
-      const outcome = await settle(() =>
-        save({
-          id: lesson.id,
-          loadedAt,
-          draft,
-          testCases,
-          ...(validatedHash === undefined ? {} : { validatedHash }),
-        }),
-      );
-      if (!outcome.ok) {
-        if (outcome.error === "slug_taken") {
-          setInvalid([{ field: "slug" }]);
-          setFailure(failureText("slug_taken"));
-          focusFirstInvalid();
+    const outcome = await settle(() =>
+      save({
+        id: lesson.id,
+        loadedAt,
+        draft,
+        testCases,
+        ...(validatedHash === undefined ? {} : { validatedHash }),
+      }),
+    );
+    if (!outcome.ok) {
+      if (outcome.error === "slug_taken") {
+        setInvalid([{ field: "slug" }]);
+        focusFirstInvalid();
+      }
+      return outcome;
+    }
+    // What was saved, as the form shows it once tidied. The fields stayed
+    // editable while the save was in flight, so a field is tidied only if
+    // it still holds what was sent; anything typed since is kept, and the
+    // editor goes on calling it unsaved.
+    const clean: EditorFields = {
+      ...submitted,
+      title: draft.title,
+      hints: hintLines(draft.hints),
+      wrongAnswers: submitted.wrongAnswers.map((row, index) => ({
+        ...row,
+        label: draft.wrongAnswers[index]?.label ?? row.label,
+      })),
+    };
+    setFields((current) => ({
+      ...current,
+      title: current.title === submitted.title ? clean.title : current.title,
+      hints: sameLines(current.hints, submitted.hints) ? clean.hints : current.hints,
+      wrongAnswers: current.wrongAnswers.map((row) => {
+        const sent = submitted.wrongAnswers.find((entry) => entry.key === row.key);
+        const tidy = clean.wrongAnswers.find((entry) => entry.key === row.key);
+        return sent !== undefined && tidy !== undefined && row.label === sent.label
+          ? { ...row, label: tidy.label }
+          : row;
+      }),
+    }));
+    setSaved(snapshot(clean));
+    setLoadedAt(outcome.value.updatedAt);
+    return outcome;
+  }
+
+  /** A validation that throws is a defect: reported, and taken as Python unable to run. */
+  async function validateForSave(checked: ValidationContent): Promise<ValidationState> {
+    try {
+      return await runValidation(checked);
+    } catch (error) {
+      reportError(error);
+      return { kind: "unavailable" };
+    }
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFailure(null);
+    setSavedNow(false);
+    const prepared = prepare();
+    if (prepared === undefined) return;
+    const saveAfter = (checked: ValidationState) =>
+      startTransition(async () => {
+        const outcome = await store(prepared, checked);
+        if (!outcome.ok) {
+          setFailure(failureText(outcome.error));
           return;
         }
-        setFailure(failureText(outcome.error));
+        setSavedNow(true);
+      });
+    // A published lesson is never saved without a passing validation of what
+    // is saved. The validation runs outside the transition, which would hold
+    // "Validating" and Stop back until the save ended.
+    const content = contentOf(prepared.submitted);
+    if (status === "published" && !covers(validation, content)) {
+      void validateForSave(content).then((checked) => {
+        if (covers(checked, content)) saveAfter(checked);
+        else setFailure(validateFirstText(checked));
+      });
+      return;
+    }
+    saveAfter(validation);
+  }
+
+  function moveStatus(to: ContentStatus) {
+    setStatusFailure(null);
+    setStatusChanged(null);
+    // Publish puts the lesson on the site as it is in the editor, so it saves first.
+    const prepared = to === "published" ? prepare() : undefined;
+    if (to === "published" && prepared === undefined) return;
+    startTransition(async () => {
+      let version = loadedAt;
+      if (prepared !== undefined) {
+        const saved = await store(prepared, validation);
+        if (!saved.ok) {
+          setStatusFailure(failureText(saved.error));
+          return;
+        }
+        version = saved.value.updatedAt;
+      }
+      const outcome = await settle(() =>
+        setStatus({ id: lesson.id, loadedAt: version, status: to }),
+      );
+      if (!outcome.ok) {
+        setStatusFailure(statusFailureText(outcome.error));
         return;
       }
-      // What was saved, as the form shows it once tidied. The fields stayed
-      // editable while the save was in flight, so a field is tidied only if
-      // it still holds what was sent; anything typed since is kept, and the
-      // editor goes on calling it unsaved.
-      const clean: EditorFields = {
-        ...submitted,
-        title: draft.title,
-        hints: hintLines(draft.hints),
-        wrongAnswers: submitted.wrongAnswers.map((row, index) => ({
-          ...row,
-          label: draft.wrongAnswers[index]?.label ?? row.label,
-        })),
-      };
-      setFields((current) => ({
-        ...current,
-        title: current.title === submitted.title ? clean.title : current.title,
-        hints: sameLines(current.hints, submitted.hints) ? clean.hints : current.hints,
-        wrongAnswers: current.wrongAnswers.map((row) => {
-          const sent = submitted.wrongAnswers.find((entry) => entry.key === row.key);
-          const tidy = clean.wrongAnswers.find((entry) => entry.key === row.key);
-          return sent !== undefined && tidy !== undefined && row.label === sent.label
-            ? { ...row, label: tidy.label }
-            : row;
-        }),
-      }));
-      setSaved(snapshot(clean));
       setLoadedAt(outcome.value.updatedAt);
-      setSavedNow(true);
+      setCurrentStatus(to);
+      setStatusChanged(to);
     });
   }
 
   const stale = failure === words.failure.stale;
   const content = contentOf(fields);
   const solution = solutionViews(validation, content);
+  // On a published lesson Save validates first, so it waits for a validation in progress.
+  const saveWaits = status === "published" && validation.kind === "running";
   return (
     <form ref={form} noValidate onSubmit={onSubmit} className="flex flex-col gap-6">
       <div className="sticky inset-bs-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-bg py-3">
         <p className="text-base text-text">
           <span className="text-text-muted">{words.statusLabel}: </span>
-          {words.statusNow[lesson.status]}
+          {words.statusNow[status]}
           <span aria-hidden="true" className="text-text-muted">
             {" · "}
           </span>
@@ -338,7 +448,7 @@ export function LessonEditor({
             {unsaved ? words.unsaved : words.allSaved}
           </span>
         </p>
-        <Button type="submit" variant="primary" isPending={pending}>
+        <Button type="submit" variant="primary" isPending={pending || saveWaits}>
           {pending ? words.saving : words.save}
         </Button>
       </div>
@@ -480,7 +590,7 @@ export function LessonEditor({
             <h2 id={sectionId("code")} className="scroll-mbs-20 text-lg font-semibold text-text">
               {words.codeHeading}
             </h2>
-            {lesson.status === "published" && (
+            {status === "published" && (
               <Notice kind="information" kindLabel={words.noteLabel}>
                 {words.publishedCodeNote}
               </Notice>
@@ -586,6 +696,18 @@ export function LessonEditor({
               onValidate={validate}
               onStop={stopValidation}
               onRetry={() => runtime.current?.retry()}
+            />
+            <LessonStatusControls
+              status={status}
+              canPublish={covers(validation, content)}
+              pending={pending}
+              failure={statusFailure}
+              stale={
+                statusFailure === lessonStatus.failure.stale ||
+                statusFailure === words.failure.stale
+              }
+              changed={statusChanged}
+              onMove={moveStatus}
             />
           </section>
         </div>

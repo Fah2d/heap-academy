@@ -248,6 +248,58 @@ export const lessonEditor = {
     unavailable: "The lesson could not be saved right now. Try again in a minute.",
     invalid_input: "Some of the values were not accepted. Check them and save again.",
   },
+  /** Save on a published lesson validates first (section 7.6); why nothing was saved. */
+  validateFirst: {
+    failed:
+      "This lesson is published, so Save validates it first. A rule failed, so nothing was saved. The checklist under Publish says what to fix.",
+    stopped:
+      "This lesson is published, so Save validates it first. The validation was stopped, so nothing was saved.",
+    unavailable:
+      "This lesson is published, so Save validates it first. Python could not run the programs, so nothing was saved. Press Save to try again.",
+  },
+} as const;
+
+/** The status of one lesson, in the lesson editor's Publish section (section 7.6; FR-ADM-09). */
+export const lessonStatus = {
+  heading: "Status",
+  now: (status: string) => `This lesson is ${status}.`,
+  name: { draft: "a draft", published: "published", archived: "archived" },
+  explain: {
+    draft: "Only admins can see it, in the dashboard.",
+    published: "Learners can open it while its course is published.",
+    archived: "It is gone from the site. Learners keep their completions.",
+  },
+  publishWaits:
+    "Publish appears here once every rule above passed for the lesson as it is now in the editor.",
+  publishSaves: "Publish saves the lesson as it is in the editor, then puts it on the site.",
+  action: { draft: "Move back to draft", published: "Publish", archived: "Archive" },
+  changing: "Changing status",
+  changed: (status: string) => `The lesson is now ${status}.`,
+  confirmTitle: {
+    draft: "Move this lesson back to draft?",
+    archived: "Archive this lesson?",
+  },
+  confirmBody: {
+    draft:
+      "Learners will no longer see this lesson on the site. Their completions are kept, and publishing it again brings it back.",
+    archived:
+      "Learners will not see this lesson on the site. Anyone who completed it keeps the completion and its XP. You can move it back to draft later.",
+  },
+  cancel: "Cancel",
+  /** Why a status change was refused. A refused Publish save uses the save's messages. */
+  failure: {
+    needs_validation:
+      "The lesson changed after its last passing validation, so it was not published. Validate it, then publish.",
+    published_incomplete:
+      "A published lesson needs instructions and at least one test case, so it was not published.",
+    status_not_allowed:
+      "The lesson's status was changed somewhere else, so this change was not made. Reload the page to see it.",
+    stale:
+      "This lesson was changed somewhere else after you opened it, so its status did not change. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
+    not_found: "This lesson no longer exists. Go back to the course.",
+    unavailable: "The status could not be changed right now. Try again in a minute.",
+    invalid_input: "The change was not accepted. Reload the page and try again.",
+  },
 } as const;
 
 const count = new Intl.NumberFormat("en");

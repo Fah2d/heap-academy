@@ -108,10 +108,12 @@ export const adminGallery = {
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",
-  lessonEditor: "Lesson editor of a draft whose saves succeed and whose preview renders",
+  lessonEditor:
+    "Lesson editor of a draft whose saves and status changes succeed and whose preview renders",
   lessonRefusing:
-    "Lesson editor whose save is refused (changed somewhere else) and whose preview fails",
-  lessonPublished: "Lesson editor of a published lesson whose save never answers",
+    "Lesson editor whose save is refused (changed somewhere else), whose status change is refused and whose preview fails",
+  lessonPublished: "Lesson editor of a published lesson whose save and status change never answer",
+  lessonArchived: "Lesson editor of an archived lesson, with Move back to draft",
   lessonEmpty:
     "Lesson editor of a new lesson with no instructions, code, wrong answers or test cases",
   lessonTestCasesFull:

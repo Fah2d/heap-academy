@@ -375,6 +375,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={succeed({ updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
@@ -385,6 +386,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={refuse("stale")}
+          setStatus={refuse("status_not_allowed")}
           renderPreview={refuse("unavailable")}
           openRuntime={sampleRuntime}
         />
@@ -395,6 +397,18 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
+          renderPreview={never}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-archived" title={m.lessonArchived}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "archived" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
           renderPreview={never}
           openRuntime={sampleRuntime}
         />
@@ -405,6 +419,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={refuse("unavailable")}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
@@ -415,6 +430,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={refuse("slug_taken")}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
@@ -425,6 +441,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
@@ -435,6 +452,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
@@ -445,6 +463,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
@@ -460,6 +479,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={{ blocks: [] }}
           nonce={nonce}
           save={succeed({ updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
           renderPreview={succeed({ blocks: [] })}
           openRuntime={sampleRuntime}
         />
@@ -470,6 +490,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={loadingRuntime}
         />
@@ -480,6 +501,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={failedRuntime}
         />
@@ -490,6 +512,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}
+          setStatus={never}
           renderPreview={succeed(samplePreview)}
           openRuntime={readyRuntime}
         />
@@ -500,6 +523,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           initialPreview={samplePreview}
           nonce={nonce}
           save={succeed({ updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
