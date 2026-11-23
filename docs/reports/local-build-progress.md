@@ -2,6 +2,32 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 17:28), in `night-a`, on `wp/4.3-validate-publish`
+
+Same task list as the session below. This run did task 2.
+
+### Task 2 done: WP-4.3 part 8, the second review round and its fixes
+
+- ecbb815 checked against design MINOR 11: it covers the stopped validation, Save validating first and its refusals, the time limit, the error line, cut and cleaned output and the outdated notes, with axe. The reviewers found the gaps left (below).
+- Review round 2 on `e1f1ce9..c5902d0`, reports in `docs/reports/reviews/WP-4.3/` (`code-review-2.md`, `security-review-2.md`, `design-review-2.md`). Security: APPROVE. Code: CHANGES REQUIRED only for the e2e runs, no new BLOCKER or MAJOR. Design: CHANGES REQUIRED for the screenshots (BLOCKER 1, open since round 1) and MAJOR 2 (a real cut output made a test case thousands of pixels tall).
+- Fixed test first in bb1d583 (4 new tests failed before the change): Open labels from the list now; invisible characters removed from shown output (the zero-width joiner and non-joiner kept); the solution's output in the lesson code panel, scrolling inside a new `--spacing-output` token (20rem) with the focus ring inset; the name hint's limit from `TEST_CASE_LIMITS`; `testCaseList.title` from its parts; clearer failed-solution sentence; a test that focus moves only once (seen failing with the effect's dependency list removed); gallery states for Python that started but could not run the programs (Validate and Save), Open focusing a test case, rule 1's missing parts, axe on the passed state, the cut output at its real length.
+- A first try with `max-block-80` built to no CSS at all (the theme defines only its own spacing tokens); found by checking the built stylesheet, then replaced by the token.
+- `pnpm verify`: exit 0, 98 files, 1841 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. The built CSS holds `.max-block-output{max-block-size:var(--spacing-output)}`. No gallery string in `.next/static`.
+- Description rewritten: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (opening paragraph, part 8 evidence, "Left for the owner", decisions renumbered and three new: 18 invisible characters, 19 the new size token, 20 the T-21 bundle note). Time: about 3.6 hours of sessions against a box of 3.5, under 1.5 times.
+- Not run: e2e, screenshots, axe, database tests. No browser or local Supabase stack in this sandbox.
+- Push: see the line after this section's commit.
+
+### Owner: run this
+
+1. `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack; look at `docs/reports/screens/WP-4.3/`; then the Delivery Gate report. The new gallery checks have never run.
+2. Decide WP-4.3 decisions 17 to 20 (17: cherry-pick 87af7ec onto `wp/4.1-courses-chapters`; 19: accept `--spacing-output` and add it to DESIGN.md).
+3. Open the draft with the `gh pr create` line at the end of the description when you want it.
+4. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- Task 3: in `night-b`, create the WP-5.1 branch from `origin/wp/4.1-courses-chapters` and start WP-5.1 part 1 under `.claude/skills/work-package/SKILL.md` (the task list names `.claude/commands/work-package.md`, which does not exist; the skill is the same procedure).
+
 ## Session of 2026-11-23 (from about 17:15), in `night-a`, on `wp/4.3-validate-publish`
 
 Task list given by the owner for unattended runs: (1) merge `origin/wp/4.2-lesson-editor` into `wp/4.3-validate-publish`; (2) WP-4.3 part 8, verify and a second review; (3) WP-5.1 in `night-b` from `origin/wp/4.1-courses-chapters`, one part per run. This run did task 1.
