@@ -49,8 +49,8 @@ Never run a command against the production database from a working machine. The 
 | Staging migrations | A migration is wrong, or `SUPABASE_DB_URL` in `staging` is wrong or expired | Fix forward in a pull request; check the secret against the Supabase Connect dialog |
 | Waiting for approval | Waiting for you | Approve or reject |
 | Production migrations | The same migration fails on production data | Production is on the old app and the partly applied migration rolled back in its transaction. Fix forward |
-| Remember the deployment production serves | Vercel answered something other than 200 or 404: the token lacks access to the project, or Vercel is down | Nothing was deployed. Check the token's scope in GitHub `production`, then re-run. A 404 is only a warning: the address serves nothing yet, so this deploy has no rollback target |
-| Vercel build or deploy | `VERCEL_TOKEN` expired (90 days), or a Hobby limit was reached | Renew the token in GitHub `production`; check the Vercel usage page |
+| Remember the deployment production serves | Vercel answered something other than 200 or 404: `VERCEL_TOKEN` expired (90 days), was deleted, or lacks access to the project, or Vercel is down | No app was deployed, but the production migrations above have already run. Renew or fix the token by `rotate-a-secret.md` section 7, then re-run. Merge no pull request with a migration while the token is invalid. A 404 is only a warning: the address serves nothing yet, so this deploy has no rollback target |
+| Vercel build or deploy | A Hobby limit was reached | Check the Vercel usage page and `usage-spike-or-free-tier-limit.md` |
 | Promote | The promotion timed out (3 minutes) | The job has rolled back. Vercel finishes a timed-out promotion anyway, which can come after the rollback: open **Deployments** and check which one is **Current**. If it is the failed one, use **Instant Rollback** (above). Then re-run |
 | Smoke | The new deployment is broken, or the address still serves another release | The job has already rolled back. Read the infra:verify output in the log |
 
