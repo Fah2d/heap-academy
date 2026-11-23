@@ -76,7 +76,7 @@ Each package lists: its time box, what it depends on, the requirements and threa
 **WP-1.4 Design tokens, primitives, and the shell**
 - Time box: 3 hours. Depends on: WP-1.1 signed, WP-1.2. Can run beside: WP-1.3.
 - Covers: FR-SYS-01, NFR-A11Y-06, NFR-A11Y-07, NFR-A11Y-08, NFR-I18N-01, NFR-I18N-02, NFR-I18N-03; goal G-4.
-- Builds: tokens in three tiers from `DESIGN.md`; self-hosted fonts; primitives for button, link, text field, tabs, dialog, disclosure, notice, progress, and status; the shell with header, footer, skip link, and landmarks; the not-found and error pages with a reference ID; the lint rule against raw values.
+- Builds: tokens in three tiers from `DESIGN.md`; self-hosted fonts; primitives for button, link, text field, tabs, dialog, disclosure, notice, progress, and status; the shell with header, skip link, and the `header` and `main` landmarks (the header nav comes in WP-5.1 and the footer in WP-6.3, when they have destinations); the not-found and error pages, with the server error's digest as the reference; the lint rule against raw values.
 - Done when: a development-only page, absent from the production build, shows every primitive in every state; the contrast checker passes on every token pair in use; screenshots at 375, 768, and 1280 px; axe is clean; the antislop Delivery Gate report is in the pull request; `design-reviewer` approves.
 
 Day 1 is done when: the production address serves the shell through the pipeline with the script policy enforced; the guardrails are proven; `DESIGN.md` is signed; the decisions are accepted.
@@ -88,6 +88,7 @@ Day 1 is done when: the production address serves the shell through the pipeline
 - Covers: NFR-SEC-03, NFR-SEC-06, FR-GRD-05, FR-PRG-04, FR-PRG-07, FR-ADM-09, FR-ADM-14; T-08, T-10, T-20, T-21, T-22.
 - Builds: migrations for every table of `02-architecture.md` section 8; the policies of section 8.2; the functions and triggers of section 8.3; seed data with a sample course for local and staging; generated types; policy and trigger tests; the `db` job.
 - Done when: policy tests cover every table and operation as anonymous, as a learner, as an admin at `aal1`, and as an admin at `aal2`; trigger tests show that a published lesson cannot be saved without validation, that a course cannot be published empty, that a completion's XP comes from the lesson whatever the caller sends, and that a lesson with completions cannot be deleted; every migration applies to an empty database in CI and to staging through the workflow.
+- **Approved by the owner on 2026-11-20 (proposed in WP-1.3, pull request #4):** Builds also the database check in `/api/health` (`02-architecture.md` section 9.2). WP-1.3 reports liveness and the release only, because no database client exists before this package.
 
 **WP-2.2 Sign-in**
 - Time box: 3.5 hours. Depends on: WP-1.4. Needs the `profiles` trigger of WP-2.1 before its pull request opens.
@@ -162,7 +163,7 @@ Day 4 is done when: the owner can create a course, a chapter, and a validated, p
 **WP-5.1 Home, course list, course page**
 - Time box: 3 hours. Depends on: WP-4.1. Can run beside: WP-5.2.
 - Covers: FR-LND-02, FR-LND-03, FR-CAT-01, FR-CAT-04, FR-CRS-01, FR-SEO-01, NFR-A11Y-05.
-- Builds: the three pages from cached published content; honest empty states; titles, descriptions, canonical addresses, the sitemap, and indexing rules.
+- Builds: the three pages from cached published content; the header nav, with the `nav` landmark; honest empty states; titles, descriptions, canonical addresses, the sitemap, and indexing rules.
 - Done when: only published content appears; counts equal the database; a page view with a warm cache makes no database query (test); sign-in, profile, and admin pages are excluded from indexing; screenshots; axe; the Delivery Gate report; `design-reviewer` approves.
 
 **WP-5.2 The workspace on a laptop**
@@ -204,7 +205,7 @@ Day 5 is done when: a guest on a phone opens a published lesson, runs, checks, p
 **WP-6.3 Profile, account deletion, legal pages**
 - Time box: 3 hours. Depends on: WP-6.1.
 - Covers: FR-PRF-01, FR-PRF-02, FR-PRF-03, FR-SYS-03, NFR-PRIV-01; T-17.
-- Builds: the profile page with its states; display name editing; account deletion with a typed confirmation and a recent sign-in, using the privileged client in its one module; the privacy and terms pages, drafted from the data inventory of `06-security-privacy.md` section 7.1; the footer links.
+- Builds: the profile page with its states; display name editing; account deletion with a typed confirmation and a recent sign-in, using the privileged client in its one module; the privacy and terms pages, drafted from the data inventory of `06-security-privacy.md` section 7.1; the footer element, with the `contentinfo` landmark, and its links.
 - Done when: J-10 passes with database assertions on every table; lint proves the privileged client is imported in one place; the owner has approved the legal text in the pull request.
 - Owner: read and approve the privacy and terms text.
 
