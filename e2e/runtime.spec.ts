@@ -216,7 +216,10 @@ test.describe("Python runtime", () => {
       ].join("\n"),
     );
     // Both settled, neither with anything loaded, micropip is not installed,
-    // and nothing was requested.
+    // and nothing was requested. This build serves no package wheel, so a
+    // load would also end with nothing loaded without the lock-down: here the
+    // request log is the evidence. The Python checks guard a build that
+    // serves wheels.
     expect(probe).toMatch(/^2 True /);
     expect(probe).not.toMatch(/resolved [1-9]/);
     expect(probe).not.toMatch(/'resolved'/);

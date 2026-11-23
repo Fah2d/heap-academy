@@ -18,6 +18,14 @@ Same task list. Tasks 1 and 2 were done (task 2 took about 6 minutes), so this r
 - Not run: the browser tests.
 - Push: `wp/3.3-grader` with 9043a9a, 06c39bb and the docs commit. This line is pushed with the docs commit.
 
+### Task 3, part 2 done: the WP-3.1 round 4 minors
+
+- 58128a3 on `wp/3.1-python-worker`: an error whose attributes raise keeps `input_ended` and `memory` (the new test failed 2 of 3 before); `scripts/next-config.test.ts` checks that `next.config.ts` serves the security headers and then the runtime's rules, worker policy last (both cases fail with the runtime rules removed); the loader test's comment says the request log is its evidence in this build; the memory case has its own test.
+- The WP-3.1 description: round 4 in Reviews, the five passages that said #3 was not merged corrected, the round 4 evidence.
+- `pnpm verify` on 58128a3: exit 0, 37 files, 842 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Push: `wp/3.1-python-worker` with 58128a3 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- `wp/3.3-grader` and `wp/3.4-statechart` do not have 58128a3 yet, and `wp/3.4-statechart` does not have the WP-3.3 round 2 fixes yet.
+
 ### Owner: run this
 
 1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
@@ -27,8 +35,8 @@ Same task list. Tasks 1 and 2 were done (task 2 took about 6 minutes), so this r
 
 ### Next
 
-- Task 3, part 2: the WP-3.1 round 4 minors on `wp/3.1-python-worker` (description passages that still say #3 is not merged; a unit test that `next.config.ts` wires `runtimeHeaders`; the loader test's comment; the memory test's place).
-- Then merge `wp/3.3-grader` into `wp/3.4-statechart` again, so WP-3.4 has the round 2 fixes.
+- Merge `wp/3.1-python-worker` into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`, so both carry the round 4 and round 2 fixes; verify and build each.
+- A review round on 58128a3 (WP-3.1) and on 9043a9a and 06c39bb (WP-3.3), if the owner wants one.
 
 ## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
 

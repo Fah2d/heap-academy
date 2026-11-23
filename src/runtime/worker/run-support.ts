@@ -181,10 +181,17 @@ def _heap_make_runner(require_streaming):
         flush()
         try:
             kind, message, line = outcome(failure)
-        except base_exception:
+        except base_exception as broken:
             # The error's own attributes raised; it is still the program's
-            # error. A memory error still ends in a new worker.
-            kind = "memory" if is_subclass(kind_of(failure), memory_error) else "runtime"
+            # error, of the kind its class names. A memory error, or running
+            # out of memory while reading one, still ends in a new worker.
+            cls = kind_of(failure)
+            if is_subclass(cls, memory_error) or is_subclass(kind_of(broken), memory_error):
+                kind = "memory"
+            elif is_subclass(cls, eof_error):
+                kind = "input_ended"
+            else:
+                kind = "runtime"
             message, line = "", None
         dict_clear(namespace)
         namespace = None
