@@ -748,7 +748,11 @@ describe("LessonEditor status [FR-ADM-09]", () => {
       status: "archived",
     });
 
-    await userEvent.click(screen.getByRole("button", { name: lessonStatus.action.draft }));
+    // The new status can render before the move's transition ends; a pending
+    // button ignores presses, so wait for it to settle.
+    const toDraft = screen.getByRole("button", { name: lessonStatus.action.draft });
+    await waitFor(() => expect(toDraft.getAttribute("aria-disabled")).toBeNull());
+    await userEvent.click(toDraft);
     expect(screen.queryByRole("dialog")).toBeNull();
     await waitFor(() =>
       expect(setStatus).toHaveBeenLastCalledWith({
