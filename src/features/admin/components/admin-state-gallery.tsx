@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
 import type { LessonDocument } from "@/content/markdown";
+import type { TestCaseId } from "@/grader/test-case";
 import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
@@ -59,7 +60,26 @@ const sampleLesson: EditorLessonDetail = {
   starterCode: m.sampleStarter,
   solutionCode: m.sampleSolution,
   wrongAnswers: [{ label: m.sampleWrongLabel, code: m.sampleWrongCode }],
-  testCount: 2,
+  testCases: [
+    {
+      id: "greets-sara" as TestCaseId,
+      name: m.sampleTestName,
+      stdin: m.sampleTestInput,
+      afterCode: "",
+      expected: m.sampleTestExpected,
+      match: "normalized",
+      hint: "",
+    },
+    {
+      id: "works-for-omar" as TestCaseId,
+      name: m.sampleTestName2,
+      stdin: m.sampleTestInput2,
+      afterCode: "",
+      expected: m.sampleTestExpected2,
+      match: "normalized",
+      hint: "",
+    },
+  ],
   loadedAt: "2026-11-22T08:00:00.000000+00:00",
 };
 
@@ -70,7 +90,7 @@ const emptyLesson: EditorLessonDetail = {
   starterCode: "",
   solutionCode: "",
   wrongAnswers: [],
-  testCount: 0,
+  testCases: [],
 };
 
 /** What the server's renderer gives for the sample instructions. */

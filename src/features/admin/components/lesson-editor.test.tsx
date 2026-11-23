@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LessonDocument } from "@/content/markdown";
+import type { TestCaseId } from "@/grader/test-case";
 import { lessonEditor as words, structure } from "@/messages/admin";
 import type { EditorLessonDetail } from "../types";
 import { PREVIEW_DELAY_MS } from "./instructions-preview";
@@ -47,7 +48,26 @@ const lesson: EditorLessonDetail = {
   starterCode: "# start\n",
   solutionCode: "print(input())\n",
   wrongAnswers: [{ label: "No input", code: 'print("x")' }],
-  testCount: 2,
+  testCases: [
+    {
+      id: "t1" as TestCaseId,
+      name: "Echoes Ada",
+      stdin: "Ada\n",
+      afterCode: "",
+      expected: "Ada",
+      match: "normalized",
+      hint: "",
+    },
+    {
+      id: "t2" as TestCaseId,
+      name: "Echoes Omar",
+      stdin: "Omar\n",
+      afterCode: "",
+      expected: "Omar",
+      match: "normalized",
+      hint: "",
+    },
+  ],
   loadedAt: LOADED,
 };
 
@@ -134,6 +154,7 @@ describe("LessonEditor [FR-ADM-04]", () => {
         solutionCode: lesson.solutionCode,
         wrongAnswers: lesson.wrongAnswers,
       },
+      testCases: lesson.testCases,
     });
     expect(await screen.findByText(words.saved)).toBeTruthy();
     expect(screen.getByText(words.allSaved)).toBeTruthy();

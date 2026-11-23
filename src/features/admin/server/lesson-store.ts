@@ -1,5 +1,7 @@
 import "server-only";
 import { freeSlug, type LessonDraft, slugFromTitle } from "@/domain/admin/lesson-details";
+import type { ContentStatus } from "@/domain/admin/structure";
+import type { TestCase } from "@/grader/test-case";
 import type { SessionClient } from "@/infrastructure/db/session-client";
 
 // Lessons through the admin's own session (docs/spec/02-architecture.md
@@ -25,6 +27,8 @@ export type LessonFailure =
   | "chapter_not_found"
   /** The title leaves nothing to make an address from, as in another script. */
   | "slug_needed"
+  /** The status cannot move this way (docs/spec/04-content-system.md section 4.3). */
+  | "status_not_allowed"
   | "not_found"
   | "unavailable";
 
@@ -48,22 +52,25 @@ export function lessonFailure(error: DbError): LessonFailure {
 type Outcome<Value> = { ok: true; value: Value } | { ok: false; error: LessonFailure };
 
 /**
- * Saves a draft over the version the editor loaded. The lesson keeps its
- * test cases (the test case editor is WP-4.3) and its place: a move from the
- * course editor keeps the lesson's version, so save_lesson ignores the
- * position it is given unless the chapter changes, and a move that lands
- * between this read and the save is kept. A lesson moved to another chapter
- * goes last in it. Returns the new version, as Postgres wrote it.
+ * Saves a draft and its test cases over the version the editor loaded, and
+ * marks it validated when `validated` is true; the caller decides that from
+ * the hash (section 4.2). The lesson keeps its place: a move from the course
+ * editor keeps the lesson's version, so save_lesson ignores the position it
+ * is given unless the chapter changes, and a move that lands between this
+ * read and the save is kept. A lesson moved to another chapter goes last in
+ * it. Returns the new version, as Postgres wrote it.
  */
 export async function saveLesson(
   db: SessionClient,
   id: string,
   loadedAt: string,
   draft: LessonDraft,
+  testCases: readonly TestCase[],
+  validated: boolean,
 ): Promise<Outcome<{ updatedAt: string }>> {
   const { data: current, error: readError } = await db
     .from("lessons")
-    .select("chapter_id, position, tests")
+    .select("chapter_id, position")
     .eq("id", id)
     .maybeSingle();
   if (readError !== null) return { ok: false, error: lessonFailure(readError) };
@@ -91,14 +98,51 @@ export async function saveLesson(
     p_instructions_md: draft.instructionsMd,
     p_hints: draft.hints,
     p_starter_code: draft.starterCode,
-    p_tests: current.tests,
+    p_tests: testCases,
     p_solution_code: draft.solutionCode,
     p_wrong_answers: draft.wrongAnswers,
-    p_validated: false,
+    p_validated: validated,
   });
   if (error !== null) return { ok: false, error: lessonFailure(error) };
   if (typeof data !== "string") return { ok: false, error: "unavailable" };
   return { ok: true, value: { updatedAt: data } };
+}
+
+/**
+ * Publishes, unpublishes or archives the version the editor loaded. The
+ * database refuses to publish a lesson that was not validated since its last
+ * gradable change (T-22), whatever this function is asked.
+ */
+export async function setLessonStatus(
+  db: SessionClient,
+  id: string,
+  loadedAt: string,
+  status: ContentStatus,
+  allowed: (from: ContentStatus) => boolean,
+): Promise<Outcome<{ updatedAt: string }>> {
+  const { data: current, error: readError } = await db
+    .from("lessons")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError !== null) return { ok: false, error: lessonFailure(readError) };
+  const from = current?.status as ContentStatus | undefined;
+  if (from === undefined) return { ok: false, error: "not_found" };
+  if (!allowed(from)) return { ok: false, error: "status_not_allowed" };
+  const { data, error } = await db
+    .from("lessons")
+    .update({ status })
+    .eq("id", id)
+    .eq("updated_at", loadedAt)
+    .select("updated_at")
+    .maybeSingle();
+  if (error !== null) return { ok: false, error: lessonFailure(error) };
+  if (typeof data?.updated_at !== "string") {
+    // No row: newer than the editor's copy, or gone since the read.
+    const { data: exists } = await db.from("lessons").select("id").eq("id", id).maybeSingle();
+    return { ok: false, error: exists === null ? "not_found" : "stale" };
+  }
+  return { ok: true, value: { updatedAt: data.updated_at } };
 }
 
 /**

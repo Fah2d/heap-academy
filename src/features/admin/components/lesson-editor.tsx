@@ -10,6 +10,7 @@ import {
   type LessonFields,
 } from "@/domain/admin/lesson-details";
 import { CodeEditor } from "@/features/workspace";
+import type { TestCase } from "@/grader/test-case";
 import { lessonEditor as words, structure } from "@/messages/admin";
 import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
 import type { AdminAction, EditorLessonDetail } from "../types";
@@ -24,7 +25,12 @@ import { settle } from "./structure-controls";
 // anything is unsaved, and Save. Leaving with unsaved changes asks first. A
 // save names the version the editor loaded and is refused over a newer one.
 
-export type SaveLessonInput = { id: string; loadedAt: string; draft: LessonDraft };
+export type SaveLessonInput = {
+  id: string;
+  loadedAt: string;
+  draft: LessonDraft;
+  testCases: TestCase[];
+};
 export type SaveLesson = AdminAction<SaveLessonInput, { updatedAt: string }>;
 
 type WrongAnswerRow = { key: number; label: string; code: string };
@@ -156,7 +162,9 @@ export function LessonEditor({
     const { draft } = checked;
     const submitted = fields;
     startTransition(async () => {
-      const outcome = await settle(() => save({ id: lesson.id, loadedAt, draft }));
+      const outcome = await settle(() =>
+        save({ id: lesson.id, loadedAt, draft, testCases: lesson.testCases }),
+      );
       if (!outcome.ok) {
         if (outcome.error === "slug_taken") {
           setInvalid([{ field: "slug" }]);
@@ -359,7 +367,7 @@ export function LessonEditor({
                 {words.publishedCodeNote}
               </Notice>
             )}
-            <p className="text-sm text-text-muted">{words.testCount(lesson.testCount)}</p>
+            <p className="text-sm text-text-muted">{words.testCount(lesson.testCases.length)}</p>
             <div className="grid grid-cols-2 gap-6">
               <CodeField
                 label={words.starterLabel}
