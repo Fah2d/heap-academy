@@ -2,9 +2,9 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
+## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
 
-Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`, then for `wp/3.3-grader`. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.
+Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, each in under 20 minutes. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.
 
 ### Task 2, part 1 done: `main` merged into `wp/3.1-python-worker`
 
@@ -23,14 +23,24 @@ Same task list as the session below. Task 1 was done; this run did task 2 for `w
 - Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.3.md`. No pull request is open for WP-3.3, so its `gh pr create` command stays.
 - Push: `wp/3.3-grader` with 4e255ef and the docs commit. This line is pushed with the docs commit.
 
+### Task 2, part 3 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- a83b326: `wp/3.3-grader` at 67787b4 merged; it carries `main` at 0efe863 and WP-3.1. No conflict.
+- `pnpm verify` on a83b326: exit 0, 45 files, 1117 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Decision: `wp/3.2-live-input` was not merged with `main`; it is not in the task list. `wp/3.4-statechart` already holds its tip (6a9c165). Recorded in the WP-3.4 description.
+- Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with a83b326 and the docs commit. This line is pushed with the docs commit.
+
 ### Owner: run this
 
 1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker` (`gh` cannot reach GitHub from the sandbox).
-2. The owner actions of the session below are still due.
+2. Decide whether `wp/3.2-live-input` should also get `main` merged in.
+3. The owner actions of the session below are still due.
 
 ### Next
 
-- Task 2: merge `wp/3.3-grader` (which carries `main` and WP-3.1) into `wp/3.4-statechart`.
+- Task 3: the WP-3.x review findings still open in the WP-3.1, WP-3.3 and WP-3.4 descriptions.
 
 ## Session of 2026-11-23 (from about 23:25), in `night-a`, on `wp/fix-smoke-and-runtime`
 

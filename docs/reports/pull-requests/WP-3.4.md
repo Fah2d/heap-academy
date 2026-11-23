@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), so until those merge this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged in a83b326. Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
 
 ## What and why
 
@@ -16,6 +16,23 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 - Work package: WP-3.4 The statechart and the phone check.
 - Requirements: FR-WSP-07, FR-WSP-17; NFR-COMPAT-01 and NFR-COMPAT-02 wait for the phone check.
 - Time box 2 hours. Over the box: the work ran across four sessions, first commit 2026-11-21 05:56, last 2026-11-22 07:00, with the WP-3.2 merge inside it. Hours of work not measured. Reported here as the handbook section 3.4 asks. Nothing was cut to fit.
+
+## Up to date with main
+
+`wp/3.3-grader` at 67787b4 is merged in a83b326. It carries `main` at 0efe863 (#3 to #8) through WP-3.1's 5f72072. Nothing conflicted. `playwright.config.ts` now has `main`'s three `phone` projects beside the `runtime-*` projects, as WP-3.1 resolved it.
+
+`wp/3.2-live-input` (6a9c165, already in this branch) was not merged with `main` in this run: it was not in the task list. This branch has `main` through WP-3.3 either way.
+
+`pnpm verify` on a83b326, exit 0:
+
+```
+ Test Files  45 passed (45)
+      Tests  1117 passed (1117)
+```
+
+`pnpm build` with CI's fake public values on a83b326, exit 0 (`runtime: worker compiled`; routes `/_not-found`, `/api/csp-report`, `/api/health`, all dynamic). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+
+Not run on the merge: the browser tests.
 
 ## How it was verified
 
