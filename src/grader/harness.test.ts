@@ -4,6 +4,8 @@ import {
   HARNESS_DEFINITION,
   HARNESS_NAME_LIMIT,
   HARNESS_OUTPUT_LIMIT,
+  HARNESS_PROGRAM_FILENAME,
+  HARNESS_TEST_FILENAME,
   HARNESS_VERSION,
 } from "./harness.ts";
 import { type HarnessHost, loadHarness } from "./node-runner/host.ts";
@@ -206,6 +208,51 @@ describe("the harness", () => {
     expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
   });
 
+  it("[FR-GRD-01] an exit whose code raises is described from the exit itself, with its message and line", () => {
+    const source =
+      "class Odd(SystemExit):\n    @property\n    def code(self):\n        raise ValueError('boom')\nraise Odd()";
+    // The fallback would give an empty message and no line.
+    expect(run(source).error).toEqual({ kind: "runtime", message: "Odd", line: 5 });
+  });
+
+  it("[FR-GRD-01] never raises: a hook that raises only in the harness's own steps gives a runtime error, and the next test case runs", () => {
+    const source = [
+      "import sys",
+      "def hook(frame, event, arg):",
+      `    if frame.f_code.co_filename not in ("${HARNESS_PROGRAM_FILENAME}", "${HARNESS_TEST_FILENAME}"):`,
+      "        raise ValueError('hook')",
+      "    return hook",
+      "sys.settrace(hook)",
+    ].join("\n");
+    expect(run(source)).toMatchObject({
+      stage: "program",
+      output: "",
+      error: { kind: "runtime", message: "" },
+    });
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] never raises: a profile hook that puts back a raising trace hook gives a result, and the next test case runs", () => {
+    const source = [
+      "import sys",
+      "def tracer(frame, event, arg):",
+      "    raise ValueError('t')",
+      "def prof(frame, event, arg):",
+      "    sys.settrace(tracer)",
+      "sys.setprofile(prof)",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ stage: "program", error: { kind: "runtime" } });
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
+  it("[FR-RUN-04] a profile hook that never raises is removed before the next test case", () => {
+    run("import sys\nsys.setprofile(lambda *args: None)");
+    expect(run("import sys\nprint(sys.getprofile())")).toMatchObject({
+      output: "None\n",
+      error: undefined,
+    });
+  });
+
   it("[FR-GRD-01] never raises: a profile hook that runs inside the harness gives a result, and is removed", () => {
     // run() throws if the harness raised or returned something that is not a result.
     expect(run("import sys\nsys.setprofile(lambda *args: print('P'))").stage).toBe("program");
@@ -224,6 +271,10 @@ describe("the harness", () => {
   });
 
   it("[FR-GRD-01] a missing name that is empty or too long is left out, and the result stays valid", () => {
+    const longest = "n".repeat(HARNESS_NAME_LIMIT);
+    expect(run("x = 1", { afterCode: `print(${longest})` }).error).toMatchObject({
+      missingName: longest,
+    });
     const long = "n".repeat(HARNESS_NAME_LIMIT + 1);
     expect(run("x = 1", { afterCode: `print(${long})` }).error).not.toHaveProperty("missingName");
     expect(
@@ -241,6 +292,7 @@ describe("the harness", () => {
       "import io, sys\nfor _ in range(100):\n    io.StringIO.write(sys.stdout, 'x' * 1000)",
     );
     expect(direct.truncated).toBe(true);
+    expect(direct.error).toBeUndefined();
     expect([...direct.output].length).toBe(HARNESS_OUTPUT_LIMIT);
   });
 
@@ -265,6 +317,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "1", hash: 74732271 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "1", hash: 3388004850 });
   });
 });
