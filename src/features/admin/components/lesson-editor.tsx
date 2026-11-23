@@ -10,18 +10,20 @@ import {
   type LessonFields,
 } from "@/domain/admin/lesson-details";
 import { CodeEditor } from "@/features/workspace";
-import type { TestCase } from "@/grader/test-case";
+import type { TestCase, TestCaseId } from "@/grader/test-case";
+import { testCaseProblems, type TestCaseProblem } from "@/grader/test-case-list";
 import { lessonEditor as words, structure } from "@/messages/admin";
 import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
 import type { AdminAction, EditorLessonDetail } from "../types";
 import { InstructionsPreview, type RenderPreview } from "./instructions-preview";
 import { useLeaveWarning } from "./leave-warning";
 import { settle } from "./structure-controls";
+import { TestCaseList } from "./test-case-list";
 
 // The lesson editor (docs/spec/03-experience.md section 7.4; FR-ADM-04,
-// FR-ADM-10): Details, Instructions with a live preview and hints, and Code
-// with the starter, the solution and the wrong answers, on one page with a
-// side list that jumps between them. A top bar shows the status, whether
+// FR-ADM-05, FR-ADM-10): Details, Instructions with a live preview and
+// hints, Code with the starter, the solution and the wrong answers, and the
+// test cases, on one page with a side list that jumps between them. A top bar shows the status, whether
 // anything is unsaved, and Save. Leaving with unsaved changes asks first. A
 // save names the version the editor loaded and is refused over a newer one.
 
@@ -34,7 +36,11 @@ export type SaveLessonInput = {
 export type SaveLesson = AdminAction<SaveLessonInput, { updatedAt: string }>;
 
 type WrongAnswerRow = { key: number; label: string; code: string };
-type EditorFields = Omit<LessonFields, "wrongAnswers"> & { wrongAnswers: WrongAnswerRow[] };
+type EditorFields = Omit<LessonFields, "wrongAnswers"> & {
+  wrongAnswers: WrongAnswerRow[];
+  testCases: TestCase[];
+};
+type TestCaseProblems = ReadonlyMap<TestCaseId, readonly TestCaseProblem[]>;
 type Invalid = { field: LessonField; index?: number }[];
 
 /** The five hint lines the form shows, filled from the saved hints. */
@@ -53,6 +59,7 @@ function fieldsOf(lesson: EditorLessonDetail): EditorFields {
     starterCode: lesson.starterCode,
     solutionCode: lesson.solutionCode,
     wrongAnswers: lesson.wrongAnswers.map((answer, index) => ({ key: index, ...answer })),
+    testCases: lesson.testCases,
   };
 }
 
@@ -75,6 +82,7 @@ export const LESSON_SECTIONS = [
   { key: "details", title: words.detailsHeading },
   { key: "instructions", title: words.instructionsHeading },
   { key: "code", title: words.codeHeading },
+  { key: "testCases", title: words.testCasesHeading },
 ] as const;
 
 export type LessonEditorProps = {
@@ -83,7 +91,11 @@ export type LessonEditorProps = {
   nonce: string;
   save: SaveLesson;
   renderPreview: RenderPreview;
+  /** The ID of a new test case; random unless a test fixes it. */
+  newTestCaseId?: () => string;
 };
+
+const randomTestCaseId = () => crypto.randomUUID();
 
 export function LessonEditor({
   lesson,
@@ -91,11 +103,14 @@ export function LessonEditor({
   nonce,
   save,
   renderPreview,
+  newTestCaseId = randomTestCaseId,
 }: LessonEditorProps) {
   const [fields, setFields] = useState<EditorFields>(() => fieldsOf(lesson));
   const [saved, setSaved] = useState(() => snapshot(fieldsOf(lesson)));
   const [loadedAt, setLoadedAt] = useState(lesson.loadedAt);
   const [invalid, setInvalid] = useState<Invalid>([]);
+  const [testProblems, setTestProblems] = useState<TestCaseProblems>(() => new Map());
+  const [openTestCases, setOpenTestCases] = useState<ReadonlySet<string>>(() => new Set());
   const [failure, setFailure] = useState<string | null>(null);
   const [savedNow, setSavedNow] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -149,12 +164,22 @@ export function LessonEditor({
     event.preventDefault();
     setFailure(null);
     setSavedNow(false);
+    const { testCases, ...lessonFields } = fields;
     const checked = checkLessonFields({
-      ...fields,
+      ...lessonFields,
       wrongAnswers: fields.wrongAnswers.map(({ label, code }) => ({ label, code })),
     });
-    if (!checked.ok) {
-      setInvalid(checked.invalid);
+    const problems = new Map(
+      testCases.flatMap((testCase) => {
+        const found = testCaseProblems(testCase);
+        return found.length === 0 ? [] : [[testCase.id, found] as const];
+      }),
+    );
+    setTestProblems(problems);
+    if (!checked.ok || problems.size > 0) {
+      setInvalid(checked.ok ? [] : checked.invalid);
+      // A test case with a problem opens in the same render, so focus can reach its field.
+      setOpenTestCases((current) => new Set([...current, ...problems.keys()]));
       focusFirstInvalid();
       return;
     }
@@ -162,9 +187,7 @@ export function LessonEditor({
     const { draft } = checked;
     const submitted = fields;
     startTransition(async () => {
-      const outcome = await settle(() =>
-        save({ id: lesson.id, loadedAt, draft, testCases: lesson.testCases }),
-      );
+      const outcome = await settle(() => save({ id: lesson.id, loadedAt, draft, testCases }));
       if (!outcome.ok) {
         if (outcome.error === "slug_taken") {
           setInvalid([{ field: "slug" }]);
@@ -367,7 +390,6 @@ export function LessonEditor({
                 {words.publishedCodeNote}
               </Notice>
             )}
-            <p className="text-sm text-text-muted">{words.testCount(lesson.testCases.length)}</p>
             <div className="grid grid-cols-2 gap-6">
               <CodeField
                 label={words.starterLabel}
@@ -431,6 +453,30 @@ export function LessonEditor({
                 </div>
               )}
             </fieldset>
+          </section>
+
+          <section aria-labelledby={sectionId("testCases")} className="flex flex-col gap-5">
+            <h2
+              id={sectionId("testCases")}
+              className="scroll-mbs-20 text-lg font-semibold text-text"
+            >
+              {words.testCasesHeading}
+            </h2>
+            <TestCaseList
+              testCases={fields.testCases}
+              onChange={(testCases) => edit({ testCases })}
+              problems={testProblems}
+              expanded={openTestCases}
+              onExpandedChange={(id, isOpen) =>
+                setOpenTestCases((current) => {
+                  const next = new Set(current);
+                  if (isOpen) next.add(id);
+                  else next.delete(id);
+                  return next;
+                })
+              }
+              newId={newTestCaseId}
+            />
           </section>
         </div>
       </div>

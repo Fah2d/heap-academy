@@ -204,6 +204,25 @@ describe("Disclosure", () => {
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("Expected 15.")).toBeTruthy();
   });
+
+  it("[ADR-0014] can be opened by its owner, and reports a press without changing itself", async () => {
+    const onExpandedChange = vi.fn();
+    const { rerender } = render(
+      <Disclosure title="Test 3" isExpanded={false} onExpandedChange={onExpandedChange}>
+        Expected 20.
+      </Disclosure>,
+    );
+    const trigger = screen.getByRole("button", { name: "Test 3" });
+    await userEvent.click(trigger);
+    expect(onExpandedChange).toHaveBeenCalledWith(true);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    rerender(
+      <Disclosure title="Test 3" isExpanded onExpandedChange={onExpandedChange}>
+        Expected 20.
+      </Disclosure>,
+    );
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  });
 });
 
 describe("Notice", () => {

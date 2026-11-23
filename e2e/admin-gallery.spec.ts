@@ -7,6 +7,7 @@ import {
   lessonEditor,
   secondStep,
   structure,
+  testCaseList,
 } from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
 import { lessonContent } from "../src/messages/lesson";
@@ -282,4 +283,43 @@ test("[FR-ADM-04] [FR-ADM-10] the lesson editor's failures, limits and learner c
   await expect(content.getByRole("button", { name: lessonContent.copyCode })).toBeVisible();
   await expect(content.getByRole("link")).toContainText(lessonContent.opensInNewTab);
   await shot("admin-lesson-content");
+});
+
+test("[FR-ADM-05] the test case list: empty, full, and a test case with problems, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+
+  // No test case yet: the empty sentence, and Add opens a new one with its name focused.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await expect(empty.getByText(testCaseList.empty)).toBeVisible();
+  await shot("admin-test-cases-empty");
+  await empty.getByRole("button", { name: testCaseList.add }).click();
+  const added = empty.getByRole("group", { name: testCaseList.group(1) });
+  await expect(added.getByRole("textbox", { name: testCaseList.nameLabel })).toBeFocused();
+  await expect(empty.getByText(lessonEditor.unsaved)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-open");
+
+  // Twelve: no Add and no Duplicate, and the sentence that says why.
+  const full = page.getByRole("region", { name: adminGallery.lessonTestCasesFull });
+  await expect(full.getByText(testCaseList.full)).toBeVisible();
+  await expect(full.getByRole("button", { name: testCaseList.add })).toHaveCount(0);
+  await full
+    .getByRole("button", { name: testCaseList.title(1, adminGallery.sampleTestName) })
+    .click();
+  await expect(full.getByRole("button", { name: /^Duplicate: / })).toHaveCount(0);
+  await shot("admin-test-cases-full");
+
+  // Save opens the test case with problems, focuses its name, and names each field.
+  const problem = page.getByRole("region", { name: adminGallery.lessonTestCaseProblem });
+  await problem.getByRole("button", { name: lessonEditor.save }).click();
+  const second = problem.getByRole("group", { name: testCaseList.group(2) });
+  await expect(second.getByRole("textbox", { name: testCaseList.nameLabel })).toBeFocused();
+  await expect(second.getByText(testCaseList.problem.nameMissing)).toBeVisible();
+  await expect(second.getByText(testCaseList.problem.tooLong.expected(5_000))).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-problems");
 });

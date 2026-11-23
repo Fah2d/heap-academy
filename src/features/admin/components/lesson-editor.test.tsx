@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LessonDocument } from "@/content/markdown";
 import type { TestCaseId } from "@/grader/test-case";
-import { lessonEditor as words, structure } from "@/messages/admin";
+import { lessonEditor as words, structure, testCaseList } from "@/messages/admin";
 import type { EditorLessonDetail } from "../types";
 import { PREVIEW_DELAY_MS } from "./instructions-preview";
 import { LESSON_SECTIONS, LessonEditor, type SaveLesson } from "./lesson-editor";
@@ -94,6 +94,7 @@ function setup(
       nonce="bm9uY2U="
       save={save}
       renderPreview={renderPreview}
+      newTestCaseId={() => "00000000-0000-4000-8000-0000000000a1"}
     />,
   );
   return { save, renderPreview };
@@ -125,7 +126,8 @@ describe("LessonEditor [FR-ADM-04]", () => {
     ).toBe(CHAPTER);
     expect((field(words.hintLabel(1)) as HTMLInputElement).value).toBe("Use input()");
     expect(screen.getAllByRole("textbox", { name: /Hint \d \(optional\)/ })).toHaveLength(5);
-    expect(screen.getByText(words.testCount(2))).toBeTruthy();
+    expect(screen.getByRole("button", { name: testCaseList.title(1, "Echoes Ada") })).toBeTruthy();
+    expect(screen.getByRole("button", { name: testCaseList.title(2, "Echoes Omar") })).toBeTruthy();
     expect(screen.getByTestId("instructions-preview").textContent).toBe("saved preview");
     expect(screen.getByRole("textbox", { name: words.starterLabel }).textContent).toBe("# start");
   });
@@ -326,6 +328,58 @@ describe("LessonEditor [FR-ADM-04]", () => {
     expect(described).toContain(words.solutionHint);
     await waitFor(() => expect(document.activeElement).toBe(solution));
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("[FR-ADM-05] saves the test cases as edited, and calls an edit to them unsaved", async () => {
+    const { save } = setup();
+    await userEvent.click(
+      screen.getByRole("button", { name: testCaseList.title(2, "Echoes Omar") }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Move up: Echoes Omar" }));
+    expect(screen.getByText(words.unsaved)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: testCaseList.add }));
+    const added = screen.getByRole("group", { name: testCaseList.group(3) });
+    await userEvent.type(
+      within(added).getByRole("textbox", { name: testCaseList.nameLabel }),
+      "Prints nothing for no input",
+    );
+    await userEvent.click(saveButton());
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        testCases: [
+          lesson.testCases[1],
+          lesson.testCases[0],
+          {
+            id: "00000000-0000-4000-8000-0000000000a1",
+            name: "Prints nothing for no input",
+            stdin: "",
+            afterCode: "",
+            expected: "",
+            match: "normalized",
+            hint: "",
+          },
+        ],
+      }),
+    );
+    expect(await screen.findByText(words.saved)).toBeTruthy();
+    expect(screen.getByText(words.allSaved)).toBeTruthy();
+  });
+
+  it("[FR-ADM-05] opens a test case with a problem, focuses its field, and sends nothing", async () => {
+    const { save } = setup({}, {
+      ...lesson,
+      testCases: [lesson.testCases[0], { ...lesson.testCases[1], name: "", hint: "h".repeat(201) }],
+    } as EditorLessonDetail);
+    const second = screen.getByRole("button", { name: testCaseList.title(2, "") });
+    expect(second.getAttribute("aria-expanded")).toBe("false");
+    await userEvent.click(saveButton());
+    expect(save).not.toHaveBeenCalled();
+    expect(second.getAttribute("aria-expanded")).toBe("true");
+    const group = screen.getByRole("group", { name: testCaseList.group(2) });
+    const name = within(group).getByRole("textbox", { name: testCaseList.nameLabel });
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    expect(within(group).getByText(testCaseList.problem.nameMissing)).toBeTruthy();
+    expect(within(group).getByText("Keep the hint to 200 characters.")).toBeTruthy();
   });
 
   it("notes that a published lesson's code changes only with a validation", () => {

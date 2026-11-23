@@ -112,7 +112,15 @@ export const adminGallery = {
   lessonRefusing:
     "Lesson editor whose save is refused (changed somewhere else) and whose preview fails",
   lessonPublished: "Lesson editor of a published lesson whose save never answers",
-  lessonEmpty: "Lesson editor of a new lesson with no instructions, code or wrong answers",
+  lessonEmpty:
+    "Lesson editor of a new lesson with no instructions, code, wrong answers or test cases",
+  lessonTestCasesFull:
+    "Lesson editor with 12 test cases, so Add a test case and Duplicate are gone",
+  lessonTestCaseProblem:
+    "Lesson editor with a test case that has no name and an expected output over the limit",
+  extraTestName: (n: number) => `Works for name ${String(n)}`,
+  extraTestInput: (n: number) => `Name ${String(n)}\n`,
+  extraTestExpected: (n: number) => `What is your name? Hello, Name ${String(n)}!`,
   lessonFull:
     "Lesson editor with three wrong answers, so Add a wrong answer is gone, whose save fails",
   lessonTaken: "Lesson editor whose address is taken by another lesson",

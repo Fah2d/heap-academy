@@ -117,6 +117,31 @@ const fullLesson: EditorLessonDetail = {
   ],
 };
 
+/** The most test cases a lesson can have. */
+const twelveTestsLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  testCases: [
+    ...sampleLesson.testCases,
+    ...Array.from({ length: 10 }, (_, index) => ({
+      id: `extra-${String(index + 3)}` as TestCaseId,
+      name: m.extraTestName(index + 3),
+      stdin: m.extraTestInput(index + 3),
+      afterCode: "",
+      expected: m.extraTestExpected(index + 3),
+      match: "normalized" as const,
+      hint: "",
+    })),
+  ],
+};
+
+/** A test case with no name and an expected output over 5,000 characters, so Save names both. */
+const testProblemLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  testCases: sampleLesson.testCases.map((testCase, index) =>
+    index === 1 ? { ...testCase, name: "", expected: m.sampleTestExpected2.repeat(200) } : testCase,
+  ),
+};
+
 /** A starter over the 10,000-character limit, so Save names the field. */
 const tooLongLesson: EditorLessonDetail = {
   ...sampleLesson,
@@ -371,6 +396,24 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
       <Example id="gallery-lesson-too-long" title={m.lessonTooLong}>
         <LessonEditor
           lesson={tooLongLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-tests-full" title={m.lessonTestCasesFull}>
+        <LessonEditor
+          lesson={twelveTestsLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-test-problem" title={m.lessonTestCaseProblem}>
+        <LessonEditor
+          lesson={testProblemLesson}
           initialPreview={samplePreview}
           nonce={nonce}
           save={never}

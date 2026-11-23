@@ -220,9 +220,8 @@ export const lessonEditor = {
   removeWrongAnswer: (n: number) => `Remove wrong answer ${String(n)}`,
   removeShort: "Remove",
   publishedCodeNote:
-    "This lesson is published. A change to its starter, solution or wrong answers is saved only together with a passing validation.",
-  testCount: (count: number) =>
-    count === 1 ? "This lesson has 1 test case." : `This lesson has ${String(count)} test cases.`,
+    "This lesson is published. A change to its starter, solution, wrong answers or test cases is saved only together with a passing validation.",
+  testCasesHeading: "Test cases",
   fieldInvalid: {
     title: "Enter a title of 1 to 60 characters.",
     slug: "Use lowercase letters, digits and single hyphens, up to 60 characters.",
@@ -239,7 +238,7 @@ export const lessonEditor = {
     stale:
       "This lesson was changed somewhere else after you opened it, so your change was not saved. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
     needs_validation:
-      "This lesson is published. A change to its starter, solution or wrong answers is saved only together with a passing validation, so nothing was saved.",
+      "This lesson is published. A change to its starter, solution, wrong answers or test cases is saved only together with a passing validation, so nothing was saved.",
     published_incomplete:
       "A published lesson needs instructions and at least one test case, so nothing was saved.",
     chapter_not_found: "That chapter is no longer in this course. Reload the page.",
@@ -247,6 +246,54 @@ export const lessonEditor = {
     not_found: "This lesson no longer exists. Go back to the course.",
     unavailable: "The lesson could not be saved right now. Try again in a minute.",
     invalid_input: "Some of the values were not accepted. Check them and save again.",
+  },
+} as const;
+
+const count = new Intl.NumberFormat("en");
+
+/** The test case list of the lesson editor (docs/spec/03-experience.md section 7.5; FR-ADM-05). */
+export const testCaseList = {
+  intro:
+    "Each test case runs the program on its own and compares what it prints. Learners see every test case, including its follow-up code. A lesson has 1 to 12.",
+  empty: "No test case yet. A lesson needs at least one before it can be published.",
+  full: "This lesson has 12 test cases, the most a lesson can have.",
+  add: "Add a test case",
+  title: (n: number, name: string) =>
+    name.trim() === "" ? `Test case ${String(n)}: no name yet` : `Test case ${String(n)}: ${name}`,
+  /** The group around one test case's fields, for screen readers. */
+  group: (n: number) => `Test case ${String(n)}`,
+  nameLabel: "Name",
+  nameHint:
+    "What the learner reads, written as a requirement, such as: Prints the total on one line. 1 to 80 characters.",
+  stdinLabel: "Input",
+  stdinHint: "What the program is given, one answer per line. It may be empty.",
+  expectedLabel: "Expected output",
+  expectedHint: "Exactly what the program must print. A prompt given to input() is part of it.",
+  matchLabel: "How to compare",
+  matchHint: "Letter case and spaces at the start of a line always count.",
+  match: {
+    normalized: "Ignore spaces at line ends and blank lines at the end",
+    exact: "Character for character",
+    contains: "The output contains this text",
+  },
+  hintLabel: "Hint (optional)",
+  hintHint: "Shown when this test case fails. Say what to look at, never the answer.",
+  afterCodeLabel: "Follow-up code (optional)",
+  afterCodeHint:
+    "Python that runs after the learner's program, for checking a variable or calling a function.",
+  duplicate: (name: string) => `Duplicate: ${name}`,
+  duplicateShort: "Duplicate",
+  remove: (name: string) => `Delete: ${name}`,
+  removeShort: "Delete",
+  problem: {
+    nameMissing: "Give this test case a name.",
+    tooLong: {
+      name: (limit: number) => `Keep the name to ${count.format(limit)} characters.`,
+      stdin: (limit: number) => `Keep the input to ${count.format(limit)} characters.`,
+      expected: (limit: number) => `Keep the expected output to ${count.format(limit)} characters.`,
+      hint: (limit: number) => `Keep the hint to ${count.format(limit)} characters.`,
+      afterCode: (limit: number) => `Keep the follow-up code to ${count.format(limit)} characters.`,
+    },
   },
 } as const;
 
