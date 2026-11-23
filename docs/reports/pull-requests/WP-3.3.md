@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** #3 and #4 are merged. `wp/3.1-python-worker`, which now carries `main` at 037c4ad, is merged into this branch (6f0cfe8), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (4e255ef), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
 
 ## What and why
 
@@ -34,6 +34,21 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 | The example lesson of section 7, and the parity cases. | `src/grader/example-lesson.ts`, `src/grader/parity-cases.ts` |
 | Property testing: a seeded generator and `forAll`, outside `src` so the pure modules' tests can import it. | `scripts/testing/property.ts` |
 | The development page shows the new `checking` status; it sends no checks. | `src/features/workspace/client/runtime-view.ts`, `src/messages/runtime-dev.ts` |
+
+## Up to date with main
+
+`wp/3.1-python-worker` at e06e9c3 is merged in 4e255ef. It carries `main` at 0efe863 (#5, #6, #7 and #8 since the last merge, in WP-3.1's 5f72072). Nothing conflicted. `playwright.config.ts` now has `main`'s three `phone` projects beside the `runtime-*` projects, as WP-3.1 resolved it. The earlier merge, of `main` at 037c4ad through WP-3.1, is 6f0cfe8.
+
+`pnpm verify` on 4e255ef, exit 0:
+
+```
+ Test Files  41 passed (41)
+      Tests  1002 passed (1002)
+```
+
+`pnpm build` with CI's fake public values on 4e255ef, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+
+Not run on the merge: the browser tests.
 
 ## How it was verified
 

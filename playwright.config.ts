@@ -11,6 +11,10 @@ const port = 3100;
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
 const runtime = /runtime\.spec\.ts$/;
+// The same development pages on an emulated phone: a mobile viewport, touch,
+// and the phone's pixel density, not a resized desktop window.
+const phone = /phone\.spec\.ts$/;
+const developmentOnly = [gallery, runtime, phone];
 
 const engines = [
   ["chromium", devices["Desktop Chrome"]],
@@ -38,7 +42,7 @@ export default defineConfig({
   projects: [
     ...engines.map(([name, device]) => ({
       name,
-      testIgnore: [gallery, runtime],
+      testIgnore: developmentOnly,
       use: { ...device },
     })),
     {
@@ -51,6 +55,17 @@ export default defineConfig({
       name: `runtime-${name}`,
       testMatch: runtime,
       use: { ...device, baseURL: `http://127.0.0.1:${developmentPort}` },
+    })),
+    // Pixel 7 as it is (412 px), then at the 375 px review width and the
+    // common 360 px Android width, with the same touch and pixel density.
+    ...[undefined, 375, 360].map((width) => ({
+      name: width === undefined ? "phone" : `phone-${width}`,
+      testMatch: phone,
+      use: {
+        ...devices["Pixel 7"],
+        ...(width !== undefined && { viewport: { width, height: 667 } }),
+        baseURL: `http://127.0.0.1:${developmentPort}`,
+      },
     })),
   ],
   // In order: the production build must finish before the development server
