@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 09:00), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 5, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- The runbook `docs/runbooks/published-lesson-wrong.md` (07-operations section 8.1), found as an untracked draft and checked against the code: corrected the button names ("Reload the page" appears only for a newer version), the section list, and the public addresses (`/learn/<course>/<lesson>`, `/courses/<course>`, `/courses` from 03-experience section 3).
+- J-13: `e2e/j13-publish-journey.spec.ts` (a failing solution and a passing starter are refused with the reason and get no Publish; a passing lesson is published, survives a reload, and moves back to draft after the dialog). Written, not run: no local Supabase stack here.
+- A flaky unit test fixed: the archive test in `lesson-editor.test.tsx` failed once in the full run (passed 5 of 5 alone). The status renders before the async transition ends, and React Aria's pending Button ignores presses; the test now waits for the button to settle. No component change.
+- Commit af0f0c1 at about 09:19. `pnpm verify`: exit 0, 96 files, 1811 tests (the first run failed on the flaky test, before the fix).
+- Push: succeeded, `5f0c307..af0f0c1`. This progress commit is pushed after it.
+- No `pnpm build` this part (no application code changed).
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), now with twelve open decisions (new: Publish is never offered to a broken lesson, so J-13's "refused with the reason" is the checklist). Do not open it until part 6 is done.
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 6, on `wp/4.3-validate-publish`: code, security and design review with fixes. The e2e runs and screenshots need the local stack and a browser, which this sandbox has not had; if they still cannot run, the description says so and the owner runs them.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-23 (from about 06:00), in `night-a`, on `wp/4.3-validate-publish`
 
 ### WP-4.3 Test cases, validation, publishing: part 4, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
