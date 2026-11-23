@@ -15,6 +15,7 @@ Same task list as the sessions below. Tasks 1 and 2 were done; this run started 
 - Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, with seven decisions taken with a safe default and the `gh pr create` line for later. Do not open it yet.
 - Time: about 0.3 hours of the 3 hour box.
 - Not run: e2e, axe, screenshots, database tests.
+- Push: succeeded, new branch `origin/wp/5.1-catalog` (cdc4f17, d41b2ad, and the docs commit). This line is pushed after it.
 
 ### Owner: run this
 
