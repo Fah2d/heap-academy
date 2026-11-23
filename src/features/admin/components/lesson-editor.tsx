@@ -29,6 +29,7 @@ import {
   validatedHashFor,
   type ValidationState,
 } from "../validation-view";
+import { useFocusAfterCommit } from "./focus-after-commit";
 import { InstructionsPreview, type RenderPreview } from "./instructions-preview";
 import { useLeaveWarning } from "./leave-warning";
 import { LessonStatusControls, type SetLessonStatus } from "./lesson-status";
@@ -207,6 +208,7 @@ export function LessonEditor({
     };
   }, [openRuntime]);
   const form = useRef<HTMLFormElement>(null);
+  const focusAfterCommit = useFocusAfterCommit(form);
   const nextKey = useRef(lesson.wrongAnswers.length);
   const sectionPrefix = useId();
   const sectionId = (key: (typeof LESSON_SECTIONS)[number]["key"]) => `${sectionPrefix}${key}`;
@@ -295,19 +297,13 @@ export function LessonEditor({
   }
 
   function focusFirstInvalid() {
-    requestAnimationFrame(() =>
-      form.current?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus(),
-    );
+    focusAfterCommit("[aria-invalid='true']");
   }
 
   /** Opens a test case named in the checklist and moves focus to its title. */
   function openTestCase(id: TestCaseId) {
     setOpenTestCases((current) => new Set([...current, id]));
-    requestAnimationFrame(() =>
-      form.current
-        ?.querySelector<HTMLElement>(`[data-test-case="${id}"] button[slot="trigger"]`)
-        ?.focus(),
-    );
+    focusAfterCommit(`[data-test-case="${id}"] button[slot="trigger"]`);
   }
 
   /** Opens each test case with a problem and focuses the first wrong field. */

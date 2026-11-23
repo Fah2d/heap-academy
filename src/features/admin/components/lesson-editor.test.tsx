@@ -337,6 +337,23 @@ describe("LessonEditor [FR-ADM-04]", () => {
     expect(field(words.slugLabel).getAttribute("aria-invalid")).toBe("true");
   });
 
+  it("focuses a taken address in the render that marks it, however late the save ends", async () => {
+    // A frame that comes at once stands for a slow machine, where the next
+    // frame arrives before React has marked the field.
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    try {
+      setup({ save: () => Promise.resolve({ ok: false, error: "slug_taken" }) });
+      await userEvent.click(saveButton());
+      await screen.findAllByText(words.failure.slug_taken);
+      expect(document.activeElement).toBe(field(words.slugLabel));
+    } finally {
+      frame.mockRestore();
+    }
+  });
+
   it("says a save that throws could not be made", async () => {
     setup({ save: () => Promise.reject(new Error("network")) });
     await userEvent.click(saveButton());

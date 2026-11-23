@@ -79,6 +79,34 @@ describe("CourseDetailsForm [FR-ADM-03, FR-ADM-10]", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it.each([
+    ["an empty field", () => Promise.reject(new Error("not sent")), ""],
+    ["a taken address", () => Promise.resolve({ ok: false, error: "slug_taken" } as const), "S"],
+  ])(
+    "focuses %s in the render that marks it, however late the frame comes",
+    async (_case, saveCourse, summary) => {
+      // A frame that comes at once stands for a slow machine, where the next
+      // frame arrives before React has marked the field.
+      const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+        callback(0);
+        return 0;
+      });
+      try {
+        const user = userEvent.setup();
+        render(<NewCourseForm saveCourse={saveCourse} navigate={() => undefined} />);
+        await user.type(screen.getByLabelText(words.titleLabel), "T");
+        await user.type(screen.getByLabelText(words.slugLabel), "taken");
+        if (summary !== "") await user.type(screen.getByLabelText(words.summaryLabel), summary);
+        await user.click(screen.getByRole("button", { name: words.create }));
+        const marked = document.querySelector("input[aria-invalid='true']");
+        expect(marked).not.toBeNull();
+        expect(document.activeElement).toBe(marked);
+      } finally {
+        frame.mockRestore();
+      }
+    },
+  );
+
   it("saves an edit over the loaded version and reports it", async () => {
     const save = vi.fn<SaveCourse>(() =>
       Promise.resolve({ ok: true, value: { id: ID, updatedAt: NEWER } }),
