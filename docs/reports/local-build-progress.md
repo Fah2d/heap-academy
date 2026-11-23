@@ -48,14 +48,22 @@ This file is kept whole on every branch this run touches; the newest copy is on 
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-4.2.md`, new "Up to date with main" section.
 
+### Task 1f done: wp/4.3-validate-publish
+
+- Merge commit 0914d87: `wp/4.2-lesson-editor` (with 4.1, 2.3 and `main`). Conflicts: this file (took 4.2's copy, a superset) and `playwright.config.ts` (kept 4.3's `engines` and `runtime-*` projects and `main`'s `phone` projects).
+- After the merge: one type error in `test-case-list.tsx` (`main`'s `TextField` needs `errorMessage` with `isInvalid: true`), fixed in 4b04c28; 3 tests in `validation-panel.test.tsx` failed (same `LiveRegion` cause), fixed in a9b7994 with `waitFor`; no assertion removed.
+- `pnpm verify`: exit 0, 102 files, 1892 tests. `next build` with CI's public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, new "Up to date with main" section with decision M1.
+
 ### Owner: run this
 
-1. When `gh` works: paste the "Up to date with main" sections of `WP-2.1.md`, `WP-2.2.md`, `WP-2.3.md`, `WP-4.1.md` and `WP-4.2.md` into the pull requests on GitHub.
-2. Decide WP-2.2 decision A (add the `phone` projects to the CI `e2e` job or not).
+1. When `gh` works: paste the "Up to date with main" sections of `WP-2.1.md`, `WP-2.2.md`, `WP-2.3.md`, `WP-4.1.md`, `WP-4.2.md` and `wp/4.3-validate-publish.md` into the pull requests on GitHub.
+2. Decide WP-2.2 decision A (add the `phone` projects to the CI `e2e` job or not); WP-4.3 decision M1 is the same question.
 
 ### Next
 
-- Task 1f: wp/4.3-validate-publish (merge wp/4.2-lesson-editor, which has 4.1, 2.3 and `main`). Then wp/5.1, then WP-5.1.
+- Task 1g: wp/5.1-catalog (merge wp/4.1-courses-chapters, which has 2.3 and `main`). Then WP-5.1.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
 
