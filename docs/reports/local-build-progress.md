@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 04:20), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 1, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- `wp/3.4-statechart` merged in (938a05d). Conflicts resolved in `playwright.config.ts` (the `stack` project beside the three engines and the runtime projects), `scripts/eslint/module-boundaries.mjs` (both sets of messages), `src/features/workspace/index.ts` (all three exports), `security-headers.test.ts` and `proxy.test.ts` (both sides' tests). `pnpm verify` after the merge: 87 files, 1685 tests.
+- Built test first: the validation checklist and the test case list rules in `src/grader`; the gradable hash; `saveLesson` now carries the test cases and marks a save validated only when the hash matches; `setLessonStatus` (publish, unpublish, archive); the validation runner on the learners' runtime controller.
+- `pnpm verify` on 922accb: exit 0, 92 files, 1744 tests.
+- Push: succeeded (new branch). This progress commit is pushed after it.
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, with its `gh pr create` command (`--base wp/4.2-lesson-editor`) and three open decisions. Do not open it until part 2 is done.
+- No reviews yet. No e2e, no `next build`, no database tests run (no migration changed).
+- Setup: `night-a`'s `node_modules` now has `pyodide` 314.0.7 copied from `night-b` (`node_modules/pyodide`, with `ws` and `@types` in its own `node_modules`).
+
+### Owner: run this
+
+1. The WP-4.2 lockfile commit (below) is still due. Then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there, so the lockfile has both Pyodide and CodeMirror.
+2. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 2, on `wp/4.3-validate-publish`: the test case list, verdicts, "Fill from solution", the checklist with Validate and Stop, Publish, Unpublish and Archive in the lesson editor, with every state and the gallery; the runbook `docs/runbooks/published-lesson-wrong.md`; J-13; reviews. Then the description is ready.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-23 (from 04:02), in `night-a`, detached HEAD pushed to `wp/4.2-lesson-editor`
 
 Sessions from 01:22 to 03:42 started and left no change. A session from 00:39 made 11 review-fix commits (6b799fe..7db29ac) on a detached HEAD in `night-a` and did not push them or record its reviews. This session recovered those reviews from that session's subagent transcripts, finished the two open findings, and wrote the description.
