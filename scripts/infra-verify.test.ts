@@ -374,6 +374,25 @@ describe("verifyDeployment", () => {
     expect(failed(checks)).toEqual(["the address serves the expected release"]);
   });
 
+  it("[NFR-REL-04] gives up when every health request fails until the wait is over", async () => {
+    let healthRequests = 0;
+    const refusing: Handler = (request) => {
+      if (request.url === "/api/health") healthRequests += 1;
+      request.socket.destroy();
+    };
+    const started = Date.now();
+    await expect(
+      verifyDeployment({
+        url: await serve(refusing),
+        release: RELEASE,
+        releaseWaitMs: 300,
+        releasePollMs: 50,
+      }),
+    ).rejects.toThrow(/fetch failed/);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+    expect(healthRequests).toBeGreaterThan(2);
+  });
+
   it("[NFR-REL-04] asks the health endpoint once when no release is given", async () => {
     let healthRequests = 0;
     const old = application("old-release");

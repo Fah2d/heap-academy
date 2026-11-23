@@ -80,23 +80,17 @@ test("[NFR-SEC-02] an injected inline script is blocked", async ({ page }) => {
   const violations = await watchPage(page);
   await page.goto(PAGE);
   // Inject only once the page's own scripts have run, so nothing the client
-  // does while it starts can touch the injected element.
+  // does while it starts can touch the injected element. The document
+  // listener sees the event even if the element is gone by then: the event
+  // then goes to the document (CSP3, "Report a violation").
   await scriptsRan(page);
-  // The violation event goes to the element itself, so it is caught there
-  // even if the element is moved or removed before it bubbles.
-  const blocked = await page.evaluate(
-    () =>
-      new Promise<string>((resolve) => {
-        const script = document.createElement("script");
-        script.addEventListener("securitypolicyviolation", (event) => {
-          resolve(`${event.effectiveDirective} ${event.blockedURI}`);
-        });
-        script.textContent = "document.documentElement.dataset.injected = 'ran';";
-        document.body.append(script);
-        setTimeout(() => resolve("no violation within 5 s"), 5_000);
-      }),
-  );
-  expect(blocked).toMatch(/^script-src/);
-  expect(await violations()).toEqual([blocked]);
+  await page.evaluate(() => {
+    const script = document.createElement("script");
+    script.textContent = "document.documentElement.dataset.injected = 'ran';";
+    document.body.append(script);
+  });
+  await expect
+    .poll(async () => (await violations()).some((entry) => entry.startsWith("script-src")))
+    .toBe(true);
   expect(await page.locator("html").getAttribute("data-injected")).toBeNull();
 });
