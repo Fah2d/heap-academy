@@ -2,6 +2,30 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 00:20), in `night-a`, on `wp/3.3-grader`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top.
+
+### Task 3, part 5 done: a test for the Node runner's harness-version check
+
+- f7261ad on `wp/3.3-grader`: WP-3.3 security review 2 MINOR 7 and code review 2 MINOR 4, the version part, said the runner's harness-version check had no test because a test needed a seam. `createNodeRunner` now takes an optional `threadUrl`, set only by the runner's own test. That test starts `scripts/testing/other-harness-version-thread.ts`, a stand-in thread that answers with a passing result of another version. The new test expects `crashed`, then `not_run`.
+- Mutation: with the version check removed from `runner.ts`, the new test fails (both test cases `passed`).
+- `pnpm verify` on f7261ad: exit 0, 42 files, 1013 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Decision: the stand-in lives in `scripts/testing/`, beside `property.ts`, so it is not counted in `src/grader`'s coverage and no file in `src` exists only for a test.
+- Description: the finding moved from "Not fixed, for you" to a "Fixed later" table; owner action 6 now names f7261ad; evidence added under "How it was verified".
+- Not run: the browser tests.
+- Push: `wp/3.3-grader` with f7261ad and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- `wp/3.4-statechart` does not have f7261ad yet.
+
+### Owner: run this
+
+1. The owner actions of the section below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` into `wp/3.4-statechart` so it carries f7261ad; verify and build.
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
 ## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
 Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy) and this section added on top.

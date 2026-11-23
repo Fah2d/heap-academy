@@ -52,6 +52,25 @@ Not run on the merge: the browser tests.
 
 ## How it was verified
 
+**The runner's version check test (f7261ad), 2026-11-24.** `pnpm verify` on f7261ad, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1013 passed (1013)
+```
+
+`pnpm build` with CI's fake public values, exit 0; `check-bundle` and `check-static`, exit 0. With the version check removed from `runner.ts`:
+
+```
+     × [FR-RUN-06] a result from another harness version is a crash, and the rest are not run 26ms
+-     "reason": "crashed",
+-     "status": "failed",
++     "status": "passed",
+-     "status": "not_run",
++     "status": "passed",
+      Tests  1 failed | 21 skipped (22)
+```
+
 **Round 2 review fixes (9043a9a, 06c39bb), 2026-11-24.** `pnpm verify` on 06c39bb, exit 0:
 
 ```
@@ -206,10 +225,15 @@ Not fixed, for you:
 - **Security MINOR 4:** further ways past the lint rule (an import through `scripts/`, `createRequire`, an aliased `require`, `module.require`, a `Worker` URL, a `?raw` suffix), and no build-output check for Node-runner symbols. `scripts/eslint/module-boundaries.mjs` is an enforcement control; changing it is left to you.
 - **Security MINOR 5:** `sys.monitoring`, `gc.callbacks`, audit hooks, `sys.excepthook` and `sys.unraisablehook` survive into later test cases on the same worker. Covered by "a check is evidence only for code that is not hostile" and `freshWorker`; listed under "Not fixed".
 - **Security MINOR 6:** a learner function that calls `exit()` during the follow-up code ends that stage cleanly. See the new deviation.
-- **Security MINOR 7 (version part), code MINOR 4 (version part):** the runner's harness-version check has no test; a test needs a seam for the version.
 - The `restore` order (profile hook first) was tried and reverted: with the fallback clearing the hooks, no test could tell the two orders apart.
 
-No third review round has run on 9043a9a and 06c39bb.
+Fixed later, in f7261ad (2026-11-24):
+
+| Finding | What was done |
+|---|---|
+| Security MINOR 7 (version part), code MINOR 4 (version part): the runner's harness-version check had no test | `createNodeRunner` takes an optional `threadUrl`, set only by the runner's own test. That test starts `scripts/testing/other-harness-version-thread.ts`, which answers every test case with a passing result of another harness version. The first test case is `crashed` and the second `not_run`. With the version check removed, both pass and the test fails (seen). |
+
+No third review round has run on 9043a9a, 06c39bb and f7261ad.
 
 ## Try it
 
@@ -226,7 +250,7 @@ pnpm vitest run src/grader
 3. Decide whether to open a `spec-change` that adds to WP-4.3's "Done when": Validate uses `check(..., { freshWorker: true })` for every program, with a test that a tampering program in one validation does not change the next one's verdict; and adds to T-23 that Validate is no evidence for hostile imported code, so the owner reads imported code before pressing Validate.
 4. Decide whether `pyodide` moves to `devDependencies` (security review, MINOR 4).
 5. Decide whether `contains` with an empty expected text should be refused; today it always passes (code review, design notes).
-6. Ask for a third review round on the round 2 fixes (9043a9a, 06c39bb), or accept them on this evidence.
+6. Ask for a third review round on the round 2 fixes (9043a9a, 06c39bb, f7261ad), or accept them on this evidence.
 7. Decide security review 2, MINOR 1 (make `freshWorker` required) with action 3, and MINOR 4 (the lint rule's remaining bypasses and a build-output check).
 
 ## Deviations from the plan or the spec
