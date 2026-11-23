@@ -86,6 +86,8 @@ Checked again at 23:54 in another fresh session: `origin/main` still at 0efe863;
 
 Checked again at 23:56 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
 
+Checked again at 23:57 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
+
 No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
