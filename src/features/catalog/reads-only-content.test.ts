@@ -8,10 +8,14 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = join(import.meta.dirname, "..", "..", "..");
 const CATALOG = join(ROOT, "src", "features", "catalog");
+// Every route file that composes the catalog.
 const ROUTES = [
   join(ROOT, "src", "app", "page.tsx"),
   join(ROOT, "src", "app", "courses", "page.tsx"),
   join(ROOT, "src", "app", "courses", "[course]", "page.tsx"),
+  join(ROOT, "src", "app", "sitemap.ts"),
+  join(ROOT, "src", "app", "robots.ts"),
+  join(ROOT, "src", "app", "dev", "catalog", "page.dev.tsx"),
 ];
 
 function sourceFiles(directory: string): string[] {
@@ -22,9 +26,18 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
+/**
+ * Every module a source text names: static imports and exports, side-effect
+ * imports, and `import("...")` calls, which the lint boundary rule does not see.
+ */
+export function importsOf(text: string): string[] {
+  return [...text.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*["'`]([^"'`]+)["'`]/g)].map(
+    (match) => match[1] ?? "",
+  );
+}
+
 function imports(path: string): string[] {
-  const text = readFileSync(path, "utf8");
-  return [...text.matchAll(/(?:from|import)\s+"([^"]+)"/g)].map((match) => match[1] ?? "");
+  return importsOf(readFileSync(path, "utf8"));
 }
 
 /** Imports that bring in code at run time; `import type` brings in none. */
@@ -36,9 +49,26 @@ function valueImports(path: string): string[] {
 }
 
 describe("the catalog reads only through src/content", () => {
+  it("[T-21] sees dynamic imports as well as static ones", () => {
+    const text = [
+      'import "server-only";',
+      'import { a } from "@/content";',
+      'export { b } from "./b";',
+      'const client = await import("@/infrastructure/db/session-client");',
+      "const other = await import( '@supabase/ssr' );",
+    ].join("\n");
+    expect(importsOf(text)).toEqual([
+      "server-only",
+      "@/content",
+      "./b",
+      "@/infrastructure/db/session-client",
+      "@supabase/ssr",
+    ]);
+  });
+
   const files = [...sourceFiles(CATALOG), ...ROUTES];
 
-  it("checks the catalog's own files and its three routes", () => {
+  it("checks the catalog's own files and its route files", () => {
     expect(files.length).toBeGreaterThan(ROUTES.length);
   });
 

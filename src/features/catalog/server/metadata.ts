@@ -7,37 +7,31 @@ import { catalogCourse, catalogCourses } from "./reads";
 
 // Each public page's title, description and canonical address (FR-SEO-01).
 // The canonical path resolves against the production address set as
-// `metadataBase` in the root layout. A page whose content could not be read
-// asks not to be indexed, so a crawler never keeps the failure as the page.
-
-const NOT_INDEXED = { index: false } as const;
+// `metadataBase` in the root layout. A read that failed throws here as in the
+// page, so the request ends on the error page with status 500.
 
 export async function homeMetadata(): Promise<Metadata> {
-  const courses = await catalogCourses();
+  await catalogCourses();
   return {
     title: { absolute: home.title },
     description: home.description,
     alternates: { canonical: HOME_PATH },
-    ...(courses.ok ? {} : { robots: NOT_INDEXED }),
   };
 }
 
 export async function courseListMetadata(): Promise<Metadata> {
-  const courses = await catalogCourses();
+  await catalogCourses();
   return {
     title: courseList.title,
     description: courseList.description,
     alternates: { canonical: COURSES_PATH },
-    ...(courses.ok ? {} : { robots: NOT_INDEXED }),
   };
 }
 
 export async function courseMetadata(params: Promise<{ course: string }>): Promise<Metadata> {
   const { course: slug } = await params;
-  const result = await catalogCourse(slug);
-  if (!result.ok) return { title: coursePage.loadFailedTitle, robots: NOT_INDEXED };
-  const course = result.value;
-  if (course === null) return { title: notFoundWords.title, robots: NOT_INDEXED };
+  const course = await catalogCourse(slug);
+  if (course === null) return { title: notFoundWords.title, robots: { index: false } };
   return {
     title: course.title,
     description:

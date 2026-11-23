@@ -1,3 +1,4 @@
+import type { PublishedCourseSummary } from "@/content";
 import { home } from "@/messages/catalog";
 import { catalogCourses } from "../server/reads";
 import { CatalogPage } from "./catalog-page";
@@ -10,7 +11,10 @@ import { CourseRows } from "./course-rows";
  * live editor of FR-LND-01 is a later package; nothing stands in for it.
  */
 export async function HomePage() {
-  const courses = await catalogCourses();
+  return <HomeView courses={await catalogCourses()} />;
+}
+
+export function HomeView({ courses }: { courses: PublishedCourseSummary[] }) {
   return (
     <CatalogPage>
       <h1 className="max-w-prose text-2xl font-semibold text-balance text-text">{home.heading}</h1>
@@ -18,7 +22,7 @@ export async function HomePage() {
         <h2 id="home-courses" className="text-lg font-semibold text-text">
           {home.coursesHeading}
         </h2>
-        <CourseRows result={courses} labelledBy="home-courses" titleLevel={3} />
+        <CourseRows courses={courses} labelledBy="home-courses" titleLevel={3} />
       </section>
       <section aria-labelledby="home-how" className="flex max-w-prose flex-col gap-3">
         <h2 id="home-how" className="text-lg font-semibold text-text">

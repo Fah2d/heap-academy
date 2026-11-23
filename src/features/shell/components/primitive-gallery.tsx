@@ -80,6 +80,13 @@ export function PrimitiveGallery() {
             {m.standaloneLink}
           </Link>
         </Example>
+        <Example label={m.headingVariant}>
+          <p className="text-lg">
+            <Link href="#dialog" variant="heading">
+              {m.headingLink}
+            </Link>
+          </p>
+        </Example>
         <Example label={m.navVariant}>
           <nav aria-label={m.navLabel} className="flex gap-5">
             <Link href="#buttons" variant="nav" current>

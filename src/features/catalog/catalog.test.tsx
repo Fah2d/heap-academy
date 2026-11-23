@@ -13,6 +13,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ connection: () => Promise.resolve() }));
 
 const NOT_FOUND = "NEXT_NOT_FOUND";
+const CONTENT_UNAVAILABLE = /could not be read/;
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error(NOT_FOUND);
@@ -122,11 +123,9 @@ describe("the home page", () => {
     expect(screen.queryByRole("listitem")).toBeNull();
   });
 
-  it("[FR-LND-02] says the courses could not be loaded when the read fails", async () => {
+  it("[FR-SEO-01] fails to the error page when the read fails, so it answers 500 and not 200", async () => {
     state.courses = { ok: false };
-    render(await HomePage());
-    expect(screen.getByText(courseList.loadFailed)).toBeTruthy();
-    expect(screen.queryByText(courseList.empty)).toBeNull();
+    await expect(HomePage()).rejects.toThrow(CONTENT_UNAVAILABLE);
   });
 
   it("[FR-LND-03] shows no number that is not a lesson count", async () => {
@@ -162,12 +161,9 @@ describe("the course list", () => {
     expect(screen.queryByRole("list")).toBeNull();
   });
 
-  it("[FR-CAT-01] names the failure when the courses could not be read", async () => {
+  it("[FR-SEO-01] fails to the error page when the courses could not be read", async () => {
     state.courses = { ok: false };
-    render(await CourseListPage());
-    expect(screen.getByText(courseList.loadFailed)).toBeTruthy();
-    expect(screen.getByText(`${catalogCommon.errorLabel}:`)).toBeTruthy();
-    expect(screen.queryByText(courseList.empty)).toBeNull();
+    await expect(CourseListPage()).rejects.toThrow(CONTENT_UNAVAILABLE);
   });
 });
 
@@ -226,13 +222,28 @@ describe("the course page", () => {
     expect(state.courseCalls).toEqual(["drafts-only"]);
   });
 
-  it("[FR-CRS-01] says the course could not be loaded when the read fails", async () => {
+  it("[FR-SEO-01] fails to the error page when the course could not be read", async () => {
     state.course = { ok: false };
+    await expect(CoursePage({ params: params("python-basics") })).rejects.toThrow(
+      CONTENT_UNAVAILABLE,
+    );
+  });
+
+  it("[FR-CRS-01] leaves out an outcome that is only spaces", async () => {
+    state.course = { ok: true, value: { ...COURSE, outcomes: ["Print text", "  ", ""] } };
     render(await CoursePage({ params: params("python-basics") }));
+    const outcomes = screen.getByRole("list", { name: coursePage.outcomesHeading });
     expect(
-      screen.getByRole("heading", { level: 1, name: coursePage.loadFailedTitle }),
-    ).toBeTruthy();
-    expect(screen.getByText(coursePage.loadFailedBody)).toBeTruthy();
+      within(outcomes)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual(["Print text"]);
+  });
+
+  it("[FR-CRS-01] leaves the outcome list out when every outcome is only spaces", async () => {
+    state.course = { ok: true, value: { ...COURSE, outcomes: [" ", "\t"] } };
+    render(await CoursePage({ params: params("python-basics") }));
+    expect(screen.queryByRole("heading", { name: coursePage.outcomesHeading })).toBeNull();
   });
 });
 
@@ -294,31 +305,29 @@ describe("titles, descriptions and canonical addresses [FR-SEO-01]", () => {
     });
   });
 
-  it("keeps a page whose content failed to load out of the index", async () => {
+  it("fails to the error page when the content could not be read, instead of a page with noindex", async () => {
     state.courses = { ok: false };
     state.course = { ok: false };
-    expect((await homeMetadata()).robots).toEqual({ index: false });
-    expect((await courseListMetadata()).robots).toEqual({ index: false });
-    expect(await courseMetadata(params("python-basics"))).toEqual({
-      title: coursePage.loadFailedTitle,
-      robots: { index: false },
-    });
+    await expect(homeMetadata()).rejects.toThrow(CONTENT_UNAVAILABLE);
+    await expect(courseListMetadata()).rejects.toThrow(CONTENT_UNAVAILABLE);
+    await expect(courseMetadata(params("python-basics"))).rejects.toThrow(CONTENT_UNAVAILABLE);
   });
 });
 
 describe("the catalog state gallery (development only)", () => {
-  it("shows the empty, failed and filled course list and the failed and plain course page", () => {
+  it("shows the whole home page and course list with no course, the filled list and a plain course page", () => {
     render(<CatalogStateGallery />);
     const region = (name: string) => screen.getByRole("region", { name });
-    expect(within(region(catalogGallery.listEmpty)).getByText(courseList.empty)).toBeTruthy();
-    expect(within(region(catalogGallery.listFailed)).getByText(courseList.loadFailed)).toBeTruthy();
+    const emptyHome = within(region(catalogGallery.homeEmpty));
+    expect(emptyHome.getByRole("heading", { level: 1, name: home.heading })).toBeTruthy();
+    expect(emptyHome.getByText(courseList.empty)).toBeTruthy();
+    expect(emptyHome.getByText(home.how)).toBeTruthy();
+    const emptyList = within(region(catalogGallery.listEmpty));
+    expect(emptyList.getByRole("heading", { level: 1, name: courseList.heading })).toBeTruthy();
+    expect(emptyList.getByText(courseList.empty)).toBeTruthy();
     const rows = within(region(catalogGallery.listRows));
     expect(rows.getByRole("link", { name: catalogGallery.longCourse })).toBeTruthy();
     expect(rows.getByText(catalogCommon.lessonCount(3))).toBeTruthy();
-    const failed = within(region(catalogGallery.courseFailed));
-    expect(
-      failed.getByRole("heading", { level: 1, name: coursePage.loadFailedTitle }),
-    ).toBeTruthy();
     const course = within(region(catalogGallery.courseNoOutcomes));
     expect(
       course.getByRole("heading", { level: 1, name: catalogGallery.sampleCourse }),

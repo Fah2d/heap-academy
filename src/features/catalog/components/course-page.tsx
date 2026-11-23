@@ -12,22 +12,9 @@ import { CatalogPage } from "./catalog-page";
  */
 export async function CoursePage({ params }: { params: Promise<{ course: string }> }) {
   const { course: slug } = await params;
-  const result = await catalogCourse(slug);
-  if (!result.ok) return <CourseLoadFailed />;
-  if (result.value === null) notFound();
-  return <CourseView course={result.value} />;
-}
-
-/** The course page when its read failed: no title to show, so its own heading. */
-export function CourseLoadFailed() {
-  return (
-    <CatalogPage>
-      <section className="flex max-w-prose flex-col gap-4">
-        <h1 className="text-xl font-semibold text-balance text-text">{words.loadFailedTitle}</h1>
-        <p className="text-base text-text-muted">{words.loadFailedBody}</p>
-      </section>
-    </CatalogPage>
-  );
+  const course = await catalogCourse(slug);
+  if (course === null) notFound();
+  return <CourseView course={course} />;
 }
 
 // Lessons are not links yet: the lesson page arrives with the workspace
@@ -42,7 +29,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
       <header className="flex max-w-prose flex-col gap-3">
         <h1 className="text-xl font-semibold text-balance text-text">{course.title}</h1>
         <p className="text-prose text-text">{course.summary}</p>
-        <p className="text-sm text-text-muted tabular-nums">
+        <p className="text-xs text-text-muted tabular-nums">
           {words.size(lessonCount, course.chapters.length)}
         </p>
       </header>
@@ -61,7 +48,8 @@ export function CourseView({ course }: { course: PublishedCourse }) {
           </ul>
         </section>
       )}
-      <section aria-labelledby="course-chapters" className="flex flex-col gap-4">
+      {/* At the prose width until a lesson row has something at its end (WP-5.4). */}
+      <section aria-labelledby="course-chapters" className="flex max-w-prose flex-col gap-4">
         <h2 id="course-chapters" className="text-lg font-semibold text-text">
           {words.chaptersHeading}
         </h2>
@@ -73,7 +61,10 @@ export function CourseView({ course }: { course: PublishedCourse }) {
                 key={chapter.id}
                 className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-5"
               >
-                <h3 id={headingId} className="flex flex-col gap-1 text-lg font-semibold text-text">
+                <h3
+                  id={headingId}
+                  className="flex flex-col gap-1 text-base font-semibold text-text"
+                >
                   <span className="font-mono text-sm font-normal text-text-muted">
                     {words.chapterNumber(chapterIndex + 1)}
                   </span>{" "}

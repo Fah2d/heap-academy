@@ -18,6 +18,8 @@ export const gallery = {
   inlineAfter: "further down.",
   standaloneVariant: "Standalone link",
   standaloneLink: "Go to the notices",
+  headingVariant: "Heading link, such as a course title in a list",
+  headingLink: "Go to the dialog",
   navVariant: "Navigation, the first link current",
   navCurrent: "Buttons",
   navOther: "Links",
@@ -111,15 +113,14 @@ export const adminGallery = {
 } as const;
 
 // The development-only page that shows the catalog's states that the local
-// stack cannot show on demand: no course, and a read that failed (WP-5.1).
+// stack cannot show on demand: no course, and sample content (WP-5.1).
 export const catalogGallery = {
   title: "Catalog states",
   intro:
-    "The course list's and the course page's states that need an empty or a failing database. The rows are sample content, not published courses.",
+    "The home page's, the course list's and the course page's states that need an empty database or content the local stack does not have. The rows are sample content, not published courses. A read that fails ends on the error page, shown at /dev/error.",
+  homeEmpty: "Home page with no course",
   listEmpty: "Course list with no course",
-  listFailed: "Course list that could not load",
   listRows: "Course list with courses, one with the longest title the dashboard allows",
-  courseFailed: "Course page that could not load",
   courseNoOutcomes: "Course page with no outcomes, one chapter with no summary",
   sampleCourse: "Python basics",
   sampleSummary: "Print text, keep values in names, and do sums.",
