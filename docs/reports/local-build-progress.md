@@ -10,7 +10,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Fixed, test first (commit e1f1ce9 at 09:55): the code BLOCKER (Validate with a nameless test case said Python could not run; now it opens the test case and focuses the field); T-07 (`src/grader/console-text.ts` strips escape sequences, control and bidi characters from shown output and Python's message, and such output is never filled); separate pending states for Save and status moves, each disabling the other; the failed Python start as one error with a Try again instruction; J-13's status assertions; Reload on `status_not_allowed`; the status said once; the stored status parsed; controller reports sent by code to `reportError`; a trimmed title keeps Publish; no program on open (T-23 tests); the runbook's wrong-answer step.
 - `pnpm verify`: exit 0, 97 files, 1828 tests (the first run failed on Prettier for 3 files; formatted, then the run above).
 - `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
-- Push: see the line below.
+- Push: succeeded, `1443296..8fadb66` (e1f1ce9 and the docs commit 8fadb66). This line is pushed after it.
 - Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), with fifteen open decisions (new: Delete has no undo; verdicts inside each test case; output with control characters is stripped and not fillable). Do not open it until part 7 is done.
 - Not run: e2e, screenshots, axe, database tests (no migration changed). No local Supabase stack or browser in this sandbox.
 
