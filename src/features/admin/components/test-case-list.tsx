@@ -120,10 +120,9 @@ export function TestCaseList({
             const problemFor = (field: TextKey) => found.find((entry) => entry.field === field);
             const text = (field: TextKey) => {
               const problem = problemFor(field);
-              return {
-                isInvalid: problem !== undefined,
-                ...(problem === undefined ? {} : { errorMessage: problemText(problem) }),
-              };
+              return problem === undefined
+                ? ({ isInvalid: false } as const)
+                : ({ isInvalid: true, errorMessage: problemText(problem) } as const);
             };
             return (
               <li
