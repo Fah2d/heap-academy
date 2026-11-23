@@ -154,7 +154,7 @@ Each journey is an end-to-end test suite in `e2e/`.
 
 | ID | P | Requirement | Acceptance |
 |---|---|---|---|
-| FR-SYS-01 | M | Not-found and error pages explain what happened, offer a way forward, and (for errors) show a reference ID the learner can quote. | |
+| FR-SYS-01 | M | Not-found and error pages explain what happened, offer a way forward, and (for errors) show a reference the learner can quote. For a server error the reference is the error's digest. A browser error shows no reference until `/api/client-error` exists (WP-7.3). | |
 | FR-SYS-02 | M | A browser below the support floor sees a clear message instead of a broken workspace. | |
 | FR-SYS-03 | M | Privacy policy and terms pages exist, are linked from every page, and carry text the owner approved. | |
 | FR-SYS-04 | M | A health endpoint exists for monitoring. | |
@@ -226,7 +226,7 @@ Controls and their tests are specified in `06-security-privacy.md`.
 
 | ID | Requirement | Verified by |
 |---|---|---|
-| NFR-OBS-01 | Every server request has a request ID that appears in logs and on error pages. | Integration test |
+| NFR-OBS-01 | Every server request has a request ID that appears in its log lines. A server error is logged with its digest and the request ID, and the error page shows the digest only. A browser error shows no reference until `/api/client-error` exists (WP-7.3). | Integration test |
 | NFR-OBS-02 | Client and server errors are recorded with the release version and no personal data. | Integration test |
 | NFR-OBS-04 | An external uptime check watches the health endpoint and tells the owner when it fails. | Launch checklist |
 
