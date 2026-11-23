@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 10:05), in `night-a`, on `wp/4.3-validate-publish`
+
+### WP-4.3 Test cases, validation, publishing: part 7, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
+
+- Built test first (10 tests failed before the change): design review MINOR 8 (each failed test case named in the checklist gets an Open button that opens it and focuses its title; none for one removed since), MINOR 9 (the test case number in Plex Mono), MINOR 10 (the limits in admin copy come from `CHECK_TEST_LIMIT`, `HARNESS_OUTPUT_LIMIT` and the runtime's `TIME_LIMIT_MS`, passed into the messages as numbers), and decision 14 (each verdict in its test case's title, read as "Test case 1: Doubles, Passed").
+- Commit e51304f at 10:22. `pnpm verify`: exit 0, 97 files, 1833 tests (the first two runs failed on Prettier for 3 files, then on a non-exhaustive switch; both fixed).
+- `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: pass.
+- Push: succeeded, `0a4541b..e51304f`. This progress commit is pushed after it.
+- Time box: the seven sessions add up to about 2.5 hours against 3.5. Recorded in the description.
+- Description updated: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (`--base wp/4.2-lesson-editor`), with sixteen open decisions (new: Open buttons under the failed rule; decision 14 is now built). Do not open it until part 8 is done.
+- Not run: e2e, screenshots, axe, database tests (no migration changed). No local Supabase stack or browser in this sandbox.
+
+### Owner: run this
+
+1. Unchanged: the WP-4.2 lockfile commit, then merge `wp/4.2-lesson-editor` into `wp/4.3-validate-publish` and run `pnpm install` there.
+2. If this sandbox still cannot run them: `pnpm test:e2e` for `e2e/admin-gallery.spec.ts` and `e2e/j13-publish-journey.spec.ts` against the local stack, which also writes the screenshots into `docs/reports/screens/WP-4.3/`.
+3. Earlier owner actions for WP-2.2, WP-2.3, WP-4.1 and WP-4.2 are still due.
+
+### Next
+
+- WP-4.3 part 8, on `wp/4.3-validate-publish`: design MINOR 11 (gallery states for a stopped validation, Save validating first, the `validateFirst` refusals, a timed-out rule, an error verdict with its line, cut and cleaned output, the outdated notes); a second code, security and design review round on e1f1ce9..e51304f, with fixes; the e2e runs, screenshots, axe and the Delivery Gate report if a browser and the stack are available.
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-23 (from about 09:40), in `night-a`, on `wp/4.3-validate-publish`
 
 ### WP-4.3 Test cases, validation, publishing: part 6, `wp/4.3-validate-publish` (base `wp/4.2-lesson-editor`)
