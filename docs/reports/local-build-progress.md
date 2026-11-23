@@ -15,7 +15,7 @@ Same task list as the session below. This run did task 2.
 - `pnpm verify`: exit 0, 98 files, 1841 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. The built CSS holds `.max-block-output{max-block-size:var(--spacing-output)}`. No gallery string in `.next/static`.
 - Description rewritten: `docs/reports/pull-requests/wp/4.3-validate-publish.md` (opening paragraph, part 8 evidence, "Left for the owner", decisions renumbered and three new: 18 invisible characters, 19 the new size token, 20 the T-21 bundle note). Time: about 3.6 hours of sessions against a box of 3.5, under 1.5 times.
 - Not run: e2e, screenshots, axe, database tests. No browser or local Supabase stack in this sandbox.
-- Push: see the line after this section's commit.
+- Push: succeeded, `c5902d0..ad1bd6a` (bb1d583 the fixes, 1110243 the review reports, ad1bd6a the description and progress). This line is pushed after it.
 
 ### Owner: run this
 
