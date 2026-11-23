@@ -15,7 +15,7 @@ Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.
 - Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now with the part 3 evidence, the Delivery Gate report (from source, with NOT VERIFIED lines), and sixteen decisions (new: 13 the journey waits up to 75 seconds for the content cache; 14 it writes content through `save_lesson` like the seed; 15 `/admin/courses/new` not indexed; 16 the gallery's sample content).
 - Time: about 1.3 hours of the 3 hour box over three parts.
 - Servers this run could not stop (the sandbox hides them from `pkill`): a `next dev` on port 3101 (it may be in a restart loop) and a `next start` on port 3453.
-- Push: see the line below.
+- Push: succeeded, `1c94bc6..973790d` (d231b32 the indexing test, 173ba6a the gallery and e2e specs, 973790d the description and progress). This line is pushed after it.
 
 ### Owner: run this
 
