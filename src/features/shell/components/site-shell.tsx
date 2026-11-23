@@ -1,12 +1,12 @@
 import NextLink from "next/link";
 import type { ReactNode } from "react";
 import { shell } from "@/messages/shell";
+import { SiteFooter } from "./site-footer";
 
 // The frame every page shares (docs/spec/03-experience.md section 4). The
 // header shows only destinations that exist: Courses and the account control
-// join it with the pages they open (WP-5.1, WP-2.2), and the footer arrives
-// with the privacy and terms pages (WP-6.3). Until then neither has a link to
-// show, so neither renders (antislop R-24).
+// join it with the pages they open (WP-5.1, WP-2.2). The footer links to the
+// privacy and terms pages (WP-6.3).
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <>
@@ -29,6 +29,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <main id="main" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
+      <SiteFooter />
     </>
   );
 }

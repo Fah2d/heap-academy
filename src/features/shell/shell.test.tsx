@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { gallery } from "@/messages/gallery";
+import { legal, privacy, terms } from "@/messages/legal";
 import { errorPage, notFound } from "@/messages/system";
 import { pageTitle, shell } from "@/messages/shell";
 import { ErrorView, errorReference } from "./components/error-view";
+import { LegalPage } from "./components/legal-page";
 import { NotFoundView } from "./components/not-found-view";
 import { PrimitiveGallery } from "./components/primitive-gallery";
 // fonts.ts runs only under the Next.js compiler, so the test imports the
 // modules directly rather than through index.ts.
+import { FOOTER_LINKS, SiteFooter } from "./components/site-footer";
 import { SiteShell } from "./components/site-shell";
 
 afterEach(cleanup);
@@ -84,6 +87,65 @@ describe("site shell", () => {
     expect(screen.getByRole("banner")).toBeTruthy();
     expect(screen.getByRole("link", { name: shell.productName }).getAttribute("href")).toBe("/");
   });
+});
+
+describe("site footer", () => {
+  it("[FR-SYS-03] is the contentinfo landmark, after main, with the privacy and terms links", () => {
+    render(
+      <SiteShell>
+        <p>Content</p>
+      </SiteShell>,
+    );
+    const footer = screen.getByRole("contentinfo");
+    const main = screen.getByRole("main");
+    expect(main.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(main.contains(footer)).toBe(false);
+    const links = within(footer).getAllByRole("link");
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      [shell.footer.privacy, "/privacy"],
+      [shell.footer.terms, "/terms"],
+    ]);
+  });
+
+  it("[FR-SYS-03] links only to pages that exist", () => {
+    const pages = new Set(["/privacy", "/terms"]);
+    for (const { href } of FOOTER_LINKS) expect(pages.has(href), href).toBe(true);
+  });
+
+  it("[FR-SYS-03] renders on its own, for the page that replaces the root layout", () => {
+    render(<SiteFooter />);
+    expect(within(screen.getByRole("contentinfo")).getAllByRole("link")).toHaveLength(2);
+  });
+});
+
+describe("legal pages", () => {
+  for (const content of [privacy, terms]) {
+    it(`[FR-SYS-03] shows the ${content.title} with its date and every section in order`, () => {
+      const { container } = render(<LegalPage content={content} />);
+      expect(screen.getByRole("heading", { level: 1, name: content.title })).toBeTruthy();
+      const time = container.querySelector("time");
+      expect(time?.getAttribute("dateTime")).toBe(content.updated.iso);
+      expect(time?.closest("p")?.textContent).toBe(`${legal.updatedLabel} ${content.updated.text}`);
+      expect(screen.getByText(content.intro)).toBeTruthy();
+      const headings = screen.getAllByRole("heading", { level: 2 });
+      expect(headings.map((heading) => heading.textContent)).toEqual(
+        content.sections.map((section) => section.heading),
+      );
+      for (const section of content.sections) {
+        const region = screen.getByRole("region", { name: section.heading });
+        for (const block of section.blocks) {
+          if (block.kind === "paragraph") {
+            expect(within(region).getByText(block.text).tagName).toBe("P");
+          } else {
+            const items = within(region)
+              .getAllByRole("listitem")
+              .map((item) => item.textContent);
+            for (const item of block.items) expect(items).toContain(item);
+          }
+        }
+      }
+    });
+  }
 });
 
 describe("page title", () => {

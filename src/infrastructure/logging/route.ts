@@ -21,7 +21,7 @@ const METHODS: ReadonlySet<string> = new Set([
  * Every literal segment of a route under `src/app`. A route segment missing
  * here is logged as `:param`, which loses detail but never leaks; a test
  * checks the list against the folders. `dev`, `primitives` and `error` are
- * WP-1.4's development routes.
+ * WP-1.4's development routes; `privacy` and `terms` are WP-6.3's legal pages.
  */
 export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "api",
@@ -30,6 +30,8 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "dev",
   "primitives",
   "error",
+  "privacy",
+  "terms",
 ]);
 
 /** Segments past this many are folded into one `*`, so a line stays short. */

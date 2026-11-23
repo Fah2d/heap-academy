@@ -5,6 +5,11 @@ export const shell = {
   /** The page title: the page's own title, then the product name. */
   titleTemplate: "%s | Heap Academy",
   skipLink: "Skip to the main content",
+  /** The footer's links, on every page (FR-SYS-03). */
+  footer: {
+    privacy: "Privacy",
+    terms: "Terms",
+  },
   description:
     "Short Python lessons that you read, write, and run in your browser, with the test cases in plain view.",
 } as const;
