@@ -2,6 +2,25 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (later run), in `night-c`, on `wp/7.3-operations`
+
+Same task list as the sessions below. Blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `wp/2.1-schema-policies`, `wp/2.2-sign-in` and `wp/4.3-validate-publish` are not in `main`.
+- Already done on their branches: WP-6.3 part 1, WP-7.3 parts 1 and 2. `wp/7.3-operations` matches its remote (89250fa).
+- What is left, and what each needs:
+  - WP-6.3 part 2 (profile, display name, account deletion): WP-2.1 and WP-2.2.
+  - WP-6.4: WP-4.3.
+  - WP-7.1, 7.2, 7.4: they check the whole application, so they need WP-2.x to 5.x.
+  - WP-7.3 analytics: the owner's decision C in `docs/reports/pull-requests/WP-7.3-part-2.md` (installing packages is not allowed in these runs).
+  - WP-7.3 backup workflow, restore drill script, restore and deletion-request runbooks: WP-2.1 (and WP-6.3 part 2 for deletion).
+  - WP-7.5: the four Day 7 packages merged. Day 8: everything before it.
+- Not done on purpose: a fifth review round of the WP-7.3 round 4 fixes (e4638f2). That is not a new package; the owner can ask for it.
+
+### Owner: run this
+
+- The steps in the two sessions below are still due. A new package can start here only after WP-2.1, WP-2.2 or WP-4.3 merges, or after decision C.
+
 ## Session of 2026-11-24 (from 00:25), in `night-c`, on `wp/7.3-operations`
 
 Same task list as the sessions below. WP-6.3 part 1 and WP-7.3 part 1 were already done, so this run did WP-7.3 part 2 on the same branch. `origin/main` is still 0efe863.
