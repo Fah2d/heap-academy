@@ -2,6 +2,17 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (another run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Blocked for the same reason as the two runs below: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (another agent's branch; not touched).
+- WP-7.3 in `docs/spec/08-delivery-plan.md` was read again. Its parts that need nothing unmerged (client error report, two runbooks) are done; analytics waits on decision C; backups, restore and the deletion runbook wait on WP-2.1 (and WP-6.3 part 2). WP-6.3 part 2 waits on WP-2.1 and WP-2.2. WP-7.1, 7.2, 7.4 and 7.5 wait on WP-2.x to 5.x.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
 ## Session of 2026-11-24 (from 00:55), in `night-c`, on `wp/7.3-operations`
 
 Same task list. Blocked for the same reason as the run below: no new work package can start. No code was changed.
