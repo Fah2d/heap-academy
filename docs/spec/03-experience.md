@@ -87,7 +87,7 @@ Display name (editable in place), XP, current and longest streak, per-course pro
 
 ### 5.6 System pages
 
-Not found, error (with reference ID), unsupported browser, and legal pages. Each says what happened and offers the next step.
+Not found, error (with the server error's digest as reference; a browser error has none until `/api/client-error` exists), unsupported browser, and legal pages. Each says what happened and offers the next step.
 
 ## 6. Workspace specification
 
@@ -154,7 +154,7 @@ One component renders every learner error with the same shape: a heading in plai
 | `output_limit` | The program printed too much | States the limit. |
 | `memory` | The program used too much memory | |
 | `stopped` | You stopped the program | |
-| `crashed` | Python stopped unexpectedly | Restarting. Includes the reference ID. |
+| `crashed` | Python stopped unexpectedly | Restarting. Includes a reference once `/api/client-error` exists (WP-7.3). |
 
 ### 6.6 Completion moment
 
