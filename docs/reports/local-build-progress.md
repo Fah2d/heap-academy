@@ -2,6 +2,34 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from about 19:55), in `night-b`, on `wp/5.1-catalog`
+
+Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 4 (task 3).
+
+### Task 3, part 4 done: the three reviews and their fixes
+
+- Review round 1 on `origin/wp/4.1-courses-chapters..af42bd5`, reports in `docs/reports/reviews/WP-5.1/`. Security: APPROVE with four minors. Code: CHANGES REQUIRED (MAJOR 1: a failed read answered 200 with `noindex`). Design: CHANGES REQUIRED (BLOCKER 1 no screenshots, BLOCKER 2 the stack project saved no screen, BLOCKER 3 three wrong Delivery Gate lines, MAJOR 4 no primary action, MAJOR 5 empty pages never shown whole).
+- 55399e7: a course address that is not in the cached course list makes no course query (7 tests failed before).
+- 4a6628d: a failed read throws, so `/`, `/courses` and a course page answer 500 with the error page (5 tests failed before); the gallery shows the empty home page and course list as whole pages; a `heading` link variant in `src/ui` at weight 600; item headings one size down; metadata `text-xs`; chapter list at the prose width; two copy fixes; `home.description` is `shell.description`.
+- dd515e1: the static checks see `import("...")` and every page extension (a mutation of the import pattern failed the new test); the journey publishes the course and moves it back to draft in the dashboard, so the 75 s `toPass` wait and the raised timeouts are gone; it checks raw HTML and page data for draft, solution and wrong-answer marks; the `stack` project saves screens, and the journey checks that the nine files exist.
+- `pnpm verify`: exit 0, 63 files, 1141 tests. `pnpm build` with CI's fake public values: exit 0, no `/dev` route, no gallery string in `.next/static`. `check-bundle` and `check-static`: exit 0. The built app with no database: `/`, `/courses`, `/courses/python-basics` 500 for a browser and for Googlebot; `/courses/Not_A_Slug` 404; `/sitemap.xml` 500.
+- Not run: every e2e spec (no browser, `next dev` fails, no Docker), so design BLOCKER 1 stays open.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, now with the part 4 evidence, the review summary, the corrected Delivery Gate lines, two deviations (no primary action until WP-5.2; no per-segment `loading.tsx` or `error.tsx`), decisions 9, 10, 13 and 14 changed and 17 to 22 new.
+- Time: about 1.7 hours of the 3 hour box over four parts.
+- Servers this run and its reviewers could not stop (the sandbox hides them): `next start` on ports 3461, 3917 and 3918.
+- Push: see the line below.
+
+### Owner: run this
+
+1. `lsof -ti:3101,3451,3452,3453,3461,3917,3918 | xargs kill` if anything is listed.
+2. With `supabase start`: `pnpm test:e2e --project=stack e2e/catalog-journey.spec.ts` and `pnpm test:e2e --project=gallery e2e/catalog-gallery.spec.ts`; commit `docs/reports/screens/WP-5.1/`. The journey now signs in an admin in its setup, inside the default hook timeout.
+3. Decide WP-5.1 deviation 1 (merge order with WP-5.2 for the Begin action) and decision 9 (500 with the error page for a failed read).
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 3, WP-5.1 part 5, in `night-b` on `wp/5.1-catalog`: review round 2 (`code-reviewer`, `security-reviewer`, `design-reviewer`) on `af42bd5..HEAD`, reports `*-review-2.md`, fix findings test first, verify and build again, finish the description. Design approval still needs the screenshots.
+
 ## Session of 2026-11-23 (from about 19:10), in `night-b`, on `wp/5.1-catalog`
 
 Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.1 part 3 (task 3).
