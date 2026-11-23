@@ -98,7 +98,9 @@ describe("proxy", () => {
 
 describe("proxy matcher", () => {
   // Next.js's own matcher, not a hand-built regular expression, so the test
-  // follows how Next.js compiles the pattern (anchors, the data route prefix).
+  // follows how Next.js compiles the pattern. It assumes next.config.ts sets
+  // no basePath, i18n or trailingSlash; e2e/csp.spec.ts checks the policy on
+  // the production server.
   const matches = (url: string) => unstable_doesMiddlewareMatch({ config, nextConfig: {}, url });
 
   it("[T-01] leaves the runtime's files alone, so the worker keeps its own policy", () => {
@@ -106,10 +108,9 @@ describe("proxy matcher", () => {
     expect(matches("/_runtime/pyodide/314.0.7/pyodide.asm.wasm")).toBe(false);
   });
 
-  it("[NFR-SEC-02] leaves the built files, the image optimizer and the icon alone", () => {
+  it("[NFR-SEC-02] leaves the built files and the image optimizer alone", () => {
     expect(matches("/_next/static/chunks/main.js")).toBe(false);
     expect(matches("/_next/image?url=%2Fa.png&w=64&q=75")).toBe(false);
-    expect(matches("/favicon.ico")).toBe(false);
   });
 
   it("[NFR-SEC-02] still runs for pages and route handlers", () => {
@@ -117,6 +118,13 @@ describe("proxy matcher", () => {
     expect(matches("/dev/runtime")).toBe(true);
     expect(matches("/api/health")).toBe(true);
     expect(matches("/_runtimes")).toBe(true);
+    for (const path of ["/admin", "/sign-in", "/courses", "/learn", "/profile"])
+      expect(matches(path), path).toBe(true);
+  });
+
+  it("[T-15] runs for /favicon.ico, which renders the not-found page while there is no icon", () => {
+    expect(matches("/favicon.ico")).toBe(true);
+    expect(matches("/favicon.ico?x")).toBe(true);
   });
 
   it("[NFR-SEC-02] runs for a path that only starts with an excluded name", () => {
