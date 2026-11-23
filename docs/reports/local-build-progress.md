@@ -17,7 +17,7 @@ Same task list as the sessions below. Tasks 1 and 2 are done; this run did WP-5.
 - Time: about 0.75 hours of the 3 hour box over two parts.
 - Not run: e2e, axe, screenshots, database tests. No browser or local Supabase stack here.
 - Two `next start` servers from this run may still be listening on ports 3451 and 3452. The sandbox hides them from `ps` and `pkill`, so they could not be stopped from here.
-- Push: see the line after this one.
+- Push: succeeded, `c5ca0e2..5224cc0` (1fba0b1 the pages, 7ac30d7 the header, 5224cc0 the description and progress). This line is pushed after it.
 
 ### Owner: run this
 
