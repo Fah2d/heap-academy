@@ -27,6 +27,7 @@ This file is kept whole on every branch this run touches; the newest copy is on 
 
 - Merge commit a9d23f1: `wp/2.2-sign-in` (with `main`) into this branch. One conflict: this file (took 2.2's copy, which holds 2.3's sections unchanged).
 - After the merge 4 tests in `second-step-form.test.tsx` failed, same `LiveRegion` cause as 2.2. 1fb08e1 makes them wait for the same words (`waitFor`); no assertion removed.
+- `setup-flow.test.tsx` had the same race and failed 2 tests in the 4.1 merge run; 39c22f1 fixes it on this branch the same way. `pnpm verify` again: exit 0, 1010 tests.
 - `pnpm verify`: exit 0, 53 files, 1010 tests. `next build` with CI's public values: exit 0. `check-bundle` and `check-static`: exit 0.
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-2.3.md`, new "Up to date with main" section.

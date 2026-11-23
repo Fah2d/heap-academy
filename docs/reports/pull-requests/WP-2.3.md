@@ -6,8 +6,9 @@
 
 - One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/2.2-sign-in` was taken; it holds this branch's sections word for word and the newer ones. `playwright.config.ts` merged on its own, with `main`'s `phone` projects (decision A of WP-2.2 applies here too).
 - One test file failed after the merge: 4 tests in `src/features/admin/components/second-step-form.test.tsx` (`AssertionError: expected '' to contain 'That code did not work. A code change…'`). Same cause as WP-2.2: `main`'s `Notice` puts an announced notice in a `LiveRegion` that is in the page first and gets its words one frame later. Fixed in 1fb08e1: the tests wait for the same words in the same `alert` region (`waitFor`). No assertion was removed or loosened, and the form itself is unchanged.
+- The same race was in `src/features/admin/components/setup-flow.test.tsx`: it passed on this branch, then failed 2 of its tests in the `wp/4.1-courses-chapters` merge run (`AssertionError: expected '' to contain 'The QR code could not be made right n…'`). Fixed here in 39c22f1 the same way.
 
-On 1fb08e1, `pnpm verify`, exit 0:
+On 39c22f1, `pnpm verify`, exit 0:
 
 ```
  Test Files  53 passed (53)
