@@ -2,6 +2,17 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (next run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `wp/2.1-schema-policies` (9077917), `wp/2.2-sign-in` (6318e45), `wp/4.3-validate-publish` (5a0d975) and `wp/5.1-catalog` (cc5b327) are not in `main`.
+- Dependencies in `docs/spec/08-delivery-plan.md` were checked again: WP-6.3 part 2 needs WP-2.1 and WP-2.2, WP-6.4 needs WP-4.3, WP-7.x needs WP-2.x to 5.x or decision C. The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
 ## Session of 2026-11-24 (one more run), in `night-c`, on `wp/7.3-operations`
 
 Same task list. Still blocked: no new work package can start. No code was changed.
