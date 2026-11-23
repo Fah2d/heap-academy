@@ -71,7 +71,16 @@ This file is kept whole on every branch this run touches; the newest copy is on 
 
 ### Next
 
-- Task 1 is done for all seven branches. Task 2, continue WP-5.1: its five parts are built and reviewed twice; what is left needs the owner (the e2e runs with `supabase start`, the screenshots, design approval, decisions). See the 20:35 session below.
+- Task 1 is done for all seven branches (23:37 to 23:50).
+
+### Task 2 blocked: WP-5.1
+
+WP-5.1's five parts are built and reviewed twice (see the 20:35 session below). What is left is the e2e runs, the screenshots and the design approval that needs them, and the owner's decisions. Checked again at 23:50, both still fail in this sandbox:
+
+- Docker: `failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock ... no such file or directory`, so no `supabase start` and no `stack` journey.
+- Chromium: `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`, so no gallery spec, axe or screenshot.
+
+No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
 
