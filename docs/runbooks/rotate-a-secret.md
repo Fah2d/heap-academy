@@ -38,7 +38,8 @@ Vercel variables reach only deployments made after the change (Vercel: changes "
 1. [ ] Vercel → the project → **Deployments**: note the commit of the deployment marked **Current** under Production.
 2. [ ] GitHub → **Actions → Deploy**: open the latest run.
    - Its commit is the one from step 1: go on.
-   - It failed before its **Deploy** step (for example at **Remember the deployment production serves**, after an expired Vercel token): its commit was never deployed, and production serves the run before. Go on: re-running it is how that commit reaches production.
+   - It failed at **Remember the deployment production serves** (an expired or deleted Vercel token): its production migrations already ran but its app was never deployed. Go on: re-running it is how that commit reaches production.
+   - It failed anywhere else, or you rejected its `production` approval: stop. Re-running it would ship a commit that was declined or broken.
    - Otherwise production was rolled back by hand (`deploy-and-rollback.md`), and a re-run would promote the release you took down. Stop, and deal with the rollback first.
 3. [ ] That run → **Re-run all jobs**. The staging migrations job skips migrations already applied. Approve the `production` job when it asks. It builds the commit again, deploys it, promotes it, and smoke-tests it.
 4. [ ] GitHub allows a re-run only up to 30 days after the run started, and at most 50 times. If the latest run is older, there is nothing to re-run: open a pull request that changes only a document (the incident report, or the day report's line for this rotation), and merge it when its checks pass. Its Deploy run deploys the same code. Never merge a pull request that changes code only to cause a deploy, and never deploy from your machine (`vercel deploy`): the token lives only in GitHub (`deploy-and-rollback.md`, CLAUDE.md rule 10). A manual trigger for the Deploy workflow is proposed in the pull request of this runbook (decision E).
@@ -65,18 +66,19 @@ After an exposure, also, in the Supabase dashboard (SQL editor and **Logs**, nev
 7. [ ] **Logs**: the Postgres and the connection pooler sources, for the exposure window. The stored URL goes through the session pooler, so GitHub's runners are the only expected client in the pooler's log; the password also works on the direct connection, so any direct connection you did not make is a finding.
 8. [ ] **Advisors → Security Advisor**: run it and read every finding.
 9. [ ] Compare the database with what the migrations in `supabase/migrations` create. Production and staging get the same migrations, so run each query in both projects and compare; if both may be compromised (section 9), compare with the migration files. Until WP-2.1 merges there are no tables of ours, and each result should be empty or identical:
-   - Function bodies, not only names (`create or replace` keeps a name): `select n.nspname, p.proname, p.prosecdef, md5(pg_get_functiondef(p.oid)) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname in ('public', 'private') and p.prokind in ('f', 'p') order by 1, 2;`
+   - Schemas: `select nspname from pg_namespace order by 1;`
+   - Function bodies, not only names (`create or replace` keeps a name), in every schema that is not Postgres's own: `select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), p.prosecdef, md5(pg_get_functiondef(p.oid)) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname not in ('pg_catalog', 'information_schema') and n.nspname not like 'pg\_%' and p.prokind in ('f', 'p') order by 1, 2, 3;`
    - Tables without row level security: `select n.nspname, c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname in ('public', 'private') and c.relkind = 'r' and not c.relrowsecurity;` (expected: none).
-   - Grants to the browser roles: `select grantee, table_schema, table_name, privilege_type from information_schema.role_table_grants where grantee in ('anon', 'authenticated') order by 1, 2, 3, 4;`
+   - Grants to the browser roles and to everyone: `select grantee, table_schema, table_name, privilege_type from information_schema.role_table_grants where grantee in ('anon', 'authenticated', 'PUBLIC') order by 1, 2, 3, 4;`, `select grantee, routine_schema, routine_name from information_schema.role_routine_grants where grantee in ('anon', 'authenticated', 'PUBLIC') order by 1, 2, 3;`, and `select nspname, nspacl from pg_namespace order by 1;` (who may use each schema).
    - Policies: `select schemaname, tablename, policyname, roles, cmd, qual, with_check from pg_policies order by 1, 2, 3;`
-   - Roles: `select rolname, rolsuper, rolcanlogin, rolbypassrls from pg_roles order by 1;`
+   - Roles and who is a member of which: `select rolname, rolsuper, rolcanlogin, rolbypassrls from pg_roles order by 1;` and `select roleid::regrole, member::regrole from pg_auth_members order by 1, 2;`
    - Triggers and event triggers: `select tgrelid::regclass, tgname from pg_trigger where not tgisinternal order by 1, 2;` and `select evtname, evtevent, evtfoid::regproc from pg_event_trigger order by 1;`
-   - Extensions and outside connections: `select extname, extversion from pg_extension order by 1;` and `select srvname from pg_foreign_server;`. If `pg_cron` is listed: `select * from cron.job;`.
-   - Your own account: `select id, email, updated_at from auth.users where email = '<your address>';` and, with that id, `select provider, identity_data->>'email', created_at from auth.identities where user_id = '<id>';` (only your Google and email identities).
+   - Extensions and outside connections: `select extname, extversion from pg_extension order by 1;` and `select srvname from pg_foreign_server;`. If `pg_cron` is listed: `select * from cron.job;`. If `pg_net` is listed, read its record of recent outgoing requests early, because it keeps only recent ones: `select * from net._http_response order by created desc;`.
+   - Your own account: `select id, email, updated_at from auth.users where email = '<your address>';` and, with that id, `select provider, identity_data->>'email', created_at from auth.identities where user_id = '<id>';` (only your Google and email identities). The product has no password sign-in, so no account should have a password: `select id, email from auth.users where coalesce(encrypted_password, '') <> '';` (expected: no rows).
    - Once WP-2.1 and WP-2.3 are merged: every row of the admin allow-list, and your rows in `auth.mfa_factors` (one factor, the one you enrolled).
 10. [ ] Rotate every secret in Supabase Vault: they could be read. None exists until WP-7.1 adds the rate-limit HMAC secret.
-11. [ ] End every session, whatever steps 7 to 9 found: a stolen refresh token keeps a session alive after the reset (Supabase: refresh tokens "never expire"), including your own admin session. In the SQL editor: `delete from auth.sessions;`. Run it on staging first and check that `select count(*) from auth.refresh_tokens;` drops to 0 there too; if it does not, also `delete from auth.refresh_tokens;`. Every learner has to sign in again.
-12. [ ] Anything in step 9 you did not create: it is an S1. Remove it through a migration in a pull request, and rotate the JWT signing keys as well (section 4 steps 4 to 7). Rotating or revoking a signing key does not sign anyone out; step 11 does.
+11. [ ] End every session, whatever steps 7 to 9 found: a stolen refresh token keeps a session alive after the reset (Supabase: refresh tokens "never expire"), including your own admin session. In the SQL editor: `delete from auth.sessions;`. Supabase's auth schema deletes each session's refresh tokens with it (`on delete cascade`). Try it on staging first, after signing in there so there is a session to delete (from WP-2.2), and check that `select count(*) from auth.refresh_tokens;` drops to 0; if it does not, also `delete from auth.refresh_tokens;`. Every learner has to sign in again. Access tokens already issued keep working until they expire, because the app checks their signature without asking Supabase (`02-architecture.md`, `getClaims()`); to cut them at once, also do section 4 step 7.
+12. [ ] Anything in step 9 you did not create: it is an S1. Remove it through a migration in a pull request (clear any password found on an account), and rotate the JWT signing keys as well (section 4 steps 4 to 7). Rotating or revoking a signing key does not sign anyone out; step 11 does.
 
 ## 3. Supabase publishable key
 
@@ -91,7 +93,7 @@ Not a secret: it is in every browser (`.env.example`), and row level security de
 
 ## 4. Supabase legacy keys and the JWT signing key
 
-Supabase's legacy `anon` and `service_role` keys "stay valid until you disable them", and the infrastructure runbook never disabled them. The app uses only the publishable key. A `service_role` key skips row level security, and whoever holds the legacy JWT secret can mint a token for any user, at any assurance level (T-19).
+Supabase's legacy `anon` and `service_role` keys "stay valid until you disable them". Before 2026-11-24 the infrastructure runbook did not disable them; it does now (section 2 step 6), but projects set up earlier still need steps 1 to 3 below. The app uses only the publishable key. A `service_role` key skips row level security, and whoever holds the legacy JWT secret can mint a token for any user, at any assurance level (T-19).
 
 **Do this once in both projects now**, not only after an exposure:
 
@@ -159,11 +161,12 @@ Routine:
 Exposure: the token can deploy any code to your account, create more tokens, and change variables, firewall rules, deployment protection, and Git Fork Protection. Code it deploys can read every server variable.
 
 1. [ ] **Account Settings → Tokens**: delete the exposed token and every token you did not create. Deploys pause; the site keeps serving.
-2. [ ] The project → **Deployments**: if **Current** is a deployment you did not make, **Instant Rollback** to the last one you did, before anything else. Delete every deployment you did not make.
-3. [ ] Routine steps 1 to 3.
-4. [ ] Rotate every server variable the project holds, because a deployment made with the token could have read them: today `RESEND_API_KEY`, both Production and Preview (section 5).
-5. [ ] Check the project's settings: environment variables against `infrastructure-setup.md` section 5 step 3; **Deployment Protection**, **Git Fork Protection**, and the domain against sections 5 and 6; **Firewall** rules against `usage-spike-or-free-tier-limit.md` section 2.2 (the rate-limit rule exists from WP-7.1); deploy hooks, log drains, webhooks, and integrations: there should be none you did not add.
-6. [ ] The account's activity log for the window: changes you did not make.
+2. [ ] The project → **Deployments**: if **Current** is a deployment you did not make, **Instant Rollback** before anything else. Hobby can roll back only to the previous production deployment; if that one is not yours either, roll back anyway (it stops the newest), and step 4 replaces it.
+3. [ ] Record each deployment you did not make in the incident report: its source and its build and function logs, which show what it read. Then delete it, once it is no longer **Current**.
+4. [ ] Routine steps 1 and 2, then the new deployment: if **Current** is now yours, section 1. If it is not, re-run the Deploy run of the commit you last shipped yourself (section 1 steps 3 and 4), without section 1 step 2's commit check.
+5. [ ] Rotate every server variable the project holds, because a deployment made with the token could have read them: today `RESEND_API_KEY`, both Production and Preview (section 5).
+6. [ ] Check the project's settings: environment variables against `infrastructure-setup.md` section 5 step 3; **Deployment Protection**, **Git Fork Protection**, and the domain against sections 5 and 6; **Firewall** rules against `usage-spike-or-free-tier-limit.md` section 2.2 (the rate-limit rule exists from WP-7.1); deploy hooks, log drains, webhooks, and integrations: there should be none you did not add.
+7. [ ] The account's activity log for the window: changes you did not make.
 
 ## 8. The implementer's GitHub token
 
@@ -218,6 +221,6 @@ Until such a section exists, rotate in the orders of section 0.
 - Resend: [API keys](https://resend.com/docs/dashboard/api-keys/introduction).
 - Google client secrets: [manage OAuth clients](https://support.google.com/cloud/answer/15549257).
 - Vercel: [environment variables](https://vercel.com/docs/environment-variables), [creating a token](https://vercel.com/docs/rest-api/authentication/create-an-auth-token).
-- GitHub: [personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens), [token revocation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/token-expiration-and-revocation), [secrets in Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
+- GitHub: [re-running workflows and jobs](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/re-running-workflows-and-jobs) (the 30-day and 50-run limits, read by the security reviewer on 2026-11-24), [personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens), [token revocation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/token-expiration-and-revocation), [secrets in Actions](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions).
 
 Not confirmed in the documentation read: whether Resend's removal of a key and Supabase's password reset take effect at once (both are treated as immediate here); the labels of Vercel's token page, of the legacy keys control, and of GitHub's edit control for an existing environment secret; what revoking a signing key does to refresh tokens; whether these new figures belong in `09-evidence.md` (proposed in the pull request).
