@@ -7,6 +7,7 @@ export {
   type ButtonVariant,
 } from "./primitives/button";
 export { Dialog, DialogActions, type DialogProps } from "./primitives/dialog";
+export { Play } from "./icons";
 export { Disclosure, type DisclosureProps } from "./primitives/disclosure";
 export {
   ExternalLink,

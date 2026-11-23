@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { secondStep as words } from "@/messages/admin";
@@ -7,6 +7,16 @@ import type { ActionOutcome } from "../types";
 import { type SecondStepAction, SecondStepForm } from "./second-step-form";
 
 afterEach(cleanup);
+
+/**
+ * An announced notice's region is in the page first and its words follow a
+ * frame later (`LiveRegion`), so the test waits for the words in the region.
+ */
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(text);
+  });
+}
 
 function form(answer: () => Promise<ActionOutcome<null>>, autoFocus = false) {
   const action = vi.fn<SecondStepAction>(answer);
@@ -56,7 +66,7 @@ describe("SecondStepForm [FR-ADM-02]", () => {
     const { navigate, field } = form(() => Promise.resolve({ ok: false, error }));
     await userEvent.type(field, "123456");
     await submit();
-    expect((await screen.findByRole("alert")).textContent).toContain(text);
+    await expectAlert(text);
     expect((field as HTMLInputElement).value).toBe("");
     expect(document.activeElement).toBe(field);
     expect(navigate).not.toHaveBeenCalled();
@@ -74,7 +84,7 @@ describe("SecondStepForm [FR-ADM-02]", () => {
     const { field } = form(() => Promise.reject(new Error("network")));
     await userEvent.type(field, "123456");
     await submit();
-    expect((await screen.findByRole("alert")).textContent).toContain(words.unavailable);
+    await expectAlert(words.unavailable);
   });
 
   it("shows the checking state and blocks a second submit while the code is checked", async () => {
@@ -89,7 +99,7 @@ describe("SecondStepForm [FR-ADM-02]", () => {
     await userEvent.click(button);
     expect(action).toHaveBeenCalledOnce();
     finish({ ok: false, error: "code_rejected" });
-    expect((await screen.findByRole("alert")).textContent).toContain(words.codeRejected);
+    await expectAlert(words.codeRejected);
   });
 
   it("puts focus in the field on load only when asked", () => {

@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Button, Dialog, Disclosure, Link, Notice, Progress, Status, Tabs, TextField } from "@/ui";
+import { INVALID_WITHOUT_SENTENCE } from "./text-field";
 
 afterEach(cleanup);
 
@@ -123,6 +125,61 @@ describe("TextField", () => {
     const field = screen.getByRole("textbox", { name: "Email address" });
     expect(field.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByText("Enter an email address with an @ sign.")).toBeTruthy();
+    expect(
+      screen.getByRole("textbox", { description: "Enter an email address with an @ sign." }),
+    ).toBe(field);
+  });
+
+  it("[ADR-0014] falls back to the field's own validation message when no sentence is given", () => {
+    render(<TextField label="Name" validate={() => "Enter your name."} />);
+    const field = screen.getByRole("textbox", { name: "Name" });
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("textbox", { description: "Enter your name." })).toBe(field);
+  });
+
+  it("[ADR-0014] refuses an invalid field whose sentence is empty", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<TextField label="Email address" isInvalid errorMessage=" " />)).toThrow(
+      INVALID_WITHOUT_SENTENCE,
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("[ADR-0014] refuses a validation whose sentence is blank", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<TextField label="Name" validate={() => " "} />)).toThrow(
+      INVALID_WITHOUT_SENTENCE,
+    );
+    vi.restoreAllMocks();
+  });
+
+  it("[ADR-0014] refuses a blank sentence even when validation has one", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() =>
+      render(<TextField label="Name" errorMessage=" " validate={() => "Enter your name."} />),
+    ).toThrow(INVALID_WITHOUT_SENTENCE);
+    vi.restoreAllMocks();
+  });
+
+  it("[ADR-0014] never shows the browser's own message for an empty required field", async () => {
+    render(
+      <form>
+        <TextField label="Name" isRequired />
+      </form>,
+    );
+    const field = screen.getByRole("textbox", { name: "Name" });
+    expect(field.getAttribute("aria-required")).toBe("true");
+    expect(field.hasAttribute("required")).toBe(false);
+    await userEvent.type(field, "a");
+    await userEvent.clear(field);
+    await userEvent.tab();
+    expect(field.getAttribute("aria-invalid")).toBeNull();
+    expect(field.getAttribute("aria-describedby")).toBeNull();
+  });
+
+  it("[ADR-0014] shows no error icon on a valid field", () => {
+    const { container } = render(<TextField label="Name" validate={() => null} />);
+    expect(container.querySelector("svg")).toBeNull();
   });
 
   it("[ADR-0014] supports disabled and read-only fields", () => {
@@ -156,6 +213,26 @@ describe("Tabs", () => {
     await userEvent.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: "Code" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tabpanel").textContent).toBe("Editor");
+  });
+
+  it("[ADR-0014] reserves the selected weight's width, so selecting a tab does not move its neighbors", () => {
+    render(
+      <Tabs
+        label="Lesson views"
+        items={[
+          { id: "lesson", title: "Lesson", content: <p>Instructions</p> },
+          { id: "code", title: "Code", content: <p>Editor</p> },
+        ]}
+      />,
+    );
+    for (const name of ["Lesson", "Code"]) {
+      const tab = screen.getByRole("tab", { name });
+      const reserve = tab.querySelector('[aria-hidden="true"]');
+      expect(reserve?.textContent, name).toBe(name);
+      expect(reserve?.className.split(/\s+/), name).toEqual(
+        expect.arrayContaining(["invisible", "font-semibold", "col-start-1", "row-start-1"]),
+      );
+    }
   });
 });
 
@@ -250,6 +327,23 @@ describe("Notice", () => {
       </Notice>,
     );
     expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
+  it("[ADR-0014] puts an announced notice's region in the page before the notice", async () => {
+    const notice = (
+      <Notice kind="information" kindLabel="Information" announce="polite">
+        Your code is saved on this device.
+      </Notice>
+    );
+    const first = renderToStaticMarkup(notice);
+    // The region alone: no box, no icon, no words until the next frame.
+    expect(first).toBe('<div role="status"></div>');
+    render(notice);
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe(
+        "Information: Your code is saved on this device.",
+      );
+    });
   });
 });
 

@@ -69,7 +69,7 @@ Path-scoped rules in `.claude/rules/` load by themselves when you work on matchi
 
 ```
 src/app/             Routes only
-src/features/        catalog, workspace, progress, auth, profile, admin
+src/features/        catalog, workspace, progress, auth, profile, admin, shell
 src/domain/          Pure rules, no I/O
 src/grader/          Test case schema, comparison, Python harness, Node runner
 src/runtime/         Worker protocol, controller, watchdog, statechart
