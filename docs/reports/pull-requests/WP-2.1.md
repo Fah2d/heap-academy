@@ -1,5 +1,21 @@
 **Base: `main`.** Draft until the `db` job has run on GitHub: Docker is not available on the machine that built it, so no migration has run on the Supabase image. See "Owner actions now due".
 
+## Up to date with main
+
+`main` at 0efe863 (#5, #6, #7, #8) is merged into this branch in merge commit 837fc05. No rebase, no force push. Nothing conflicted: `main` adds no migration, policy test or database file, so the schema of this branch is unchanged.
+
+`pnpm verify` on 837fc05, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  28 passed (28)
+      Tests  709 passed (709)
+```
+
+`next build` on 837fc05 with CI's public values (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_example`), exit 0. Routes: `/_not-found`, `/api/csp-report`, `/api/health`.
+
+Not run on the merge: `pnpm test:db` (no Docker on this machine) and e2e (no browser here).
+
 ## What and why
 
 The database of `02-architecture.md` section 8: every table, its row level security policies, the functions and triggers of section 8.3, the seed with one sample course, the pgTAP tests, and the `db` CI job. Staging is seeded by the deploy workflow, and only staging.

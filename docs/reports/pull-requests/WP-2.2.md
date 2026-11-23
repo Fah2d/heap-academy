@@ -1,5 +1,28 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## Up to date with main
+
+`main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/2.1-schema-policies`, which already has it (9077917): merge commit 2f45f1d. No rebase, no force push.
+
+- Two files conflicted. `docs/reports/local-build-progress.md`: the copy from `wp/2.1-schema-policies`, the newer one. `playwright.config.ts`: both new projects kept, this branch's `stack` journeys and `main`'s three `phone` projects; the desktop projects ignore the gallery, phone and stack specs (decision A).
+- One test file failed after the merge: 10 tests in `src/features/auth/components/sign-in-view.test.tsx`. `main`'s `Notice` now puts an announced notice in a `LiveRegion` that is in the page first and gets its words one frame later, so a test that read the alert at once found it empty (`AssertionError: expected '' to contain 'Sign-in is not working right now. Try…'`). Fixed in 6bf689e: the tests wait for the same words in the same `alert` region (`waitFor`), and `challengeNeeded` with `findByText`. No assertion was removed or loosened, and the sign-in view itself is unchanged.
+
+On 6bf689e, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  42 passed (42)
+      Tests  918 passed (918)
+```
+
+`next build` with CI's public values (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` from `.github/workflows/ci.yml`), exit 0, routes `/_not-found`, `/api/csp-report`, `/api/health`, `/auth/callback`, `/sign-in`. `node scripts/check-bundle.mjs .next/static`: "No server variable (RESEND_API_KEY, HEAP_RELEASE) in 21 files under .next/static." `node scripts/check-static.mjs .next`: "No prerendered page in .next, apart from /_global-error, which Next.js always prerenders."
+
+Not run on the merge: `pnpm test:db` (no Docker on this machine) and e2e (no browser here).
+
+Decisions taken with a safe default during the merge:
+
+- A. The CI `e2e` job still runs `--project=chromium --project=stack --project=gallery`. `main`'s `phone` projects are not added to it: `main` runs no e2e in CI, and adding a job's work is outside a merge. Run `pnpm test:e2e --project=phone --project=phone-375 --project=phone-360` locally, or ask for them to be added to CI.
+
 ## What and why
 
 Sign-in for learners, with Google and with a six-digit code sent by email (ADR-0017), built on Supabase Auth through `@supabase/ssr`:

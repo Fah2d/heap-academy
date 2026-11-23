@@ -2,10 +2,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { gallery } from "@/messages/gallery";
 import { errorPage, notFound } from "@/messages/system";
-import { shell } from "@/messages/shell";
+import { pageTitle, shell } from "@/messages/shell";
 import { ErrorView, errorReference } from "./components/error-view";
 import { NotFoundView } from "./components/not-found-view";
+import { PrimitiveGallery } from "./components/primitive-gallery";
 // fonts.ts runs only under the Next.js compiler, so the test imports the
 // modules directly rather than through index.ts.
 import { SiteShell } from "./components/site-shell";
@@ -121,5 +123,32 @@ describe("site shell", () => {
     expect(nav.textContent).toBe("Courses");
     const links = screen.getAllByRole("link").map((link) => link.textContent);
     expect(links.indexOf("Courses")).toBe(links.indexOf(shell.productName) + 1);
+  });
+});
+
+describe("page title", () => {
+  it("[FR-SYS-01] builds the error pages' title from the one template", () => {
+    expect(pageTitle(errorPage.title)).toBe(`${errorPage.title} | ${shell.productName}`);
+    expect(shell.titleTemplate).toContain("%s");
+  });
+
+  it("[ADR-0014] keeps a dollar sign in a title as written", () => {
+    expect(pageTitle("Cost: $' and $&")).toBe(`Cost: $' and $& | ${shell.productName}`);
+  });
+});
+
+describe("primitive gallery", () => {
+  it("[ADR-0014] shows the button with an icon and the full-width button", () => {
+    render(<PrimitiveGallery />);
+    const withIcon = screen
+      .getAllByRole("button", { name: gallery.run })
+      .filter((button) => button.querySelector('[aria-hidden="true"] svg') !== null);
+    // Run is a secondary action (DESIGN.md section 4.5), so it is shown only as one.
+    expect(withIcon).toHaveLength(1);
+    expect(withIcon[0]?.className.split(/\s+/)).not.toContain("bg-action");
+    const fullWidth = screen
+      .getAllByRole("button", { name: gallery.check })
+      .filter((button) => button.className.split(/\s+/).includes("w-full"));
+    expect(fullWidth).toHaveLength(1);
   });
 });
