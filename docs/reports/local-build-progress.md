@@ -4,7 +4,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 ## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
-Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy) and this section added on top.
+Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" in the section below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy), this section added on top, and the copy carried to `wp/3.3-grader` and then `wp/3.4-statechart`.
 
 ### Task 3, part 3 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
 
@@ -13,6 +13,23 @@ Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run di
 - Not run: the browser tests.
 - Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
 - Push: `wp/3.3-grader` with f178765 and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 4 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 03102ba: `wp/3.3-grader` at 99f61b4 merged (WP-3.3 round 2 fixes and WP-3.1 round 4 fixes). Two conflicts. `src/runtime/controller.ts`, the `ready` case: both sides kept (this branch sets `interactiveInput`, then WP-3.3's fix sends a pending fresh-worker check before reporting `ready`). This file: WP-3.3's copy taken.
+- `pnpm verify` on 03102ba: exit 0, 46 files, 1127 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 03102ba and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions in the WP-3.3 and WP-3.4 descriptions, and those of the sessions below.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a and 06c39bb (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
 
 ## Session of 2026-11-24 (from about 23:54 on 2026-11-23), in `night-a`, on `wp/3.3-grader`, then `wp/3.1-python-worker`
 

@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged in a83b326. Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 03102ba, at 99f61b4). Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
 
 ## What and why
 
@@ -19,18 +19,23 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at 67787b4 is merged in a83b326. It carries `main` at 0efe863 (#3 to #8) through WP-3.1's 5f72072. Nothing conflicted. `playwright.config.ts` now has `main`'s three `phone` projects beside the `runtime-*` projects, as WP-3.1 resolved it.
+`wp/3.3-grader` at 99f61b4 is merged in 03102ba. It carries `main` at 0efe863 (#3 to #8), WP-3.1's round 4 fixes (58128a3) and WP-3.3's round 2 fixes (9043a9a, 06c39bb). The earlier merge, of `wp/3.3-grader` at 67787b4, is a83b326.
 
-`wp/3.2-live-input` (6a9c165, already in this branch) was not merged with `main` in this run: it was not in the task list. This branch has `main` through WP-3.3 either way.
+Two conflicts:
 
-`pnpm verify` on a83b326, exit 0:
+- `src/runtime/controller.ts`, the `ready` case. Both sides kept: this branch's `interactiveInput = message.capabilities.interactiveInput;` comes first, then WP-3.3's fix, which sends a pending fresh-worker check before `ready` is reported and leaves the status at `checking` in that case. The chart is unaffected: it takes `RUNTIME_READY` only from `loading` and `restarting`, and the events the controller sends are the same as before.
+- `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, as the newer one.
+
+`wp/3.2-live-input` (6a9c165, already in this branch) was not merged with `main`: it is not in the task list. This branch has `main` through WP-3.3 either way.
+
+`pnpm verify` on 03102ba, exit 0:
 
 ```
- Test Files  45 passed (45)
-      Tests  1117 passed (1117)
+ Test Files  46 passed (46)
+      Tests  1127 passed (1127)
 ```
 
-`pnpm build` with CI's fake public values on a83b326, exit 0 (`runtime: worker compiled`; routes `/_not-found`, `/api/csp-report`, `/api/health`, all dynamic). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+`pnpm build` with CI's fake public values on 03102ba, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
 
 Not run on the merge: the browser tests.
 
