@@ -2,6 +2,34 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-23 (from 04:02), in `night-a`, detached HEAD pushed to `wp/4.2-lesson-editor`
+
+Sessions from 01:22 to 03:42 started and left no change. A session from 00:39 made 11 review-fix commits (6b799fe..7db29ac) on a detached HEAD in `night-a` and did not push them or record its reviews. This session recovered those reviews from that session's subagent transcripts, finished the two open findings, and wrote the description.
+
+### WP-4.2 The lesson editor: ready as a draft, `wp/4.2-lesson-editor` (base `wp/4.1-courses-chapters`)
+
+- Description: `docs/reports/pull-requests/WP-4.2.md`, with its `gh pr create` command and three decisions (the editor's nonce rule, where the lesson-content component lives, `save_lesson` keeping the position).
+- `pnpm verify` on 8b289f3: exit 0, 69 files, 1269 tests. `next build`, `check-static`, `check-bundle` pass.
+- PGlite: 365 assertions pass, with and without the seed (`12_lesson_order` now 27).
+- Review round 1 (code, security, design, on be24f80): all CHANGES REQUIRED. Saved in `docs/reports/reviews/WP-4.2/`. Every finding fixed or answered in the description, except those needing a browser or the lockfile. Not re-reviewed.
+- New this session:
+  - 3b1bcf8: `save_lesson` keeps the lesson's position unless the chapter changes (security MINOR 2), test first.
+  - 8b289f3: Zod `jitless` for every schema a browser loads, plus a lint rule (security MINOR 1), test first.
+- e2e written, not run.
+- Push: succeeded, `be24f80..c69e191`. This progress commit is pushed after it.
+- `wp/4.2-markdown-part-1` is superseded by `wp/4.2-lesson-editor`. Do not open a pull request for part 1.
+- The local branch `wp/4.2-lesson-editor` in the `night-c` worktree is behind the pushed branch. Run `git -C /private/tmp/claude-501/night-c pull --ff-only` before working there.
+
+### Owner: run this
+
+1. In a checkout of `wp/4.2-lesson-editor`, with dependencies installed, run `pnpm install && git add pnpm-lock.yaml && git commit -m "build: lock the CodeMirror packages" && git push`. The CodeMirror packages are not in `pnpm-lock.yaml`, so CI fails at the frozen install until this is done.
+2. Earlier owner actions for WP-2.2, WP-2.3 and WP-4.1 are still due.
+
+### Next
+
+- WP-4.3 (test cases, validation, publishing) depends on WP-4.1, WP-4.2 and WP-3.4. All three are built as drafts. Stack it on `wp/4.2-lesson-editor` and merge `wp/3.4-statechart` in. Expect conflicts with the 3.x line in `package.json` and the lockfile (Pyodide against CodeMirror).
+- WP-5.1 (depends on WP-4.1) can start beside it, on `wp/4.1-courses-chapters`.
+
 ## Session of 2026-11-22 (from 01:51), on `wp/4.1-courses-chapters`
 
 Order given by the owner: (1) update waiting branches, done 2026-11-20 and `main` has not moved (037c4ad); (2) to (4) WP-2.1, 2.2, 2.3, done; (5) WP-3.4; then the plan order. WP-4.1, pushed unfinished, first.
