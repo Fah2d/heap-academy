@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { secondStep as words } from "@/messages/admin";
@@ -7,6 +7,16 @@ import type { ActionOutcome } from "../types";
 import { groupKey, type SetupCode, SetupFlow, type StartSetupAction } from "./setup-flow";
 
 afterEach(cleanup);
+
+/**
+ * An announced notice's region is in the page first and its words follow a
+ * frame later (`LiveRegion`), so the test waits for the words in the region.
+ */
+async function expectAlert(text: string) {
+  await waitFor(() => {
+    expect(screen.getByRole("alert").textContent).toContain(text);
+  });
+}
 
 const code: SetupCode = { qrCodeSvg: "<svg/>", secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" };
 
@@ -54,7 +64,7 @@ describe("SetupFlow [FR-ADM-02]", () => {
   ])("announces the failure when %s, and offers the button again", async (_, answer) => {
     flow(answer);
     await start();
-    expect((await screen.findByRole("alert")).textContent).toContain(words.setupUnavailable);
+    await expectAlert(words.setupUnavailable);
     expect(screen.getByRole("button", { name: words.start })).toBeTruthy();
     expect(screen.queryByRole("img")).toBeNull();
   });
