@@ -82,11 +82,11 @@ flowchart LR
 
 ### 4.1 Logs
 
-Structured JSON on the server: request ID, action or route, outcome code, duration. No email, name, or learner code (NFR-PRIV-03). A server error is logged with its digest next to the request ID, and the error page shows the digest so a learner can quote it (NFR-OBS-01). A browser error shows no reference until `/api/client-error` exists.
+Structured JSON on the server: request ID, action or route, outcome code, duration. No email, name, or learner code (NFR-PRIV-03). A server error is logged with its digest next to the request ID, and the error page shows the digest so a learner can quote it (NFR-OBS-01). A browser error shows the request ID of its report to `/api/client-error` once the report is stored, and no reference if the report fails (approved by the owner on 2026-11-24, WP-7.3 decision B).
 
 ### 4.2 Errors
 
-Server errors are logged with the request ID and the release version. Client errors are sent to `/api/client-error` with the release version, the route, and a short error code: runtime failed to load, worker crashed, an unexpected exception. No message text from learner code is sent.
+Server errors are logged with the request ID and the release version. Client errors are sent to `/api/client-error` with the release version, the route, and a short error code: runtime failed to load, worker crashed, an unexpected exception. No message text from learner code is sent. The release is the browser bundle's, inlined at build as `NEXT_PUBLIC_HEAP_RELEASE`; the log line carries it as `clientRelease` next to the server's own `release`, so a tab still on an older bundle after a deploy is logged under the code it runs (approved by the owner on 2026-11-24, WP-7.3 decisions A and B).
 
 ### 4.3 Analytics
 

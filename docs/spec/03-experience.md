@@ -87,7 +87,7 @@ Display name (editable in place), XP, current and longest streak, per-course pro
 
 ### 5.6 System pages
 
-Not found, error (with the server error's digest as reference; a browser error has none until `/api/client-error` exists), unsupported browser, and legal pages. Each says what happened and offers the next step.
+Not found, error (a server error's reference is its digest; a browser error's is the request ID of its report to `/api/client-error`, shown once the report is stored, and none if the report fails; approved by the owner on 2026-11-24, WP-7.3 decision B), unsupported browser, and legal pages. Each says what happened and offers the next step.
 
 ## 6. Workspace specification
 
