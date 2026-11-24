@@ -2,9 +2,18 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`
+## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
 
 Same task list, with the owner decisions of 2026-11-24: every recommended default in every pull request description is approved (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, device progress cleared at sign-out, the stored row wins, every proposed spec change accepted), to be written into `docs/spec` on the branch each belongs to and marked approved on 2026-11-24. `git fetch`: `origin/main` moved to 7875ee2, the merge of #12 (WP-2.1). `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart` were each 20 commits behind it; `wp/5.2-workspace-laptop` 1. This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 46), with `main`'s two `night-b` sections added in time order and this section on top.
+
+### Task 1, part 48 done: `main` at 7875ee2 merged into `wp/3.3-grader`, and WP-3.3's approved decisions written
+
+- 7d62414: `main` merged directly. One conflict, this file (`wp/3.1-python-worker`'s copy taken). `wp/3.1-python-worker` still not merged: keeping its run fixes out until WP-3.1 security review 8, round 3, was the recommended default, now approved.
+- Owner decisions written in c245529: `08-delivery-plan.md` WP-4.3 "Done when" (a fresh worker for each Validate, with a tampering test) and T-23 in `06-security-privacy.md`; the deviations that contradict the spec, in `04-content-system.md` sections 2.2 and 3.1 and `02-architecture.md` section 5.4. Each is marked approved by the owner on 2026-11-24. `freshWorker` stays optional, `HARNESS_VERSION` stays "7", `threadUrl` stays as it is.
+- `pnpm verify` on 7d62414: exit 0, 43 files, 1132 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen 7d62414.
+- Description: the first line, "Up to date with main", "Owner decisions of 2026-11-24" and the owner actions of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with 7d62414 and c245529. This section was left out of that push by a script error and is committed after it; it is pushed with the branch's next push (it reaches `wp/3.4-statechart` by merge at once).
 
 ### Task 1, part 47 done: `main` at 7875ee2 merged into `wp/3.1-python-worker`, and WP-3.1's approved decisions written
 
@@ -17,12 +26,12 @@ Same task list, with the owner decisions of 2026-11-24: every recommended defaul
 
 ### Owner: run this
 
-1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader` if that pull request is open.
 2. Still yours on WP-3.1: the browser tests in Firefox and WebKit, security review 8 round 3, and the three "Not fixed" items that have no recommended default (the worker's file system, the "crashed" message, a late callback's output).
 
 ### Next
 
-- Merge `main` into `wp/3.3-grader`, then `wp/3.4-statechart`, writing each branch's approved decisions.
+- Merge `wp/3.3-grader` (with `main`) into `wp/3.4-statechart`, writing its approved decisions (ADR-0034 among them).
 
 ## Session of 2026-11-24 (from about 13:48, continued), in `night-a`, on `wp/5.2-workspace-laptop`
 
