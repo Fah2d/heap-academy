@@ -114,9 +114,19 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       imported("pyodide.asm.mjs");
       if (!isRuntime(loaded)) return die("load_failed");
       if (loaded.version !== manifest.version) return die("version_mismatch");
-      const runner: unknown = loaded.runPython(RUN_SUPPORT_SOURCE);
+      // The functions are taken now, before any program runs. A program can
+      // reach this object as `pyodide_js` and replace a setter, which every
+      // later run would then call (WP-3.1 security review 8, round 4, MAJOR 2).
+      const bound: Runtime = Object.freeze({
+        version: loaded.version,
+        setStdout: loaded.setStdout.bind(loaded),
+        setStderr: loaded.setStderr.bind(loaded),
+        setStdin: loaded.setStdin.bind(loaded),
+        runPython: loaded.runPython.bind(loaded),
+      });
+      const runner: unknown = bound.runPython(RUN_SUPPORT_SOURCE);
       if (typeof runner !== "function") return die("load_failed");
-      runtime = loaded;
+      runtime = bound;
       run = (source) => Reflect.apply(runner, undefined, [source]) as unknown;
     } catch {
       return die("load_failed");

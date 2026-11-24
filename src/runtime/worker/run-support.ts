@@ -118,6 +118,7 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
     disable_gc = gc.disable
     list_clear = list.clear
     list_extend = list.extend
+    list_append = list.append
     # Changed in place by an import hook or a program; the names themselves
     # are put back with sys_snapshot.
     sys_lists = [(sys.path, list(sys.path)), (sys.meta_path, list(sys.meta_path)),
@@ -292,15 +293,34 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
                 return False
         return True
 
-    def make_streams():
-        if not fresh_streams:
-            return no_binding
-        for fd, device in devices:
-            status = file_status(fd)
-            if status_field(status, 0) & file_type_bits != character_device:
-                raise NotRestored()
-            if status_device(status) != device:
-                raise NotRestored()
+    # The Python functions that making the streams calls, recorded when the
+    # runner is made, before any learner code: the held encoder's and
+    # decoder's __init__ methods. A lookup that misses the interpreter's
+    # codec cache calls each search function a program registered, and such
+    # a function can return the held codec after running its own code
+    # (WP-3.1 security review 8, round 4, MAJOR 1). While the streams are
+    # made, a profile hook stops any other Python function before its first
+    # line, so the run raises instead. A search function written in C runs
+    # no Python code; at most it returns None, and the lookup fails.
+    expected_code = []
+
+    def record_code(frame, event, arg):
+        if event == "call":
+            code = frame.f_code
+            for known in expected_code:
+                if known is code:
+                    return
+            list_append(expected_code, code)
+
+    def guard_code(frame, event, arg):
+        if event == "call":
+            code = frame.f_code
+            for known in expected_code:
+                if known is code:
+                    return
+            raise NotRestored()
+
+    def build_streams():
         for name in stream_names:
             if codec_lookup(stream_settings[name][0]) is not stream_settings[name][2]:
                 raise NotRestored()
@@ -318,11 +338,34 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
                 encoding=encoding, errors=errors, newline="\n",
                 line_buffering=True, write_through=True,
             )
+        return made
+
+    def make_streams():
+        if not fresh_streams:
+            return no_binding
+        for fd, device in devices:
+            status = file_status(fd)
+            if status_field(status, 0) & file_type_bits != character_device:
+                raise NotRestored()
+            if status_device(status) != device:
+                raise NotRestored()
+        set_profile(guard_code)
+        try:
+            made = build_streams()
+        finally:
+            set_profile(None)
         binding = {}
         for name in stream_names:
             binding[name] = made[name]
             binding["__" + name + "__"] = made[name]
         return binding
+
+    if fresh_streams:
+        set_profile(record_code)
+        try:
+            build_streams()
+        finally:
+            set_profile(None)
 
     # Called after the restore that follows make_streams, so the codec, its
     # classes and their modules have been checked: each stream holds one
@@ -363,12 +406,31 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
             parts.append(stream)
         return parts
 
+    # The encoder or decoder each stream holds, with the state a new one has.
+    # What a program stored on it is cleared with the rest, and its state put
+    # back, so nothing of the program is freed after the originals are bound
+    # (round 4, MINOR 3).
+    def coder_parts(binding):
+        parts = []
+        for name in stream_names if fresh_streams else ():
+            made_by, state = stream_settings[name][3:]
+            if state is None:
+                continue
+            for part in get_referents(binding[name]):
+                if kind_of(part) is made_by:
+                    parts.append((part, state))
+        return parts
+
     def clear_streams(binding):
         for part in stream_parts(binding):
             try:
                 dict_clear(object_getattr(part, "__dict__"))
             except AttributeError:
                 pass
+        for part, state in coder_parts(binding):
+            found = object_getattr(part, "__dict__")
+            dict_clear(found)
+            dict_update(found, state)
 
     def streams_clear(binding):
         for part in stream_parts(binding):
@@ -377,6 +439,9 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
                     return False
             except AttributeError:
                 pass
+        for part, state in coder_parts(binding):
+            if not same_state(object_getattr(part, "__dict__"), state):
+                return False
         return True
 
     # The streams of the run in progress, for the runner's own writes, made

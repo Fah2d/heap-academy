@@ -279,6 +279,42 @@ describe("worker: runs", () => {
     expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "runtime_crashed" });
   });
 
+  it("[FR-RUN-06] keeps the stream setters it took at load when a program replaces them", async () => {
+    // A program reaches the Pyodide object as `pyodide_js` and can replace a
+    // setter for the worker's whole life (WP-3.1 security review 8, round 4,
+    // MAJOR 2). The worker calls the functions it took before any program ran.
+    const { runtime, programs } = fakeRuntime();
+    const forged: string[] = [];
+    programs.set("replace", () => {
+      runtime.setStdin = () => forged.push("stdin");
+      runtime.setStdout = () => forged.push("stdout");
+      runtime.setStderr = () => forged.push("stderr");
+      return ok;
+    });
+    programs.set("echo", ({ input, print }) => {
+      print(`${input() ?? ""}`);
+      return ok;
+    });
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.core.receive({ type: "run", runId, source: "replace", mode: "batch" });
+    const second = createRunId(2);
+    setup.core.receive({
+      type: "run",
+      runId: second,
+      source: "echo",
+      mode: "batch",
+      stdin: ["real"],
+    });
+    expect(forged).toEqual([]);
+    expect(setup.posted).toContainEqual({
+      type: "output",
+      runId: second,
+      stream: "stdout",
+      text: "real\n",
+    });
+  });
+
   it("[NFR-COMPAT-04] refuses an interactive run, since ready said it is not available", async () => {
     const setup = setUp();
     await ready(setup);
@@ -288,14 +324,14 @@ describe("worker: runs", () => {
 
   it("[FR-RUN-01] decodes a character split across two writes", async () => {
     const { runtime, programs } = fakeRuntime();
-    const setup = setUp({ runtime });
-    await ready(setup);
     let stdout: { write: (buffer: Uint8Array) => number } | undefined;
     const setStdout = runtime.setStdout;
     runtime.setStdout = (handler) => {
       stdout = handler;
       setStdout(handler);
     };
+    const setup = setUp({ runtime });
+    await ready(setup);
     programs.set("split", () => {
       const bytes = encoder.encode("é\n");
       stdout?.write(bytes.slice(0, 1));

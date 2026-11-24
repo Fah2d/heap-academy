@@ -253,3 +253,46 @@ Verdict: **CHANGES REQUIRED**, 2 MAJOR, 3 MINOR.
 ### Not verified
 
 - Any browser run; whether the worker's `error` event fires in a browser in MINOR 5's case; `pnpm verify`, type checks and lint; the mutants listed for a24111c other than the a7c3ba7 restore; whether WP-3.3's harness shares MAJOR 2 or MINOR 3.
+
+## Round 4, on 7d76013 (2026-11-24)
+
+Reviewer: `security-reviewer`, fresh context, read-only, on `wp/3.1-python-worker` at 9940fc8. Verdict: **CHANGES REQUIRED**, 2 MAJOR, 2 MINOR. Round 3's MAJOR 2 and MINOR 5 closed; MAJOR 1 partly closed; MINOR 3 mostly closed; MINOR 2's test not effective.
+
+### 1. MAJOR: the runner's own codec check still runs a search function a program left
+
+- **Where:** `run-support.ts:305` (the lookup in `make_streams`).
+- **Finding:** a program registers a search function that returns the held codec, sets `encodings._cache['utf_8'] = None` so the built-in search returns None, and clears the interpreter's codec cache (`codecs.register(d); codecs.unregister(d)`). The next run's lookup misses the cache and calls the program's function; it returns the held object, so the `is` check passes, and the restore after it finds nothing wrong. The function's code runs on the next run's descriptors (it printed `FORGED` before `hello` in runs 2 to 5; with `os.read(0, 100)` run 2 ended `input_ended`), and a `__del__` cycle can clear the cache again so it repeats.
+- **Suggested fix:** while the streams are made, a profile hook of the runner's own that raises `NotRestored` on any unexpected call.
+
+### 2. MAJOR (older than this series): a program can replace the JavaScript stream setters
+
+- **Where:** `core.ts:179-181`.
+- **Finding:** `core.ts` read `runtime.setStdout`, `setStderr` and `setStdin` from the Pyodide object at every run. A program reaches that object as `pyodide_js` and can replace a setter for the worker's life; runs 2 and 3 of `print(input())` with stdin `["real"]` both printed `forged`, kind `ok`. A program can also patch Pyodide's internal file-system functions, which the setters call. A related route: a hook a program adds with `sys.addaudithook` sees every later run's `compile` event.
+- **Suggested fix:** bind the three setters once at load, before any program code. Decide with the owner whether the `js` and `pyodide_js` modules stay reachable; if they do, record a residual risk next to ADR-0004. For the audit hook, the runner could add its own hook first, refusing `sys.addaudithook`.
+
+### 3. MINOR: program code still runs after the originals are bound again
+
+- **Where:** `run-support.ts:352-372`, `:666`.
+- **Finding:** `clear_streams` cleared the stream, its buffer and its raw file, not the encoder's or decoder's `__dict__`. An object stored at `enc.keep` was freed in the second `settle()`, with the originals bound (`late: bound to originals=True`), and wrote into the original stdout's buffer, which came out in run 3.
+- **Suggested fix:** clear, then check, the `__dict__` of the encoder or decoder each stream holds.
+
+### 4. MINOR: round 3's MINOR 2 test still cannot fail
+
+- **Finding:** with the leading `restore()` removed from `settle()`, all 78 tests in `run-support.test.ts` passed; the second `settle()` hides the gap.
+- **Suggested fix:** a test where an object held by a stream makes a `__del__` cycle.
+
+### What the reviewer ran
+
+`vitest run src/runtime` on an unmodified copy: 7 files, 184 tests passed. `tsc --noEmit`: no errors. A mutant without the leading `restore()`: 78 of 78 passed. Scratch probes against the new code, the old code and the mutant in Pyodide 314.0.7 under Node 26.13.1, in `$TMPDIR`. Not verified: any browser run, `pnpm verify`, lint.
+
+### Fixes after round 4
+
+- **MAJOR 1:** the Python functions that making the streams calls (the held encoder's and decoder's `__init__`) are recorded when the runner is made, before any learner code, by making one set of streams under a recording profile hook. Each run makes its streams, lookups included, under a profile hook that raises `NotRestored` on a call to any other Python function, before its first line runs. A search function written in C runs no Python code. Test: the reviewer's probe makes the next run raise; with the guard removed it fails.
+- **MAJOR 2, the setters:** `core.ts` takes the three setters and `runPython`, bound, into a frozen object when Pyodide loads, before any program. Test: a program that replaces all three leaves the next run's input and output alone; it fails on the code before.
+- **MAJOR 2, the rest:** not fixed; for the owner (see below).
+- **MINOR 3:** `clear_streams` also clears the encoder's or decoder's `__dict__` and puts back the state a new one has; `streams_clear` checks it. Test: an object stored on the encoder is freed while the run's streams are bound; with the reset removed it fails (`late other`).
+- **MINOR 4:** a test where the stream's object puts another into builtins, whose freeing makes a cycle that makes a second cycle. With the leading `restore()` removed it fails (`cycle other`).
+
+### Found while fixing: the runner's own functions can be rewritten
+
+A program can find the runner's closures with `gc.get_objects()` and replace a function's `__code__` with code of its own that has the same free variables. Probe on the fixed code, Pyodide 314.0.7 under Node: a program replaced `flush`; runs 2 and 3 printed `next` / `third` followed by `PWNED <class 'BaseException'>` twice each, with the report `ok`, and no `NotRestored`. The same holds for any function the runner keeps, `restore` among them, and for the harness of WP-3.3, which keeps its functions the same way (not probed there). No check inside the worker can stop a program that rewrites the checker. Together with `pyodide_js` and Pyodide's file-system functions (MAJOR 2), this means a learner's program can always reach that learner's own later runs in the same worker. It cannot reach another learner, the page, or the server: the worker is the boundary (ADR-0004).

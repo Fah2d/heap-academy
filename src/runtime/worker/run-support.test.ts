@@ -1015,6 +1015,87 @@ describe("run support (Pyodide): the streams' codec, devices and originals", () 
     expect(raised(() => own(source))).toMatchObject(notRestored);
   }, 60_000);
 
+  it("[FR-RUN-04] a search function that returns the held codec makes the next run raise before its code runs (round 4, MAJOR 1)", async () => {
+    // With the encodings cache entry set to None and the interpreter's cache
+    // cleared, the next run's lookup reaches the program's search function.
+    const own = await workerRunner();
+    const source = [
+      "import codecs, encodings",
+      "held = codecs.lookup('utf-8')",
+      "def search(name, held=held):",
+      "    print('FORGED')",
+      "    return held",
+      "codecs.register(search)",
+      "encodings._cache['utf_8'] = None",
+      "def drop(name):",
+      "    return None",
+      "codecs.register(drop)",
+      "codecs.unregister(drop)",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(raised(() => own('print("hello")'))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] an object a program stores on its stream's encoder is freed in its run, while the run's streams are bound (round 4, MINOR 3)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import codecs, gc, sys",
+      "class Late:",
+      "    def __init__(self, run_id):",
+      "        self.run_id = run_id",
+      "    def __del__(self, sys=sys, print=print, id=id):",
+      "        print('late', 'same' if id(sys.stdout) == self.run_id else 'other')",
+      "for part in gc.get_referents(sys.stdout):",
+      "    if isinstance(part, codecs.IncrementalEncoder):",
+      "        part.keep = Late(id(sys.stdout))",
+    ].join("\n");
+    const result = own(source);
+    expect(result.report).toEqual(ok);
+    expect(result.stdout).toBe("late same\n");
+    expect(own('print("next")')).toMatchObject({ stdout: "next\n", report: ok });
+  }, 60_000);
+
+  it("[FR-RUN-04] a cycle made when the state is restored after the streams are cleared is collected while the run's streams are bound (round 4, MINOR 4)", async () => {
+    // The stream's object puts another into builtins as it is freed; the
+    // restore that starts the collections frees that one, which makes a
+    // cycle whose __del__ makes a second. Without that restore the first
+    // collection finds nothing, the first cycle is collected only when the
+    // run's streams are dropped, and the second's __del__ runs after the
+    // originals are bound.
+    const own = await workerRunner();
+    const source = [
+      "import builtins, gc, sys",
+      "class Cycle:",
+      "    def __init__(self, run_id, classes, depth):",
+      "        self.me = self",
+      "        self.run_id = run_id",
+      "        self.classes = classes",
+      "        self.depth = depth",
+      "    def __del__(self, sys=sys, print=print, id=id):",
+      "        if self.depth:",
+      "            type(self)(self.run_id, self.classes, self.depth - 1)",
+      "        else:",
+      "            print('cycle', 'same' if id(sys.stdout) == self.run_id else 'other')",
+      "class Placed:",
+      "    def __init__(self, run_id, classes):",
+      "        self.run_id = run_id",
+      "        self.classes = classes",
+      "    def __del__(self, Cycle=Cycle):",
+      "        Cycle(self.run_id, self.classes, 1)",
+      "class Kept:",
+      "    def __init__(self, run_id, classes):",
+      "        self.run_id = run_id",
+      "        self.classes = classes",
+      "    def __del__(self, builtins=builtins, Placed=Placed):",
+      "        builtins.__dict__['placed'] = Placed(self.run_id, self.classes)",
+      "sys.stdout.keep = Kept(id(sys.stdout), (Cycle, Placed, Kept))",
+      "gc.collect()",
+    ].join("\n");
+    const result = own(source);
+    expect(result.report).toEqual(ok);
+    expect(result.stdout).toBe("cycle same\n");
+  }, 60_000);
+
   it("[FR-RUN-04] the run's streams are bound as __stdin__, __stdout__ and __stderr__ too", async () => {
     const own = await workerRunner();
     expect(
