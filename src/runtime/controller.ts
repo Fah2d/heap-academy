@@ -139,10 +139,20 @@ export function createRuntimeController({
     worker = undefined;
   }
 
+  function isDisposed(): boolean {
+    return status === "disposed";
+  }
+
+  /**
+   * A listener may call `dispose` from the `run_done` before this, or from
+   * the `restarting` event; no new worker is started after that.
+   */
   function restart(reason: RestartReason): void {
+    if (isDisposed()) return;
     end();
     status = "restarting";
     onEvent({ type: "restarting", reason });
+    if (isDisposed()) return;
     spawn();
   }
 

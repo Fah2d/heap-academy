@@ -3,6 +3,7 @@ import {
   type ControllerEvent,
   type ControllerReport,
   createRuntimeController,
+  type RuntimeController,
   TIME_LIMIT_MS,
   type WorkerLike,
 } from "./controller.ts";
@@ -36,7 +37,7 @@ function fakeWorker(): FakeWorker {
   return worker;
 }
 
-function setUp() {
+function setUp(listen?: (event: ControllerEvent, controller: RuntimeController) => void) {
   const workers: FakeWorker[] = [];
   const events: ControllerEvent[] = [];
   const reports: ControllerReport[] = [];
@@ -58,7 +59,10 @@ function setUp() {
       clearTimeout: (handle) => timers.delete(handle as number),
     },
     now: () => time,
-    onEvent: (event) => events.push(event),
+    onEvent: (event) => {
+      events.push(event);
+      listen?.(event, controller);
+    },
     report: (report) => reports.push(report),
   });
   const advance = (ms: number) => {
@@ -80,8 +84,8 @@ function setUp() {
   return { controller, workers, events, reports, advance, latest, makeReady, timers };
 }
 
-function started() {
-  const setup = setUp();
+function started(listen?: (event: ControllerEvent, controller: RuntimeController) => void) {
+  const setup = setUp(listen);
   setup.controller.start();
   setup.makeReady();
   setup.events.length = 0;
@@ -334,6 +338,28 @@ describe("runtime controller", () => {
     setup.controller.dispose();
     expect(setup.latest().terminated).toBe(true);
     expect(setup.timers.size).toBe(0);
+    expect(setup.controller.status).toBe("disposed");
+  });
+
+  it("[FR-RUN-01] dispose from the restarting event starts no new worker", () => {
+    const setup = started((event, controller) => {
+      if (event.type === "restarting") controller.dispose();
+    });
+    setup.controller.run("while True: pass");
+    setup.controller.stop();
+    expect(setup.workers).toHaveLength(1);
+    expect(setup.workers[0]?.terminated).toBe(true);
+    expect(setup.controller.status).toBe("disposed");
+  });
+
+  it("[FR-RUN-01] dispose from the run_done event starts no new worker and sends no restarting", () => {
+    const setup = started((event, controller) => {
+      if (event.type === "run_done") controller.dispose();
+    });
+    setup.controller.run("while True: pass");
+    setup.advance(TIME_LIMIT_MS);
+    expect(setup.events.map((event) => event.type)).toEqual(["run_done"]);
+    expect(setup.workers).toHaveLength(1);
     expect(setup.controller.status).toBe("disposed");
   });
 });
