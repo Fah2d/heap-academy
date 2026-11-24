@@ -37,7 +37,13 @@ function fakeWorker(): FakeWorker {
   return worker;
 }
 
-function setUp(listen?: (event: ControllerEvent, controller: RuntimeController) => void) {
+/** Listeners that run after the event or report is recorded, with the controller. */
+type Listeners = {
+  onEvent?: (event: ControllerEvent, controller: RuntimeController) => void;
+  report?: (report: ControllerReport, controller: RuntimeController) => void;
+};
+
+function setUp(listen: Listeners = {}) {
   const workers: FakeWorker[] = [];
   const events: ControllerEvent[] = [];
   const reports: ControllerReport[] = [];
@@ -61,9 +67,12 @@ function setUp(listen?: (event: ControllerEvent, controller: RuntimeController) 
     now: () => time,
     onEvent: (event) => {
       events.push(event);
-      listen?.(event, controller);
+      listen.onEvent?.(event, controller);
     },
-    report: (report) => reports.push(report),
+    report: (report) => {
+      reports.push(report);
+      listen.report?.(report, controller);
+    },
   });
   const advance = (ms: number) => {
     time += ms;
@@ -84,7 +93,7 @@ function setUp(listen?: (event: ControllerEvent, controller: RuntimeController) 
   return { controller, workers, events, reports, advance, latest, makeReady, timers };
 }
 
-function started(listen?: (event: ControllerEvent, controller: RuntimeController) => void) {
+function started(listen: Listeners = {}) {
   const setup = setUp(listen);
   setup.controller.start();
   setup.makeReady();
@@ -341,25 +350,101 @@ describe("runtime controller", () => {
     expect(setup.controller.status).toBe("disposed");
   });
 
-  it("[FR-RUN-01] dispose from the restarting event starts no new worker", () => {
-    const setup = started((event, controller) => {
-      if (event.type === "restarting") controller.dispose();
-    });
-    setup.controller.run("while True: pass");
-    setup.controller.stop();
+  type Setup = ReturnType<typeof setUp>;
+  const runDone = (setup: Setup, runId: string, outcome: object) =>
+    setup.latest().send({ type: "run_done", runId, outcome, truncated: false, durationMs: 1 });
+
+  // Every way a run or a ready worker ends in a restart.
+  const restarts: [string, boolean, (setup: Setup, runId: string) => void][] = [
+    ["the time limit", true, (setup) => setup.advance(TIME_LIMIT_MS)],
+    ["stop", true, (setup) => setup.controller.stop()],
+    ["a worker error during a run", true, (setup) => setup.latest().fail()],
+    [
+      "a fatal message during a run",
+      true,
+      (setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
+    [
+      "a memory error",
+      true,
+      (setup, runId) => runDone(setup, runId, { kind: "memory", message: "", line: 1 }),
+    ],
+    [
+      "the output limit",
+      true,
+      (setup, runId) => runDone(setup, runId, { kind: "output_limit", message: "" }),
+    ],
+    ["a worker error while ready", false, (setup) => setup.latest().fail()],
+  ];
+
+  /** Starts a run if asked, ends it with the trigger, and checks the controller stays disposed. */
+  function expectDisposed(
+    setup: Setup,
+    withRun: boolean,
+    trigger: (setup: Setup, runId: string) => void,
+    lastEvent: ControllerEvent["type"] | undefined,
+  ) {
+    let runId = "";
+    if (withRun) {
+      const request = setup.controller.run("while True: pass");
+      if (!request.ok) throw new Error("run refused");
+      runId = request.runId;
+    }
+    trigger(setup, runId);
+    expect(setup.events.at(-1)?.type).toBe(lastEvent);
     expect(setup.workers).toHaveLength(1);
     expect(setup.workers[0]?.terminated).toBe(true);
+    expect(setup.timers.size).toBe(0);
     expect(setup.controller.status).toBe("disposed");
+    setup.controller.start();
+    expect(setup.workers).toHaveLength(1);
+  }
+
+  it.each(restarts)(
+    "[FR-RUN-01] dispose from the restarting event after %s starts no new worker",
+    (_name, withRun, trigger) => {
+      const setup = started({
+        onEvent: (event, controller) => {
+          if (event.type === "restarting") controller.dispose();
+        },
+      });
+      expectDisposed(setup, withRun, trigger, "restarting");
+    },
+  );
+
+  it.each(restarts.filter(([, withRun]) => withRun))(
+    "[FR-RUN-01] dispose from the run_done event after %s starts no new worker",
+    (_name, withRun, trigger) => {
+      const setup = started({
+        onEvent: (event, controller) => {
+          if (event.type === "run_done") controller.dispose();
+        },
+      });
+      expectDisposed(setup, withRun, trigger, "run_done");
+    },
+  );
+
+  it("[FR-RUN-01] dispose from the run_done event of a finished run keeps the status disposed", () => {
+    const setup = started({
+      onEvent: (event, controller) => {
+        if (event.type === "run_done") controller.dispose();
+      },
+    });
+    expectDisposed(setup, true, (s, runId) => runDone(s, runId, { kind: "ok" }), "run_done");
+    expect(setup.controller.run("print(1)")).toEqual({ ok: false, error: "not_ready" });
   });
 
-  it("[FR-RUN-01] dispose from the run_done event starts no new worker and sends no restarting", () => {
-    const setup = started((event, controller) => {
-      if (event.type === "run_done") controller.dispose();
-    });
-    setup.controller.run("while True: pass");
-    setup.advance(TIME_LIMIT_MS);
-    expect(setup.events.map((event) => event.type)).toEqual(["run_done"]);
-    expect(setup.workers).toHaveLength(1);
-    expect(setup.controller.status).toBe("disposed");
-  });
+  it.each([
+    ["a worker error", (setup: Setup) => setup.latest().fail()],
+    [
+      "a fatal message",
+      (setup: Setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
+  ])(
+    "[FR-RUN-01] dispose from the report of %s sends no failed and allows no start",
+    (_name, trigger) => {
+      const setup = started({ report: (_report, controller) => controller.dispose() });
+      expectDisposed(setup, true, trigger, undefined);
+    },
+  );
 });
