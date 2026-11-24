@@ -33,6 +33,7 @@ export function TestsPanel({
   results,
   summary,
   checking,
+  checkEnded,
   strategy,
   onGoToLine,
 }: {
@@ -40,6 +41,8 @@ export function TestsPanel({
   results: readonly TestResult[];
   summary: CheckSummary | undefined;
   checking: boolean;
+  /** The last thing that ended was a check, so its summary is new. */
+  checkEnded: boolean;
   strategy: "interactive" | "batch";
   onGoToLine: (line: number) => void;
 }) {
@@ -47,9 +50,16 @@ export function TestsPanel({
   const byId = new Map(results.map((result) => [result.testCaseId, result]));
   const firstFailure = results.find((result) => result.status === "failed")?.testCaseId;
 
+  // Focus moves to the summary when a check ends while the panel is shown,
+  // not each time the panel mounts: React Aria mounts only the selected tab,
+  // and arrow keys in the tab list would otherwise lose their place.
+  const shownSummary = useRef(summary);
   useEffect(() => {
-    if (summary !== undefined) summaryRef.current?.focus();
-  }, [summary]);
+    if (summary !== undefined && summary !== shownSummary.current && checkEnded) {
+      summaryRef.current?.focus();
+    }
+    shownSummary.current = summary;
+  }, [summary, checkEnded]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -135,7 +145,7 @@ function TestDetails({
         <p className="text-base text-text">
           {words.failure(result.reason, TIME_LIMIT_SECONDS)}
           {result.error?.missingName !== undefined && (
-            <> {words.needsName(result.error.missingName)}</>
+            <> {words.needsName(consoleText(result.error.missingName))}</>
           )}
         </p>
       )}

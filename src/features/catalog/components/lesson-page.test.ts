@@ -51,7 +51,7 @@ beforeEach(() => {
   publishedCourse.mockResolvedValue({ ok: true, value: course });
 });
 
-describe("loadLesson (FR-WSP-02)", () => {
+describe("[FR-WSP-02] loadLesson", () => {
   it("gives the lesson with parsed test cases and its neighbours across chapters", async () => {
     const loaded = await loadLesson("python", "second");
     expect(publishedLesson).toHaveBeenCalledWith("python", "second");
@@ -83,9 +83,10 @@ describe("loadLesson (FR-WSP-02)", () => {
     });
   });
 
-  it("is null when no published lesson has the address", async () => {
+  it("is null when no published lesson has the address, and then reads no course (T-25)", async () => {
     publishedLesson.mockResolvedValue({ ok: true, value: null });
     expect(await loadLesson("python", "none")).toBeNull();
+    expect(publishedCourse).not.toHaveBeenCalled();
   });
 
   it("is null when the course is not published", async () => {

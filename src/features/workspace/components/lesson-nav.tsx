@@ -43,7 +43,9 @@ export function LessonNav({
 
 function Disabled({ children }: { children: string }) {
   return (
+    // A disabled link: shown, and exposed as unavailable (FR-WSP-11).
     <span
+      role="link"
       aria-disabled="true"
       className="inline-flex min-h-target items-center text-base text-text-muted"
     >

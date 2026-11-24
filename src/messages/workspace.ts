@@ -161,6 +161,13 @@ export const workspace = {
   send: "Send",
   endInput: "End input",
   answerRefused: (limit: number) => `An answer can be up to ${count(limit)} characters.`,
+  /** Run or Check refused because the program or its input is over a limit. */
+  tooLarge: (kind: "source" | "input_lines" | "input_line", limit: number) =>
+    kind === "source"
+      ? `This program is too long to run. A program can be up to ${count(limit)} characters.`
+      : kind === "input_lines"
+        ? `There are too many lines of input. A run can take up to ${count(limit)} lines.`
+        : `A line of input is too long. Each line can be up to ${count(limit)} characters.`,
   truncated: (limit: number) => `Output stopped after ${count(limit)} characters.`,
   truncatedShort: "Your output was cut at the limit, so only its start is shown.",
 
@@ -204,7 +211,8 @@ export const workspace = {
   needsName: (name: string) => `This test needs something named ${name}.`,
 
   errorKind: "Error",
-  unsupportedTitle: "This browser cannot run Python",
+  warningKind: "Warning",
+  unsupportedTitle: "This browser cannot run Python.",
   unsupportedBody:
     "The lessons run Python inside the browser, and this one is missing what that needs. Open this page in a recent version of Chrome, Edge, Firefox or Safari.",
   information: "Information",

@@ -25,7 +25,7 @@ export type ButtonProps = Omit<AriaButtonProps, "className" | "style" | "childre
 };
 
 const shared =
-  "inline-flex min-h-target min-w-target items-center justify-center gap-2 rounded-control border px-4 text-base font-medium transition-colors data-pressed:translate-y-(--press-shift) data-disabled:border-border data-disabled:bg-transparent data-disabled:text-text-muted";
+  "inline-flex min-h-target min-w-target items-center justify-center gap-2 rounded-control border px-4 text-base font-medium transition-colors data-pressed:translate-y-(--press-shift) data-disabled:border-border data-disabled:bg-transparent data-disabled:text-text-muted data-pending:border-border data-pending:bg-transparent data-pending:text-text-muted data-pending:translate-y-0";
 
 const hover: Record<ButtonSurface, string> = {
   base: "data-hovered:bg-surface-raised",

@@ -37,8 +37,15 @@ export function ConsolePanel({
   /** The workspace's root: focus moves to the input line only from inside it. */
   workspaceRef: RefObject<HTMLElement | null>;
 }) {
-  const shown = transcript(view.output, awaitingInput);
+  // Set when the learner sends an answer from the input line, which then
+  // goes away until the program asks again. Focus that was in it has fallen
+  // to the body, and the next input line takes it back.
+  const answered = useRef(false);
   const result = view.result;
+  useEffect(() => {
+    if (result !== undefined) answered.current = false;
+  }, [result]);
+  const shown = transcript(view.output, awaitingInput);
   const error = result === undefined ? undefined : runError(result.outcome);
   const strategy = view.interactiveInput ? "interactive" : "batch";
   const showBatch = view.status !== "idle" && view.status !== "loading" && !view.interactiveInput;
@@ -94,9 +101,14 @@ export function ConsolePanel({
         {awaitingInput && (
           <InputLine
             prompt={shown.prompt}
-            sendInput={sendInput}
+            sendInput={(line) => {
+              const sent = sendInput(line);
+              if (sent.ok) answered.current = true;
+              return sent;
+            }}
             endInput={endInput}
             workspaceRef={workspaceRef}
+            afterAnswer={() => answered.current}
           />
         )}
         {result?.truncated === true && (
@@ -115,11 +127,14 @@ function InputLine({
   sendInput,
   endInput,
   workspaceRef,
+  afterAnswer,
 }: {
   prompt: string | undefined;
   sendInput: (line: string) => InputRequest;
   endInput: () => void;
   workspaceRef: RefObject<HTMLElement | null>;
+  /** Whether this run's last answer was sent from an input line. */
+  afterAnswer: () => boolean;
 }) {
   const [answer, setAnswer] = useState("");
   const [refused, setRefused] = useState(false);
@@ -127,11 +142,14 @@ function InputLine({
   const id = useId();
 
   useEffect(() => {
-    // Only when focus is already in the workspace (section 6.3): a learner
-    // reading elsewhere on the page is not pulled away.
+    // Only when focus is in the workspace (section 6.3): a learner reading
+    // elsewhere on the page is not pulled away. After an answer, focus was in
+    // the input line that went away, so it is on the body.
     const root = workspaceRef.current;
-    if (root !== null && root.contains(document.activeElement)) field.current?.focus();
-  }, [workspaceRef]);
+    const active = document.activeElement;
+    const fell = afterAnswer() && (active === null || active === document.body);
+    if (root !== null && (root.contains(active) || fell)) field.current?.focus();
+  }, [workspaceRef, afterAnswer]);
 
   return (
     <form

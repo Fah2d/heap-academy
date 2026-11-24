@@ -34,13 +34,12 @@ function valueOf<Value>(result: ContentResult<Value>, what: string): Value {
  */
 export const loadLesson = cache(async (courseSlug: string, lessonSlug: string): Promise<Loaded> => {
   await connection();
-  const [lessonRead, courseRead] = await Promise.all([
-    publishedLesson(courseSlug, lessonSlug),
-    publishedCourse(courseSlug),
-  ]);
-  const lesson = valueOf(lessonRead, "a published lesson");
-  const course = valueOf(courseRead, "a published course");
-  if (lesson === null || course === null) return null;
+  // The course is read only once the lesson is known to be published, so an
+  // address no lesson can have makes no query at all (T-25).
+  const lesson = valueOf(await publishedLesson(courseSlug, lessonSlug), "a published lesson");
+  if (lesson === null) return null;
+  const course = valueOf(await publishedCourse(courseSlug), "a published course");
+  if (course === null) return null;
   const neighbours = lessonNeighbours(course.chapters, lesson.slug);
   if (neighbours === undefined) {
     throw new Error("workspace: the course's order does not hold the lesson");

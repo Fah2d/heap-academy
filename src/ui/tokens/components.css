@@ -46,12 +46,6 @@
 
   /* Hairline borders, the 1 px dividers and outlines. */
   --hairline: 1px;
-}
-
-@media (width >= 48rem) {
-  :root {
-    --text-code: 0.875rem;
-  }
 
   /* The workspace from 768 px (FR-WSP-01): the instructions keep at least
      320 px beside the work; the editor takes three parts of the work column's
@@ -60,4 +54,10 @@
   --workspace-rows: auto minmax(0, 1fr) auto;
   --workspace-editor-share: 3;
   --workspace-output-share: 2;
+}
+
+@media (width >= 48rem) {
+  :root {
+    --text-code: 0.875rem;
+  }
 }

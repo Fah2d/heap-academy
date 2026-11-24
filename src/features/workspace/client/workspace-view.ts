@@ -8,7 +8,12 @@ import {
   workspace as words,
 } from "@/messages/workspace";
 import type { RunOutcome, RunResult } from "@/runtime/controller";
-import { OUTPUT_LIMIT } from "@/runtime/protocol";
+import {
+  OUTPUT_LIMIT,
+  SOURCE_LIMIT,
+  STDIN_LINE_LENGTH_LIMIT,
+  STDIN_LINE_LIMIT,
+} from "@/runtime/protocol";
 import type { ConsoleStream, RuntimeView } from "./runtime-view";
 
 // What the workspace shows of a run, worked out from the runtime view. Pure,
@@ -77,4 +82,23 @@ export function runAnnouncement(result: RunResult, lines: number): string {
   const error = runError(result.outcome);
   if (error === undefined) return words.runFinished(lines);
   return words.runEnded(learnerErrorHeading(error.kind, errorFacts(error.line)), lines);
+}
+
+/** What makes a program or its typed-in input too large for the worker to accept. */
+export type TooLarge = "source" | "input_lines" | "input_line";
+
+/**
+ * Whether the worker would refuse this program or this batch input, by the
+ * protocol's own limits, so the workspace can say why instead of doing
+ * nothing. The limits count UTF-16 units, as the protocol's parser does.
+ */
+export function tooLarge(
+  source: string,
+  stdin: readonly string[] | undefined,
+): TooLarge | undefined {
+  if (source.length > SOURCE_LIMIT) return "source";
+  if (stdin === undefined) return undefined;
+  if (stdin.length > STDIN_LINE_LIMIT) return "input_lines";
+  if (stdin.some((line) => line.length > STDIN_LINE_LENGTH_LIMIT)) return "input_line";
+  return undefined;
 }

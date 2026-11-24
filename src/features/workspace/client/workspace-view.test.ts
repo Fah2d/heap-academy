@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { RunId } from "@/runtime/protocol";
+import {
+  type RunId,
+  SOURCE_LIMIT,
+  STDIN_LINE_LENGTH_LIMIT,
+  STDIN_LINE_LIMIT,
+} from "@/runtime/protocol";
 import type { RunResult } from "@/runtime/controller";
 import {
   runAnnouncement,
   runError,
   testError,
   TIME_LIMIT_SECONDS,
+  tooLarge,
   transcript,
 } from "./workspace-view";
 
@@ -114,5 +120,32 @@ describe("runAnnouncement [NFR-A11Y-04]", () => {
     expect(runAnnouncement(result({ kind: "syntax", message: "invalid syntax", line: 3 }), 0)).toBe(
       "Python could not read line 3. 0 lines of output.",
     );
+  });
+});
+
+describe("tooLarge: what the worker would refuse", () => {
+  it("accepts a program and input at the limits", () => {
+    expect(tooLarge("x".repeat(SOURCE_LIMIT), undefined)).toBeUndefined();
+    expect(
+      tooLarge(
+        "print()",
+        Array.from({ length: STDIN_LINE_LIMIT }, () => "y".repeat(STDIN_LINE_LENGTH_LIMIT)),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("names the program, the number of input lines, or one long line, when each is over", () => {
+    expect(tooLarge("x".repeat(SOURCE_LIMIT + 1), [])).toBe("source");
+    expect(
+      tooLarge(
+        "print()",
+        Array.from({ length: STDIN_LINE_LIMIT + 1 }, () => ""),
+      ),
+    ).toBe("input_lines");
+    expect(tooLarge("print()", ["ok", "y".repeat(STDIN_LINE_LENGTH_LIMIT + 1)])).toBe("input_line");
+  });
+
+  it("does not look at input that is typed while the program runs", () => {
+    expect(tooLarge("print()", undefined)).toBeUndefined();
   });
 });

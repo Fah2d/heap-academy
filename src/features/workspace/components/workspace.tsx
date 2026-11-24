@@ -13,13 +13,14 @@ import type { Neighbours } from "@/domain/workspace/neighbours";
 import { ariaKeyShortcuts, workspaceShortcut } from "@/domain/workspace/shortcuts";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
+import { SOURCE_LIMIT, STDIN_LINE_LENGTH_LIMIT, STDIN_LINE_LIMIT } from "@/runtime/protocol";
 import { canStart, canStop, isRemembered } from "@/runtime/workspace-chart";
 import { Button, Link, Notice, Play, Tabs } from "@/ui";
 import { Checkmark, StopFilledAlt } from "@/ui/icons";
 import { supportsPython } from "../client/browser-support";
 import { createCodeStore, type CodeStore, savedCodeKey } from "../client/saved-code";
 import { type Program, useRuntime } from "../client/use-runtime";
-import { runAnnouncement, transcript } from "../client/workspace-view";
+import { runAnnouncement, type TooLarge, tooLarge, transcript } from "../client/workspace-view";
 import { courseBackPath } from "../paths";
 import { CodeEditor } from "./code-editor";
 import { ConsolePanel } from "./console-panel";
@@ -44,8 +45,18 @@ const SAVE_DELAY_MS = 400;
 
 type OutputTab = "console" | "tests";
 
+/**
+ * The batch field's answers, one per line. An empty field is no answers, and
+ * the line break after the last answer does not add an empty one.
+ */
+export const inputLines = (text: string) =>
+  text === "" ? [] : text.replace(/\n$/, "").split("\n");
+
 /** Neither value below changes while the page is open. */
 const subscribeToNothing = () => () => undefined;
+let support: boolean | undefined;
+// Worked out once: the check builds a worker, so it does not run on every render.
+const isSupported = () => (support ??= supportsPython(window));
 const isApple = () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
 /**
@@ -71,17 +82,14 @@ export function Workspace({
 
   // The browser and the system's keys are known only in the browser; the
   // server renders as if neither were known yet.
-  const supported = useSyncExternalStore(
-    subscribeToNothing,
-    () => supportsPython(window),
-    () => undefined,
-  );
+  const supported = useSyncExternalStore(subscribeToNothing, isSupported, () => undefined);
   const apple = useSyncExternalStore(subscribeToNothing, isApple, () => false);
   const [code, setCode] = useState(lesson.starterCode);
   const [restored, setRestored] = useState(false);
   const [beforeReset, setBeforeReset] = useState<string | undefined>(undefined);
   const [batchInput, setBatchInput] = useState("");
   const [tab, setTab] = useState<OutputTab>("console");
+  const [refusal, setRefusal] = useState<TooLarge | undefined>(undefined);
   const [goToLine, setGoToLine] = useState<{ line: number; request: number } | undefined>();
 
   const store = useRef<CodeStore | undefined>(undefined);
@@ -127,7 +135,7 @@ export function Workspace({
   const program = useCallback(
     (interactive: boolean): Program => ({
       source: code,
-      stdin: interactive ? undefined : batchInput === "" ? [] : batchInput.split("\n"),
+      stdin: interactive ? undefined : inputLines(batchInput),
       tests: lesson.tests,
     }),
     [code, batchInput, lesson.tests],
@@ -137,6 +145,7 @@ export function Workspace({
   });
 
   const replaceCode = (next: string) => {
+    setRefusal(undefined);
     latestCode.current = next;
     setCode(next);
     if (pendingSave.current !== undefined) window.clearTimeout(pendingSave.current);
@@ -158,6 +167,14 @@ export function Workspace({
   const press = (action: "run" | "check") => {
     const type = action === "run" ? "RUN" : "CHECK";
     if (!canPress(type)) return;
+    // The worker would refuse it and nothing would happen, so say why instead.
+    // Check sends no typed-in input.
+    const over = tooLarge(
+      code,
+      action === "run" && !view.interactiveInput ? inputLines(batchInput) : undefined,
+    );
+    setRefusal(over);
+    if (over !== undefined) return;
     setTab(action === "run" ? "console" : "tests");
     dispatch({ type });
   };
@@ -187,23 +204,27 @@ export function Workspace({
       data-workspace
       className="flex flex-col md:grid md:h-full md:grid-cols-(--workspace-columns) md:grid-rows-(--workspace-rows)"
       onKeyDownCapture={(event) => {
-        const action = workspaceShortcut(
-          {
-            key: event.key,
-            ctrlKey: event.ctrlKey,
-            metaKey: event.metaKey,
-            shiftKey: event.shiftKey,
-            altKey: event.altKey,
-            repeat: event.repeat,
-            isComposing: event.nativeEvent.isComposing,
-          },
-          apple,
-        );
+        // React passes events up through portals, so a key pressed in the
+        // reset dialog arrives here too; only keys pressed in the page count.
+        if (!(event.target instanceof Node) || root.current?.contains(event.target) !== true)
+          return;
+        if (event.nativeEvent.isComposing) return;
+        const keys = {
+          key: event.key,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          repeat: false,
+          isComposing: false,
+        };
+        const action = workspaceShortcut(keys, apple);
         if (action === undefined) return;
-        // Before the editor sees it: CodeMirror would add a line for Ctrl Enter.
+        // Before the editor sees it: CodeMirror would add a line for Ctrl
+        // Enter. A held key is kept from the editor too, but presses nothing.
         event.preventDefault();
         event.stopPropagation();
-        press(action);
+        if (!event.repeat) press(action);
       }}
     >
       <div className="flex flex-col gap-1 border-be border-border px-gutter py-3 md:col-span-2">
@@ -226,14 +247,17 @@ export function Workspace({
         <Hints hints={lesson.hints} />
       </section>
 
-      <section aria-labelledby={editorLabel} className="flex min-h-0 flex-col gap-3 px-gutter py-4">
+      <section
+        aria-labelledby={editorLabel}
+        className="flex min-h-0 flex-col gap-3 overflow-auto px-gutter py-4"
+      >
         {supported === false ? (
           <>
             <h2 id={editorLabel} className="sr-only">
               {words.work}
             </h2>
-            <Notice kind="warning" kindLabel={words.information}>
-              <strong className="font-semibold">{words.unsupportedTitle}.</strong>{" "}
+            <Notice kind="warning" kindLabel={words.warningKind}>
+              <strong className="font-semibold">{words.unsupportedTitle}</strong>{" "}
               {words.unsupportedBody}
             </Notice>
           </>
@@ -253,9 +277,15 @@ export function Workspace({
               />
             </div>
             {restored && <p className="text-sm text-text-muted">{words.restored}</p>}
+            {/* Always present, so the words are announced when they appear. */}
+            <div
+              role="status"
+              className={beforeReset === undefined ? "sr-only" : "text-base text-text"}
+            >
+              {beforeReset === undefined ? "" : words.resetDone}
+            </div>
             {beforeReset !== undefined && (
-              <div className="flex flex-wrap items-center gap-3" role="status">
-                <span className="text-base text-text">{words.resetDone}</span>
+              <div className="flex flex-wrap items-center gap-3">
                 <Button
                   variant="secondary"
                   onPress={() => {
@@ -283,33 +313,35 @@ export function Workspace({
               <Button
                 variant="secondary"
                 icon={<Play size={16} />}
-                isDisabled={!canPress("RUN")}
+                isPending={!canPress("RUN")}
                 keyShortcuts={ariaKeyShortcuts("run", apple)}
                 onPress={() => {
                   press("run");
                 }}
               >
                 {runLabel}
-                <kbd className="font-mono text-xs text-text-muted">
+                <kbd aria-hidden="true" className="font-mono text-xs text-text-muted">
                   {words.shortcut(apple, false)}
                 </kbd>
               </Button>
               <Button
                 variant={passed ? "secondary" : "primary"}
                 icon={<Checkmark size={16} />}
-                isDisabled={!canPress("CHECK")}
+                isPending={!canPress("CHECK")}
                 keyShortcuts={ariaKeyShortcuts("check", apple)}
                 onPress={() => {
                   press("check");
                 }}
               >
                 {checkLabel}
-                <kbd className="font-mono text-xs opacity-80">{words.shortcut(apple, true)}</kbd>
+                <kbd aria-hidden="true" className="font-mono text-xs opacity-80">
+                  {words.shortcut(apple, true)}
+                </kbd>
               </Button>
               <Button
                 variant="secondary"
                 icon={<StopFilledAlt size={16} />}
-                isDisabled={!canStop(chart)}
+                isPending={!canStop(chart)}
                 onPress={() => {
                   dispatch({ type: "STOP" });
                 }}
@@ -324,6 +356,19 @@ export function Workspace({
                 }}
               />
             </div>
+
+            {refusal !== undefined && (
+              <Notice kind="error" kindLabel={words.errorKind} announce="assertive">
+                {words.tooLarge(
+                  refusal,
+                  refusal === "source"
+                    ? SOURCE_LIMIT
+                    : refusal === "input_lines"
+                      ? STDIN_LINE_LIMIT
+                      : STDIN_LINE_LENGTH_LIMIT,
+                )}
+              </Notice>
+            )}
 
             <div className="flex min-h-72 flex-col md:min-h-0 md:flex-(--workspace-output-share)">
               <h2 className="sr-only">{words.output}</h2>
@@ -343,7 +388,10 @@ export function Workspace({
                         view={view}
                         awaitingInput={awaitingInput}
                         batchInput={batchInput}
-                        onBatchInput={setBatchInput}
+                        onBatchInput={(value) => {
+                          setRefusal(undefined);
+                          setBatchInput(value);
+                        }}
                         sendInput={sendInput}
                         endInput={endInput}
                         onGoToLine={moveTo}
@@ -360,6 +408,7 @@ export function Workspace({
                         results={view.tests}
                         summary={view.summary}
                         checking={runtime.name === "checking"}
+                        checkEnded={view.ended === "check"}
                         strategy={strategy}
                         onGoToLine={moveTo}
                       />

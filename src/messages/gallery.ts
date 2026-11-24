@@ -156,3 +156,15 @@ export const adminGallery = {
   previewCode: "input()",
   previewTail: ", then greet that person.",
 } as const;
+
+// The development-only workspace page (WP-5.2): the example lesson of
+// docs/spec/04-content-system.md section 7 in the real workspace, with no
+// database, for the browser journeys J-2, J-3 and J-4.
+export const workspaceGallery = {
+  title: "Workspace",
+  courseSlug: "python-basics",
+  courseTitle: "Python basics",
+  lessonSlug: "say-hello",
+  previous: { slug: "print-a-line", title: "Print a line" },
+  next: { slug: "add-two-numbers", title: "Add two numbers" },
+};
