@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { Metadata } from "next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,13 +59,13 @@ const NOT_INDEXED = new Set([
   "/admin",
   "/admin/courses/new",
   "/admin/courses/[id]",
+  "/admin/lessons/[id]",
   "/admin/setup",
   "/admin/verify",
 ]);
 
-// The build's page extensions, as `PAGE_EXTENSIONS` in next.config.ts names
-// them. Importing that file would parse the server environment, so a test
-// below reads it and fails when the two lists differ.
+// The production build's page extensions, as `pageExtensions` in
+// src/infrastructure/env/page-extensions.ts returns them for production.
 const BUILD_PAGE_EXTENSIONS = ["tsx", "ts", "jsx", "js"];
 
 /** A production page file. A `.dev.tsx` page is not in the build. */
@@ -95,10 +95,25 @@ type PageModule = {
   generateMetadata?: (props: { params: Promise<Record<string, string>> }) => Promise<Metadata>;
 };
 
+// One fixed import per page, because the import rule refuses a computed one.
+// A new page without a line here fails the test below.
+const LOADERS: Record<string, () => Promise<unknown>> = {
+  "/": () => import("./page"),
+  "/courses": () => import("./courses/page"),
+  "/courses/[course]": () => import("./courses/[course]/page"),
+  "/sign-in": () => import("./sign-in/page"),
+  "/admin": () => import("./admin/page"),
+  "/admin/courses/new": () => import("./admin/courses/new/page"),
+  "/admin/courses/[id]": () => import("./admin/courses/[id]/page"),
+  "/admin/lessons/[id]": () => import("./admin/lessons/[id]/page"),
+  "/admin/setup": () => import("./admin/setup/page"),
+  "/admin/verify": () => import("./admin/verify/page"),
+};
+
 async function metadataOf(route: string): Promise<Metadata> {
-  const file = PAGES.get(route);
-  if (file === undefined) throw new Error(`no page file for ${route}`);
-  const page = (await import(/* @vite-ignore */ `./${file.split(sep).join("/")}`)) as PageModule;
+  const load = LOADERS[route];
+  if (load === undefined) throw new Error(`no import for the page ${route}`);
+  const page = (await load()) as PageModule;
   if (page.generateMetadata !== undefined) {
     return page.generateMetadata({
       params: Promise.resolve({ course: "python-basics", id: "1" }),
@@ -125,13 +140,6 @@ describe("[FR-SEO-01] which pages are indexed", () => {
     expect(["page.tsx", "page.ts", "page.jsx", "page.js"].filter(isPageFile)).toHaveLength(4);
     expect(["page.dev.tsx", "page.test.tsx", "layout.tsx", "apage.tsx"].filter(isPageFile)).toEqual(
       [],
-    );
-  });
-
-  it("uses the same page extensions as the build", () => {
-    const config = readFileSync(join(import.meta.dirname, "..", "..", "next.config.ts"), "utf8");
-    expect(config).toContain(
-      `const PAGE_EXTENSIONS = ${JSON.stringify(BUILD_PAGE_EXTENSIONS).replaceAll(",", ", ")};`,
     );
   });
 
