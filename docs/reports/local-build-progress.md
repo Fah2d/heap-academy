@@ -10,6 +10,7 @@ Same task list. Still blocked: no new work package can start. No code was change
 - `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
 - The dependency list in the "later run" sections below still holds.
 - Checked again in a later run on 2026-11-24: `origin/main` still 0efe863; only `origin/wp/5.1-catalog` moved (to aec00a7, not touched); `gh pr list` fails with the same TLS error. Still blocked, no code changed. This line is added here instead of a new section so the file does not repeat the same note.
+- Checked again in a later run on 2026-11-24: `origin/main` still 0efe863; only `origin/wp/5.1-catalog` moved (to 5722327, not touched); `gh pr list` fails with the same TLS error. Still blocked, no code changed.
 
 ### Owner: run this
 
