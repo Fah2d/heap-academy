@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EXAMPLE_LESSON } from "@/grader/example-lesson";
-import { workspace as words } from "@/messages/workspace";
+import { goToLine, workspace as words } from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
 import { SOURCE_LIMIT } from "@/runtime/protocol";
 import type { WorkspaceEvent, WorkspaceState } from "@/runtime/workspace-chart";
@@ -201,83 +201,142 @@ describe("[FR-WSP-08] the batch field", () => {
 });
 
 describe("[FR-WSP-13] below 768 px", () => {
-  const tab = (name: string) => screen.getByRole("tab", { name });
-  const panelOf = (name: string) => {
-    const id = tab(name).getAttribute("aria-controls") ?? "";
-    const panel = document.getElementById(id);
-    if (panel === null) throw new Error(`no panel for ${name}`);
-    return panel;
-  };
+  const views = () => within(screen.getByRole("tablist", { name: words.views }));
+  const tab = (name: string) => views().getByRole("tab", { name });
+  // A view that is not selected stays in the page, hidden and inert.
+  const shown = (element: Element) => element.closest("[inert]") === null;
+  const lessonAction = () => screen.getByRole("button", { name: words.toCode, hidden: true });
+  const consoleTab = () => screen.getByRole("tab", { name: words.console, hidden: true });
+  const testsTab = () => screen.getByRole("tab", { name: words.tests, hidden: true });
+  const hiddenEditor = () => screen.getByRole("textbox", { name: words.work, hidden: true });
 
-  it("shows one of three views, the Lesson first, with the others hidden", () => {
+  it("shows one of three views, the Lesson first, with the others inert", () => {
     narrow = true;
     show();
-    const views = within(screen.getByRole("tablist", { name: words.views }));
-    expect(views.getAllByRole("tab").map((element) => element.textContent)).toEqual([
+    expect(
+      views()
+        .getAllByRole("tab")
+        .map((element) => element.textContent),
+    ).toEqual([
       words.viewLesson + words.viewLesson,
       words.viewCode + words.viewCode,
       words.viewOutput + words.viewOutput,
     ]);
     expect(tab(words.viewLesson).getAttribute("aria-selected")).toBe("true");
-    expect(panelOf(words.viewLesson).hidden).toBe(false);
-    expect(panelOf(words.viewCode).hidden).toBe(true);
-    expect(panelOf(words.viewOutput).hidden).toBe(true);
-    expect(panelOf(words.viewCode).getAttribute("role")).toBe("tabpanel");
-    expect(panelOf(words.viewCode).getAttribute("aria-labelledby")).toBe(tab(words.viewCode).id);
+    expect(shown(lessonAction())).toBe(true);
+    expect(shown(hiddenEditor())).toBe(false);
+    expect(shown(consoleTab())).toBe(false);
+    expect(
+      document.querySelector(`[role="tabpanel"][aria-labelledby="${tab(words.viewLesson).id}"]`),
+    ).not.toBeNull();
   });
 
   it("ends the Lesson view with one action that shows the Code view and focuses its tab", async () => {
     narrow = true;
     show();
-    await userEvent.click(screen.getByRole("button", { name: words.toCode }));
-    expect(panelOf(words.viewCode).hidden).toBe(false);
-    expect(panelOf(words.viewLesson).hidden).toBe(true);
+    await userEvent.click(lessonAction());
+    expect(shown(hiddenEditor())).toBe(true);
+    expect(shown(lessonAction())).toBe(false);
     expect(document.activeElement).toBe(tab(words.viewCode));
   });
 
-  it("moves between views with the arrows, and keeps one tab in the tab order", () => {
+  it("moves between views with the arrow keys", async () => {
     narrow = true;
     show();
-    fireEvent.keyDown(tab(words.viewLesson), { key: "ArrowRight" });
+    act(() => {
+      tab(words.viewLesson).focus();
+    });
+    await userEvent.keyboard("{ArrowRight}");
     expect(tab(words.viewCode).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(tab(words.viewCode));
-    fireEvent.keyDown(tab(words.viewCode), { key: "End" });
-    expect(panelOf(words.viewOutput).hidden).toBe(false);
-    const views = within(screen.getByRole("tablist", { name: words.views }));
-    expect(views.getAllByRole("tab").map((element) => element.getAttribute("tabindex"))).toEqual([
-      "-1",
-      "-1",
-      "0",
-    ]);
+    expect(shown(hiddenEditor())).toBe(true);
   });
 
   it("Run shows the Output view with the console, Check the Output view with the tests", async () => {
     narrow = true;
     show();
     await userEvent.click(button(words.run));
-    expect(panelOf(words.viewOutput).hidden).toBe(false);
-    expect(screen.getByRole("tab", { name: words.console }).getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(tab(words.viewOutput).getAttribute("aria-selected")).toBe("true");
+    expect(shown(consoleTab())).toBe(true);
+    expect(consoleTab().getAttribute("aria-selected")).toBe("true");
     await userEvent.click(tab(words.viewLesson));
     await userEvent.click(button(words.check));
-    expect(panelOf(words.viewOutput).hidden).toBe(false);
-    expect(screen.getByRole("tab", { name: words.tests }).getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(tab(words.viewOutput).getAttribute("aria-selected")).toBe("true");
+    expect(testsTab().getAttribute("aria-selected")).toBe("true");
     expect(runtime.dispatch.mock.calls.map(([event]) => event.type)).toEqual(["RUN", "CHECK"]);
   });
 
-  it("keeps Run, Check and Stop in the bar in every view, without the keyboard's keys", async () => {
+  it("a shortcut in the editor shows the Output view, keeps focus in the workspace, and works again", async () => {
     narrow = true;
     show();
-    for (const view of [words.viewLesson, words.viewCode, words.viewOutput]) {
-      await userEvent.click(tab(view));
-      expect(button(words.run)).toBeTruthy();
-      expect(button(words.check)).toBeTruthy();
-      expect(screen.getByRole("button", { name: words.stop })).toBeTruthy();
+    await userEvent.click(tab(words.viewCode));
+    act(() => {
+      hiddenEditor().focus();
+    });
+    fireEvent.keyDown(hiddenEditor(), { key: "Enter", ctrlKey: true });
+    expect(tab(words.viewOutput).getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tab(words.viewOutput));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Enter", ctrlKey: true });
+    expect(runtime.dispatch.mock.calls.map(([event]) => event.type)).toEqual(["RUN", "RUN"]);
+  });
+
+  it("Go to line on an error shows the Code view", async () => {
+    narrow = true;
+    runtime.view = {
+      ...runtime.view,
+      result: {
+        runId: "run-1" as RunId,
+        outcome: { kind: "syntax", message: "invalid syntax", line: 2 },
+        truncated: false,
+        durationMs: 3,
+      },
+      ended: "run",
+    };
+    show();
+    await userEvent.click(tab(words.viewOutput));
+    await userEvent.click(screen.getByRole("button", { name: goToLine(2) }));
+    expect(tab(words.viewCode).getAttribute("aria-selected")).toBe("true");
+    expect(shown(hiddenEditor())).toBe(true);
+  });
+
+  it("keeps Run, Check and Stop in the bar in every view, with no icons or keys", async () => {
+    narrow = true;
+    show();
+    for (const name of [words.viewLesson, words.viewCode, words.viewOutput]) {
+      await userEvent.click(tab(name));
+      expect(shown(button(words.run))).toBe(true);
+      expect(shown(button(words.check))).toBe(true);
+      expect(shown(screen.getByRole("button", { name: words.stop }))).toBe(true);
     }
-    expect(within(button(words.run)).queryByText(words.shortcut(false, false))).toBeNull();
+    expect(button(words.run).textContent).toBe(words.run);
+  });
+
+  it("places the bar above the on-screen keyboard from the visual viewport", () => {
+    narrow = true;
+    const listeners = new Map<string, () => void>();
+    const viewport = {
+      height: 460,
+      offsetTop: 0,
+      addEventListener: (type: string, listener: () => void) => {
+        listeners.set(type, listener);
+      },
+      removeEventListener: (type: string) => {
+        listeners.delete(type);
+      },
+    };
+    vi.stubGlobal("visualViewport", viewport);
+    const height = vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(800);
+    const { container, unmount } = show();
+    const root = container.querySelector<HTMLElement>("[data-workspace]");
+    expect(root?.style.getPropertyValue("--keyboard-inset")).toBe("340px");
+    viewport.height = 800;
+    act(() => {
+      listeners.get("resize")?.();
+    });
+    expect(root?.style.getPropertyValue("--keyboard-inset")).toBe("0px");
+    unmount();
+    expect(listeners.size).toBe(0);
+    height.mockRestore();
   });
 
   it("says a run's outcome from any view", () => {
@@ -294,7 +353,8 @@ describe("[FR-WSP-13] below 768 px", () => {
     const region = screen
       .getAllByRole("status")
       .find((element) => element.textContent === runAnnouncement(result, 0));
-    expect(region?.closest("[hidden]")).toBeNull();
+    expect(region).toBeDefined();
+    expect(region?.closest("[inert], [hidden]")).toBeNull();
   });
 
   it("is not built at 768 px and wider", () => {

@@ -26,6 +26,8 @@ export function ConsolePanel({
   endInput,
   onGoToLine,
   workspaceRef,
+  answered,
+  setAnswered,
 }: {
   view: RuntimeView;
   awaitingInput: boolean;
@@ -36,15 +38,19 @@ export function ConsolePanel({
   onGoToLine: (line: number) => void;
   /** The workspace's root: focus moves to the input line only from inside it. */
   workspaceRef: RefObject<HTMLElement | null>;
+  /**
+   * Set when the learner sends an answer from the input line, which then
+   * goes away until the program asks again. Focus that was in it has fallen
+   * to the body, and the next input line takes it back. Held by the
+   * workspace, so it outlives this panel when the layout changes at 768 px.
+   */
+  answered: () => boolean;
+  setAnswered: (sent: boolean) => void;
 }) {
-  // Set when the learner sends an answer from the input line, which then
-  // goes away until the program asks again. Focus that was in it has fallen
-  // to the body, and the next input line takes it back.
-  const answered = useRef(false);
   const result = view.result;
   useEffect(() => {
-    if (result !== undefined) answered.current = false;
-  }, [result]);
+    if (result !== undefined) setAnswered(false);
+  }, [result, setAnswered]);
   const shown = transcript(view.output, awaitingInput);
   const error = result === undefined ? undefined : runError(result.outcome);
   const strategy = view.interactiveInput ? "interactive" : "batch";
@@ -103,12 +109,12 @@ export function ConsolePanel({
             prompt={shown.prompt}
             sendInput={(line) => {
               const sent = sendInput(line);
-              if (sent.ok) answered.current = true;
+              if (sent.ok) setAnswered(true);
               return sent;
             }}
             endInput={endInput}
             workspaceRef={workspaceRef}
-            afterAnswer={() => answered.current}
+            afterAnswer={answered}
           />
         )}
         {result?.truncated === true && (
@@ -175,7 +181,7 @@ function InputLine({
         autoComplete="off"
         autoCapitalize="off"
         spellCheck={false}
-        className="min-h-target min-w-0 flex-1 rounded-control border border-border-control bg-bg px-3 font-mono text-code text-text aria-invalid:border-fail"
+        className="min-h-target min-w-(--console-answer-min) flex-1 rounded-control border border-border-control bg-bg px-3 font-mono text-code text-text aria-invalid:border-fail"
         onChange={(event) => {
           setAnswer(event.target.value);
         }}

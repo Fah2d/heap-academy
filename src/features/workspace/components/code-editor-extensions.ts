@@ -192,6 +192,13 @@ export function editorExtensions(
     // Tab indents. Escape, then Tab, leaves the editor: CodeMirror turns on
     // its tab focus mode after Escape (03-experience.md section 6.2, "Esc then Tab").
     keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+    // Below 768 px the workspace's action bar is fixed over the end of the
+    // screen (--action-bar-size, 0 elsewhere), so the cursor is scrolled to
+    // stay above it while typing.
+    EditorView.scrollMargins.of((view) => ({
+      bottom:
+        Number.parseFloat(getComputedStyle(view.dom).getPropertyValue("--action-bar-size")) || 0,
+    })),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) onChange(update.state.doc.toString());
     }),

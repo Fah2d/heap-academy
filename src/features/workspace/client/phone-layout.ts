@@ -32,11 +32,13 @@ export type VisualViewportSize = { height: number; offsetTop: number };
 
 /**
  * How many CSS pixels at the bottom of the layout viewport the visual
- * viewport does not show: the on-screen keyboard on iOS Safari, which keeps
- * the layout viewport's height and shrinks the visual one. Where the browser
- * resizes the layout viewport instead (Chrome on Android), the two match and
- * the inset is 0. Never negative, and whole pixels, so a scroll by a fraction
- * does not restyle the bar.
+ * viewport does not show: the on-screen keyboard, which by default shrinks
+ * only the visual viewport in iOS Safari and in Chrome on Android since
+ * version 108 (`interactive-widget=resizes-visual`). Where a browser resizes
+ * the layout viewport instead, the two match and the inset is 0. The layout
+ * height to pass is `document.documentElement.clientHeight`, which pinch zoom
+ * does not change. Never negative, and whole pixels, so a scroll by a
+ * fraction does not move the bar.
  */
 export function keyboardInset(
   layoutHeight: number,
@@ -49,31 +51,3 @@ export function keyboardInset(
 /** The three views below 768 px, in their order on the tab list. */
 export const PHONE_VIEWS = ["lesson", "code", "output"] as const;
 export type PhoneView = (typeof PHONE_VIEWS)[number];
-
-/**
- * The view an arrow, Home or End key moves to on the tab list (the WAI-ARIA
- * tabs pattern), or undefined for any other key. The arrows wrap around and
- * follow the reading direction.
- */
-export function viewAfterKey(
-  current: PhoneView,
-  key: string,
-  direction: "ltr" | "rtl",
-): PhoneView | undefined {
-  const index = PHONE_VIEWS.indexOf(current);
-  const last = PHONE_VIEWS.length - 1;
-  const forward = direction === "ltr" ? "ArrowRight" : "ArrowLeft";
-  const back = direction === "ltr" ? "ArrowLeft" : "ArrowRight";
-  switch (key) {
-    case forward:
-      return PHONE_VIEWS[index === last ? 0 : index + 1];
-    case back:
-      return PHONE_VIEWS[index === 0 ? last : index - 1];
-    case "Home":
-      return PHONE_VIEWS[0];
-    case "End":
-      return PHONE_VIEWS[last];
-    default:
-      return undefined;
-  }
-}

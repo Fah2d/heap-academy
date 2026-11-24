@@ -4,9 +4,10 @@ import { workspace as words } from "../src/messages/workspace";
 import { saveScreen } from "./screens";
 
 // WP-5.3: the lesson workspace on a phone (docs/spec/03-experience.md section
-// 6.8), on the development-only page /dev/workspace, in the phone projects
-// (an emulated Pixel 7: touch, a mobile viewport). J-1 at the three widths
-// FR-WSP-13 names. The bar's place above the on-screen keyboard is worked out
+// 6.8), on the development-only page /dev/workspace, in the phone-workspace
+// project (an emulated Pixel 7: touch, a mobile viewport). J-1 at the three
+// widths FR-WSP-13 names. The journey on the real route, as a guest, is
+// WP-7.4's (e2e/j01-video-to-first-run.spec.ts). The bar's place above the on-screen keyboard is worked out
 // from the visual viewport (src/features/workspace/client/phone-layout.ts);
 // an emulated phone has no on-screen keyboard, so that part is a unit test.
 test.describe.configure({ timeout: 120_000 });
@@ -68,6 +69,27 @@ async function touchTargets(page: Page) {
       .filter((box) => box.width < 44 || box.height < 44),
   );
   expect(small).toEqual([]);
+}
+
+// The page keeps room for the fixed bar: scrolled to its end, the last thing
+// in the view ends above the bar.
+async function endClearsTheBar(page: Page) {
+  await page.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  });
+  const gap = await page.evaluate(() => {
+    const bar = document.querySelector("[data-workspace] .fixed");
+    const shown = [...document.querySelectorAll("[data-workspace] *")].filter(
+      (element) =>
+        element.closest(".fixed") === null &&
+        element.closest("[inert]") === null &&
+        element.checkVisibility() &&
+        element.children.length === 0,
+    );
+    const end = Math.max(...shown.map((element) => element.getBoundingClientRect().bottom));
+    return (bar?.getBoundingClientRect().top ?? 0) - end;
+  });
+  expect(gap).toBeGreaterThanOrEqual(0);
 }
 
 async function screen(page: Page, name: string, width: number) {
@@ -152,5 +174,24 @@ for (const width of [320, 375, 430]) {
     await touchTargets(page);
     await noAxeViolations(page);
     await screen(page, "phone-tests", width);
+    await endClearsTheBar(page);
+    await view(page, words.viewLesson).tap();
+    await endClearsTheBar(page);
   });
 }
+
+test("[FR-SYS-02] [FR-WSP-13] below 768 px, a browser that cannot run Python sees why, with no views", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, "Worker");
+  });
+  await page.setViewportSize({ width: 375, height: HEIGHT });
+  await page.goto("/dev/workspace");
+  await expect(page.getByText(words.unsupportedTitle)).toBeVisible();
+  await expect(views(page)).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
+  await noSidewaysScroll(page);
+  await noAxeViolations(page);
+  await screen(page, "phone-unsupported", 375);
+});
