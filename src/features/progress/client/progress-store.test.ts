@@ -66,6 +66,13 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
       return {
         objectStore: () => ({
           getAll: () => request(() => [...rows.values()]),
+          clear: () => request(() => rows.clear()),
+          put: (value: unknown, key: string) =>
+            request(() => {
+              if (behaviour.failWrites === true) throw new Error("refused");
+              rows.set(key, value);
+              return key;
+            }),
           add: (value: unknown, key: string) =>
             request(() => {
               if (behaviour.failWrites === true) throw new Error("refused");
@@ -142,6 +149,51 @@ describe("the device database", () => {
     const database = await openDeviceDatabase(fakeIndexedDb(newDisk()));
     database.onversionchange?.(new Event("versionchange") as IDBVersionChangeEvent);
     expect(database.close).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the progress store after a sync [FR-PRG-02] [FR-PRG-03] [FR-AUTH-05]", () => {
+  it("keeps the account's list and what is still unsent, across a reload", async () => {
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk));
+    await store.record(pass(HELLO));
+    await store.applySync([pass(SUMS)], []);
+    const reloaded = createProgressStore(fakeIndexedDb(disk));
+    expect(await reloaded.completions()).toEqual([
+      { ...pass(HELLO), synced: false },
+      { ...pass(SUMS), synced: true },
+    ]);
+    expect(await reloaded.pending()).toEqual([pass(HELLO)]);
+  });
+
+  it("marks a stored lesson and drops a refused one", async () => {
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk));
+    await store.record(pass(HELLO));
+    await store.record(pass(SUMS));
+    await store.markSynced(HELLO);
+    await store.drop([SUMS]);
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([
+      { ...pass(HELLO), synced: true },
+    ]);
+  });
+
+  it("forgets every completion at sign-out, and a new store finds none", async () => {
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk));
+    await store.record(pass(HELLO));
+    await store.clear();
+    expect(await store.completions()).toEqual([]);
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([]);
+  });
+
+  it("applies the same changes in memory when the database takes no writes", async () => {
+    const store = createProgressStore(fakeIndexedDb(newDisk(), { failWrites: true }));
+    await store.record(pass(HELLO));
+    await store.markSynced(HELLO);
+    expect(await store.completions()).toEqual([{ ...pass(HELLO), synced: true }]);
+    await store.clear();
+    expect(await store.completions()).toEqual([]);
   });
 });
 

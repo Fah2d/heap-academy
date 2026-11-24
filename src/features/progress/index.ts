@@ -3,3 +3,4 @@
 export { CODE_STORE, lazyDeviceDatabase, settle } from "./client/device-database";
 export { deviceProgress } from "./client/device-progress";
 export { createProgressStore, type Durability, type ProgressStore } from "./client/progress-store";
+export { SignedInProgressSync } from "./signed-in-sync";

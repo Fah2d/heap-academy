@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { parseLessonId, type LessonId } from "@/domain/ids";
-import type { Completion } from "@/domain/progress";
-import { createProgressStore, memoryBackend } from "./device-store";
-import { RETRY_FIRST_MS, RETRY_LAST_MS, startProgressSync, type SyncPorts } from "./sync";
+import { type Completion, MAX_COMPLETION_CODE, MAX_SYNC_COMPLETIONS } from "@/domain/progress";
+import { createProgressStore } from "./progress-store";
+import {
+  type ProgressSync,
+  RETRY_FIRST_MS,
+  RETRY_LAST_MS,
+  startProgressSync,
+  type SyncPorts,
+} from "./sync";
 
 const lesson = (n: number): LessonId => {
   const id = parseLessonId(`00000000-0000-4000-8000-${String(n).padStart(12, "0")}`);
@@ -53,7 +59,7 @@ function harness(options: { merge?: Merge; record?: Record } = {}) {
       (timer as { live: boolean }).live = false;
     },
   };
-  const store = createProgressStore(memoryBackend());
+  const store = createProgressStore(undefined);
   return {
     store,
     ports,
@@ -68,6 +74,16 @@ function harness(options: { merge?: Merge; record?: Record } = {}) {
   };
 }
 
+/** A pass as the workspace makes it: kept on the device, then sent. */
+async function passLesson(
+  h: ReturnType<typeof harness>,
+  sync: ProgressSync,
+  completion: Completion,
+) {
+  await h.store.record(completion);
+  await sync.send(completion);
+}
+
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("[FR-PRG-03] sync on start and when the tab shows", () => {
@@ -77,7 +93,7 @@ describe("[FR-PRG-03] sync on start and when the tab shows", () => {
     const sync = startProgressSync(h.store, h.ports);
     expect(await sync.sync()).toBe(true);
     expect(h.sent[0]).toEqual([pass(1)]);
-    expect((await h.store.list()).every((c) => c.synced)).toBe(true);
+    expect((await h.store.completions()).every((c) => c.synced)).toBe(true);
     expect(sync.state()).toBe("idle");
   });
 
@@ -97,7 +113,7 @@ describe("[FR-PRG-03] sync on start and when the tab shows", () => {
     h.account.set(lesson(7), pass(7));
     const sync = startProgressSync(h.store, h.ports);
     await sync.sync();
-    expect(await h.store.list()).toEqual([{ ...pass(7), synced: true }]);
+    expect(await h.store.completions()).toEqual([{ ...pass(7), synced: true }]);
   });
 
   it("one sync at a time, and a pass recorded during it is sent by the next", async () => {
@@ -135,7 +151,7 @@ describe("[FR-PRG-06] [NFR-REL-01] a completion that cannot reach the server is 
     });
     const sync = startProgressSync(h.store, h.ports);
     await settle();
-    await sync.complete(pass(1));
+    await passLesson(h, sync, pass(1));
     expect(await h.store.pending()).toEqual([pass(1)]);
     expect(sync.state()).toBe("waiting");
     down = false;
@@ -183,8 +199,8 @@ describe("[FR-PRG-06] [NFR-REL-01] a completion that cannot reach the server is 
     const h = harness();
     const sync = startProgressSync(h.store, h.ports);
     await settle();
-    await sync.complete(pass(3));
-    expect(await h.store.list()).toEqual([{ ...pass(3), synced: true }]);
+    await passLesson(h, sync, pass(3));
+    expect(await h.store.completions()).toEqual([{ ...pass(3), synced: true }]);
   });
 
   it("drops a lesson the database says is not available, and does not retry it", async () => {
@@ -192,8 +208,8 @@ describe("[FR-PRG-06] [NFR-REL-01] a completion that cannot reach the server is 
     const sync = startProgressSync(h.store, h.ports);
     await settle();
     const timers = h.timers.length;
-    await sync.complete(pass(4));
-    expect(await h.store.list()).toEqual([]);
+    await passLesson(h, sync, pass(4));
+    expect(await h.store.completions()).toEqual([]);
     expect(h.timers.length).toBe(timers);
   });
 
@@ -204,7 +220,7 @@ describe("[FR-PRG-06] [NFR-REL-01] a completion that cannot reach the server is 
     await h.store.record(pass(5));
     const sync = startProgressSync(h.store, h.ports);
     await sync.sync();
-    expect(await h.store.list()).toEqual([]);
+    expect(await h.store.completions()).toEqual([]);
   });
 });
 
@@ -224,12 +240,31 @@ describe("[NFR-REL-01] a pass and a sync do not overlap", () => {
     await settle();
     const running = sync.sync();
     await settle();
-    const passing = sync.complete(pass(1));
+    const passing = passLesson(h, sync, pass(1));
     await settle();
     release();
     await running;
     await passing;
-    expect((await h.store.list()).map((c) => c.lessonId)).toEqual([lesson(1)]);
+    expect((await h.store.completions()).map((c) => c.lessonId)).toEqual([lesson(1)]);
+  });
+});
+
+describe("[FR-PRG-02] what is sent fits what the server takes", () => {
+  it("sends more than one batch of completions, a batch at a time", async () => {
+    const h = harness();
+    for (let n = 1; n <= MAX_SYNC_COMPLETIONS + 1; n += 1) await h.store.record(pass(n));
+    const sync = startProgressSync(h.store, h.ports);
+    expect(await sync.sync()).toBe(true);
+    expect(h.sent.map((batch) => batch.length).slice(0, 2)).toEqual([MAX_SYNC_COMPLETIONS, 1]);
+    expect(await h.store.pending()).toEqual([]);
+    sync.stop();
+  });
+
+  it("cuts a long program and removes NUL, so the sync is not refused for ever", async () => {
+    const h = harness();
+    await h.store.record({ ...pass(1), code: `\u0000${"a".repeat(MAX_COMPLETION_CODE + 5)}` });
+    const [sent] = await h.store.pending();
+    expect(sent?.code).toBe("a".repeat(MAX_COMPLETION_CODE));
   });
 });
 

@@ -1,6 +1,6 @@
 import type { LessonId } from "@/domain/ids";
-import type { Completion } from "@/domain/progress";
-import type { ProgressStore } from "./device-store";
+import { type Completion, MAX_SYNC_COMPLETIONS, sendable } from "@/domain/progress";
+import type { ProgressStore } from "./progress-store";
 
 // Sync of the device's completions with the account (FR-PRG-02, FR-PRG-03,
 // FR-PRG-06, NFR-REL-01; docs/spec/02-architecture.md section 10). It runs
@@ -26,8 +26,8 @@ export type SyncPorts = {
 export type SyncState = "idle" | "syncing" | "waiting";
 
 export type ProgressSync = {
-  /** A pass: written to the device first, then sent. Resolves once the device has it. */
-  complete: (completion: Completion) => Promise<void>;
+  /** A pass the device already has: stored on the server now, or by a later sync. */
+  send: (completion: Completion) => Promise<void>;
   /** Sends every unsynced completion now. Resolves true once all are stored. */
   sync: () => Promise<boolean>;
   state: () => SyncState;
@@ -48,8 +48,8 @@ export function startProgressSync(
   let wait = RETRY_FIRST_MS;
   let stopped = false;
   let state: SyncState = "idle";
-  // A sync and a pass never overlap: a stale account list must not settle over
-  // a pass that was stored while the list was being read.
+  // A sync and a pass never overlap: a stale account list must not be applied
+  // over a pass that was marked synced while the list was being read.
   let queue: Promise<unknown> = Promise.resolve();
   const exclusive = <T>(job: () => Promise<T>): Promise<T> => {
     const next = queue.then(job, job);
@@ -75,14 +75,16 @@ export function startProgressSync(
 
   const attempt = async (): Promise<boolean> => {
     const pending = await store.pending();
+    const batch = pending.slice(0, MAX_SYNC_COMPLETIONS);
     let result: Awaited<ReturnType<SyncPorts["mergeProgress"]>>;
     try {
-      result = await ports.mergeProgress({ completions: pending });
+      result = await ports.mergeProgress({ completions: batch });
     } catch {
       return false;
     }
     if (!result.ok) return false;
-    await store.settle(result.value.completions, result.value.rejected);
+    await store.applySync(result.value.completions, result.value.rejected);
+    if (pending.length > batch.length) again = true;
     return true;
   };
 
@@ -124,13 +126,11 @@ export function startProgressSync(
   void sync();
 
   return {
-    complete: (completion) =>
+    send: (completion) =>
       exclusive(async () => {
-        await store.record(completion);
-        onChange();
         let outcome: Awaited<ReturnType<SyncPorts["recordCompletion"]>>;
         try {
-          outcome = await ports.recordCompletion(completion);
+          outcome = await ports.recordCompletion(sendable(completion));
         } catch {
           retryLater();
           return;

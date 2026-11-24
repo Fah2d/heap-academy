@@ -1,7 +1,13 @@
 import "server-only";
 import { z } from "zod";
 import { parseLessonId, type LessonId } from "@/domain/ids";
-import { type Completion, mergeCompletions } from "@/domain/progress";
+import {
+  type Completion,
+  MAX_COMPLETED_AT,
+  MAX_COMPLETION_CODE,
+  MAX_SYNC_COMPLETIONS,
+  mergeCompletions,
+} from "@/domain/progress";
 import type { UseCaseResult } from "@/infrastructure/actions/define-action";
 import type { CompletionStore } from "@/infrastructure/db/completion-store";
 
@@ -19,17 +25,14 @@ const lessonId = z
   .transform((value) => value as LessonId);
 // Past the year 2286 a time stops being a plausible one, and a date that
 // cannot be written as ISO text is never sent to the database.
-const completedAt = z.number().int().min(0).max(9_999_999_999_999);
+const completedAt = z.number().int().min(0).max(MAX_COMPLETED_AT);
 // The column holds at most 20000 characters (docs/spec/02-architecture.md 8.1).
 const code = z
   .string()
-  .max(20_000)
+  .max(MAX_COMPLETION_CODE)
   .refine((value) => !value.includes("\u0000"));
 
 const completionInput = z.strictObject({ lessonId, completedAt, code });
-
-/** The most completions one sync sends. A learner's own list stays far below it. */
-export const MAX_SYNC_COMPLETIONS = 100;
 
 export const recordCompletionInput = completionInput;
 export const mergeProgressInput = z.strictObject({
@@ -38,7 +41,7 @@ export const mergeProgressInput = z.strictObject({
 
 // The largest JSON form of an input within the field limits: JSON spends at
 // most six bytes on one UTF-16 unit, plus room for the field names and ID.
-const completionBytes = 6 * 20_000 + 256;
+const completionBytes = 6 * MAX_COMPLETION_CODE + 256;
 export const MAX_RECORD_BYTES = completionBytes + 256;
 export const MAX_MERGE_BYTES = MAX_SYNC_COMPLETIONS * (completionBytes + 1) + 256;
 

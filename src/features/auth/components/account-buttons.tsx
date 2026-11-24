@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { deviceProgress } from "@/features/progress";
 import { Button, Link } from "@/ui";
 
 const SIGN_IN = "/sign-in";
@@ -25,10 +26,19 @@ export function SignInLink({ label }: { label: string }) {
   );
 }
 
+/**
+ * Signing out also forgets the completions on this device, so the next account
+ * here does not take them as its own (the owner's decision of 2026-11-24).
+ */
 export function SignOutButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="secondary" isDisabled={pending}>
+    <Button
+      type="submit"
+      variant="secondary"
+      isDisabled={pending}
+      onPress={() => void deviceProgress().clear()}
+    >
       {pending ? pendingLabel : label}
     </Button>
   );
