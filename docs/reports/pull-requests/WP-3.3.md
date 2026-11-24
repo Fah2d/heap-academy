@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 3e50d99, at 5b77939), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you (see Reviews).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 9e1a9dc, at e3c39b7), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you (see Reviews).
 
 ## What and why
 
@@ -37,16 +37,16 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
-`wp/3.1-python-worker` at 5b77939 is merged in 3e50d99. Since the last merge (bc73677, at 2af8c6e) it adds WP-3.1's two browser test fixes (0849b56, f7dfb52: `run()` clears a program's globals when the run ends, so the T-01 loader test and the T-01 evaluation test now bind what their late callbacks use as default arguments), security review 7 and the docs. `main` is still 0efe863 (#3 to #8). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds this branch's sections. No code conflict; `e2e/runtime.spec.ts` merged cleanly.
+`wp/3.1-python-worker` at e3c39b7 is merged in 9e1a9dc. Since the last merge (3e50d99, at 5b77939) it adds WP-3.1's fix for security review 7, MINOR 3 (547b394, dece44f: the development page's `dropped` list is now a count, because the page only showed its length), code review 5 and the docs. `main` is still 0efe863 (#3 to #8). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds every section of this branch's copy. No code conflict; `runtime-view.ts` merged cleanly.
 
-`pnpm verify` on 3e50d99, exit 0:
+`pnpm verify` on 9e1a9dc, exit 0:
 
 ```
  Test Files  42 passed (42)
-      Tests  1033 passed (1033)
+      Tests  1037 passed (1037)
 ```
 
-`pnpm build` with CI's fake public values on 3e50d99, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+`pnpm build` with CI's fake public values on 9e1a9dc, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
 
 Not run on the merge: the browser tests.
 

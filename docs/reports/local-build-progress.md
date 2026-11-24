@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 04:15, continued), in `night-a`, on `wp/3.3-grader`
+
+Part 21 took about 10 minutes, so the run went on with the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.
+
+### Task 3, part 22 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- 9e1a9dc: `wp/3.1-python-worker` at e3c39b7 merged (the `dropped` count 547b394 and dece44f, code review 5, the docs). One conflict, this file; WP-3.1's copy taken, as the newer one (it holds every section of this branch's copy). No code conflict.
+- `pnpm verify` on 9e1a9dc: exit 0, 42 files, 1037 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with 9e1a9dc and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run. `wp/3.3-grader` into `wp/3.4-statechart` is left for the next run.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with 9e1a9dc) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+- After `wp/fix-smoke-and-runtime` merges into `main`: the second "Next" item of the section below.
+
 ## Session of 2026-11-24 (from about 04:15), in `night-a`, on `wp/3.1-python-worker`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1 was done in an earlier run; its pull request is not open or not merged yet). The "Next" items below wait on the owner, so this run took an open WP-3.1 finding that needs no decision. This file is the copy from `wp/3.4-statechart` (the newest) with this section added on top; the copies on the other branches are older.
