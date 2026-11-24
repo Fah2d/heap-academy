@@ -4,7 +4,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 ## Session of 2026-11-24 (from about 03:00), in `night-a`, on `wp/3.4-statechart`
 
-Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every branch was level with `origin/main` (0efe863), so this run did the first item under "Next" in the section below. This file came to `wp/3.4-statechart` with the merge (the newest copy, from `wp/3.3-grader`) and this section was added on top.
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every branch was level with `origin/main` (0efe863), so this run did the first item under "Next" in the section below, then looked for the flaky test WP-3.4 security review 2 saw. This file came to `wp/3.4-statechart` with the merge (the newest copy, from `wp/3.3-grader`) and this section was added on top.
 
 ### Task 3, part 12 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
 
@@ -15,6 +15,15 @@ Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every bran
 - Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
 - Push: `wp/3.4-statechart` with 9730a70 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
 
+### Task 3, part 13 done: the flaky test WP-3.4 security review 2 saw, found
+
+- Part 12 took about 3 minutes, so the run went on. WP-3.4 security review 2 saw 1 of 1066 tests fail once, unnamed.
+- On 9730a70: six single `vitest run`s, all 1148 passed. Three rounds of four runs at once, with coverage: two rounds failed in all four runs, one passed. All eight failures are one test: `scripts/repository.test.ts > lint for type escapes > [NFR-MAINT-01] fails lint for any`, `Test timed out in 5000ms`.
+- Cause: the test's first `lintText` loads `eslint.config.mjs`. That took 855 ms in a single `pnpm test` and passes 5000 ms when several suites share the machine. Other test runs on the same machine give that load.
+- The test is unchanged from `main` (939f9a0). That the reviewer hit this test is likely, not proven.
+- Decision: no code change. Raising the timeout is banned (CLAUDE.md rule 2), and the test guards the lint rules. Recorded in the WP-3.4 description's Reviews section with a fix for the owner to choose: load the configuration once in a `beforeAll`.
+- Push: `wp/3.4-statechart` with the docs commit.
+
 ### Owner: run this
 
 1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
@@ -23,6 +32,7 @@ Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every bran
 ### Next
 
 - A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+- If the owner chooses the `beforeAll` fix for `scripts/repository.test.ts`, make it on a branch from `main`.
 
 ## Session of 2026-11-24 (from about 02:50), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
 
