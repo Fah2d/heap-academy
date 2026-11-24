@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
+import prettier from "prettier";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
@@ -80,5 +81,31 @@ describe("dependencies", () => {
     expect(workspace).toMatch(/^minimumReleaseAge: 1440$/m);
     expect(workspace).toMatch(/^minimumReleaseAgeStrict: true$/m);
     expect(workspace).not.toMatch(/minimumReleaseAgeExclude/);
+  });
+});
+
+describe("the generated runtime folder", () => {
+  // scripts/build-runtime.mjs (WP-3.1) writes Pyodide's files and the compiled
+  // worker to public/_runtime. A copy left in a checkout must not break the
+  // type check, lint, or format step of a branch that does not build it.
+  const generated = "public/_runtime/worker/worker.js";
+
+  it("[NFR-MAINT-01] is outside the TypeScript project", () => {
+    const configPath = join(root, "tsconfig.json");
+    const { config } = ts.readConfigFile(configPath, (path) => ts.sys.readFile(path));
+    const { fileNames, raw } = ts.parseJsonConfigFileContent(config, ts.sys, root);
+    expect((raw as { exclude?: string[] }).exclude).toContain("public/_runtime");
+    expect(fileNames.filter((name) => name.includes("/public/_runtime/"))).toEqual([]);
+  });
+
+  it("[NFR-MAINT-01] is ignored by ESLint", async () => {
+    expect(await new ESLint({ cwd: root }).isPathIgnored(join(root, generated))).toBe(true);
+  });
+
+  it("[NFR-MAINT-01] is ignored by Prettier", async () => {
+    const info = await prettier.getFileInfo(join(root, generated), {
+      ignorePath: [join(root, ".prettierignore")],
+    });
+    expect(info.ignored).toBe(true);
   });
 });
