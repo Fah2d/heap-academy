@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:26, continued), in `night-a`, on `wp/3.4-statechart`
+
+Part 40 took about 8 minutes, so the run went on with the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (the newest, from part 40; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 41 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- a8a2e94: `wp/3.3-grader` at d7633c7 merged (WP-3.3 security review 7, round 2: be9375c and the docs). One conflict, this file; `wp/3.3-grader`'s copy taken. The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "6"`.
+- `pnpm verify` on a8a2e94: exit 0, 46 files, 1230 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen a8a2e94 (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with a8a2e94 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, and the same with `WP-3.3.md` on `wp/3.3-grader`, if those pull requests are open.
+2. The owner actions of the sections below are still due (a review of WP-3.3's be9375c among them).
+
+### Next
+
+- The same as in the section five below (after security review 8, round 3, on WP-3.1's a24111c and a7c3ba7; after `wp/fix-smoke-and-runtime` merges).
+
 ## Session of 2026-11-24 (from about 13:26), in `night-a`, on `wp/3.3-grader`
 
 Same task list. `git fetch`: `origin/main` is still 0efe863, and `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (6aafe2b) and `wp/3.4-statechart` (67c8e1e) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Of the open items, no reviewer had seen WP-3.3's ff9e6eb and d757f11; a review needs no owner decision (as for deca401 in part 39), so this run asked for one. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.

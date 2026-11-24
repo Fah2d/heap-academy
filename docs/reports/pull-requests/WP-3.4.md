@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 68595de, at 6aafe2b). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in a8a2e94, at d7633c7). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,20 +19,22 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at 6aafe2b is merged in 68595de. It adds WP-3.3 security review 7 and its fixes (3ab21e9, d757f11): `run_case` starts each test case with the harness's `collect_all()` instead of a bare `restore()`, so a learner timer that fires between test cases cannot write into the next case's output. `HARNESS_VERSION` is now "6". One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy (no line of this branch's copy is missing from it), so it was taken. `src/grader/harness.ts` and its tests merged with no conflict.
+`wp/3.3-grader` at d7633c7 is merged in a8a2e94. Since the last merge (68595de, at 6aafe2b) it adds WP-3.3 security review 7, round 2, and its fix be9375c: a harness test that reads the interpreter after `check()` returns, so it fails without `state = None`, and two comments inside the Python text. `HARNESS_VERSION` is now "7". One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. `src/grader/harness.ts` and its tests merged with no conflict.
 
-This branch has no code that depends on the harness version: `grade.ts` and the Node runner read `HARNESS_VERSION` from the harness, and no test or browser test expects "5". No reviewer has seen 68595de (a clean code merge).
+This branch has no code that depends on the harness version: `grade.ts` and the Node runner read `HARNESS_VERSION` from the harness, and no test or browser test expects "6". No reviewer has seen a8a2e94 (a clean code merge).
 
 `main` is still 0efe863, which `wp/3.3-grader` carries.
 
-`pnpm verify` on 68595de, exit 0:
+`pnpm verify` on a8a2e94, exit 0:
 
 ```
  Test Files  46 passed (46)
-      Tests  1229 passed (1229)
+      Tests  1230 passed (1230)
 ```
 
-`pnpm build` with CI's fake public values on 68595de, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "6"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+`pnpm build` with CI's fake public values on a8a2e94, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "7"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+
+Earlier merge, 68595de (`wp/3.3-grader` at 6aafe2b, WP-3.3 security review 7, round 1: 3ab21e9, d757f11): `pnpm verify` exit 0 (46 files, 1229 tests); `pnpm build` exit 0 with `HARNESS_VERSION = "6"`; both checks exit 0.
 
 ## How it was verified
 
