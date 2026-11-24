@@ -16,9 +16,14 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Description: `docs/reports/pull-requests/WP-7.3-part-3.md`, with default decisions F (role created without login), G (new `auth` tables need a new grant, caught by the test) and H (`maintain` checked from Postgres 17 only).
 - The task took about 11 minutes (13:57 to 14:08), so this run goes on to task 2 after the push.
 
-### Task 2
+### Task 2 blocked: no package to start without duplicating another agent
 
-See the next section once it is written.
+With WP-2.1 in `main` (7875ee2), two packages depend only on `main`, and both already have a branch another agent is working on:
+
+- WP-2.2 (depends on WP-1.4; needs WP-2.1's `profiles` trigger, now in `main`): `origin/wp/2.2-sign-in` at 79c8dc7, last commit 13:44 today, 1 commit behind `main`. `night-b` keeps it current in its stack.
+- WP-3.1 (depends on WP-1.3): `origin/wp/3.1-python-worker` at 01a141a, last commit 14:04 today, up to date with `main`; draft pull request #9.
+
+Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or 6.1, none of which is in `main` (checked with `git rev-list` and `git merge-base`). WP-7.3's backup workflow waits for the CI `db` job to prove the `backup_reader` role. No branch was started. This note is committed on `wp/7.3-operations` but not pushed, to save a Vercel build; the next push of this branch carries it.
 
 ### Owner: run this
 
