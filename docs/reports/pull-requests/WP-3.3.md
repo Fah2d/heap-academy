@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3, which no reviewer has seen (see Reviews).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a, which no reviewer has seen (see Reviews).
 
 ## What and why
 
@@ -57,6 +57,15 @@ Code review 4 on df1c7bb: CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157 (see R
 Not run on the merge: the browser tests.
 
 ## How it was verified
+
+**Security review 5 fixes (853f0c1 to 5649d7a), 2026-11-24.** Between test cases the harness now restores the garbage collector's thresholds, enabled state, debug flags and saved garbage (`gc.garbage`), checks them in `intact()`, and keeps the collector off from the start of the restore until the check has passed. `HARNESS_VERSION` is "4". `pnpm verify` on 5649d7a, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1106 passed (1106)
+```
+
+`pnpm build` with CI's fake public values on 5649d7a: exit 0; `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0; the built `public/_runtime/worker/grader/harness.js` has `HARNESS_VERSION = "4"`. Mutants of `src/grader/harness.ts`, each run against `src/grader/harness.test.ts` and then restored; each fails at least one test other than the hash pin: no `disable_gc()` in `restore()`; no enabled check; an unconditional `enable_gc()`; no re-enable; no restore of the saved garbage, of the debug flags or of the thresholds; `intact()` without the debug flags, the thresholds or the saved garbage; the fallback without its two collector calls. Not run: the browser tests.
 
 **Security review 4 fixes (203b6bb to 3fa2bd3), 2026-11-24.** `pnpm verify` on 3fa2bd3, exit 0:
 
@@ -315,6 +324,15 @@ Security review 4, on 203b6bb to 3fa2bd3 (security review 2, MINOR 5: `sys.monit
 
 Decision: `HARNESS_VERSION` stays "3" through these commits, since "3" had not left this branch until they were pushed together.
 
+Security review 5, on 853f0c1 to 5649d7a (security review 4, round 4, noted: the garbage collector's thresholds and enabled state carried over between test cases, `(1, 1, 0) False`). Report: `docs/reports/reviews/WP-3.3/security-review-5.md`. Two rounds:
+
+| Round, on | Verdict | What was done |
+|---|---|---|
+| 1, 853f0c1 | **APPROVE**, 3 MINOR | 04fcffa: the debug flags and `gc.garbage` restored and checked (with `DEBUG_SAVEALL`, the harness's own collection left a case's objects for the next case); the collector off from the start of the restore until the check passes; a test with a harness defined after `gc.disable()`; `gc.freeze()` named as not undone. |
+| 2, 04fcffa | **APPROVE**, 2 MINOR | 5649d7a: the fallback in `check()` turns the collector off and back on only if it was on at definition, with the reviewer's reproduction as a test; the header rewrapped. No reviewer has seen 5649d7a. |
+
+Decisions: `HARNESS_VERSION` is "4", because "3" had left this branch by merge into `wp/3.4-statechart` (a9c8c0c). `gc.freeze()` is not undone: frozen objects change memory, not output, and `gc.unfreeze()` would also move objects the runtime froze.
+
 ## Try it
 
 There is no learner-facing change to try. From the repository root, the grader's own tests run the harness in real Pyodide:
@@ -352,7 +370,7 @@ pnpm vitest run src/grader
 - **The run support and the harness each restore the state** with their own copy of the same routine. Moving Run onto the harness would leave one copy; that changes WP-3.1's tested code and is left for WP-3.4 or later.
 - **Hooks the harness cannot undo** (what is left of security review 2, MINOR 5, after 203b6bb to 839707a): audit hooks (Python cannot remove them) and `sys.monitoring` local events set on a code object (no call clears them for every code object) stay for the later test cases on the same worker. A fresh worker is the control.
 - **Run does not get the new restore.** WP-3.1's run support (`src/runtime/worker/run-support.ts`) has its own copy of the routine and still restores only builtins, the module table, the streams and the trace and profile hooks, so a `sys.monitoring` callback set in one run reaches the learner's next run. It also empties the module table name by name and does not put the line cache back, so a run can leave a line-cache key whose `__eq__` runs during the next run (security review 4, round 5, noted outside its range). That is the same learner's own output, with no verdict, and the next check's first restore clears the cache; closing it is the shared routine above.
-- **The garbage collector's thresholds and its enabled state** carry over between test cases (security review 4, round 4, noted: `(1, 1, 0) False`). They change timing, not output. A fresh worker is the control.
+- **Objects frozen with `gc.freeze()`** stay in the collector's permanent generation for the later test cases (security review 5, MINOR 1). They change memory, not output, and `gc.unfreeze()` would also move objects the runtime froze. A fresh worker is the control. The collector's thresholds, enabled state, debug flags and saved garbage are restored since 853f0c1 and 04fcffa.
 - **The lint rule's remaining bypasses** (security review 2, MINOR 4), for you.
 - **FR-GRD-07** (naming a near miss) is a Should requirement for a later package.
 

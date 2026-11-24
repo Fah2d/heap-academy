@@ -5,9 +5,11 @@ import {
   HARNESS_NAME_LIMIT,
   HARNESS_OUTPUT_LIMIT,
   HARNESS_PROGRAM_FILENAME,
+  HARNESS_SOURCE,
   HARNESS_TEST_FILENAME,
   HARNESS_VERSION,
 } from "./harness.ts";
+import { loadPyodide } from "pyodide";
 import { type HarnessHost, loadHarness } from "./node-runner/host.ts";
 
 // The harness runs in Pyodide under Node, the same text the browser worker
@@ -591,6 +593,14 @@ describe("the harness", () => {
       'sys.modules["linecache"].cache["ghost"] = Ghost()',
       'sys.modules["linecache"].cache["extra"] = (0, None, [], "extra")',
     ],
+    ["the garbage collector's thresholds", "builtins.ghost = Ghost()", "gc.set_threshold(1, 1, 0)"],
+    ["the garbage collector's enabled state", "builtins.ghost = Ghost()", "gc.enable()"],
+    [
+      "the garbage collector's debug flags",
+      "builtins.ghost = Ghost()",
+      "gc.set_debug(gc.DEBUG_SAVEALL)",
+    ],
+    ["the garbage collector's saved garbage", "builtins.ghost = Ghost()", "gc.garbage.append(1)"],
   ];
   for (const [part, place, change] of changedAfterItsRestore) {
     it(`[FR-RUN-04] a __del__ that changes ${part} after its restore makes the test case a runtime error`, () => {
@@ -804,6 +814,86 @@ describe("the harness", () => {
     });
   });
 
+  it("[FR-RUN-04] the garbage collector's thresholds and enabled state come back for the next test case", () => {
+    // WP-3.3 security review 4, round 4, noted: "(1, 1, 0) False" carried over.
+    const settings = "import gc\nprint(gc.get_threshold(), gc.isenabled())";
+    const before = run(settings);
+    expect(before).toMatchObject({ error: undefined, output: expect.stringContaining("True") });
+    expect(run("import gc\ngc.set_threshold(1, 1, 0)\ngc.disable()")).toMatchObject({
+      error: undefined,
+    });
+    expect(run(settings)).toEqual(before);
+    expect(run("import gc\ngc.disable()\nraise ValueError")).toMatchObject({
+      error: { kind: "runtime" },
+    });
+    expect(run(settings)).toEqual(before);
+  });
+
+  it("[FR-RUN-04] objects the collector saved with DEBUG_SAVEALL in one test case are gone in the next", () => {
+    // WP-3.3 security review 5, MINOR 1: the harness's own collection put the
+    // first case's objects in gc.garbage, and the next case read them.
+    const source = [
+      "import gc",
+      "gc.set_debug(gc.DEBUG_SAVEALL)",
+      'secret = ["from case 1"]',
+      "secret.append(secret)",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ error: undefined });
+    expect(run("import gc\nprint(len(gc.garbage), gc.get_debug())")).toMatchObject({
+      output: "0 0\n",
+      error: undefined,
+    });
+  });
+
+  // Every other test starts with the collector on. Its own interpreter, with
+  // the harness defined after gc.disable().
+  async function harnessWithCollectorOff() {
+    const pyodide = await loadPyodide();
+    pyodide.setStdout({ batched: () => {} });
+    pyodide.setStderr({ batched: () => {} });
+    pyodide.runPython("import gc\ngc.disable()");
+    const check: unknown = pyodide.runPython(HARNESS_SOURCE);
+    if (typeof check !== "function") throw new Error("the harness did not evaluate to a function");
+    return {
+      run: (source: string) =>
+        parseHarnessResult(Reflect.apply(check, undefined, [source, "", ""]) as unknown),
+      collectorOn: () => pyodide.runPython("import gc\ngc.isenabled()") as unknown,
+    };
+  }
+
+  it("[FR-RUN-04] a collector that was off when the harness was defined is off again after a test case turns it on", async () => {
+    // WP-3.3 security review 5, MINOR 2.
+    const { run: runOwn } = await harnessWithCollectorOff();
+    expect(runOwn("import gc\nprint(gc.isenabled())\ngc.enable()")).toMatchObject({
+      output: "False\n",
+      error: undefined,
+    });
+    expect(runOwn("import gc\nprint(gc.isenabled())")).toMatchObject({
+      output: "False\n",
+      error: undefined,
+    });
+  }, 60_000);
+
+  it("[FR-RUN-04] the fallback leaves the collector as it was when both restores fail after turning it on", async () => {
+    // WP-3.3 security review 5, round 2, MINOR 1: the first object's __del__
+    // runs in the first restore and leaves the second in gc.garbage; the
+    // second's runs in the fallback's restore. Both turn the collector on.
+    const own = await harnessWithCollectorOff();
+    const source = [
+      "import gc, sys",
+      "class Second:",
+      "    def __del__(self, gc=gc):",
+      "        gc.enable()",
+      "class First:",
+      "    def __del__(self, gc=gc, Second=Second):",
+      "        gc.enable()",
+      "        gc.garbage.append(Second())",
+      'sys.modules["linecache"].cache["ghost"] = First()',
+    ].join("\n");
+    expect(own.run(source)).toMatchObject({ error: { kind: "runtime", message: "" } });
+    expect(own.collectorOn()).toBe(false);
+  }, 60_000);
+
   it("[FR-GRD-04] the harness version changes with the harness: this hash is updated together with HARNESS_VERSION", () => {
     // A stale cached worker is refused only if the version moves with the Python.
     // FNV-1a over the UTF-16 code units: the grader's tests stay free of I/O modules.
@@ -811,6 +901,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2294114720 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "4", hash: 3599052867 });
   });
 });
