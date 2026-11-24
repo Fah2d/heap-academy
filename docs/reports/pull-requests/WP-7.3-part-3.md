@@ -40,6 +40,8 @@ Rounds are numbered on from part 2's round 4. Reports in `docs/reports/reviews/W
 
 ## Decisions taken by default
 
+**Approved by the owner on 2026-11-24:** F, G and H as built.
+
 - **F. The role is created without login.** Its password is a secret of `production-backup`, so it cannot be in a migration. Default: `NOLOGIN` in the migration; the owner sets `LOGIN PASSWORD` in the SQL editor when the workflow exists. Alternative: a login role with no password, which also cannot sign in, but reads as if it could.
 - **G. New `auth` tables are not covered by default privileges.** Only a member of `supabase_auth_admin` could set those, and `postgres` is not one. Default: the test lists every `auth` table without `SELECT`, so a new one fails the `db` job (and the next dump fails loudly, never leaks). A new migration then grants it.
 - **H. The `maintain` privilege is checked only on Postgres 17 and later**, where it exists. `supabase/config.toml` pins no major version, so the check is guarded by `server_version_num`.

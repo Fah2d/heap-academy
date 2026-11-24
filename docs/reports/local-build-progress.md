@@ -2,6 +2,30 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 15:08, after the owner's decisions of 2026-11-24), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` is still 7875ee2 and already in `wp/7.3-operations`. The owner approved every recommended default (see the task list); for WP-7.3 that is decisions A to H.
+
+### Task 1 done: WP-7.3 part 4 (the approved decisions)
+
+- An earlier run had committed part 4's code and spec text (c3a42ac, 0efc4f3, 024c6d3) but not its description or reviews. This run reviewed and finished it.
+- Decision A (the browser sends its bundle's release), B and D (spec text, marked approved by the owner on 2026-11-24), and E as a patch for the owner: `docs/reports/pull-requests/WP-7.3-deploy-dispatch.patch`. Description: `docs/reports/pull-requests/WP-7.3-part-4.md`; parts 1 to 3 now say which decisions the owner approved.
+- `code-reviewer` round 5: CHANGES REQUIRED, two majors: `HEAP_RELEASE` stayed a server variable against decision A (a), and the pull request command lacked the `spec-change` label. `security-reviewer` round 7: APPROVE, three minors. All fixed or listed, not reviewed again. Reports: `docs/reports/reviews/WP-7.3/code-review-5.md` and `security-review-7.md`.
+- The rename to `NEXT_PUBLIC_HEAP_RELEASE` is in the owner's patch, not on the branch, because `deploy.yml` sets the variable and must change in the same commit (decision I). The patch also skips a Deploy run from any branch but `main`.
+- `npm_config_verify_deps_before_run=false pnpm verify` on the branch: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`. With the patch applied: exit 0, 34 files, 747 tests. pnpm's pre-run install failed on the store lock each time; nothing was installed (`pnpm-lock.yaml` unchanged).
+- Not run: the end-to-end suite, `pnpm test:db`, and `next build` on the patched tree.
+- Decision C (analytics) still waits: the two packages are not installed, and these runs may not install packages.
+
+### Task 2: still blocked
+
+`origin/main` has WP-1.1 to 1.4, WP-2.1, WP-6.1 part 1 and WP-6.2 part 1. The packages that depend only on those are WP-2.2 (`origin/wp/2.2-sign-in`) and WP-3.1 (`origin/wp/3.1-python-worker`, pull request #9), and both already have another agent's branch. Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or all of WP-6.1, none in `main` (checked with `git merge-base --is-ancestor`). No branch was started.
+
+### Owner: run this
+
+1. Read the patch, then on `wp/7.3-operations`: `git apply docs/reports/pull-requests/WP-7.3-deploy-dispatch.patch && pnpm verify`, then commit and push it yourself. It adds the manual Deploy run and finishes decision A.
+2. Decision C: `pnpm add @vercel/analytics @vercel/speed-insights`, and turn on Analytics and Speed Insights in Vercel.
+3. Open or update the WP-7.3 pull request with the `spec-change` label (commands at the end of owner actions in `WP-7.3-part-4.md`).
+
 ## Session of 2026-11-24 (from about 13:57, after WP-2.1 merged), in `night-c`, on `wp/7.3-operations`
 
 `origin/main` moved to 7875ee2: WP-2.1 (pull request #12) is merged. That unblocked task 1 again.

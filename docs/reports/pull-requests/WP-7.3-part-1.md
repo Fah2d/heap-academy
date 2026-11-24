@@ -149,6 +149,8 @@ Open MAJOR findings for the owner to waive: the code review's spec major, until 
 
 ## Decisions for the owner
 
+**Approved by the owner on 2026-11-24:** A option (a) and B as proposed. Both are applied in part 4 (`WP-7.3-part-4.md`).
+
 **A. Where the release on a client error line comes from.** 07-operations section 4.2 says the browser sends it. `.env.example` lists `HEAP_RELEASE` as a server variable, and `scripts/check-bundle.mjs` fails a build that has its name or value in a browser file, so sending it from the browser means changing that classification, which is a check. Options:
 - (a) Make the release public: `NEXT_PUBLIC_HEAP_RELEASE`, set from the same parsed value in `next.config.ts` and the deploy build, taken out of the server list in `.env.example`; the report gets a `release` field (40 hex characters or `local`), and the line carries both. The release is not secret: `/api/health` already returns it and the repository is public. The code reviewer recommends this.
 - (b) Keep the server's release and change the spec's wording. A tab still on the old bundle after a deploy is then logged under the new release.

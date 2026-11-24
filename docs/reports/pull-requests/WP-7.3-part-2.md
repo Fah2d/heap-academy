@@ -72,6 +72,8 @@ Nothing to try on a preview. Read the two runbooks; walk section 6 of the rotati
 
 ## Decisions for the owner
 
+**Approved by the owner on 2026-11-24:** C option (a), every item of D, and E option (a). D is applied in part 4; C waits for the owner to add the two packages; E is a patch the owner applies (`WP-7.3-part-4.md`).
+
 **C. How analytics is turned on.** `07-operations.md` section 4.3 asks for the host's cookie-free analytics: page views and Core Web Vitals. Vercel's current documentation (checked 2026-11-24) offers two ways:
 
 - The packages `@vercel/analytics` and `@vercel/speed-insights`, with their Next.js components. They know the per-deployment script path, follow client-side navigation, and accept `beforeSend`, which can strip anything from a URL before it is sent (T-16).
