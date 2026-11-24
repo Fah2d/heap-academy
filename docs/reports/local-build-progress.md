@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 03:10), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. Nothing new was left that needs no owner decision, so this run checked the state, tried the one unverified part of task 1, and stopped.
+
+### State checked
+
+- `origin/main` is still 0efe863. `wp/3.1-python-worker` (2af8c6e), `wp/3.3-grader` (c39ddc7), `wp/3.4-statechart` (bc0b142) and `wp/fix-smoke-and-runtime` (c5e789b) are each 0 commits behind it. `wp/3.3-grader` has all of `wp/3.1-python-worker`, and `wp/3.4-statechart` has all of `wp/3.3-grader`. Task 2 needs no new merge.
+- What is still open in the WP-3.x descriptions needs the owner or a later package: ADR-0034, the section 6 spec change, the phone check, the lint rule's bypasses, the `beforeAll` fix for `scripts/repository.test.ts`, Validate's fresh worker (WP-4.3), and the shared restore routine (WP-3.4 or later). The two header misses in WP-3.1 ("Not fixed") stay as they are: closing them means naming each file in the header rules, which goes against the decision recorded in part 10 to keep the file list in one place. No code changed.
+
+### Task 1 (c) tried again: `e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`, blocked
+
+- `pnpm build` at c5e789b with CI's fake public values: exit 0. `next start` on port 3241, then `playwright test` with a temporary config that has no web servers.
+- Both tests failed before any page loaded: Chromium cannot start in this sandbox (`bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`). The cause of test 2 is still not proven by a run.
+- The sandbox cannot stop the server it started (`pkill: Cannot get process list`).
+
+### Owner: run this
+
+1. `lsof -ti:3241 | xargs kill` in your own terminal: the `next start` from this run still listens there.
+2. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`, as in the task 1 section below.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Nothing on this task list needs no decision from the owner. Decide ADR-0034, the `beforeAll` fix and the section 6 spec change; then the next run can act on them.
+
 ## Session of 2026-11-24 (from about 03:00), in `night-a`, on `wp/3.4-statechart`
 
 Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every branch was level with `origin/main` (0efe863), so this run did the first item under "Next" in the section below, then looked for the flaky test WP-3.4 security review 2 saw. This file came to `wp/3.4-statechart` with the merge (the newest copy, from `wp/3.3-grader`) and this section was added on top.
