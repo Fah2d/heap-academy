@@ -6,6 +6,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 - `git fetch`: `origin/main` is still at 7875ee2 (#12, WP-2.1, merged; #10 was already in it at 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, local and remote heads match. Task 1 has nothing to do.
 - Task 2 (WP-5.1): still blocked on the owner. Docker is not running (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control) and 6 (the error page's wording) have no recommendation, so they stay the owner's. `gh` still fails (`x509: OSStatus -26276`).
+- Checked again at 17:58: `origin/main` still at 7875ee2; every branch head matches its remote (5.1 is one progress commit ahead); Docker still down; `gh` still fails with the same x509 error. Nothing changed.
 - Decision H: this section is committed on `wp/5.1-catalog` but not pushed, because it changes no code and a push only costs a Vercel build. It goes up with the next push of this branch.
 
 ## Session of 2026-11-24 (from about 17:50), in `night-b`, task 2
