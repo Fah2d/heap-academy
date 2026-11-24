@@ -14,12 +14,30 @@
 // ends, in a `__str__` or a `__del__`, so the state is restored after the
 // program, again after its objects are freed, and before the next case.
 //
-// "The state" is what section 5.5 lists, plus the recursion limit and the
-// trace and profile hooks: builtins, the module table, the three streams and
-// a fresh namespace. Changes to a standard library module's attributes are
-// not undone (ADR-0004). Nor is the harness itself protected: a program can
-// reach its closure and change what later test cases on the same worker
-// report, so a check is evidence only for code that is not hostile. Validate
+// "The state" is what section 5.5 lists, plus the interpreter's hooks and
+// settings: builtins, the module table, the three streams, a fresh
+// namespace, the import system's lists (sys.path, sys.meta_path,
+// sys.path_hooks, sys.path_importer_cache), the line cache, the recursion
+// limit, the integer digit limit, the trace and profile hooks, the
+// sys.monitoring tools, the garbage collector's callbacks, the async
+// generator hooks, and the exception, unraisable, display and breakpoint
+// hooks.
+//
+// Not undone: changes to a standard library module's attributes (ADR-0004),
+// audit hooks (they cannot be removed), and sys.monitoring local events set
+// on a code object (no call clears them for every code object; a later case
+// that takes the same tool id would receive them). A monitoring callback that
+// moves to another tool id while the tools are freed is freed on a later
+// pass. After each restore the state is checked by identity; if it is not
+// back (a callback still moving after the last pass, or a __del__ that ran
+// while the state was put back and changed it again), the harness raises
+// NotRestored. The check itself runs no learner code, but an automatic
+// garbage collection while it runs can call a __del__ from a reference cycle
+// after a part has passed. A fresh worker is the control for all of these.
+//
+// Nor is the harness itself protected: a program can reach its closure and
+// change what later test cases on the same worker report, so a check is
+// evidence only for code that is not hostile. Validate
 // (WP-4.3) must start a new worker for each program (`freshWorker`); the spec
 // text for that is an open owner decision.
 //
@@ -27,7 +45,7 @@
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "2";
+export const HARNESS_VERSION = "3";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -62,20 +80,61 @@ def _heap_make_grader():
     sys_dict = sys.__dict__
     modules = sys.modules
     modules_snapshot = dict(modules)
-    sys_snapshot = {name: sys_dict[name] for name in ("modules", "stdin", "stdout", "stderr")}
+    sys_snapshot = {
+        name: sys_dict[name]
+        for name in (
+            "modules", "stdin", "stdout", "stderr",
+            "excepthook", "unraisablehook", "displayhook", "breakpointhook",
+            "path", "meta_path", "path_hooks", "path_importer_cache",
+        )
+    }
+    # The harness writes its two file names here before each case, so a key
+    # the program left could run its __eq__ there; the cache is put back.
     line_cache = linecache.cache
+    line_cache_snapshot = dict(line_cache)
     # Interpreter settings outside sys.__dict__ that a test case could change
     # for the next one, or use to run its code inside the harness.
     recursion_limit = sys.getrecursionlimit()
     set_recursion_limit = sys.setrecursionlimit
     set_trace = sys.settrace
     set_profile = sys.setprofile
+    # The sys.monitoring tool ids (0 to 5) that are free now are freed again
+    # after each case; freeing one also removes its events and callbacks.
+    monitoring = sys.monitoring
+    get_tool = monitoring.get_tool
+    set_events = monitoring.set_events
+    free_tool_id = monitoring.free_tool_id
+    tool_ids = [tool for tool in range(6) if get_tool(tool) is None]
+    # A callback can take a freed id again while the others are freed, so
+    # the ids are freed in up to eight passes.
+    passes = [index for index in range(8)]
+    # The interpreter calls this list object, whatever gc.callbacks names.
+    gc_callbacks = gc.callbacks
+    gc_callbacks_snapshot = list(gc_callbacks)
+    list_clear = list.clear
+    list_extend = list.extend
+    # Changed in place by an import hook or a program; the names themselves
+    # are put back with sys_snapshot.
+    import_lists = [(sys.path, list(sys.path)), (sys.meta_path, list(sys.meta_path)),
+                    (sys.path_hooks, list(sys.path_hooks))]
+    importer_cache = sys.path_importer_cache
+    importer_cache_snapshot = dict(importer_cache)
+    digit_limit = sys.get_int_max_str_digits()
+    set_digit_limit = sys.set_int_max_str_digits
+    asyncgen_hooks = sys.get_asyncgen_hooks()
+    set_asyncgen_hooks = sys.set_asyncgen_hooks
+    get_asyncgen_hooks = sys.get_asyncgen_hooks
+    get_digit_limit = sys.get_int_max_str_digits
+    get_recursion_limit = sys.getrecursionlimit
+    get_trace = sys.gettrace
+    get_profile = sys.getprofile
+    dict_get = dict.get
+    dict_items = dict.items
+    absent = object()
 
     dict_clear = dict.clear
     dict_update = dict.update
-    dict_pop = dict.pop
     dict_keys = dict.keys
-    to_list = list
     to_text = str
     join = str.join
     plain_text = str.__str__
@@ -113,6 +172,11 @@ def _heap_make_grader():
     class OutputLimit(base_exception):
         pass
 
+    # Raised when the state is not back after a restore, so that the harness
+    # fails closed.
+    class NotRestored(base_exception):
+        pass
+
     # Standard output of the program and the follow-up code, and how much
     # room is left. Past the limit a write keeps what fits and raises, so a
     # flood stops at its next print. A program can still reach the count,
@@ -141,18 +205,99 @@ def _heap_make_grader():
         return Capture(), state
 
     # The profile hook goes first: it runs on the call that removes the trace
-    # hook, and could put that hook back.
+    # hook, and could put that hook back. A monitoring callback runs on these
+    # calls too, until its tool is freed.
     def restore():
         set_profile(None)
         set_trace(None)
+        for index in passes:
+            in_use = False
+            for tool in tool_ids:
+                if get_tool(tool) is not None:
+                    in_use = True
+                    set_events(tool, 0)
+                    free_tool_id(tool)
+            if not in_use:
+                break
+        list_clear(gc_callbacks)
+        list_extend(gc_callbacks, gc_callbacks_snapshot)
+        for current, snapshot in import_lists:
+            list_clear(current)
+            list_extend(current, snapshot)
+        dict_clear(importer_cache)
+        dict_update(importer_cache, importer_cache_snapshot)
+        set_digit_limit(digit_limit)
+        set_asyncgen_hooks(*asyncgen_hooks)
         set_recursion_limit(recursion_limit)
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
-        for name in to_list(dict_keys(modules)):
-            if name not in modules_snapshot:
-                dict_pop(modules, name, None)
+        # Cleared rather than emptied name by name, so the program's keys are
+        # not hashed while the table is cleared. A key a __del__ adds during
+        # the clear is still compared by the update; intact() then fails.
+        dict_clear(modules)
         dict_update(modules, modules_snapshot)
+        dict_clear(line_cache)
+        dict_update(line_cache, line_cache_snapshot)
+        if not intact():
+            raise NotRestored()
+
+    def same_list(current, snapshot):
+        if length(current) != length(snapshot):
+            return False
+        index = 0
+        for item in current:
+            if item is not snapshot[index]:
+                return False
+            index += 1
+        return True
+
+    # Every key is a plain str, checked before any lookup: a lookup compares
+    # keys with the same hash, and a learner's key could run its __eq__.
+    def plain_keys(current):
+        for key in dict_keys(current):
+            if kind_of(key) is not to_text:
+                return False
+        return True
+
+    def same_dict(current, snapshot):
+        if length(current) != length(snapshot) or not plain_keys(current):
+            return False
+        for key, value in dict_items(snapshot):
+            if dict_get(current, key, absent) is not value:
+                return False
+        return True
+
+    # Whether the state is back, checked by identity and with calls that free
+    # no object. Clearing a dict or a list frees the learner's objects in it,
+    # and a __del__ that runs then can change the state again after its part
+    # was put back: set a monitoring tool, add a builtin, put back a finder.
+    def intact():
+        if get_trace() is not None or get_profile() is not None:
+            return False
+        for tool in tool_ids:
+            if get_tool(tool) is not None:
+                return False
+        hooks = get_asyncgen_hooks()
+        if hooks[0] is not asyncgen_hooks[0] or hooks[1] is not asyncgen_hooks[1]:
+            return False
+        if get_recursion_limit() != recursion_limit or get_digit_limit() != digit_limit:
+            return False
+        if not plain_keys(sys_dict):
+            return False
+        for name, value in dict_items(sys_snapshot):
+            if dict_get(sys_dict, name, absent) is not value:
+                return False
+        for current, snapshot in import_lists:
+            if not same_list(current, snapshot):
+                return False
+        return (
+            same_list(gc_callbacks, gc_callbacks_snapshot)
+            and same_dict(importer_cache, importer_cache_snapshot)
+            and same_dict(builtins_dict, builtins_snapshot)
+            and same_dict(modules, modules_snapshot)
+            and same_dict(line_cache, line_cache_snapshot)
+        )
 
     def register(name, source):
         line_cache[name] = (length(source), None, split_lines(source, True), name)
@@ -245,9 +390,12 @@ def _heap_make_grader():
     # case is a runtime error of the program, with no message and no output,
     # whichever stage it came from. The hooks are cleared first. A profile
     # hook still runs on the call that removes it, and can set a raising trace
-    # hook on this frame; code that rewrites the harness's closure can too.
-    # Then the harness raises: the worker gives up with runtime_crashed and is
-    # replaced, and the Node runner reports the test case as crashed.
+    # hook on this frame; code that rewrites the harness's closure can too, and
+    # so can a monitoring callback that raises on every call, as no call can
+    # then run to free its tool. A state that is still not back after the
+    # fallback makes the harness raise too. Then the harness raises: the worker gives up with
+    # runtime_crashed and is replaced, and the Node runner reports the test
+    # case as crashed.
     def check(source, stdin, after_code):
         try:
             return run_case(source, stdin, after_code)
@@ -255,9 +403,18 @@ def _heap_make_grader():
             set_profile(None)
             set_trace(None)
             try:
+                for tool in tool_ids:
+                    if get_tool(tool) is not None:
+                        set_events(tool, 0)
+                        free_tool_id(tool)
+            except base_exception:
+                pass
+            try:
                 restore()
             except base_exception:
                 pass
+            if not intact():
+                raise NotRestored()
             return result("program", "", False, ("runtime", "", None, None))
 
     def run_case(source, stdin, after_code):
