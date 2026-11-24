@@ -30,7 +30,9 @@
 // pass. After each restore the state is checked by identity; if it is not
 // back (a callback still moving after the last pass, or a __del__ that ran
 // while the state was put back and changed it again), the harness raises
-// NotRestored. A fresh worker is the control for all of these.
+// NotRestored. The check itself runs no learner code, but an automatic
+// garbage collection while it runs can call a __del__ from a reference cycle
+// after a part has passed. A fresh worker is the control for all of these.
 //
 // Nor is the harness itself protected: a program can reach its closure and
 // change what later test cases on the same worker report, so a check is
@@ -245,8 +247,16 @@ def _heap_make_grader():
             index += 1
         return True
 
+    # Every key is a plain str, checked before any lookup: a lookup compares
+    # keys with the same hash, and a learner's key could run its __eq__.
+    def plain_keys(current):
+        for key in dict_keys(current):
+            if kind_of(key) is not to_text:
+                return False
+        return True
+
     def same_dict(current, snapshot):
-        if length(current) != length(snapshot):
+        if length(current) != length(snapshot) or not plain_keys(current):
             return False
         for key, value in dict_items(snapshot):
             if dict_get(current, key, absent) is not value:
@@ -267,6 +277,8 @@ def _heap_make_grader():
         if hooks[0] is not asyncgen_hooks[0] or hooks[1] is not asyncgen_hooks[1]:
             return False
         if get_recursion_limit() != recursion_limit or get_digit_limit() != digit_limit:
+            return False
+        if not plain_keys(sys_dict):
             return False
         for name, value in dict_items(sys_snapshot):
             if dict_get(sys_dict, name, absent) is not value:

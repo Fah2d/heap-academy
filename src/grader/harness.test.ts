@@ -555,6 +555,98 @@ describe("the harness", () => {
     expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
   }, 60_000);
 
+  // WP-3.3 security review 4, round 3, MINOR 2: one probe for each part
+  // intact() checks. The __del__ runs while restore() frees the object, after
+  // that part was put back; the next restore cleans up, so the case is a
+  // runtime error and the next test case is clean.
+  const changedAfterItsRestore: [string, string, string][] = [
+    ["the trace hook", "builtins.ghost = Ghost()", "sys.settrace(lambda *args: None)"],
+    ["the builtins", "builtins.ghost = Ghost()", 'builtins.__dict__["extra"] = 1'],
+    ["the module table", 'sys.modules["ghost_module"] = Ghost()', 'sys.modules["extra"] = sys'],
+    ["a sys name", "sys.breakpointhook = Ghost()", "sys.excepthook = say"],
+    ["an import list", "sys.meta_path.append(Ghost())", 'sys.path.append("/nowhere")'],
+    [
+      "the importer cache",
+      "builtins.ghost = Ghost()",
+      'sys.path_importer_cache["/nowhere"] = None',
+    ],
+    ["the garbage collector's callbacks", "builtins.ghost = Ghost()", "gc.callbacks.append(say)"],
+    [
+      "the async generator hooks",
+      "builtins.ghost = Ghost()",
+      "sys.set_asyncgen_hooks(firstiter=say)",
+    ],
+    ["the recursion limit", "builtins.ghost = Ghost()", "sys.setrecursionlimit(500)"],
+  ];
+  for (const [part, place, change] of changedAfterItsRestore) {
+    it(`[FR-RUN-04] a __del__ that changes ${part} after its restore makes the test case a runtime error`, () => {
+      const source = [
+        "import builtins, gc, sys",
+        "class Ghost:",
+        "    def __del__(self, builtins=builtins, gc=gc, sys=sys, say=print):",
+        `        ${change}`,
+        place,
+      ].join("\n");
+      expect(run(source)).toEqual({
+        version: HARNESS_VERSION,
+        stage: "program",
+        output: "",
+        truncated: false,
+        error: { kind: "runtime", message: "" },
+      });
+      expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+    });
+  }
+
+  it("[FR-RUN-04] a builtin key that is not a plain str makes the test case a runtime error, and its __eq__ does not reach the next", () => {
+    // WP-3.3 security review 4, round 3, MINOR 1: the key has the hash of
+    // "len" and equals anything, so a lookup of "len" found the real value.
+    const source = [
+      "import builtins",
+      'H = hash("len")',
+      "class Key:",
+      "    def __hash__(self, H=H):",
+      "        return H",
+      "    def __eq__(self, other, say=print):",
+      '        say("INJECTED")',
+      "        return True",
+      "class Ghost:",
+      "    def __del__(self, b=builtins.__dict__, Key=Key):",
+      "        b[Key()] = 0",
+      "builtins.ghost = Ghost()",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "", error: { kind: "runtime", message: "" } });
+    expect(run('print(len("abc"))')).toMatchObject({ output: "3\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] a sys name key that is not a plain str makes the harness raise", async () => {
+    // The key is added while it equals nothing, then equals "stdout". The
+    // restore puts sys names back but does not clear sys.__dict__, so the key
+    // stays and the harness cannot recover. Its own interpreter.
+    const own = await loadHarness();
+    const source = [
+      "import sys",
+      'H = hash("stdout")',
+      "armed = []",
+      "class Key:",
+      "    def __hash__(self, H=H):",
+      "        return H",
+      "    def __eq__(self, other, say=print, armed=armed):",
+      "        if armed:",
+      '            say("INJECTED")',
+      "        return bool(armed)",
+      "sys.__dict__[Key()] = 0",
+      "armed.append(1)",
+    ].join("\n");
+    let thrown: unknown;
+    try {
+      own.check(source, "", "");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
+  }, 60_000);
+
   it("[FR-RUN-04] the integer digit limit and the async generator hooks come back for the next test case", () => {
     const settings = "import sys\nprint(sys.get_int_max_str_digits(), sys.get_asyncgen_hooks())";
     const before = run(settings);
@@ -582,6 +674,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2251569791 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 1526123713 });
   });
 });
