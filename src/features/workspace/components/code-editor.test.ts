@@ -58,6 +58,7 @@ describe("the code editor's extensions", () => {
   it("names the editor by its label and describes how to leave it [NFR-A11Y-03]", () => {
     const attributes = state("").facet(EditorView.contentAttributes);
     expect(attributes).toContainEqual({
+      tabindex: "0",
       "aria-labelledby": "label",
       "aria-describedby": "hint",
       "aria-multiline": "true",

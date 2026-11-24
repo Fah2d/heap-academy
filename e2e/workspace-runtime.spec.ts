@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
 import { workspaceGallery } from "../src/messages/gallery";
-import { learnerErrorHeading, workspace as words } from "../src/messages/workspace";
+import { goToLine, learnerErrorHeading, workspace as words } from "../src/messages/workspace";
 import { SOURCE_LIMIT } from "../src/runtime/protocol";
 import { saveScreen } from "./screens";
 
@@ -38,9 +38,14 @@ async function write(page: Page, code: string) {
 }
 
 // A state change has a 160 ms color transition (DESIGN.md section 7); axe and
-// the screenshots measure the settled colors.
+// the screenshots measure the settled colors. Endless animations, such as the
+// editor's blinking cursor, are not waited for.
 async function settled(page: Page) {
-  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((animation) => animation.effect?.getComputedTiming().iterations === Infinity),
+  );
 }
 
 async function noAxeViolations(page: Page) {
@@ -192,6 +197,120 @@ test("[FR-WSP-04] a program over the worker's limit is refused with the reason",
   await runButton(page).click();
   await expect(page.getByText(words.tooLarge("source", SOURCE_LIMIT))).toBeVisible();
   await expect(page.getByText(words.consoleEmpty)).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-refused");
   await write(page, 'print("fits")\n');
   await expect(page.getByText(words.tooLarge("source", SOURCE_LIMIT))).toHaveCount(0);
+});
+
+test("[NFR-PERF-03] [FR-WSP-17] while Python loads, the lesson reads and the editor takes typing", async ({
+  page,
+}) => {
+  // Python's files are held, as on a slow connection.
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.context().route("**/_runtime/pyodide/**", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.reload();
+  await expect(python(page)).toHaveAttribute("data-python", /idle|loading/);
+  await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
+  await write(page, 'print("typed while loading")\n');
+  await expect(editor(page)).toHaveText('print("typed while loading")');
+  await expect(page.getByText(words.starting).first()).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-loading");
+  release();
+  await ready(page);
+});
+
+test("[FR-WSP-17] a failed load offers Retry", async ({ page }) => {
+  await page.context().route("**/_runtime/pyodide/**", (route) => route.abort());
+  await page.reload();
+  await expect(python(page)).toHaveAttribute("data-python", "failed", { timeout: READY_MS });
+  await expect(page.getByRole("button", { name: words.retry })).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-load-failed");
+  await page.context().unroute("**/_runtime/pyodide/**");
+  await page.getByRole("button", { name: words.retry }).click();
+  await ready(page);
+});
+
+test("[FR-WSP-09] a syntax error names its line, and Go to line moves the cursor there", async ({
+  page,
+}) => {
+  await ready(page);
+  await write(page, 'name = "Ada"\nprint(name\n');
+  await runButton(page).click();
+  const go = page.getByRole("button", { name: goToLine(2) });
+  await expect(go).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-syntax-error");
+  await go.click();
+  await expect(editor(page)).toBeFocused();
+});
+
+test("[FR-WSP-10] reset asks first, and Undo brings the code back", async ({ page }) => {
+  await ready(page);
+  await write(page, 'print("mine")\n');
+  await page.getByRole("button", { name: words.reset }).click();
+  await page.getByRole("dialog").getByRole("button", { name: words.resetConfirm }).click();
+  await expect(editor(page)).toHaveText(EXAMPLE_LESSON.starter.trimEnd());
+  await expect(page.getByText(words.resetDone)).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-reset");
+  await page.getByRole("button", { name: words.undo }).click();
+  await expect(editor(page)).toHaveText('print("mine")');
+});
+
+test("[FR-PRG-01] saved code comes back on the next visit", async ({ page }) => {
+  await ready(page);
+  await write(page, 'print("kept")\n');
+  // Saved when typing pauses (400 ms). The reload waits until the device has it.
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (key) =>
+          new Promise<unknown>((resolve) => {
+            const open = indexedDB.open("heap-academy", 1);
+            open.onsuccess = () => {
+              const read = open.result.transaction("code").objectStore("code").get(key);
+              read.onsuccess = () => {
+                resolve(read.result);
+              };
+            };
+          }),
+        `${workspaceGallery.courseSlug}/${workspaceGallery.lessonSlug}`,
+      ),
+    )
+    .toBe('print("kept")\n');
+  await page.reload();
+  await expect(page.getByText(words.restored)).toBeVisible();
+  await expect(editor(page)).toHaveText('print("kept")');
+  await screens(page, "workspace-restored");
+});
+
+test("[FR-SYS-02] a browser that cannot run Python sees why, not a broken workspace", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, "Worker");
+  });
+  await page.reload();
+  await expect(page.getByText(words.unsupportedTitle)).toBeVisible();
+  await expect(runButton(page)).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-unsupported");
+});
+
+test("[NFR-A11Y-01] a program longer than the editor stays reachable by keyboard", async ({
+  page,
+}) => {
+  await ready(page);
+  await write(page, Array.from({ length: 60 }, (_, line) => `print(${line})`).join("\n"));
+  await noAxeViolations(page);
 });

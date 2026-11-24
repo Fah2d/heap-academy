@@ -159,6 +159,11 @@ export function editorAttributes({
   invalid = false,
 }: Pick<EditorOptions, "labelledBy" | "describedBy" | "invalid">): Extension {
   return EditorView.contentAttributes.of({
+    // The text area is in the tab order already, as an editable element. Said
+    // outright, so a checker that does not count editable elements sees that
+    // the scrolling box around a long program can be reached by keyboard
+    // (axe `scrollable-region-focusable`, WP-5.2).
+    tabindex: "0",
     "aria-labelledby": labelledBy,
     "aria-describedby": describedBy,
     "aria-multiline": "true",
