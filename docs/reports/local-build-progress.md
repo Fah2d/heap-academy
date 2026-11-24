@@ -2,6 +2,36 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 19:24), in `night-c`, on `wp/7.3-operations`
+
+New owner decisions of 2026-11-24 for WP-5.1: owner action 5 (fix the backtick `import()` lint bypass as its own small branch from `origin/main`) and owner action 6 (the error page wording). `origin/main` is still 7875ee2.
+
+### Task 1: nothing new on `wp/7.3-operations`
+
+It already contains `origin/main` (checked with `git merge-base --is-ancestor`). Still not pushed: the notes in the sections below and this one, to save a Vercel build.
+
+### Owner action 5: built here, then found already pushed by another agent; not pushed
+
+- This run built the fix on a branch from `origin/main` (four commits, three `security-reviewer` rounds, each APPROVE; `pnpm verify` exit 0, 28 files, 735 tests). At push time (about 19:38), `origin/wp/fix-lint-template-import` already existed: another agent pushed it at 19:33 (01c8227, 9f15550), with its own description and two security reviews.
+- That branch is the one to keep. It refuses every computed `import()` and `require()` source except in `src/runtime/worker/python-worker.ts`, which is stricter than this run's version, and it matches bce0f08, which is already on `wp/3.3-grader`, 3.4, 4.3 and 5.2. Pushing this run's version would have made a second pull request for the same fix, and it would conflict with those branches.
+- This run's version is kept only locally, as `wp/fix-lint-template-import-night-c-local` in `night-c`. Nothing from it was pushed.
+- Two things from this run's three security reviews may help the other branch's review. Neither is a gap outside the worker file, because that branch refuses every computed source there:
+  - In the worker file, which is allowed to compute an import, `import(flag ? "@/infrastructure/db/privileged" : "@/ui")` and `import("@/infrastructure/db/privileged" as string)` would pass. TypeScript's `as`, `satisfies`, `!` and `<T>` disappear at build time, so the bundler sees a fixed string.
+  - In the worker file, a source that joins to a whole fixed string, such as `"@/infrastructure/db/" + "privileged"`, also passes; the other branch's test refuses it only in a feature.
+
+### Owner action 6: not done here
+
+The error page string ("Something failed on our side while we prepared this page. Try again." in `src/messages/system.ts`, from WP-1.4) is shown on `wp/5.1-catalog`'s failure screens, so the new wording ("We could not prepare this page. Try again.") belongs on that branch, with its screens retaken. That is another agent's branch, so this run did not edit it.
+
+### Task 2: still blocked
+
+Same as the sections below: every package that depends only on `origin/main` (WP-2.2, WP-3.1) already has another agent's branch. No branch was started.
+
+### Owner: run this
+
+1. Open or update the pull request for `origin/wp/fix-lint-template-import` (the other agent's branch). If you want the two worker-file forms above refused, tell that branch's agent.
+2. Apply owner action 6 on `wp/5.1-catalog`.
+
 ## Session of 2026-11-24 (from about 15:24), in `night-c`, on `wp/7.3-operations`
 
 `origin/main` is still 7875ee2 and already in `wp/7.3-operations`. No branch was merged since the run before.
