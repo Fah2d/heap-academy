@@ -2,6 +2,33 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 04:00), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing. The "Next" item below waits on the owner (`wp/fix-smoke-and-runtime` is not in `main`), so this run took WP-3.3 owner action 6: a third review round on the round-2 fixes. This file is the copy from `wp/3.3-grader` (the newest) with this section added on top.
+
+### Task 3, part 19 done: WP-3.3 review round 3, and its fixes
+
+- Code review 3 and security review 3 on 9043a9a, 06c39bb and f7261ad, at f65a033: both **APPROVE**, no blocker, no major; four and two minors. Reports: `docs/reports/reviews/WP-3.3/code-review-3.md`, `security-review-3.md`.
+- b67f730: `restore` clears the profile hook before the trace hook (two hooks that put each other back no longer turn a clean program into a runtime error); three harness tests pin the fallback's order, the restore order, and the case where a profile hook makes the harness raise (the worker then crashes and is replaced); comments corrected; a doc comment on the `ready` event; `HARNESS_VERSION` "2" with the new hash.
+- Mutants: each of the three new tests fails under a mutant of its fix (table in the description).
+- `pnpm verify` on b67f730: exit 0, 42 files, 1036 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle`: exit 0.
+- Decision: `HARNESS_VERSION` moved to "2" instead of only updating the pinned hash, because the test says the two move together (security review 3, MINOR 2). The owner can set it back to "1" if versions should count from the first release.
+- Not fixed, for the owner: code review 3 MINOR 3 (nothing enforces that only the runner's test passes `threadUrl`), the optional JavaScript-side hook clearing, and a `dispose()` from a `restarting` listener leaving a worker running (outside the range).
+- Not run: the browser tests on b67f730; no reviewer has seen b67f730.
+- Description: `docs/reports/pull-requests/WP-3.3.md` (first line, the API rows, "How it was verified", Reviews round 3, owner action 6, the `HARNESS_VERSION` deviation).
+- Push: `wp/3.3-grader` with b67f730 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. WP-3.3 owner action 6: decide `threadUrl` enforcement and the harness version count.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with b67f730) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+- After `wp/fix-smoke-and-runtime` merges into `main`: the "Next" item of the section below.
+
 ## Session of 2026-11-24 (from about 03:47, continued), in `night-a`, on `wp/3.3-grader`
 
 Part 17 took about 10 minutes, so the run went on with the item under "Next" in the section below. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top; the copy on `wp/3.4-statechart` is now older than this one.

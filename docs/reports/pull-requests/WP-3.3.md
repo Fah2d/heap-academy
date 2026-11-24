@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 3e50d99, at 5b77939), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit.
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 3e50d99, at 5b77939), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you (see Reviews).
 
 ## What and why
 
@@ -23,9 +23,9 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 |---|---|
 | Test case model: `id`, `name` (1 to 80 characters, not blank), `stdin` (2,000), `afterCode` (2,000), `expected` (5,000), `match` (default `normalized`), `hint` (200). Limits count characters as a reader does. Absent `stdin`, `afterCode` and `hint` are empty. Null is never valid. A check carries 1 to 12 test cases with distinct IDs, the lesson's limit (section 1.3). | `src/grader/test-case.ts` |
 | Comparison. `normalized`: `\r\n` and `\r` become `\n`, each line loses trailing whitespace (`trimEnd`, which includes Unicode spaces), trailing blank lines go; leading whitespace and case stay. `exact`: the same text. `contains`: the normalized expected text appears in the normalized output. | `src/grader/compare.ts` |
-| The harness, `HARNESS_VERSION` "1". Per test case: restore builtins, the module table and the streams; a fresh `__main__` namespace; `stdin` from the test case; the program; then, if it finished without an error, the follow-up code in the same namespace. Output is captured up to 64,000 characters; past that a write keeps what fits and raises an exception the program's `except Exception` cannot catch. The count lives in the harness, not on the stream, a text subclass is counted as text, and the result is cut to the limit again whatever the program did. Standard error is discarded. `exit()`, `exit(0)` and `exit(False)` count as finishing; an exit whose code cannot be read does not. The result says which stage failed, with the error's kind, summary, the learner's line, and, when the follow-up code itself names something the program did not define, the missing name ("This test needs something named `area`"), 1 to 200 characters. A misspelled name inside the learner's function is the learner's error at its line. Builtins, the module table, the streams, the recursion limit and the trace and profile hooks are restored after the program, again after a garbage-collection pass, and before the next case, and nothing after learner code starts looks a builtin up by name. If learner code still makes a harness step raise, the harness restores the state and returns a runtime error for the program: it never raises. The result is built without `json`. A test pins a hash of the Python next to the version, so the version cannot be forgotten. | `src/grader/harness.ts` |
+| The harness, `HARNESS_VERSION` "2". Per test case: restore builtins, the module table and the streams; a fresh `__main__` namespace; `stdin` from the test case; the program; then, if it finished without an error, the follow-up code in the same namespace. Output is captured up to 64,000 characters; past that a write keeps what fits and raises an exception the program's `except Exception` cannot catch. The count lives in the harness, not on the stream, a text subclass is counted as text, and the result is cut to the limit again whatever the program did. Standard error is discarded. `exit()`, `exit(0)` and `exit(False)` count as finishing; an exit whose code cannot be read does not. The result says which stage failed, with the error's kind, summary, the learner's line, and, when the follow-up code itself names something the program did not define, the missing name ("This test needs something named `area`"), 1 to 200 characters. A misspelled name inside the learner's function is the learner's error at its line. Builtins, the module table, the streams, the recursion limit and the trace and profile hooks are restored after the program, again after a garbage-collection pass, and before the next case, and nothing after learner code starts looks a builtin up by name. If learner code still makes a harness step raise, the harness restores the state and returns a runtime error for the program: it never raises. The result is built without `json`. A test pins a hash of the Python next to the version, so the version cannot be forgotten. | `src/grader/harness.ts` |
 | Verdicts. A test case passes when nothing failed and the output matches under its mode. It fails with `mismatch`, `program_error`, `after_code_error` or `output_limit`, decided from the harness's result, or `time_limit`, `stopped` or `crashed`, decided by whoever owns the clock. After a time limit, Stop or a crash, the rest are `not_run`. The summary counts each and says whether every test case passed and whether one reached the time limit (validation rule 5). | `src/grader/grade.ts` |
-| Node runner: `createNodeRunner({ timeLimitMs })` with `check(source, testCases)` and `close()`. The thread loads Pyodide from the `pyodide` package and evaluates the harness. At the limit, when the thread dies, or after a memory error, the thread is terminated and the next check starts a new one. A result of another harness version is a crash, as in the worker. | `src/grader/node-runner/` |
+| Node runner: `createNodeRunner({ timeLimitMs, threadUrl })` (`threadUrl` is set only by the runner's own test) with `check(source, testCases)` and `close()`. The thread loads Pyodide from the `pyodide` package and evaluates the harness. At the limit, when the thread dies, or after a memory error, the thread is terminated and the next check starts a new one. A result of another harness version is a crash, as in the worker. | `src/grader/node-runner/` |
 | Lint: `src/grader/node-runner/` is exempt from purity, and only it, tests and scripts may import it (ADR-0032, built here as that ADR says). Only a test may import a test file, so a test cannot pass the runner on. An `import()` or `require` whose source is computed is refused, except the worker's one import of Pyodide from its asset base. | `scripts/eslint/module-boundaries.mjs`, `eslint.config.mjs` |
 | Protocol: `init { assetBase, harnessVersion }`; `check { runId, source, tests }`; `test_result { runId, result }`; `check_done { runId, summary }`. Test cases, results and summaries are parsed by the grader's parsers. A summary whose counts do not add up is refused. | `src/runtime/protocol.ts` |
 | Worker: evaluates the harness at load. Refuses an `init` whose harness version is not its own (`fatal version_mismatch`), so a page never trusts a stale cached worker's verdicts. For `check`, closes the runtime's own streams, runs each test case, posts each result as it is decided, then the summary. A harness result it cannot parse, or of another version, means the runtime is broken (`fatal runtime_crashed`). | `src/runtime/worker/core.ts` |
@@ -51,6 +51,21 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 Not run on the merge: the browser tests.
 
 ## How it was verified
+
+**Review round 3 fixes (b67f730), 2026-11-24.** `pnpm verify`, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1036 passed (1036)
+```
+
+`pnpm build` with CI's fake public values: exit 0; `node scripts/check-bundle.mjs .next/static`: exit 0; the built `public/_runtime/worker/grader/harness.js` has `HARNESS_VERSION = "2"`. Mutants of `src/grader/harness.ts`, each run against `src/grader/harness.test.ts` and then restored:
+
+| Mutant | First new test that fails |
+|---|---|
+| Fallback clears the trace hook before the profile hook | `a raising trace hook that puts back the profile hook gives a result` (11 failed of 35) |
+| Fallback without `set_trace(None)` | the same (11 failed of 35) |
+| `restore` clears the trace hook first (the old order) | `two hooks that put each other back and never raise leave a clean program's result as it is` (2 failed of 35, with the hash pin) |
 
 **The runner's version check test (f7261ad), 2026-11-24.** `pnpm verify` on f7261ad, exit 0:
 
@@ -233,7 +248,7 @@ Not fixed, for you:
 - **Security MINOR 4:** further ways past the lint rule (an import through `scripts/`, `createRequire`, an aliased `require`, `module.require`, a `Worker` URL, a `?raw` suffix), and no build-output check for Node-runner symbols. `scripts/eslint/module-boundaries.mjs` is an enforcement control; changing it is left to you.
 - **Security MINOR 5:** `sys.monitoring`, `gc.callbacks`, audit hooks, `sys.excepthook` and `sys.unraisablehook` survive into later test cases on the same worker. Covered by "a check is evidence only for code that is not hostile" and `freshWorker`; listed under "Not fixed".
 - **Security MINOR 6:** a learner function that calls `exit()` during the follow-up code ends that stage cleanly. See the new deviation.
-- The `restore` order (profile hook first) was tried and reverted: with the fallback clearing the hooks, no test could tell the two orders apart.
+- The `restore` order (profile hook first) was tried and reverted, on the belief that no test could tell the two orders apart. Code review 3 showed that was wrong; see round 3 below.
 
 Fixed later, in f7261ad (2026-11-24):
 
@@ -241,7 +256,26 @@ Fixed later, in f7261ad (2026-11-24):
 |---|---|
 | Security MINOR 7 (version part), code MINOR 4 (version part): the runner's harness-version check had no test | `createNodeRunner` takes an optional `threadUrl`, set only by the runner's own test. That test starts `scripts/testing/other-harness-version-thread.ts`, which answers every test case with a passing result of another harness version. The first test case is `crashed` and the second `not_run`. With the version check removed, both pass and the test fails (seen). |
 
-No third review round has run on 9043a9a, 06c39bb and f7261ad.
+Round 3, on the round-2 fixes 9043a9a, 06c39bb and f7261ad, run on 2026-11-24 at f65a033:
+
+- Code review: `docs/reports/reviews/WP-3.3/code-review-3.md`. **APPROVE**: no blocker, no major, four minors. Every round-2 fix verified by a mutant its test catches (20 mutants).
+- Security review: `docs/reports/reviews/WP-3.3/security-review-3.md`. **APPROVE**: no blocker, no major, two minors. The race fix is complete; `threadUrl` is reachable only from the runner's test and absent from the build output.
+
+Fixed in b67f730, each new test seen failing under a mutant of its fix (table under "How it was verified"):
+
+| Finding | What was done |
+|---|---|
+| Code MINOR 1: the order and the second call of the fallback's hook clearing had no test | Test with the reviewer's program P2 (a raising tracer that puts back the profile hook), and the next test case. |
+| Code MINOR 2: in `restore`, a profile hook that puts back the tracer turned a clean program into a runtime error | `restore` clears the profile hook first. Test with P3 plus a `print`: the output stays and there is no error. |
+| Code MINOR 4: the `ready` event can arrive while the controller is `checking` | Doc comment on the event: read `status`, not the event. |
+| Security MINOR 1: the comments said the harness cannot be made to raise by a hook | The `check` comment and `core.ts` now say a profile hook can make it raise, and that the worker then crashes and is replaced (the runner reports `crashed`). The reviewer's program A is a test that expects the harness to raise and the next test case to run. |
+| Security MINOR 2: the Python changed but `HARNESS_VERSION` stayed "1" | `HARNESS_VERSION` is "2", with the new hash. Decision below. |
+
+Not fixed, for you:
+
+- **Code MINOR 3:** nothing enforces that only the runner's test passes `threadUrl`. It gives no new capability (only tests and scripts can import the runner). Options: an internal factory with a test-only export, or refusing a URL whose protocol is not `file:` (security review 3's optional hardening). The API row above now names the option.
+- **Security MINOR 1, optional part:** clearing the hooks from JavaScript before the harness gives up, which might close the case program A pins. Not tried.
+- **Outside the range (security review 3):** calling `dispose()` from a `restarting` listener leaves a worker running, because `restart()` spawns after the event. No learner code runs in it; `use-runtime.ts` calls `dispose` only on unmount.
 
 ## Try it
 
@@ -258,7 +292,7 @@ pnpm vitest run src/grader
 3. Decide whether to open a `spec-change` that adds to WP-4.3's "Done when": Validate uses `check(..., { freshWorker: true })` for every program, with a test that a tampering program in one validation does not change the next one's verdict; and adds to T-23 that Validate is no evidence for hostile imported code, so the owner reads imported code before pressing Validate.
 4. Decide whether `pyodide` moves to `devDependencies` (security review, MINOR 4).
 5. Decide whether `contains` with an empty expected text should be refused; today it always passes (code review, design notes).
-6. Ask for a third review round on the round 2 fixes (9043a9a, 06c39bb, f7261ad), or accept them on this evidence.
+6. Review round 3 has run (both APPROVE). Decide code review 3 MINOR 3 (`threadUrl` enforcement) and whether `HARNESS_VERSION` should count from the first release instead (see Deviations).
 7. Decide security review 2, MINOR 1 (make `freshWorker` required) with action 3, and MINOR 4 (the lint rule's remaining bypasses and a build-output check).
 
 ## Deviations from the plan or the spec
@@ -270,7 +304,7 @@ pnpm vitest run src/grader
 - **The property tests use a 70-line seeded generator** (`scripts/testing/property.ts`) instead of a new dependency. It has no shrinking: a failure names the seed and the input as drawn.
 - **A learner function that calls `exit()` while the follow-up code runs ends that stage cleanly** (security review 2, MINOR 6). Python ends with status 0, so the harness counts it as finished, as for `exit(0)` in the program. A test case whose follow-up code only asserts, with an empty expected text, then passes. Section 2.2 says a test case fails when the follow-up code raises an error; whether `SystemExit` there counts is for you, with action 5.
 - **Output cut with no error is graded `output_limit`** (security review 2, MINOR 3). The spec does not name the reason for this case; the controller already reports a cut run this way.
-- **`HARNESS_VERSION` stays "1"** although the Python changed again. No harness version has shipped, so no cached worker holds an older one; the hash in `harness.test.ts` is updated.
+- **`HARNESS_VERSION` is "2"** (b67f730), although no harness version has shipped. The Python changed in 06c39bb and again in b67f730; the pinned hash test says the version moves with it, so the version moved rather than only the pin (security review 3, MINOR 2). Decision, for you to reverse: if versions should count from the first release, set it back to "1" and say so in the test and the header.
 - **The worker's URL moved** to `/_runtime/worker/runtime/worker/python-worker.js`, because the worker now compiles from `src`.
 
 ## Not fixed, for later packages or for you
