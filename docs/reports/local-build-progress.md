@@ -6,6 +6,23 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 Same task list and owner decisions, plus the WP-5.1 decisions (#5: the backtick `import()` lint fix as its own branch from `origin/main`; #6: "We could not prepare this page. Try again."). `git fetch`: `origin/main` is still 7875ee2, so task 1 had nothing to merge. `wp/fix-lint-template-import` is checked out in the `night-c` worktree with its own unpushed commits, so this run leaves WP-5.1 #5 to that run. This file is `wp/3.1-python-worker`'s copy (the newest, from part 50) with this section added on top.
 
+### Task 3, part 53 done: WP-5.2 part 3 (first half), on `wp/5.2-workspace-laptop`
+
+Part 52 took about 10 minutes, so the run went on.
+
+- `code-reviewer` and `security-reviewer` on b386309, in the background. Code review 1: CHANGES REQUIRED, 2 BLOCKER (the workspace tokens were outside any rule, so the laptop grid had no values; missing component tests), 4 MAJOR. Security review 1: CHANGES REQUIRED, 1 MAJOR (no T-07 component tests), 4 MINOR. Reports with answers in `docs/reports/reviews/WP-5.2/`.
+- bd36501: both blockers, three code majors, the security major and three security minors fixed. A test now checks that every token a utility names is declared inside a rule (it fails on b386309's CSS). Run, Check, Stop and Reset use React Aria's `isPending`, so focus no longer falls to the body. New: the development page `/dev/workspace` with the spec's example lesson, `e2e/workspace-runtime.spec.ts` (J-2, J-3, J-4, keyboard, T-07, refusal), and 26 component tests.
+- `pnpm verify` on bd36501: exit 0, `Test Files  104 passed (104)`, `Tests  1940 passed (1940)`. `pnpm build`: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser: Chromium with `--no-sandbox --single-process`, one test per Playwright process, through a temporary config outside the repository, against `next dev --webpack` (with `WATCHPACK_POLLING=true`) on port 3264 after `node scripts/build-runtime.mjs`: 7 of 7 passed. Screens of 5 states at 1280, 768 and 375 px in `docs/reports/screens/WP-5.2/`. The development server on port 3264 is still running after this run, and the sandbox cannot stop it. Owner: stop it from a terminal outside the sandbox if it is still there (`lsof -ti tcp:3264 | xargs kill`).
+- Decisions 10 to 14 in the description: WP-5.1 merges first (the back link), focusable unavailable buttons, the input line's focus after an answer, saved code not capped, and a proposed spec change to section 7's example (a fenced code block).
+- Not run: round 2 of both reviews, the design review, the Delivery Gate report, the throttled-runtime check, Firefox and WebKit, the real route with the local stack.
+- Push: `wp/5.2-workspace-laptop` with bd36501 and the docs commit.
+
+### Owner: run this (part 53)
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-5.2.md` on `wp/5.2-workspace-laptop`, or open the draft pull request with that body.
+2. Confirm WP-5.2 decision 10 (WP-5.1 merges before WP-5.2) and the proposed spec change in decision 14.
+
 ### Task 3, part 52 done: WP-5.2 part 2, on `wp/5.2-workspace-laptop`
 
 - The stash `stash@{0}` (the interrupted run's lesson page and workspace) applied on 3d6d2d1 with no conflict. It failed the gate: Prettier (5 files), lint (4 arbitrary grid values, one state update inside an effect), one test file that could not load, and `pnpm build` (11 errors: the server lesson page, exported from the workspace's index, reached the admin's client bundle).

@@ -160,7 +160,7 @@ test("[FR-WSP-07] J-4: Stop ends a runaway loop, Python comes back, and the next
   await expect(consoleOutput(page)).toHaveText("again\n");
 });
 
-test("[FR-WSP-12] [NFR-A11Y-03] the keyboard runs code, and Escape then Tab leaves the editor", async ({
+test("[FR-WSP-03] [FR-WSP-12] [NFR-A11Y-03] the keyboard runs code, and Escape then Tab leaves the editor", async ({
   page,
 }) => {
   await ready(page);

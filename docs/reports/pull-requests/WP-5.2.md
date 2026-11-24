@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.4-statechart`, with `origin/wp/4.2-lesson-editor` merged in (48ee7b3). `wp/3.4-statechart` at a3957a7, which carries `main` at 7875ee2 (#12), is merged in 49546a8. Merges after WP-3.1, WP-3.2, WP-3.3, WP-3.4 and WP-4.2 (and so after WP-2.1, WP-2.2 and WP-2.3, which WP-4.2 carries).** Until those merge, this pull request also shows their commits. It is a **draft**, built in parts. Part 1 added the data and the rules the workspace needs, with tests. Part 2 (b386309) adds the lesson page and every region of the workspace. The browser tests, screenshots, axe, the Delivery Gate report and the reviews are part 3; no reviewer and no browser has seen part 2.
+**Base: `wp/3.4-statechart`, with `origin/wp/4.2-lesson-editor` merged in (48ee7b3). `wp/3.4-statechart` at a3957a7, which carries `main` at 7875ee2 (#12), is merged in 49546a8. Merges after WP-3.1, WP-3.2, WP-3.3, WP-3.4 and WP-4.2 (and so after WP-2.1, WP-2.2 and WP-2.3, which WP-4.2 carries).** Until those merge, this pull request also shows their commits. It is a **draft**, built in parts. Part 1 added the data and the rules the workspace needs, with tests. Part 2 (b386309) adds the lesson page and every region of the workspace. Part 3 so far (bd36501): code review 1 and security review 1 on part 2, their fixes, component tests, and the journeys J-2, J-3 and J-4 passing in Chromium on a development page with screens at 1280, 768 and 375 px. Still to do: the design review, the Delivery Gate report, the throttled-runtime check, and the journeys on the real route with the local stack.
 
 ## What and why
 
@@ -42,10 +42,18 @@ Six conflicts, all two sides adding beside each other:
 ## Work package
 
 - Work package: WP-5.2 The workspace on a laptop (`docs/spec/08-delivery-plan.md`).
-- Requirements and threats covered so far: FR-WSP-02 (the lesson read), FR-WSP-09 (the words), FR-WSP-11 (neighbours), FR-WSP-12 (shortcut rules), T-21 (no solution in the read), T-25 (no query for an impossible address). Still to cover: FR-WSP-01, 03, 04, 05, 07, 08, 10, 17, 22, FR-SYS-02, NFR-PERF-03, NFR-A11Y-03, NFR-A11Y-04, T-07, and the rest of FR-WSP-02, 09, 11 and 12 in the interface.
-- Time box, and time taken: 4 hours. Part 1: about 10 minutes, including the merge. Part 2: an interrupted run's work in progress (about 1,240 lines, kept in a stash), then about 10 minutes here to make it pass the gate and to move the server part.
+- Requirements and threats with tests so far: FR-WSP-01, 02, 04, 05, 07, 08, 09, 10, 11, 12, 17, 22, FR-WSP-03 and NFR-A11Y-03 (keyboard in and out of the editor), NFR-A11Y-04, T-07, T-21, T-25. Still to cover with a test: FR-SYS-02 (the unsupported browser) and NFR-PERF-03 (the throttled runtime).
+- Time box, and time taken: 4 hours. Part 1: about 10 minutes, including the merge. Part 2: an interrupted run's work in progress (about 1,240 lines, kept in a stash), then about 10 minutes here to make it pass the gate and to move the server part. Part 3 so far: about 20 minutes, with the two reviews running beside it.
 
 ## How it was verified
+
+Part 3, on bd36501:
+
+- `pnpm verify`: exit 0, `Test Files  104 passed (104)`, `Tests  1940 passed (1940)`.
+- `pnpm build` with CI's fake public values and the Turnstile test key: exit 0. `check-bundle`: `No server variable (RESEND_API_KEY, HEAP_RELEASE) in 24 files under .next/static.` `check-static`: exit 0. The built CSS has `--workspace-columns:minmax(20rem, 2fr) 3fr`.
+- `e2e/workspace-runtime.spec.ts` in Chromium, 7 of 7 passed, against `next dev --webpack` (with `WATCHPACK_POLLING=true`) on port 3264 after `node scripts/build-runtime.mjs`, through a temporary Playwright config outside the repository with `--no-sandbox --single-process`, one test per process (in one process, every second test fails at launch, a limit of this sandbox's Chromium). The tests: the lesson, instructions and Python's status with axe; J-2 (Check fails 0 of 2 with expected output shown and the summary focused and announced, the wrong answer 1 of 2, the solution 2 of 2, Next becomes the primary action) with axe; J-3 (two `input()` calls answered in the console, focus in the input line both times) with axe; J-4 (Stop ends `while True: pass`, Python comes back, the next Run prints); Ctrl+Enter runs and Escape then Tab leaves the editor; T-07 markup printed shows as text; a program over the limit is refused with the reason.
+- Axe first failed on J-2 with colour contrast 1.73 to 4.17 on the Check button and the Next link: it measured the 160 ms colour transition. The spec now waits until `document.getAnimations()` is empty before axe and each screenshot.
+- Not run: the journeys in the `runtime-chromium` project through `pnpm test:e2e` with its own servers, Firefox and WebKit, `pnpm test:db`, the throttled-runtime check, and the real route `/learn/...` with seeded data. No reviewer has seen bd36501.
 
 Part 2, on b386309:
 
@@ -65,13 +73,15 @@ Part 1:
 
 ## Screens
 
-None yet: part 2 built the page with no browser available to this run; screenshots of every state are part 3.
+In `docs/reports/screens/WP-5.2/`, each at 1280, 768 and 375 px, from the development page `/dev/workspace` in Chromium: `workspace-ready`, `workspace-check-failed`, `workspace-passed`, `workspace-input`, `workspace-stopped`. Below 768 px the regions follow one another (WP-5.3 builds the phone layout). Still to take: Python loading and failed, restarting, the unsupported browser, a syntax error with Go to line, saved code restored, reset with Undo, and the refusal.
 
 antislop Delivery Gate report: due with part 3.
 
 ## Reviews
 
-None yet. Due in part 3: `code-reviewer`, `security-reviewer` (the runtime, the content read) and `design-reviewer`.
+- Code review 1 on b386309: CHANGES REQUIRED, 2 BLOCKER, 4 MAJOR. Report and answers: `docs/reports/reviews/WP-5.2/code-review-1.md`. Both blockers and three majors fixed in bd36501; MAJOR 4 (the back link) is decision 10.
+- Security review 1 on b386309: CHANGES REQUIRED, 1 MAJOR (T-07 component tests), 4 MINOR. Report and answers: `docs/reports/reviews/WP-5.2/security-review-1.md`. The major and three minors fixed in bd36501; the WP-5.4 minor is listed below.
+- Not yet: round 2 of both on bd36501, and `design-reviewer`.
 
 ## Try it on the preview
 
@@ -95,11 +105,19 @@ None for part 1.
 6. Section 6.5 asks for a caret under the column of a syntax error. The worker protocol (version 1) carries a line and no column, so part 2 shows the line only (approved on 2026-11-24).
 7. **The lesson page's server part lives in `src/features/catalog`, not in `src/features/workspace`** (part 2). The admin's client components import `CodeEditor` and `LessonContent` from the workspace's `index.ts`, and a feature may import another only through its index (`02-architecture.md` section 4.1). With the server page exported there too, the admin's client bundle pulled in `next/headers` and the build failed. The catalog already holds the other public pages that read published content on the server (WP-5.1), so the lesson page joins them, and the workspace's index exports only what runs in the browser: `Workspace`, `LessonContent`, `CodeEditor`, `RuntimeConsole` and `learnPath`. The other way out, a second entry for a feature's server code, changes the lint rule and the spec. `src/features/catalog/index.ts` is new here and also exists on `wp/5.1-catalog`; the merge keeps both sets of exports.
 8. **A failed read of a lesson ends on the shared error page with status 500** (part 2), as WP-5.1 decided for the catalog's pages (approved by the owner on 2026-11-24, `03-experience.md` section 8 on that branch). A crawler comes back later instead of keeping a page that says nothing. The work in progress had its own "This lesson could not be loaded" view; it and its four strings are removed. The same holds when a published lesson's test cases do not parse, or when its course's order does not hold it: both mean the stored content is wrong, and the log line says which.
+10. **WP-5.1 merges before WP-5.2** (code review 1, MAJOR 4). "Back to {course}" links to `/courses/<slug>`, which WP-5.1 builds and this branch does not have. Merged the other way round, `main` would ship a link that ends on not-found.
+11. **Run, Check, Stop and Reset stay focusable while unavailable** (code review 1, MAJOR 1): React Aria's `isPending`, exposed as `aria-disabled="true"`, styled as disabled. A disabled button drops focus to the body, so a keyboard learner who pressed Run lost their place. React Aria announces the button's name when it becomes unavailable while focused.
+12. **The input line takes focus back after an answer** as well as when focus is in the workspace (section 6.3), because the line goes away between two prompts and the focus that was in it falls to the body.
+13. **Saved code is not capped** (security review 1). Refusing to save would lose the learner's typing; a program over the limit is refused when it is run, with the reason.
+14. **The development page uses a fenced code block** where `04-content-system.md` section 7's example has an indented one. Section 5's allowed list has fenced blocks only, and the renderer shows the indented block as a paragraph. Proposed spec change: write section 7's example with a fenced `python` block.
 9. **The lesson page is not in the sitemap yet** (part 2). The sitemap is WP-5.1's and is not on this branch; its description says lesson pages join it when they are built, which is for whichever of the two merges second.
 
 ## Left for part 2 and part 3
 
 - Part 2: done in b386309 (saved code on the device was done in 3d6d2d1).
+- Part 3, still to do: round 2 of the code and security reviews on bd36501; the design review and the Delivery Gate report; screens of the states listed under Screens; the throttled-runtime check; J-2 to J-4 on the real route with the local stack; Firefox and WebKit.
+- For WP-5.4 (security review 1): a switch to turn saving off for the admin preview, an `onversionchange` handler before the database moves to version 2, and the visible notice when storage falls back to memory (FR-PRG-01). The completion line and XP of J-2 (FR-WSP-06).
+- Not changed (code review 1 NITs): the announced line count includes echoed input lines; typing in the first milliseconds, before IndexedDB answers, replaces the saved code from the last visit without saying so.
 - Part 3: J-2, J-3 and J-4 on Chromium, the keyboard and throttled-runtime checks, screenshots of every state at 375, 768 and 1280 px, axe, the Delivery Gate report, and the three reviews.
 
 ## Deviations from the plan or the spec
@@ -121,5 +139,5 @@ None for part 1.
 - [ ] Every state of every changed view exists. (Built in part 2; not yet seen in a browser.)
 - [x] No stub, dead control, placeholder, commented-out code, or invented number.
 - [x] New tables have policies and policy tests. New server actions use the wrapper. (None added.)
-- [ ] Every reviewer blocker is fixed. (No review yet.)
+- [x] Every reviewer blocker is fixed (code review 1, both in bd36501). Round 2 has not run.
 - [x] No AI attribution in any commit or in this description.
