@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 04:42, continued), in `night-a`, on `wp/3.4-statechart`
+
+Part 25 took about 12 minutes, so the run went on with the first item under "Next" in the section below. This file came to `wp/3.4-statechart` with the merge (WP-3.3's copy, the newest) and this section was added on top.
+
+### Task 3, part 26 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 219ded9: `wp/3.3-grader` at 8abe1da merged (the dispose guards of WP-3.1 and WP-3.3, 89fb157, the reviews, the docs). One conflict, this file; WP-3.3's copy taken, as it holds every section heading of this branch's copy. The controller and its tests merged with no conflict.
+- Checked: `use-runtime.ts` calls `check()` without `freshWorker` and `dispose` only on unmount; `workspace-driver.ts` already handles a refused check. So 89fb157 changes nothing for WP-3.4's callers.
+- `pnpm verify` on 219ded9: exit 0, 46 files, 1181 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "2"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen 219ded9 (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with 219ded9 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader` (part 25), if that pull request is open.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+- Open WP-3.x findings that need no owner decision, from the "Not fixed" lists of the three descriptions.
+
 ## Session of 2026-11-24 (from about 04:42), in `night-a`, on `wp/3.3-grader`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.

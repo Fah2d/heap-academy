@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in ae40fcc, at 6091856). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 219ded9, at 8abe1da). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,21 +19,20 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at 6091856 is merged in ae40fcc. It adds WP-3.1's fix for security review 7, MINOR 3 (547b394, dece44f): the development page's `dropped` field is now a count, not a list with no size limit, and `addReport` no longer takes the report. Two conflicts:
+`wp/3.3-grader` at 8abe1da is merged in 219ded9. It adds WP-3.1's guards for a listener that disposes the controller (c1114d4, 1266681, d2e7ff8), WP-3.3's merge of them with the same guards on the check paths (df1c7bb), and 89fb157: `check()` with `freshWorker` returns `not_ready` when its `restarting` listener disposed the controller. Also WP-3.1 code reviews 6 and 7 and WP-3.3 code review 4. One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy taken, as the newer one (it holds every section heading of this branch's copy). `src/runtime/controller.ts` and its tests merged with no conflict.
 
-- `src/features/workspace/client/runtime-view.ts`: this branch's fields (`interactiveInput`, `tests`, `summary`, `refused`) and functions (`startCheck`, `addRefusal`) kept; WP-3.1's `dropped: number`, its comment and the one-argument `addReport` taken. The import of `ControllerReport` was dropped, as nothing uses it now. `use-runtime.ts` (`setView(addReport)`) and `runtime-console.tsx` merged with no conflict.
-- `docs/reports/local-build-progress.md`: WP-3.3's copy taken, as the newer one (it holds every section of this branch's copy).
+This branch's callers were checked against the change: `use-runtime.ts` calls `check(source, tests)` without `freshWorker` and calls `dispose` only on unmount, and `workspace-driver.ts` already treats a refused check as a refusal. No reviewer has seen 219ded9.
 
 `main` is still 0efe863, which `wp/3.3-grader` carries.
 
-`pnpm verify` on ae40fcc, exit 0:
+`pnpm verify` on 219ded9, exit 0:
 
 ```
  Test Files  46 passed (46)
-      Tests  1152 passed (1152)
+      Tests  1181 passed (1181)
 ```
 
-`pnpm build` with CI's fake public values on ae40fcc, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`); the built harness has `HARNESS_VERSION = "2"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests. `e2e/runtime.spec.ts:307` and `e2e/live-input-runtime.spec.ts:111` expect the text "0" for the dropped messages, which a count of 0 still renders.
+`pnpm build` with CI's fake public values on 219ded9, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built harness has `HARNESS_VERSION = "2"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
 
 ## How it was verified
 
