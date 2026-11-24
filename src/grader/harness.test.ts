@@ -845,6 +845,127 @@ describe("the harness", () => {
     });
   });
 
+  it("[FR-RUN-04] a chain of __del__ methods, each making a new reference cycle, ends before the next test case", () => {
+    // Each __del__ makes a cycle that the collection running it does not
+    // free. With one collection at the end of a case, the next link's __del__
+    // ran in the next case's own collection and wrote into its output.
+    const source = [
+      "import sys",
+      "class Link:",
+      "    def __init__(self, left):",
+      "        self.me = self",
+      "        self.left = left",
+      "    def __del__(self, sys=sys):",
+      '        sys.stdout.write("INJECTED\\n")',
+      "        if self.left:",
+      "            type(self)(self.left - 1)",
+      "Link(3)",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "", error: undefined });
+    expect(run('import gc\ngc.collect()\nprint("next")')).toMatchObject({
+      output: "next\n",
+      error: undefined,
+    });
+  });
+
+  it("[FR-RUN-04] a reference cycle left by a test case that ends in the fallback is collected before the next test case", () => {
+    // Bad's __del__ turns the collector on during the restore after the
+    // program, so the fallback ends the case. The fallback did not collect,
+    // so Link's __del__ ran in the next case and wrote into its output.
+    const source = [
+      "import gc, sys",
+      "class Bad:",
+      "    def __del__(self, gc=gc):",
+      "        gc.enable()",
+      "class Link:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, sys=sys):",
+      '        sys.stdout.write("INJECTED\\n")',
+      "keep = Link()",
+      'sys.modules["linecache"].cache["ghost"] = Bad()',
+    ].join("\n");
+    expect(run(source)).toMatchObject({ error: { kind: "runtime", message: "" } });
+    expect(run('import gc\ngc.collect()\nprint("next")')).toMatchObject({
+      output: "next\n",
+      error: undefined,
+    });
+  });
+
+  it("[FR-RUN-04] what a __del__ changes in the harness's last collection is put back before the harness returns", async () => {
+    // Read on the interpreter itself, after check has returned: the next
+    // case's own restore would hide it.
+    const pyodide = await loadPyodide();
+    pyodide.setStdout({ batched: () => {} });
+    pyodide.setStderr({ batched: () => {} });
+    const check: unknown = pyodide.runPython(HARNESS_SOURCE);
+    if (typeof check !== "function") throw new Error("the harness did not evaluate to a function");
+    const source = [
+      "import builtins",
+      "class Ghost:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, b=builtins):",
+      "        b.ghosted = True",
+      "Ghost()",
+    ].join("\n");
+    const result = parseHarnessResult(Reflect.apply(check, undefined, [source, "", ""]) as unknown);
+    expect(result).toMatchObject({ error: undefined });
+    expect(pyodide.runPython('import builtins\nhasattr(builtins, "ghosted")')).toBe(false);
+  }, 60_000);
+
+  it("[FR-RUN-04] a chain of __del__ methods left by a test case that ends in the fallback makes the harness raise", async () => {
+    // The fallback's own collection cannot end it either, so the harness
+    // raises rather than report a runtime error with the chain still there.
+    const own = await loadHarness();
+    const source = [
+      "import builtins, gc, sys",
+      "class Bad:",
+      "    def __del__(self, gc=gc):",
+      "        gc.enable()",
+      "class Q:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, b=builtins):",
+      "        b.print = lambda *a, **k: None",
+      "        type(self)()",
+      "Q()",
+      'sys.modules["linecache"].cache["ghost"] = Bad()',
+    ].join("\n");
+    let thrown: unknown;
+    try {
+      own.check(source, "", "");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
+  }, 60_000);
+
+  it("[FR-RUN-04] a chain of __del__ methods that outlives the harness's collections makes the harness raise", async () => {
+    // Eight collections cannot end it, so the harness raises Uncollected, a
+    // NotRestored that the fallback does not catch (it fails closed), and its
+    // caller replaces the runtime. Its own interpreter, as the chain is still
+    // there afterwards.
+    const own = await loadHarness();
+    const source = [
+      "import builtins",
+      "class Q:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, b=builtins):",
+      "        b.print = lambda *a, **k: None",
+      "        type(self)()",
+      "Q()",
+    ].join("\n");
+    let thrown: unknown;
+    try {
+      own.check(source, "", "");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("Uncollected") });
+  }, 60_000);
+
   // Every other test starts with the collector on. Its own interpreter, with
   // the harness defined after gc.disable().
   async function harnessWithCollectorOff() {
@@ -901,6 +1022,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "4", hash: 3599052867 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "5", hash: 3614412670 });
   });
 });
