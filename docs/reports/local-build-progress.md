@@ -2,6 +2,18 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 02:47), in `night-b`, 5.4 merged forward and name editing
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- Merged `wp/5.4-progress-preview` (fea2606) into `wp/6.1-sync-wiring`, and that into `wp/6.3-profile-page`.
+- Done: display name editing on the profile (FR-PRF-02), and course progress now refreshes after a sync. One code and one security review, both CHANGES REQUIRED; the majors are fixed and tested, not reviewed again.
+- On the final 6.3 line: prettier, eslint, tsc, vitest, `next build`: pass. Not run: browser tests, `pnpm test:db`.
+- Push: `wp/6.1-sync-wiring` and `wp/6.3-profile-page` together, from 03:37.
+- Owner: update or open the draft pull requests from `WP-6.1-part-3.md` and `WP-6.3-profile-page.md`.
+- Next: per-course progress and sign-out on the profile.
+- Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule). WP-5.1 browser checks (no Docker).
+- Note: a second session (heap-academy-63) asked at about 02:49 whether `night-b` was in use; its address was stale when answered.
+
 ## Session of 2026-11-25 (from about 01:45), in `night-b`, profile page on `wp/6.3-profile-page`
 
 - `origin/main` still 428c437: nothing to merge for task 1.
