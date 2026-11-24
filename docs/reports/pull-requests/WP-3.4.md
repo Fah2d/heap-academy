@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 81fdc39, is merged (last in 89eede2, at 6ce4a4d). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 7875ee2, is merged (last in 014adf3, at f3c806d). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,7 +19,18 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at 6ce4a4d is merged in 89eede2. It brings `main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`), which `wp/3.3-grader` merged in 0f8a64c. The merge had no conflicts. WP-3.1's run fixes that wait on its security review 8, round 3, are not on `wp/3.3-grader`, so they are not here either.
+`wp/3.3-grader` at f3c806d is merged in 014adf3. It brings `main` at 7875ee2 (#12, `wp/2.1-schema-policies`), which `wp/3.3-grader` merged in 7d62414, and WP-3.3's spec changes approved on 2026-11-24. One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. WP-3.1's run fixes and WP-3.1's approved spec changes are still not on `wp/3.3-grader`, so they are not here either; they arrive with WP-3.1.
+
+`pnpm verify` on 014adf3, exit 0:
+
+```
+ Test Files  47 passed (47)
+      Tests  1247 passed (1247)
+```
+
+`pnpm build` with CI's fake public values on 014adf3, exit 0 (`runtime: worker compiled`); the built harness has `HARNESS_VERSION = "7"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run: the browser tests and `pnpm test:db`. No reviewer has seen 014adf3 (a merge with no code conflict).
+
+The merge before: `wp/3.3-grader` at 6ce4a4d is merged in 89eede2. It brings `main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`), which `wp/3.3-grader` merged in 0f8a64c. The merge had no conflicts. WP-3.1's run fixes that wait on its security review 8, round 3, are not on `wp/3.3-grader`, so they are not here either.
 
 Before that, `wp/3.3-grader` at d7633c7 was merged in a8a2e94. Since the last merge (68595de, at 6aafe2b) it adds WP-3.3 security review 7, round 2, and its fix be9375c: a harness test that reads the interpreter after `check()` returns, so it fails without `state = None`, and two comments inside the Python text. `HARNESS_VERSION` is now "7". One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. `src/grader/harness.ts` and its tests merged with no conflict.
 
@@ -101,7 +112,7 @@ The development page is not a learner screen and is not in `DESIGN.md`'s scope; 
 Round 1 of 36f4372, condensed in `docs/reports/reviews/WP-3.4/`:
 
 - code-reviewer: CHANGES REQUIRED. BLOCKER 1 fixed (`dispatchEvent`, tests through the real controller). MAJOR 2 and 3 fixed (tests above; both mutants now fail). MINOR 4 answered under Deviations. MINOR 5 fixed (the spike report cites ADR-0004, ADR-0005, ADR-0020). MINOR 6 fixed (the route gate). MINOR 7 answered under Risks. MINOR 8 fixed (every edit on the page sends `CODE_EDITED`). MINOR 9 fixed (the sample is named by what it is).
-- security-reviewer: CHANGES REQUIRED. MAJOR 1 (T-02, a program that yields once computes while the page waits for its input) answered by ADR-0034, Proposed: the reviewer's liveness ping is defeated by a program that yields briefly every half second, so the ADR accepts the risk with Stop as the control and the false comment and test name are corrected. MINOR 2 fixed (`/dev/runtime` in the 404 test; `deploy.yml` fails if the production output has a `dev` route). MINOR 3 fixed (`VERCEL_ENV: production` on the deploy Build step). The note on the example lesson's solution in the preview bundle: `example-lesson.ts` is in no seed.
+- security-reviewer: CHANGES REQUIRED. MAJOR 1 (T-02, a program that yields once computes while the page waits for its input) answered by ADR-0034, accepted by the owner on 2026-11-24: the reviewer's liveness ping is defeated by a program that yields briefly every half second, so the ADR accepts the risk with Stop as the control and the false comment and test name are corrected. MINOR 2 fixed (`/dev/runtime` in the 404 test; `deploy.yml` fails if the production output has a `dev` route). MINOR 3 fixed (`VERCEL_ENV: production` on the deploy Build step). The note on the example lesson's solution in the preview bundle: `example-lesson.ts` is in no seed.
 
 Round 2 of a884853, condensed in the same folder:
 
@@ -116,7 +127,7 @@ Round 4 of deca401 (the Send, Check and Stop selectors), `docs/reports/reviews/W
 
 - code-reviewer: APPROVE. Each button's accessible name is exactly its message in every state the tests click it in, and no check is weakened. One optional MINOR: the end-input button, the two sample buttons and the Program and Input fields are still matched by substring (each unique today). Not changed: nothing fails today, and the reviewer marked it optional.
 
-Open MAJOR findings for the owner to waive: none open; ADR-0034 needs the owner's decision.
+Open MAJOR findings for the owner to waive: none open; ADR-0034 was accepted on 2026-11-24.
 
 ## Try it on the preview
 
@@ -126,15 +137,24 @@ Open MAJOR findings for the owner to waive: none open; ADR-0034 needs the owner'
 4. Press **Runs forever**, then **Run**: after 5 seconds the page explains the time limit and Python restarts; Run works again.
 5. On phones: `docs/reports/spikes/runtime-devices.md`, "Method".
 
+## Owner decisions of 2026-11-24
+
+Every recommended default in this description was approved. Written into this branch:
+
+- `docs/adr/0034-a-program-that-yields-can-compute-while-the-page-waits-for-its-input.md`: status Accepted; its row in `02-architecture.md` section 15 too.
+- `02-architecture.md` section 6, the proposed spec change below: `CRASH` also covers a worker the controller replaces after a memory error or the output cap, with a `reason`. Decision, taken as the safe default: the description proposed two options (name the edge `CRASH or REPLACED`, or a `REPLACED` event); the text written is the one that changes neither the diagram nor the code, since `workspace-chart.test.ts` parses the diagram and compares it to the table. If you prefer a `REPLACED` event, that is a code change for a later package.
+
+Each change carries the note "approved by the owner on 2026-11-24".
+
 ## Owner actions now due
 
 1. The phone check: `docs/reports/spikes/runtime-devices.md`, on a real iPhone and a real Android phone, in the browser and inside the TikTok and Instagram in-app browsers, then fill its table.
-2. Decide ADR-0034 (accept the input-wait risk, or ask for another control).
+2. Done: ADR-0034 accepted on 2026-11-24 (see "Owner decisions of 2026-11-24").
 3. Run the browser tests above in Firefox and WebKit, and in Chromium through `pnpm test:e2e`.
 
 ## Deviations from the plan or the spec
 
-- **Proposed spec change, section 6.** A worker the controller replaced on purpose after a memory error or the output cap reaches the chart as `CRASH` with a `reason` (`memory` or `output_limit`), because the diagram draws only `ready --> restarting: CRASH`. Section 6 defines CRASH as the worker dying unasked. Proposed: name the edge `CRASH or REPLACED` in the diagram, or add a `REPLACED` event. Until the owner decides, the reason keeps the learner's explanation true.
+- **Spec change, section 6, approved by the owner on 2026-11-24 and written into the spec (see above).** A worker the controller replaced on purpose after a memory error or the output cap reaches the chart as `CRASH` with a `reason` (`memory` or `output_limit`), because the diagram draws only `ready --> restarting: CRASH`. Section 6 defines CRASH as the worker dying unasked. Proposed: name the edge `CRASH or REPLACED` in the diagram, or add a `REPLACED` event. Until the owner decides, the reason keeps the learner's explanation true.
 - **The phone check** is the owner's; the spike report's table is empty until then. The Done-when line on phones is not met by this pull request.
 
 ## Risks and rollback

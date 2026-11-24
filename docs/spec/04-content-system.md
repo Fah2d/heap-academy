@@ -68,6 +68,8 @@ Every test case is visible to the learner, including its follow-up code. Because
 
 A test case fails when the comparison fails, when the learner's program raises an error, when it reaches the 5 second limit, or when the follow-up code raises an error. The last case is reported in learner language: follow-up code that fails with a missing name means "This test needs something named `area`."
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-3.3):** each test case has its own 5 second clock. After a time limit, Stop or a crash, the remaining test cases are `not_run`, so a learner whose program loops does not wait for a new worker per test case; validation is unaffected, because such a lesson already fails rule 5. Output cut at the cap with no error fails with `output_limit`.
+
 A prompt passed to `input()` is part of the output. The typed answer is not echoed, and no line break follows the prompt. So a program that asks "What is your name? " and then prints a greeting produces one line: `What is your name? Hello, Sara!`. The dashboard's "Fill from solution" action captures this exactly, which is why it exists.
 
 ### 2.3 Comparison
@@ -109,6 +111,7 @@ When FR-GRD-07 is built, a failed comparison is classified so the message can be
 - Lives in `src/grader`. Pure Python, standard library only. The same file runs in Pyodide under Node in the test suite and in Pyodide in browsers. The prototype ran one harness file unchanged on CPython and inside Pyodide (E-06).
 - Implements section 2.2 and the isolation in `02-architecture.md` section 5.5.
 - Returns structured results only. It never raises to the caller.
+  - **Approved by the owner on 2026-11-24 (proposed in WP-3.3):** the harness returns each test case's output and error; the comparison and the verdict are decided in TypeScript by `grade` in `src/grader/grade.ts`. The same function decides in the worker and in the Node runner, so parity holds.
 - Versioned. The version is included in every result.
 - It is trusted code that runs next to untrusted code, so it is small, dependency-free, and heavily tested.
 

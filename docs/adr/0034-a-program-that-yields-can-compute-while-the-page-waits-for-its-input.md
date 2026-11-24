@@ -1,6 +1,6 @@
 # ADR-0034: A program that yields once can compute while the page waits for its input; the risk is accepted with Stop as the control
 
-- Status: Proposed (WP-3.4, pending owner decision)
+- Status: Accepted (owner, on the pull request for WP-3.4, 2026-11-24)
 - Decision due: WP-3.4
 - Date proposed: 2026-11-22
 - Decider: the owner
