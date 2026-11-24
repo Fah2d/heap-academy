@@ -2,6 +2,58 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 04:42), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.
+
+### Task 3, part 25 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`, with the dispose guards on the check paths
+
+- df1c7bb: `wp/3.1-python-worker` at aec6c83 merged. Three conflicts. `src/runtime/controller.ts`, `crashed()`: WP-3.1's guard kept, then WP-3.3's waiting-check branch with a new guard after its `endCheck`. The merge adds guards after the `test_result` event and after `completeCheck` in `check_done`: before, a `check_done` listener that disposed left the status `ready`, and a `test_result` listener that disposed left a timer. `controller.test.ts`: both imports and both listener mechanisms kept. This file: WP-3.1's copy. Nine new tests.
+- Code review 4 on df1c7bb: CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157. MINOR 1: the merge commit and the description said ten tests, not nine (the commit message stays; the review report records it). MINOR 2: `check()` with `freshWorker` returned a run id when its `restarting` listener disposed; it now returns `not_ready`. MINOR 3: the duplicate `onEvents` helper is gone. MINOR 4: a test for dispose from the `ready` event that sends a waiting check. Report: `docs/reports/reviews/WP-3.3/code-review-4.md`. No reviewer has seen 89fb157.
+- Mutants: each of the four new guards removed fails 1 test; moving the `ready` event before `send` fails 2.
+- `pnpm verify` on 89fb157: exit 0, 42 files, 1066 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. The same on df1c7bb (1065 tests).
+- Not run: the browser tests.
+- Not done: the guard in `check()` (89fb157) is WP-3.3 code, so WP-3.1 needs nothing back.
+- Description: the first line, "Up to date with main" and the Reviews section of `docs/reports/pull-requests/WP-3.3.md`; the finding moved out of "Not fixed, for you".
+- Push: `wp/3.3-grader` with df1c7bb, 89fb157 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with 89fb157) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there. Check that WP-3.4's statechart or `use-runtime.ts` does not rely on `check()` returning `ok` after dispose.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
+## Session of 2026-11-24 (from about 04:26, continued), in `night-a`, on `wp/3.1-python-worker`
+
+Part 23 took about 4 minutes, so the run went on with the second item under "Next" in the section below: an open WP-3.x finding that needs no owner decision. This file is the copy from `wp/3.4-statechart` (the newest) with this section added on top; the copies on the other branches are older.
+
+### Task 3, part 24 done: the controller stays disposed when a listener disposes it (WP-3.3 security review 3, outside its range)
+
+- c1114d4: `restart()` starts no new worker when a listener disposed the controller from `run_done` or from the `restarting` event. Before, `dispose()` from a `restarting` listener left a worker running.
+- Code review 6 on c1114d4: CHANGES REQUIRED, 1 MAJOR, 4 MINOR, all fixed in 1266681. MAJOR 1: dispose from the `run_done` of a normal run left the status `ready`. MINOR 2: dispose from a `report` led to `failed`, so `start()` started a worker again. Report: `docs/reports/reviews/WP-3.1/code-review-6.md` (the reviewer could not write files; saved from its message).
+- Code review 7 on 1266681: **APPROVE**, 2 MINOR, both fixed in d2e7ff8 (two more triggers tested, typed test helpers). Report: `docs/reports/reviews/WP-3.1/code-review-7.md`. No reviewer has seen d2e7ff8 (tests only).
+- Mutants on d2e7ff8: each of the four `isDisposed()` guards removed fails 4, 8, 4 and 1 of 38 controller tests.
+- Decision: the controller guards after every listener call that can lead on, instead of forbidding listeners to call `dispose`. Fixed on `wp/3.1-python-worker`, because the controller is WP-3.1's code; it reaches WP-3.3 and WP-3.4 by merge.
+- `pnpm verify` on d2e7ff8: exit 0, 37 files, 878 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. `use-runtime.ts` calls `dispose` only on unmount.
+- Not done: merging this into `wp/3.3-grader` and `wp/3.4-statechart`. WP-3.3's description still lists the finding under "Not fixed"; correct it with that merge. WP-3.3 has a different `restart()` (with `checking`), so the merge needs care.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the first line, "How it was verified", the reviews).
+- Push: `wp/3.1-python-worker` with c1114d4, 1266681, d2e7ff8 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.1-python-worker` (with d2e7ff8) into `wp/3.3-grader`, check the guards against its `restart()` and `checking` paths, and move the finding out of "Not fixed" in `WP-3.3.md`; then `wp/3.3-grader` into `wp/3.4-statechart`. `pnpm verify` and `pnpm build` on each.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
 ## Session of 2026-11-24 (from about 04:26), in `night-a`, on `wp/3.4-statechart`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing. This run did the first item under "Next" in the section below. This file came to `wp/3.4-statechart` with the merge (WP-3.3's copy, the newest) and this section was added on top.
