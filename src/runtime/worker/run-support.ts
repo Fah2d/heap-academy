@@ -40,13 +40,15 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
     sys_dict = sys.__dict__
     modules = sys.modules
     modules_snapshot = dict(modules)
-    streams = {name: sys_dict[name] for name in ("stdin", "stdout", "stderr")}
+    stream_names = ("stdin", "stdout", "stderr")
+    streams = {name: sys_dict[name] for name in stream_names}
     sys_snapshot = {
         "modules": modules,
         **streams,
         **{
             name: sys_dict[name]
             for name in (
+                "__stdin__", "__stdout__", "__stderr__",
                 "excepthook", "unraisablehook", "displayhook", "breakpointhook",
                 "path", "meta_path", "path_hooks", "path_importer_cache", "argv",
             )
@@ -124,6 +126,7 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
     importer_cache_snapshot = dict(importer_cache)
     dict_get = dict.get
     dict_items = dict.items
+    dict_values = dict.values
     absent = object()
 
     dict_clear = dict.clear
@@ -171,24 +174,137 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
     # round 2 MAJOR 1). A program can change a stream it is given, its buffer
     # and its raw file in ways no check can see, such as calling the wrapper's
     # __init__ again; with new streams, nothing it does to them outlives the
-    # run, and no input it left unread reaches the next run. The originals
-    # are put back by name between runs; the runner never reads them. Each
-    # run's streams use the encoding and errors the originals had, newline
-    # "\n" as CPython's own, and stream each line (FR-RUN-01). The unit
-    # tests pass their own in-memory streams, which are used as they are.
+    # run, and no input it left unread reaches the next run. Each run's
+    # streams use the encoding and errors the originals had, newline "\n" as
+    # CPython's own, and stream each line (FR-RUN-01). The run's streams stay
+    # bound in sys, under their names and as __stdin__, __stdout__ and
+    # __stderr__, until the run's last collection; the originals are bound
+    # again only after that, and are never written while a program's code can
+    # still run (review 8, round 3, MINOR 3). The unit tests pass their own
+    # in-memory streams, which are used as they are.
     file_io = _io.FileIO
     buffered_reader = _io.BufferedReader
     buffered_writer = _io.BufferedWriter
     text_wrapper = _io.TextIOWrapper
     stream_settings = {
-        name: (streams[name].encoding, streams[name].errors)
-        for name in ("stdin", "stdout", "stderr")
+        name: (streams[name].encoding, streams[name].errors) for name in stream_names
     }
+    no_binding = {}
+
+    if fresh_streams:
+        import _codecs
+        import posix
+
+        # A new text stream looks its codec up by name, and makes its encoder
+        # and decoder from what it finds; a program can change the registry,
+        # the codec, and the classes it names (round 3, MAJOR 1). So the codec
+        # each stream uses is held now, before any learner code, with its
+        # classes, their bases and the modules they are defined in. Each run
+        # checks that the lookup still gives the held codec, and the restore
+        # checks that none of these changed. A new stream's encoder or decoder
+        # must be an instance of exactly the held class, in the state a new
+        # one has.
+        codec_lookup = _codecs.lookup
+        get_referents = gc.get_referents
+        object_getattr = object.__getattribute__
+        class_dict = type.__dict__["__dict__"].__get__
+        class_mro = type.__dict__["__mro__"].__get__
+        make_dict = dict
+        meta_type = type
+        plain_values = (str, bytes, int, bool, type(None))
+        held_codecs = {}
+        held_classes = []
+        held_modules = []
+
+        def hold_class(cls):
+            for part in class_mro(cls):
+                for known, _, _, _ in held_classes:
+                    if known is part:
+                        break
+                else:
+                    held_classes.append((part, kind_of(part), class_mro(part), make_dict(class_dict(part))))
+                    module = modules.get(class_dict(part).get("__module__"))
+                    if module is not None:
+                        module_dict = module.__dict__
+                        for known, _ in held_modules:
+                            if known is module_dict:
+                                break
+                        else:
+                            held_modules.append((module_dict, make_dict(module_dict)))
+
+        def new_state(cls, errors):
+            try:
+                return make_dict(object_getattr(cls(errors), "__dict__"))
+            except AttributeError:
+                return None
+
+        for name in stream_names:
+            encoding, errors = stream_settings[name]
+            info = codec_lookup(encoding)
+            if encoding not in held_codecs:
+                held_codecs[encoding] = (info, make_dict(object_getattr(info, "__dict__")))
+                hold_class(kind_of(info))
+                hold_class(info.incrementalencoder)
+                hold_class(info.incrementaldecoder)
+            made_by = info.incrementaldecoder if name == "stdin" else info.incrementalencoder
+            stream_settings[name] = (encoding, errors, info, made_by, new_state(made_by, errors))
+
+        # Pyodide reopens file descriptors 0, 1 and 2 by path before each run,
+        # and a program can put another file at /dev/stdin or /dev/stdout
+        # (round 3, MAJOR 2). The three character devices are recorded now;
+        # each run checks that the descriptors are still those devices.
+        file_status = posix.fstat
+        status_type = kind_of(file_status(0))
+        status_field = tuple.__getitem__
+        status_device = status_type.__dict__["st_rdev"].__get__
+        character_device = 0o020000
+        file_type_bits = 0o170000
+        devices = []
+        for fd in (0, 1, 2):
+            status = file_status(fd)
+            if status_field(status, 0) & file_type_bits != character_device:
+                raise RuntimeError("a standard stream is not a character device")
+            devices.append((fd, status_device(status)))
+
+    def codecs_intact():
+        for part, meta, mro, snapshot in held_classes:
+            if kind_of(part) is not meta or not same_list(class_mro(part), mro):
+                return False
+            if not same_dict(make_dict(class_dict(part)), snapshot):
+                return False
+        for module_dict, snapshot in held_modules:
+            if not same_dict(module_dict, snapshot):
+                return False
+        for info, snapshot in dict_values(held_codecs):
+            if not same_dict(object_getattr(info, "__dict__"), snapshot):
+                return False
+        return True
+
+    def same_state(current, reference):
+        if length(current) != length(reference) or not plain_keys(current):
+            return False
+        for key, value in dict_items(reference):
+            found = dict_get(current, key, absent)
+            if found is value:
+                continue
+            cls = kind_of(value)
+            if kind_of(found) is not cls or cls not in plain_values or found != value:
+                return False
+        return True
 
     def make_streams():
         if not fresh_streams:
-            return streams
-        encoding, errors = stream_settings["stdin"]
+            return no_binding
+        for fd, device in devices:
+            status = file_status(fd)
+            if status_field(status, 0) & file_type_bits != character_device:
+                raise NotRestored()
+            if status_device(status) != device:
+                raise NotRestored()
+        for name in stream_names:
+            if codec_lookup(stream_settings[name][0]) is not stream_settings[name][2]:
+                raise NotRestored()
+        encoding, errors = stream_settings["stdin"][:2]
         made = {
             "stdin": text_wrapper(
                 buffered_reader(file_io(0, "r", closefd=False)),
@@ -196,17 +312,79 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
             ),
         }
         for name, fd in (("stdout", 1), ("stderr", 2)):
-            encoding, errors = stream_settings[name]
+            encoding, errors = stream_settings[name][:2]
             made[name] = text_wrapper(
                 buffered_writer(file_io(fd, "w", closefd=False)),
                 encoding=encoding, errors=errors, newline="\n",
                 line_buffering=True, write_through=True,
             )
-        return made
+        binding = {}
+        for name in stream_names:
+            binding[name] = made[name]
+            binding["__" + name + "__"] = made[name]
+        return binding
+
+    # Called after the restore that follows make_streams, so the codec, its
+    # classes and their modules have been checked: each stream holds one
+    # encoder or decoder, an instance of exactly the held class, in a new
+    # one's state. get_referents lists what a stream holds without running
+    # any Python code.
+    def check_streams(binding):
+        for name in stream_names if fresh_streams else ():
+            stream = binding[name]
+            if kind_of(stream) is not text_wrapper:
+                raise NotRestored()
+            made_by, state = stream_settings[name][3:]
+            found = 0
+            for part in get_referents(stream):
+                cls = kind_of(part)
+                if cls is not made_by:
+                    continue
+                found += 1
+                if state is not None and not same_state(object_getattr(part, "__dict__"), state):
+                    raise NotRestored()
+            if found != 1:
+                raise NotRestored()
+
+    # What the program left on a run's streams, their buffers and raw files
+    # is cleared while they are still bound, so its __del__ runs in the run,
+    # and a stream method it set there cannot run when the stream is freed.
+    def stream_parts(binding):
+        parts = []
+        for name in stream_names if fresh_streams else ():
+            stream = binding[name]
+            for part in get_referents(stream):
+                cls = kind_of(part)
+                if cls is buffered_reader or cls is buffered_writer:
+                    parts.append(part)
+                    for inner in get_referents(part):
+                        if kind_of(inner) is file_io:
+                            parts.append(inner)
+            parts.append(stream)
+        return parts
+
+    def clear_streams(binding):
+        for part in stream_parts(binding):
+            try:
+                dict_clear(object_getattr(part, "__dict__"))
+            except AttributeError:
+                pass
+
+    def streams_clear(binding):
+        for part in stream_parts(binding):
+            try:
+                if length(object_getattr(part, "__dict__")) != 0:
+                    return False
+            except AttributeError:
+                pass
+        return True
 
     # The streams of the run in progress, for the runner's own writes, made
     # through the stream type's methods, which a program cannot replace.
     current = {"streams": streams}
+    # Which streams sys names during a run: the run's own, or for the unit
+    # tests (and between runs) the ones in sys_snapshot.
+    bound = {"names": no_binding}
 
     # Raised when the state is not back after a restore. It reaches core.ts,
     # which gives up with runtime_crashed, so the worker is replaced.
@@ -249,6 +427,7 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
+        dict_update(sys_dict, bound["names"])
         if traceback_limit_absent:
             dict_pop(sys_dict, "tracebacklimit", None)
         # Cleared rather than emptied name by name, so the program's keys are
@@ -309,9 +488,15 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
             return False
         if not plain_keys(sys_dict):
             return False
+        binding = bound["names"]
         for name, value in dict_items(sys_snapshot):
-            if dict_get(sys_dict, name, absent) is not value:
+            expected = dict_get(binding, name, absent)
+            if expected is absent:
+                expected = value
+            if dict_get(sys_dict, name, absent) is not expected:
                 return False
+        if fresh_streams and not codecs_intact():
+            return False
         if traceback_limit_absent and dict_get(sys_dict, "tracebacklimit", absent) is not absent:
             return False
         for current, snapshot in sys_lists:
@@ -404,11 +589,37 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
         line_text = "null" if line is None else to_text(line)
         return '{"kind": ' + quote(kind) + ', "message": ' + quote(message) + ', "line": ' + line_text + "}"
 
+    # Collects until nothing is found, restoring after each pass, and gives
+    # up after eight passes. A __del__ that runs in a collection can make a
+    # new reference cycle, which that collection does not free; the next
+    # run's own collection would then run it in the middle of that program
+    # (WP-3.1 security review 8, MAJOR 1). The restore comes first: the
+    # program's code runs while its namespace is cleared and while its error
+    # is read, after the restore before, and an object it puts in the state
+    # could make a cycle only when that restore frees it, after a first
+    # collection that found nothing (the same as the harness, WP-3.3
+    # security review 6, MAJOR 1).
+    def settle():
+        restore()
+        for index in passes:
+            found = collect()
+            restore()
+            if found == 0:
+                return
+        raise NotRestored()
+
     def run(source):
         restore()
-        current["streams"] = made = make_streams()
-        dict_update(sys_dict, made)
-        made = None
+        # The new streams are made with the collector off. Making them can
+        # run code an earlier program left in the codec's modules; the
+        # restore after it puts back and checks what that code could change,
+        # the codec and its classes among them, before the streams are used.
+        disable_gc()
+        binding = make_streams()
+        bound["names"] = binding
+        restore()
+        check_streams(binding)
+        current["streams"] = binding if fresh_streams else streams
         register(source)
         namespace = {"__name__": "__main__", "__builtins__": builtins}
         failure = None
@@ -440,27 +651,20 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
         dict_clear(namespace)
         namespace = None
         failure = None
-        # The run's streams go now, so that whatever the program left on them
-        # is freed before the collections and restores below.
-        current["streams"] = streams
-        # A __del__ that runs in a collection can make a new reference cycle,
-        # which that collection does not free; the next run's own collection
-        # would then run it in the middle of that program. So the runner
-        # collects until nothing is found, and gives up after eight passes
-        # (WP-3.1 security review 8, MAJOR 1).
-        # The restore first: the program's code runs while its namespace is
-        # cleared and while its error is read, after the restore above, and
-        # an object it puts in the state could make a cycle only when that
-        # restore frees it, after a first collection that found nothing (the
-        # same as the harness, WP-3.3 security review 6, MAJOR 1).
-        restore()
-        for index in passes:
-            found = collect()
-            restore()
-            if found == 0:
-                break
-        else:
+        # Still on the run's own streams: whatever a __del__ writes now is
+        # this run's output.
+        clear_streams(binding)
+        settle()
+        if not streams_clear(binding):
             raise NotRestored()
+        flush()
+        # Then the run's streams go, and the originals are bound again. A
+        # stream holds nothing of the program now, so freeing it runs no
+        # learner code; the restore and the collections check that.
+        current["streams"] = streams
+        bound["names"] = no_binding
+        binding = None
+        settle()
         return result(kind, message, line, length(split_lines(source)))
 
     return run

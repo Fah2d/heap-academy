@@ -169,17 +169,21 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     const stdout = writer("stdout");
     const stderr = writer("stderr");
     const lines = [...(message.stdin ?? [])];
-    runtime.setStdout(stdout.handler);
-    runtime.setStderr(stderr.handler);
-    runtime.setStdin({
-      stdin: () => {
-        const line = lines.shift();
-        return line === undefined ? undefined : `${line}\n`;
-      },
-    });
 
     let reportText: unknown;
     try {
+      // Setting the handlers reopens file descriptors 0, 1 and 2 by path. A
+      // program that removed or locked those files makes this throw, which
+      // is the runtime failing like any other (WP-3.1 security review 8,
+      // round 3, MINOR 5).
+      runtime.setStdout(stdout.handler);
+      runtime.setStderr(stderr.handler);
+      runtime.setStdin({
+        stdin: () => {
+          const line = lines.shift();
+          return line === undefined ? undefined : `${line}\n`;
+        },
+      });
       reportText = run(message.source);
     } catch {
       // The run support catches what the program raises and guards what it

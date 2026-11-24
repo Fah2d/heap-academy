@@ -265,6 +265,20 @@ describe("worker: runs", () => {
     expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "runtime_crashed" });
   });
 
+  it("[FR-RUN-06] gives up when the stream handlers cannot be set, so the page starts a new worker", async () => {
+    // A program can delete /dev/stdout, and Pyodide's setStdout then throws
+    // on the next run (WP-3.1 security review 8, round 3, MINOR 5).
+    const { runtime, programs } = fakeRuntime();
+    programs.set("print('x')", () => ok);
+    runtime.setStdout = () => {
+      throw new Error("ENOENT: /dev/stdout");
+    };
+    const setup = setUp({ runtime });
+    await ready(setup);
+    setup.core.receive({ type: "run", runId, source: "print('x')", mode: "batch" });
+    expect(setup.posted.at(-1)).toEqual({ type: "fatal", reason: "runtime_crashed" });
+  });
+
   it("[NFR-COMPAT-04] refuses an interactive run, since ready said it is not available", async () => {
     const setup = setUp();
     await ready(setup);

@@ -743,12 +743,12 @@ describe("run support (Pyodide)", () => {
 
   it("[FR-RUN-04] a cycle that a __del__ makes when a restore frees its object is collected before the next run", async () => {
     // The harness's case (WP-3.3 security review 6, MAJOR 1): the restore
-    // frees the object in sys.modules, whose __del__ makes a cycle. In the
-    // runner the first collection has always found the runner's own garbage
-    // too, so this passes with or without the leading restore; it guards the
-    // outcome. The automatic collector is off, so only the runner's
-    // collections and the next program's own one run; the link's __del__
-    // belongs in its own run.
+    // frees the object in sys.modules, whose __del__ makes a cycle. The
+    // program ends with its own collection, so the runner's first collection
+    // finds nothing; without the leading restore the cycle then reached the
+    // next run (security review 8, round 3, MINOR 2, seen). The automatic
+    // collector is off, so only the runner's collections and the next
+    // program's own one run; the link's __del__ belongs in its own run.
     const own = await pyodideRunner("import gc\ngc.disable()");
     const source = [
       "import sys, json",
@@ -765,6 +765,8 @@ describe("run support (Pyodide)", () => {
       '        sys.modules["zz_evil"] = Y()',
       "json._keep = (Link, Y, X, type(sys.stdout))",
       "x = X()",
+      "import gc",
+      "gc.collect()",
     ].join("\n");
     expect(own(source)).toEqual({ stdout: "INJECTED\n", report: ok });
     expect(own('import gc\ngc.collect()\nprint("next")')).toEqual({
@@ -825,6 +827,201 @@ describe("run support (Pyodide)", () => {
     expect(raised(() => own(source))).toMatchObject({
       type: expect.stringContaining("NotRestored"),
     });
+  }, 60_000);
+});
+
+// WP-3.1 security review 8, round 3: what a program leaves in the codec, in
+// the device files behind file descriptors 0, 1 and 2, or on the original
+// streams, does not reach the next run. Each case either leaves the next run
+// clean or makes a run raise NotRestored, so the worker is replaced.
+describe("run support (Pyodide): the streams' codec, devices and originals", () => {
+  const ok = { kind: "ok", message: "", line: undefined };
+  const notRestored = { type: expect.stringContaining("NotRestored") };
+
+  it("[FR-RUN-04] a program that changes the cached codec's classes makes its own run raise (MAJOR 1)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import codecs, sys",
+      "info = codecs.lookup('utf-8')",
+      "class Enc(codecs.IncrementalEncoder):",
+      "    def __init__(self, errors='strict'):",
+      "        codecs.IncrementalEncoder.__init__(self, errors)",
+      "        sys.settrace(lambda *a: None)",
+      "    def encode(self, text, final=False):",
+      "        return text.upper().encode('utf-8')",
+      "class Dec(codecs.IncrementalDecoder):",
+      "    def decode(self, data, final=False):",
+      "        return 'forged\\n'",
+      "info.incrementalencoder = Enc",
+      "info.incrementaldecoder = Dec",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] a codec put in the encodings cache, with the interpreter's cache cleared, makes the next run raise (MAJOR 1)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import codecs, encodings",
+      "real = codecs.lookup('utf-8')",
+      "class Upper(real.incrementalencoder):",
+      "    def encode(self, text, final=False):",
+      "        return text.upper().encode('utf-8')",
+      "encodings._cache['utf_8'] = codecs.CodecInfo(real.encode, real.decode, name='utf-8',",
+      "    incrementalencoder=Upper, incrementaldecoder=real.incrementaldecoder)",
+      "def search(name):",
+      "    return None",
+      "codecs.register(search)",
+      "codecs.unregister(search)",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(raised(() => own('print("hello")\nprint(input())', ["real"]))).toMatchObject(
+      notRestored,
+    );
+  }, 60_000);
+
+  it("[FR-RUN-04] a program that patches the encoder class's __init__ makes its own run raise (MAJOR 1)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import encodings.utf_8, sys",
+      "def init(self, errors='strict'):",
+      "    self.errors = errors",
+      "    self.buffer = ''",
+      "    sys.settrace(lambda *a: None)",
+      "encodings.utf_8.IncrementalEncoder.__init__ = init",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] a decoder method patched on its class makes its own run raise", async () => {
+    // Older than this series (round 3, "Not caused by this series"): it
+    // forged later runs' input() on 16711f5 too.
+    const own = await workerRunner();
+    const source = [
+      "import encodings.utf_8",
+      "encodings.utf_8.IncrementalDecoder._buffer_decode = staticmethod(",
+      "    lambda data, errors, final: ('forged\\n', len(data)))",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] a file put at /dev/stdin makes the next run raise instead of reading it (MAJOR 2)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import os",
+      "os.unlink('/dev/stdin')",
+      "with open('/dev/stdin', 'w') as forged:",
+      "    forged.write('forged\\n')",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(raised(() => own("print(input())", ["real"]))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] a file put at /dev/stdout, with /dev/stderr linked to it, makes the next run raise (MAJOR 2)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import os",
+      "os.unlink('/dev/stdout')",
+      "open('/dev/stdout', 'w').close()",
+      "os.unlink('/dev/stderr')",
+      "os.symlink('/dev/stdout', '/dev/stderr')",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(raised(() => own("x = 1\ny = x / 0"))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] another character device put at /dev/stdin makes the next run raise (MAJOR 2)", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import os",
+      "os.unlink('/dev/stdin')",
+      "os.symlink('/dev/null', '/dev/stdin')",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(raised(() => own("print(input())", ["real"]))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] an error the runner's collection reports goes to the run's own stderr, not to the originals (MINOR 3)", async () => {
+    // The first run leaves text waiting in the original stderr's buffer,
+    // found through the collector; the second run's cycle raises in its
+    // __del__ while the runner collects. Written to the original, the
+    // report would carry the first run's text with it.
+    const own = await workerRunner();
+    const first = [
+      "import gc, io, sys",
+      "for found in gc.get_objects():",
+      "    if type(found) is io.TextIOWrapper and found is not sys.stderr and found.fileno() == 2:",
+      "        found.buffer.write(b'FORGED|')",
+    ].join("\n");
+    expect(own(first).report).toEqual(ok);
+    const second = [
+      "class Cycle:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self):",
+      "        raise ValueError('from the cycle')",
+      "Cycle()",
+    ].join("\n");
+    const result = own(second);
+    expect(result.report).toEqual(ok);
+    expect(result.stderr).toContain("ValueError: from the cycle");
+    expect(result.stderr).not.toContain("FORGED");
+  }, 60_000);
+
+  it("[FR-RUN-04] what a program writes to sys.__stderr__ is its own output, and a later run's warning is not mixed with it (MINOR 3)", async () => {
+    const own = await workerRunner();
+    const first = own('import sys\nsys.__stderr__.buffer.write(b"FORGED by run 1 | ")');
+    expect(first.report).toEqual(ok);
+    expect(first.stderr).toBe("FORGED by run 1 | ");
+    const second = own("async def f():\n    pass\nc = f()");
+    expect(second.report).toEqual(ok);
+    expect(second.stderr).toContain("RuntimeWarning: coroutine 'f' was never awaited");
+    expect(second.stderr).not.toContain("FORGED");
+  }, 60_000);
+
+  it("[FR-RUN-04] a write method set on sys.__stderr__ does not hide a later run's warning (MINOR 3)", async () => {
+    const own = await workerRunner();
+    expect(own("import sys\nsys.__stderr__.write = lambda s: 0").report).toEqual(ok);
+    const second = own("async def f():\n    pass\nc = f()");
+    expect(second.stderr).toContain("RuntimeWarning: coroutine 'f' was never awaited");
+  }, 60_000);
+
+  it("[FR-RUN-04] a method a program sets on its stream is cleared in its run, so freeing the stream runs no learner code", async () => {
+    const own = await workerRunner();
+    const source = [
+      "import sys, builtins",
+      "sys.stdout.close = lambda b=builtins: b.__dict__.__setitem__('leak', 1)",
+      "sys.stdout.buffer.close = lambda b=builtins: b.__dict__.__setitem__('leak', 2)",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(own("print('leak' in dir(__builtins__))")).toMatchObject({
+      stdout: "False\n",
+      report: ok,
+    });
+  }, 60_000);
+
+  it("[FR-RUN-04] a method a __del__ sets on the stream during the runner's collection makes the run raise", async () => {
+    // Set after the stream's attributes were cleared, it would run when the
+    // stream is freed, after the program's run.
+    const own = await workerRunner();
+    const source = [
+      "import sys",
+      "class Cycle:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, sys=sys):",
+      "        sys.stdout.close = lambda: None",
+      "Cycle()",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject(notRestored);
+  }, 60_000);
+
+  it("[FR-RUN-04] the run's streams are bound as __stdin__, __stdout__ and __stderr__ too", async () => {
+    const own = await workerRunner();
+    expect(
+      own(
+        "import sys\nprint(sys.__stdout__ is sys.stdout, sys.__stderr__ is sys.stderr, sys.__stdin__ is sys.stdin)",
+      ),
+    ).toMatchObject({ stdout: "True True True\n", report: ok });
   }, 60_000);
 });
 
