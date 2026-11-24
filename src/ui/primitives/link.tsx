@@ -19,6 +19,12 @@ export type LinkProps = {
   variant: LinkVariant;
   /** For `nav`: this link is the current page. */
   current?: boolean;
+  /**
+   * The browser loads a new document instead of navigating on the client, so
+   * the page arrives with its own response headers. The sign-in page needs
+   * this: only its policy may frame the bot challenge.
+   */
+  fullLoad?: boolean;
   children: ReactNode;
 };
 
@@ -39,17 +45,14 @@ const classes: Record<LinkVariant, string> = {
 const navCurrent = "border-action font-semibold text-text";
 const navRest = "border-transparent text-text-muted hover:text-text";
 
-export function Link({ href, variant, current = false, children }: LinkProps) {
+export function Link({ href, variant, current = false, fullLoad = false, children }: LinkProps) {
   const isCurrent = variant === "nav" && current;
-  return (
-    <NextLink
-      href={href}
-      aria-current={isCurrent ? "page" : undefined}
-      className={cx(classes[variant], variant === "nav" && (isCurrent ? navCurrent : navRest))}
-    >
-      {children}
-    </NextLink>
-  );
+  const shared = {
+    href,
+    "aria-current": isCurrent ? ("page" as const) : undefined,
+    className: cx(classes[variant], variant === "nav" && (isCurrent ? navCurrent : navRest)),
+  };
+  return fullLoad ? <a {...shared}>{children}</a> : <NextLink {...shared}>{children}</NextLink>;
 }
 
 export type ExternalLinkProps = {

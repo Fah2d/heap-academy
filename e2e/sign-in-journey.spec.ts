@@ -21,7 +21,7 @@ test("[FR-AUTH-02] [FR-AUTH-04] [FR-AUTH-05] signs in with an email code in one 
   await requestCode(page, address);
   const code = await latestCode(request, address);
   await page.getByRole("textbox", { name: signIn.codeLabel }).fill(code);
-  await page.getByRole("button", { name: signIn.verify }).click();
+  await page.getByRole("button", { name: signIn.verify, exact: true }).click();
 
   await expect(page).toHaveURL(/\/no-such-page$/);
   await expect(page.getByRole("button", { name: account.signOut })).toBeVisible();
@@ -43,7 +43,7 @@ test("[FR-AUTH-02] a wrong code is refused and the learner stays on the code ste
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "sign-in-code", 1280, { workPackage: "WP-2.2" });
   await page.getByRole("textbox", { name: signIn.codeLabel }).fill(wrong);
-  await page.getByRole("button", { name: signIn.verify }).click();
+  await page.getByRole("button", { name: signIn.verify, exact: true }).click();
   await expect(page.getByRole("alert")).toContainText(signIn.codeRejected);
   await expect(page.getByRole("textbox", { name: signIn.codeLabel })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -62,7 +62,7 @@ test("[T-11] the answer is the same for an address with an account and one witho
   await page
     .getByRole("textbox", { name: signIn.codeLabel })
     .fill(await latestCode(request, known));
-  await page.getByRole("button", { name: signIn.verify }).click();
+  await page.getByRole("button", { name: signIn.verify, exact: true }).click();
   await page.getByRole("button", { name: account.signOut }).click();
   await page.waitForTimeout(61_000);
 
