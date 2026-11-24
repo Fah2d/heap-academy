@@ -2,6 +2,34 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 03:47), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so task 2 needed nothing. This run did the first item under "Next" in the section below. This file is the copy from `wp/3.4-statechart` (the newest) with this section added on top.
+
+### Task 3, part 17 done: WP-3.4's browser tests run in Chromium, ten tests fixed
+
+- Servers: `next dev --webpack` with `WATCHPACK_POLLING=true` on port 3257, after `node scripts/build-runtime.mjs`; `next start` of a `pnpm build` (CI's fake public values) on port 3258. Both stopped by this run.
+- Browser: Chromium with `--no-sandbox --single-process`, one test per Playwright process, through a temporary config outside the repository.
+- On 9414a88: `e2e/grader-parity-runtime.spec.ts` 13 of 13 passed; `e2e/statechart-runtime.spec.ts` 1 of 4 and `e2e/live-input-runtime.spec.ts` 0 of 7 passed.
+- Cause: strict mode violations. `getByRole('button', { name: 'Run' })` also matched **Runs forever** (added by WP-3.4 in dc12bd3), and `getByLabel('Answer')` also matched **Input, one line per answer**. Only `wp/3.4-statechart` has that button and that test file, so the other branches are not affected.
+- 64bb6c3: both are matched with `exact: true` in `e2e/runtime.spec.ts`, `e2e/live-input-runtime.spec.ts` and `e2e/statechart-runtime.spec.ts`. No product code changed.
+- On 64bb6c3: `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4; `e2e/shell.spec.ts` 16 of 16 against `next start`, twice.
+- `pnpm verify` on 64bb6c3: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0.
+- Code review round 3 on 64bb6c3: APPROVE, 1 optional MINOR (Send, Check and Stop still matched by substring; unique today), not changed. Report: `docs/reports/reviews/WP-3.4/code-review-3.md`.
+- Not run: Firefox and WebKit (not installed); Chromium through `pnpm test:e2e` with its own servers.
+- Description: `docs/reports/pull-requests/WP-3.4.md` (the first line, "How it was verified", the test list, the reviews, "Try it on the preview" now names the buttons as the page does, owner action 3, Definition of Done). Still a draft: Firefox, WebKit and the phone check have not run.
+- Push: `wp/3.4-statechart` with 64bb6c3 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The browser tests of WP-3.4 in Firefox and WebKit, and in Chromium through `pnpm test:e2e`.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Run WP-3.3's browser tests (`e2e/grader-parity-runtime.spec.ts`, `e2e/runtime.spec.ts`) in Chromium on `wp/3.3-grader` itself. They passed here on `wp/3.4-statechart`, which holds all of `wp/3.3-grader`.
+
 ## Session of 2026-11-24 (from about 03:40), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it. This run did the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.
