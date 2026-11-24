@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/5.3-workspace-phone` at 2653c90 (with `wp/5.2-workspace-laptop` at 3f5f1bb), plus `origin/wp/5.1-catalog` at 392fa44 (with the 2.2 to 4.3 line).** WP-5.4 depends on WP-5.2 and WP-4.3, and its marks go on WP-5.1's pages. The branch started from `wp/5.2-workspace-laptop`, took `wp/5.1-catalog` (afbd72d), then `wp/5.3-workspace-phone` (cf9d200) so the workspace changes do not conflict with the phone layout. Merges after WP-5.1, WP-5.2 and WP-5.3. Until then this pull request also shows their commits; review afbd72d's resolutions and the commits after it. Draft: parts 1 to 4 of WP-5.4.
+**Base: `wp/5.3-workspace-phone` at 2653c90 (with `wp/5.2-workspace-laptop` at 3f5f1bb), plus `origin/wp/5.1-catalog` at 392fa44 (with the 2.2 to 4.3 line).** WP-5.4 depends on WP-5.2 and WP-4.3, and its marks go on WP-5.1's pages. The branch started from `wp/5.2-workspace-laptop`, took `wp/5.1-catalog` (afbd72d), then `wp/5.3-workspace-phone` (cf9d200) so the workspace changes do not conflict with the phone layout. Merges after WP-5.1, WP-5.2 and WP-5.3. Until then this pull request also shows their commits; review afbd72d's resolutions and the commits after it. Parts 1 to 5: WP-5.4 complete; J-8 and the gate journeys run only in CI.
 
 ## What
 
@@ -10,27 +10,26 @@
 - Part 4 (bab29d3): the invitation to save progress (FR-AUTH-07, FR-PRG-01). Below a lesson's first completion, a guest sees "Your progress is saved on this device only. Sign in to keep it on every device." with a sign-in link back to the lesson and a Hide button; hidden, it stays hidden for the browser session. The root layout, which already read the visitor for the header, reads it once per request and hands the card down only for a guest, so the lesson page still reads no identity.
 - The merge (afbd72d) resolved 7 conflicts. `/learn/[course]/[lesson]` is in the indexing test as indexed (`03-experience.md` section 3). The catalog boundary test lets the lesson page and `/dev/workspace` import exactly the workspace's index and the request's nonce.
 
-Later part: the admin preview route, J-8 and the network-cut journey.
+- Part 5 (a0e14ab, 80e61d9, 6b93dcd): the admin preview (FR-ADM-08, section 7.7). `/admin/lessons/[id]/preview` runs the admin guard first, reads the last saved version through the admin's session without the solution, and shows it in the workspace with a banner and a link back to the editor. A preview keeps code in memory only, records no completion, asks nothing of the device, and shows no invitation and no previous or next. With no test case, Check is off and the tests panel says why. The editor's top bar has "Preview the lesson". J-8 (`e2e/j8-add-lesson-journey.spec.ts`, stack): create, fill from solution, validate, preview, publish, a guest sees the lesson within a minute and gets not-found at the preview. NFR-REL-02: a journey cuts the network after Python is ready; Run, Check and the kept pass still work.
 
 ## How it was verified
 
 - `pnpm verify` on a4dd570: exit 0, `Test Files  128 passed (128)`, `Tests  2296 passed (2296)`.
 - `pnpm build` on a4dd570 with CI's fake public values: exit 0; `check-bundle`: `No server variable (RESEND_API_KEY, HEAP_RELEASE) in 23 files under .next/static.`; `check-static`: exit 0.
-- Unit tests, parts 1 and 2: the progress store (17: reload, the upgrade from version 1, a second pass, two tabs, no IndexedDB, refused and failed reads and writes, a closed connection) and the completion moment (10 in `workspace.test.tsx`). Parts 3 and 4: `courseStanding` (8, one a property test), `useDeviceCompletions` (5), the course list and course page in each progress state (9), the content reads and their cache key parts, the invitation card (3), `guestInvitation` and `isSignedIn` (4), and the invitation in the workspace (5).
-- Browser on a4dd570, Chromium, one test per Playwright process, against `next dev --webpack` on `localhost`: `workspace-runtime.spec.ts` 17 of 17 (new: the invitation journey), `workspace-phone.spec.ts` 4 of 4, `catalog-gallery.spec.ts` 25 of 25 (new: progress from IndexedDB on the course page and the course list at 375 and 1280 px, with axe). The output-limit journey failed once mid-resize; it now waits for the console region, then passed 3 of 3.
-- `e2e/catalog-journey.spec.ts` (stack, CI only) now expects the progress line and each row's XP and state; not run here (no Docker).
-- Not run: `pnpm test:db` (no database change), Firefox and WebKit (speed mode).
+- Unit tests: the progress store (17), the completion moment (10), `courseStanding` (8, one a property test), `useDeviceCompletions` (5), the course pages in each progress state (9), the invitation (12), the preview page (5), the preview in the workspace (5), the preview read (8).
+- Browser on a4dd570, Chromium, one test per Playwright process, against `next dev --webpack` on `localhost`: `workspace-runtime.spec.ts` 17 of 17 (new: the invitation journey), `workspace-phone.spec.ts` 4 of 4, `catalog-gallery.spec.ts` 25 of 25 (new: progress from IndexedDB on the course page and the course list at 375 and 1280 px, with axe).
+- Part 5, on 6b93dcd: `pnpm verify` exit 0, `Test Files  130 passed (130)`, `Tests  2320 passed (2320)`. `pnpm build` on a0e14ab: exit 0, `/admin/lessons/[id]/preview` listed; `check-bundle` and `check-static` exit 0. Browser, Chromium: `workspace-preview-runtime.spec.ts` 2 of 2 (the preview on `/dev/admin/preview`, the network cut), run twice. Found, not caused here: `admin-gallery.spec.ts` "the lesson editor's states" fails axe `landmark-unique` (several "Sections of this lesson" landmarks on the gallery page); it fails the same with part 5's editor change reverted.
+- Not run: `pnpm test:db` (no database change), the stack journeys including J-8 and the gate journey (no Docker), Firefox and WebKit (speed mode).
 
 ## Reviews
-
-Code review 1 (afbd72d, f78c583): 1 BLOCKER, 2 MAJOR, 4 MINOR, fixed in 8368967 apart from one minor. Code review 2 (8474a95): 4 MAJOR, 3 MINOR, fixed in 5359d9c. Code review 3 (2da1c68, part 3): 2 MAJOR, 6 MINOR, fixed in d3ad772. Code review 4 (bab29d3, part 4): 1 MAJOR, 4 MINOR, fixed in a4dd570 apart from one minor answered in decision 16. Security review 1 (bab29d3, sign-in and the layout's identity read): APPROVED, 2 MINOR, one fixed, one expected. Reports with answers in `docs/reports/reviews/WP-5.4/`. Screens: `docs/reports/screens/WP-5.4/`.
+Code review 1 (afbd72d, f78c583): 1 BLOCKER, 2 MAJOR, 4 MINOR, fixed in 8368967 apart from one minor. Code review 2 (8474a95): 4 MAJOR, 3 MINOR, fixed in 5359d9c. Code review 3 (2da1c68, part 3): 2 MAJOR, 6 MINOR, fixed in d3ad772. Code review 4 (bab29d3, part 4): 1 MAJOR, 4 MINOR, fixed in a4dd570 apart from one minor answered in decision 16. Security review 1 (bab29d3, sign-in and the layout's identity read): APPROVED, 2 MINOR, one fixed, one expected. Code review 5 (a0e14ab, part 5): 1 BLOCKER, 3 MAJOR, 3 MINOR, fixed in 6b93dcd apart from one minor answered (below 1024 px). Security review 2 (a0e14ab): APPROVED, 2 MINOR, both fixed. Reports with answers in `docs/reports/reviews/WP-5.4/`. Screens: `docs/reports/screens/WP-5.4/`.
 
 ## antislop Delivery Gate report
 
-antislop active: during (session override, CLAUDE.md rule 5). Dials from `DESIGN.md`: ENERGY 1 / RHYTHM 1 / MOTION 1. Parts 2 to 4 (part 1 has no interface).
+antislop active: during (session override, CLAUDE.md rule 5). Dials from `DESIGN.md`: ENERGY 1 / RHYTHM 1 / MOTION 1. Parts 2 to 5 (part 1 has no interface).
 
-- Block 1: PASS. R-02: no em dash in the new words. R-25/R-39: axe passed on the completed state, the invitation, and the course list and course page with progress. R-27: the completion, a repeat, the storage notice, the invitation and its hidden state, and every course and lesson state (before the device answers, 0, partial, 100 percent) are tested. FR-CRS-02: state as a word beside an icon hidden from assistive technology. NFR-A11Y-04: one announcement per result, the completion in its own region (tested). R-03: no sideways scroll at 375 px in the phone journeys.
-- Block 2: PASS. No new technique: `Notice`, `Status` (one new `next` state with Carbon's `ChevronRight`), `Link` and `Button`.
+- Block 1: PASS. R-02: no em dash in the new words. R-25/R-39: axe passed on the completed state, the invitation, the course list and course page with progress, and the preview after a pass. R-27: the completion, a repeat, the storage notice, the invitation and its hidden state, and every course and lesson state (before the device answers, 0, partial, 100 percent) are tested. FR-CRS-02: state as a word beside an icon hidden from assistive technology. NFR-A11Y-04: one announcement per result, the completion in its own region (tested). R-03: no sideways scroll at 375 px in the phone journeys.
+- Block 2: PASS. No new technique: the preview's banner is an information `Notice`; `Notice`, `Status` (one new `next` state with Carbon's `ChevronRight`), `Link` and `Button`.
 - Block 3: PASS. The focal point after a pass is the completion line, then Next (WP-5.2's primary action).
 - Block 4: PASS. One line, no modal, no confetti, no animation beyond the 160 ms state change (section 6.6). The invitation is an inline card below the result (section 2's anti-pattern table) and leaves Check and Next available.
 
@@ -52,7 +51,9 @@ antislop active: during (session override, CLAUDE.md rule 5). Dials from `DESIGN
 14. No invitation when the device keeps progress only in memory: its words would be false, and the memory warning already shows.
 15. The invitation reaches the workspace from the root layout through the progress feature, because the lesson page may not read identity (decision 7). This also gives WP-6.1 the place where the client learns who is signed in.
 16. The invitation's "keep it on every device" holds once WP-6.1 merges progress at sign-in (FR-PRG-03); the sign-in page already says the same.
+17. The preview shows the last saved version, not unsaved edits (the leave warning asks first). Its Check uses the workspace's worker, not a fresh one; only Validate decides publishing.
+18. Below 1024 px the admin frame hides the preview, but it still mounts and loads Python (code review 5, MINOR 5, accepted).
 
 ## Risks and rollback
 
-A tab still running WP-5.2's code (version 1) after this ships cannot open version 2. It keeps code in memory until it is reloaded. Unmerged branch; nothing to roll back.
+A tab still running WP-5.2's code (version 1) after this ships cannot open version 2. It keeps code in memory until it is reloaded. Unmerged branch; nothing to roll back. `e2e/catalog-journey.spec.ts` (stack, CI only) now expects the progress line and each row's XP and state.

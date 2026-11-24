@@ -2,6 +2,32 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 02:14), in `night-a`, on `wp/5.4-progress-preview`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner.
+
+### Task 3, part 62 done: WP-5.4 part 5, the admin preview (WP-5.4 complete)
+
+- a0e14ab: `/admin/lessons/[id]/preview` (FR-ADM-08, section 7.7). The admin guard runs first; the read goes through the admin's session and names no solution or wrong answer; the workspace's new `preview` prop keeps code in memory only, records no completion, asks nothing of the device, and shows a banner, a back link to the editor, no invitation and no previous or next. The editor's top bar links to it.
+- 80e61d9: `/dev/admin/preview` (development only) and `e2e/workspace-preview-runtime.spec.ts`: the preview (banner, back link, no page scroll in the admin frame, a pass that writes nothing to IndexedDB, axe) and NFR-REL-02 (network cut after Python is ready; Run, Check and the kept pass work).
+- Code review 5: CHANGES REQUIRED, 1 BLOCKER, 3 MAJOR, 3 MINOR. Security review 2: APPROVED, 2 MINOR. 6b93dcd fixes all but one minor (Python loads unseen below 1024 px, accepted): the gate journeys list the editor and preview addresses, a page test, Check off with no test case, the banner's words, screens. It also adds J-8 (`e2e/j8-add-lesson-journey.spec.ts`, stack, CI only) and makes a racy assertion in `course-status.test.tsx` wait for the transition.
+- `pnpm verify` on 6b93dcd: exit 0, `Test Files  130 passed (130)`, `Tests  2320 passed (2320)`. `pnpm build` on a0e14ab with the fake public values: exit 0, `/admin/lessons/[id]/preview` listed; `check-bundle` and `check-static`: exit 0.
+- Browser, Chromium, one test per process against the dev server on `localhost:3265`: `workspace-preview-runtime.spec.ts` 2 of 2 (three runs), `workspace-runtime.spec.ts` 17 of 17 on 6b93dcd.
+- Found, not caused here: `admin-gallery.spec.ts` "the lesson editor's states" fails axe `landmark-unique` (several "Sections of this lesson" landmarks on the gallery page); it fails the same with this part's editor change reverted.
+- Not run: J-8, the gate journey and the other stack journeys (no Docker), `pnpm test:db` (no database change), Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-5.4.md` (59 lines), decisions 17 and 18.
+- Push: `wp/5.4-progress-preview`, once 60 minutes had passed since the last push (02:13).
+
+### Owner: run this (part 62)
+
+1. Update the WP-5.4 pull request body with `docs/reports/pull-requests/WP-5.4.md`, or open it as a draft from `wp/5.4-progress-preview`.
+2. Owner step from the plan: time yourself writing and publishing one lesson (G-5), now that the preview exists.
+3. Still running and not stoppable from the sandbox: dev servers on ports 3264 and 3265. `lsof -ti tcp:3264,3265 | xargs kill` from a terminal outside the sandbox.
+
+### Next
+
+- WP-6.1 to 6.3 are on `night-b`'s line. The next package here that needs the runtime or the 5.x pages is WP-7.2 (axe on every workspace state, the keyboard walkthrough, reduced motion, the throttled load profile), or the admin gallery's `landmark-unique` failure as a small fix first.
+
 ## Session of 2026-11-25 (from about 01:13), in `night-a`, on `wp/5.4-progress-preview`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the runtime branches, `wp/5.2`, `wp/5.3` and `wp/5.4` are 0 behind it and equal to `origin`. Task 2: nothing new that does not need the owner.
