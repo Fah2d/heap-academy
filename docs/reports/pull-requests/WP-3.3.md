@@ -242,6 +242,8 @@ Fixed in 9043a9a and 06c39bb, each new test seen failing without its fix (a muta
 | Code MINOR 6: `used = false` in `spawn` had no test | Test: after a time limit restart, a fresh check uses the new worker as it is (removing the line fails it). |
 | Code MINOR 7, security MINOR 2 and 3: comments | The harness header and `check` say the harness does not raise because of the program's own errors, and that code rewriting its closure can still make it raise (the worker then gives up and is replaced); the fallback has no message and no output whichever stage failed. The capture comment says the count can be reached and memory is not bounded on that route. Both Validate comments say "must", and that the spec text is an open owner decision. |
 
+Fixed since, outside the range (security review 3): calling `dispose()` from a `restarting` listener left a worker running, because `restart()` spawned after the event. WP-3.1 fixed it in its controller (c1114d4, 1266681, d2e7ff8; WP-3.1 code reviews 6 and 7). The merge of that fix into this branch adds the same guard to the check paths: after `check_done` (a finished check no longer sets `ready` on a disposed controller), after `test_result` (no clock starts for the next test case), and after a waiting check ends because its new worker failed (no `failed` event). Ten new tests cover dispose from `check_done` after each way a check ends, from `test_result`, and from the `restarting` event of a fresh check; removing any of the three new guards fails one of them.
+
 Not fixed, for you:
 
 - **Security MINOR 1:** `freshWorker` is optional and off by default. Making it required changes the controller's API for every caller; it belongs with owner action 3.
@@ -275,7 +277,6 @@ Not fixed, for you:
 
 - **Code MINOR 3:** nothing enforces that only the runner's test passes `threadUrl`. It gives no new capability (only tests and scripts can import the runner). Options: an internal factory with a test-only export, or refusing a URL whose protocol is not `file:` (security review 3's optional hardening). The API row above now names the option.
 - **Security MINOR 1, optional part:** clearing the hooks from JavaScript before the harness gives up, which might close the case program A pins. Not tried.
-- **Outside the range (security review 3):** calling `dispose()` from a `restarting` listener leaves a worker running, because `restart()` spawns after the event. No learner code runs in it; `use-runtime.ts` calls `dispose` only on unmount.
 
 ## Try it
 

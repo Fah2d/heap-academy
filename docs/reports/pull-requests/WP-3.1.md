@@ -1,4 +1,4 @@
-**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f); the browser tests have not run on that fix. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
+**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f); the browser tests have not run on that fix The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3); the browser tests have not run on that either. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
 
 ## What and why
 
@@ -59,6 +59,24 @@ The earlier merge of `main` at 037c4ad (#3 and #4) is in f617391; it resolved `n
 Not run on the merge: the browser tests (no browser can start in the sandbox). The commit hook's dependency check could not take pnpm's store lock in the sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed, and `node_modules` already held `pyodide@314.0.7`.
 
 ## How it was verified
+
+**Dispose during a restart (c1114d4, 1266681, d2e7ff8), 2026-11-24.** `pnpm verify` on d2e7ff8, exit 0:
+
+```
+ Test Files  37 passed (37)
+      Tests  878 passed (878)
+```
+
+`pnpm build` with CI's fake public values on d2e7ff8, exit 0; `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`, exit 0. Mutants on d2e7ff8, each removing one `isDisposed()` guard in `src/runtime/controller.ts` (38 controller tests):
+
+| Guard removed | Result |
+|---|---|
+| At the start of `restart()` | `4 failed \| 34 passed` |
+| After the `restarting` event | `8 failed \| 30 passed` |
+| At the start of `crashed()` | `4 failed \| 34 passed` |
+| After `finishReported` in `run_done` | `1 failed \| 37 passed` |
+
+The browser tests were not run on this change. `use-runtime.ts` calls `dispose` only on unmount, so the page's behaviour does not change.
 
 **The `dropped` count (547b394, dece44f), 2026-11-24.** `pnpm verify` on dece44f, exit 0:
 
@@ -387,6 +405,10 @@ Open MAJOR findings for you to waive:
   - MINOR 2: say that the loader test fails, not passes, if a promise settles late. **Fixed** in f7dfb52.
   - MINOR 3: the development page's `dropped` list has no size limit. **Fixed later, in 547b394 and dece44f (2026-11-24):** the list is now a count, because the page only showed its length. Decision: a count rather than a list capped at some length, so the number the page shows stays exact and nothing is kept that no one reads. See code review 5 below.
 - **code-reviewer, round 5** (`code-review-5.md`, on 547b394): **APPROVE**, 2 MINOR, both fixed: this description still listed the finding as not fixed, and the field's comment now says the count also holds reports the controller acted on (dece44f). The page label "Messages dropped" has the same imprecision; it predates the fix and is unchanged.
+- **Fixed later, c1114d4 (2026-11-24): a note outside the range in WP-3.3's security review 3.** Calling `dispose()` from a `restarting` listener left a worker running, because `restart()` started the new worker after the event. This is the controller's code, so it is fixed here and reaches WP-3.3 and WP-3.4 by merge. Decision: the controller checks for `disposed` after each listener call that can lead on, rather than forbidding listeners to call `dispose`, so a caller cannot get it wrong.
+  - **code-reviewer, round 6** (`code-review-6.md`, on c1114d4): CHANGES REQUIRED, 1 MAJOR, 4 MINOR, all fixed in 1266681. MAJOR 1: disposing from the `run_done` of a run that ended normally left the status `ready`. MINOR 2: disposing from the `report` of a worker error or a fatal message led to `failed`, so a later `start()` started a worker. MINOR 3 to 5: why `isDisposed()` is a function (TypeScript's narrowing), tests over every restart trigger, the comment.
+  - **code-reviewer, round 7** (`code-review-7.md`, on 1266681): **APPROVE**, 2 MINOR, both fixed in d2e7ff8: a fatal message while ready and a report while loading are now tested, and the test helpers take `WorkerOutcome` and `RunId`. Its probe disposed at 65 points over 13 scenarios and found no path that leaves a disposed controller in another status or with a live worker. No reviewer has seen d2e7ff8 (tests and test types only).
+  - Left, outside the range: a `run_done` listener that calls `stop()` on the time-limit path nests one restart inside another (no leak; the same before c1114d4), and a `run_done` listener cannot call `run()`, because the status is still `running`. WP-3.4's statechart should not call the controller from inside `run_done`.
 
 ## Try it
 
