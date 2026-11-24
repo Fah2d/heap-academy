@@ -2,17 +2,17 @@
 
 ## Up to date with main
 
-`main` at 0efe863 (#5, #6, #7, #8) is merged into this branch in merge commit 837fc05. No rebase, no force push. Nothing conflicted: `main` adds no migration, policy test or database file, so the schema of this branch is unchanged.
+`main` at 81fdc39 (#5, #6, #7, #8, #10) is merged into this branch in merge commit ff187e9, after the earlier merge of 0efe863 in 837fc05. No rebase, no force push. The only conflict was `docs/reports/local-build-progress.md`, which both sides had added; the resolution keeps every section of both copies. `main` adds no migration, policy test or database file, so the schema of this branch is unchanged.
 
-`pnpm verify` on 837fc05, exit 0:
+`pnpm verify` on ff187e9, exit 0:
 
 ```
 All matched files use Prettier code style!
  Test Files  28 passed (28)
-      Tests  709 passed (709)
+      Tests  718 passed (718)
 ```
 
-`next build` on 837fc05 with CI's public values (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_example`), exit 0. Routes: `/_not-found`, `/api/csp-report`, `/api/health`.
+`next build` on ff187e9 with CI's public values (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_example`), exit 0. Routes: `/_not-found`, `/api/csp-report`, `/api/health`. `scripts/check-bundle.mjs .next/static` and `scripts/check-static.mjs .next`: exit 0.
 
 Not run on the merge: `pnpm test:db` (no Docker on this machine) and e2e (no browser here).
 

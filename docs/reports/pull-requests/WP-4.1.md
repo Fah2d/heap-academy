@@ -2,6 +2,19 @@
 
 ## Up to date with main
 
+`main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.3-admin-gate`, which has it (d6dfb0c): merge commit 00c025d. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.3-admin-gate`, which holds every section of this branch's copy (this branch's copy differed only in older lines of the same session). No test failed and no code changed.
+
+On 00c025d, `pnpm verify`, exit 0:
+
+```
+ Test Files  62 passed (62)
+      Tests  1112 passed (1112)
+```
+
+`next build` on 00c025d with CI's public values, exit 0, routes `/_not-found`, `/admin`, `/admin/courses/[id]`, `/admin/courses/new`, `/admin/setup`, `/admin/verify`, `/api/csp-report`, `/api/health`, `/auth/callback`, `/sign-in`. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
+The earlier merge of `main` at 0efe863 follows.
+
 `main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/2.3-admin-gate`, which already has it (a9d23f1, with 1fb08e1 and 39c22f1): merge commit 1696ef1. No rebase, no force push.
 
 - One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/2.3-admin-gate` was taken, the newer one; its only difference in this branch's sections is a done owner step (the WP-4.2 lockfile commit) that a later session removed.
