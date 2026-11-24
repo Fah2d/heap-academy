@@ -433,6 +433,100 @@ describe("the harness", () => {
     expect(run(hooks)).toEqual(before);
   });
 
+  it("[FR-RUN-04] a sys.monitoring callback that takes a freed tool id while the tools are freed is freed too", () => {
+    // WP-3.3 security review 4, MINOR 1: with one pass, the next case's output began with "INJECTED".
+    const source = [
+      "import sys",
+      "m = sys.monitoring",
+      "moved = []",
+      "def inject(code, offset):",
+      '    if code.co_name == "area":',
+      '        print("INJECTED")',
+      "def hop(code, offset, called, arg0):",
+      "    if called is m.set_events and not moved:",
+      "        moved.append(1)",
+      '        m.use_tool_id(0, "hop")',
+      "        m.register_callback(0, m.events.PY_START, inject)",
+      "        m.set_events(0, m.events.PY_START)",
+      'm.use_tool_id(4, "probe")',
+      "m.register_callback(4, m.events.CALL, hop)",
+      "m.set_events(4, m.events.CALL)",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ stage: "program", error: undefined });
+    expect(
+      run("def area(w, h):\n    return w * h", { afterCode: "print(area(3, 4))" }),
+    ).toMatchObject({ output: "12\n", error: undefined });
+    expect(run("import sys\nprint([sys.monitoring.get_tool(t) for t in range(6)])")).toMatchObject({
+      output: "[None, None, None, None, None, None]\n",
+    });
+  });
+
+  it("[FR-GRD-01] a sys.monitoring callback that keeps moving between tool ids makes the harness raise", async () => {
+    // Eight passes cannot free it, so the harness raises ToolsInUse (it fails
+    // closed) and its caller replaces the runtime. Its own interpreter, as in
+    // the test above.
+    const own = await loadHarness();
+    const source = [
+      "import sys",
+      "m = sys.monitoring",
+      // m is bound now: the harness clears the namespace before its last restore.
+      "def hop(code, offset, called, arg0, m=m):",
+      "    if called is m.set_events and arg0 in (0, 1) and m.get_tool(1 - arg0) is None:",
+      "        other = 1 - arg0",
+      '        m.use_tool_id(other, "hop")',
+      "        m.register_callback(other, m.events.CALL, hop)",
+      "        m.set_events(other, m.events.CALL)",
+      'm.use_tool_id(0, "hop")',
+      "m.register_callback(0, m.events.CALL, hop)",
+      "m.set_events(0, m.events.CALL)",
+    ].join("\n");
+    let thrown: unknown;
+    try {
+      own.check(source, "", "");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("ToolsInUse") });
+  }, 60_000);
+
+  it("[FR-RUN-04] the import system's lists come back for the next test case, also when changed in place", () => {
+    run(
+      [
+        "import sys",
+        "class Finder:",
+        "    def find_spec(self, name, path=None, target=None):",
+        '        print("FINDER", name)',
+        "        return None",
+        "sys.meta_path.insert(0, Finder())",
+        'sys.path.append("/nowhere")',
+        "sys.path_hooks.append(lambda entry: None)",
+        'sys.path_importer_cache["/nowhere"] = None',
+      ].join("\n"),
+    );
+    const check = [
+      "import sys",
+      "import decimal",
+      'print("/nowhere" in sys.path, "/nowhere" in sys.path_importer_cache,',
+      '      [type(f).__name__ for f in sys.meta_path].count("Finder"), len(sys.path_hooks))',
+    ].join("\n");
+    const after = run(check);
+    expect(after.error).toBeUndefined();
+    expect(after.output).toMatch(/^False False 0 \d+\n$/);
+    expect(run(check)).toEqual(after);
+  });
+
+  it("[FR-RUN-04] the integer digit limit and the async generator hooks come back for the next test case", () => {
+    const settings = "import sys\nprint(sys.get_int_max_str_digits(), sys.get_asyncgen_hooks())";
+    const before = run(settings);
+    expect(before.error).toBeUndefined();
+    run("import sys\nsys.set_int_max_str_digits(640)\nsys.set_asyncgen_hooks(firstiter=print)");
+    expect(run(settings)).toEqual(before);
+    expect(run("print(len(str(10 ** 1000)))")).toMatchObject({
+      output: "1001\n",
+      error: undefined,
+    });
+  });
+
   it("[FR-RUN-04] a garbage collector callback set by one test case is gone in the next, and does not write into it", () => {
     run('import gc\ngc.callbacks.append(lambda phase, info: print("GC", phase))');
     expect(run("import gc\ngc.collect()\nprint(len(gc.callbacks))")).toMatchObject({
@@ -448,6 +542,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2428621754 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 863582379 });
   });
 });

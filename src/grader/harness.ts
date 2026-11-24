@@ -14,14 +14,25 @@
 // ends, in a `__str__` or a `__del__`, so the state is restored after the
 // program, again after its objects are freed, and before the next case.
 //
-// "The state" is what section 5.5 lists, plus the interpreter's hooks:
-// builtins, the module table, the three streams, a fresh namespace, the
-// recursion limit, the trace and profile hooks, the sys.monitoring tools, the
-// garbage collector's callbacks, and the exception, unraisable, display and
-// breakpoint hooks. Changes to a standard library module's attributes are
-// not undone (ADR-0004), and an audit hook cannot be removed once added. Nor is the harness itself protected: a program can
-// reach its closure and change what later test cases on the same worker
-// report, so a check is evidence only for code that is not hostile. Validate
+// "The state" is what section 5.5 lists, plus the interpreter's hooks and
+// settings: builtins, the module table, the three streams, a fresh
+// namespace, the import system's lists (sys.path, sys.meta_path,
+// sys.path_hooks, sys.path_importer_cache), the recursion limit, the integer
+// digit limit, the trace and profile hooks, the sys.monitoring tools, the
+// garbage collector's callbacks, the async generator hooks, and the
+// exception, unraisable, display and breakpoint hooks.
+//
+// Not undone: changes to a standard library module's attributes (ADR-0004),
+// audit hooks (they cannot be removed), and sys.monitoring local events set
+// on a code object (no call clears them for every code object; a later case
+// that takes the same tool id would receive them). A monitoring callback that
+// moves to another tool id while the tools are freed is freed on a later
+// pass; one that is still moving after the last pass makes the harness
+// raise. A fresh worker is the control for all of these.
+//
+// Nor is the harness itself protected: a program can reach its closure and
+// change what later test cases on the same worker report, so a check is
+// evidence only for code that is not hostile. Validate
 // (WP-4.3) must start a new worker for each program (`freshWorker`); the spec
 // text for that is an open owner decision.
 //
@@ -69,6 +80,7 @@ def _heap_make_grader():
         for name in (
             "modules", "stdin", "stdout", "stderr",
             "excepthook", "unraisablehook", "displayhook", "breakpointhook",
+            "path", "meta_path", "path_hooks", "path_importer_cache",
         )
     }
     line_cache = linecache.cache
@@ -85,11 +97,24 @@ def _heap_make_grader():
     set_events = monitoring.set_events
     free_tool_id = monitoring.free_tool_id
     tool_ids = [tool for tool in range(6) if get_tool(tool) is None]
+    # A callback can take a freed id again while the others are freed, so
+    # the ids are freed in up to eight passes.
+    passes = [index for index in range(8)]
     # The interpreter calls this list object, whatever gc.callbacks names.
     gc_callbacks = gc.callbacks
     gc_callbacks_snapshot = list(gc_callbacks)
     list_clear = list.clear
     list_extend = list.extend
+    # Changed in place by an import hook or a program; the names themselves
+    # are put back with sys_snapshot.
+    import_lists = [(sys.path, list(sys.path)), (sys.meta_path, list(sys.meta_path)),
+                    (sys.path_hooks, list(sys.path_hooks))]
+    importer_cache = sys.path_importer_cache
+    importer_cache_snapshot = dict(importer_cache)
+    digit_limit = sys.get_int_max_str_digits()
+    set_digit_limit = sys.set_int_max_str_digits
+    asyncgen_hooks = sys.get_asyncgen_hooks()
+    set_asyncgen_hooks = sys.set_asyncgen_hooks
 
     dict_clear = dict.clear
     dict_update = dict.update
@@ -133,6 +158,11 @@ def _heap_make_grader():
     class OutputLimit(base_exception):
         pass
 
+    # Raised when a monitoring tool is still in use after the last pass, so
+    # that the harness fails closed.
+    class ToolsInUse(base_exception):
+        pass
+
     # Standard output of the program and the follow-up code, and how much
     # room is left. Past the limit a write keeps what fits and raises, so a
     # flood stops at its next print. A program can still reach the count,
@@ -166,12 +196,26 @@ def _heap_make_grader():
     def restore():
         set_profile(None)
         set_trace(None)
-        for tool in tool_ids:
-            if get_tool(tool) is not None:
-                set_events(tool, 0)
-                free_tool_id(tool)
+        for index in passes:
+            in_use = False
+            for tool in tool_ids:
+                if get_tool(tool) is not None:
+                    in_use = True
+                    set_events(tool, 0)
+                    free_tool_id(tool)
+            if not in_use:
+                break
+        else:
+            raise ToolsInUse()
         list_clear(gc_callbacks)
         list_extend(gc_callbacks, gc_callbacks_snapshot)
+        for current, snapshot in import_lists:
+            list_clear(current)
+            list_extend(current, snapshot)
+        dict_clear(importer_cache)
+        dict_update(importer_cache, importer_cache_snapshot)
+        set_digit_limit(digit_limit)
+        set_asyncgen_hooks(*asyncgen_hooks)
         set_recursion_limit(recursion_limit)
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
@@ -274,8 +318,10 @@ def _heap_make_grader():
     # hook still runs on the call that removes it, and can set a raising trace
     # hook on this frame; code that rewrites the harness's closure can too, and
     # so can a monitoring callback that raises on every call, as no call can
-    # then run to free its tool. Then the harness raises: the worker gives up with runtime_crashed and is
-    # replaced, and the Node runner reports the test case as crashed.
+    # then run to free its tool. A tool still in use after the fallback makes
+    # the harness raise too. Then the harness raises: the worker gives up with
+    # runtime_crashed and is replaced, and the Node runner reports the test
+    # case as crashed.
     def check(source, stdin, after_code):
         try:
             return run_case(source, stdin, after_code)
@@ -293,6 +339,9 @@ def _heap_make_grader():
                 restore()
             except base_exception:
                 pass
+            for tool in tool_ids:
+                if get_tool(tool) is not None:
+                    raise ToolsInUse()
             return result("program", "", False, ("runtime", "", None, None))
 
     def run_case(source, stdin, after_code):
