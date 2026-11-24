@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 10:35), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 32 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 4c612bc: `wp/3.3-grader` at c8e67f4 merged (WP-3.3 security review 6: 65af875, c694902, ff9e6eb and the docs). One conflict, this file; `wp/3.3-grader`'s copy taken (insertions only against this branch's copy). The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "4"`; `grade.ts` takes the value from the harness.
+- `pnpm verify` on 4c612bc: exit 0, 46 files, 1228 tests. `pnpm build` with CI's fake public values: exit 0; the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "5"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen 4c612bc (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with 4c612bc and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The owner actions of the sections below are still due (security review 8, round 3, on WP-3.1's a24111c among them).
+
+### Next
+
+- After round 3 approves a24111c: the leading restore in WP-3.1's `run-support.ts` (the same fix as c694902), then merge `wp/3.1-python-worker` into `wp/3.3-grader` and on into `wp/3.4-statechart`.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
 ## Session of 2026-11-24 (from about 10:10), in `night-a`, on `wp/3.3-grader`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Security review 8, round 3, on WP-3.1's a24111c was left for the owner, as the section below says. This run did the second item under "Next" below. This file is `wp/3.1-python-worker`'s copy (the newest; it held every section of this branch's copy) with this section added on top.
