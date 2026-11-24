@@ -2,6 +2,14 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 01:36), in `night-b`, unsynced notice on `wp/6.1-sync-wiring`
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- Done: 8f7e125, the workspace says when a completed lesson has not reached the account. Code review: APPROVE, three minors left open. `pnpm verify`: 129 files, 2317 tests. `pnpm build`, `check-bundle`, `check-static`: exit 0. Not run: browser tests, `pnpm test:db`.
+- Push: not before 02:36 (one push per 60 minutes).
+- Not started, WP-6.2 part 2 (XP and streak on screen): device completions carry no XP, and public content does not list archived lessons, so a guest's XP total needs a design choice (proposal: store each lesson's XP with the completion on the device; a signed-in learner reads the database value). Its course page part also overlaps WP-5.4 part 3, which is another session's.
+- Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule).
+
 ## Session of 2026-11-25 (from about 01:15), in `night-b`, WP-6.1 part 3 on `wp/6.1-sync-wiring`
 
 - `origin/main` still 428c437: nothing to merge for task 1.

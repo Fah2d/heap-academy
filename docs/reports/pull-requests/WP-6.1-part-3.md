@@ -5,15 +5,20 @@
 - One device store. Part 2 and WP-5.4 each had one over the same IndexedDB database, at different versions, so part 2's would have fallen back to memory. Part 2's two files are removed; WP-5.4's store gained the sync operations.
 - The sync runs for a signed-in learner, started by the header's account control: on load, when the tab shows, and after each pass (FR-PRG-02, FR-PRG-03, FR-PRG-06; architecture section 10).
 - Sign-out clears the completions on this device. An answer from a sync that started before the clear changes nothing, in this tab or another.
+- The workspace says when a completed lesson has not reached the account, and removes the notice once it has (FR-PRG-06).
 - Batches are limited to 100 completions and 900,000 bytes (Next refuses an action body over 1 MB). Code over 20,000 characters is cut before sending.
 
 ## Verification
 
-`pnpm verify`: exit 0, 129 files, 2314 tests. `pnpm build` with CI's fake values, `check-bundle`, `check-static`: exit 0. Not run: `pnpm test:db`, any browser test, J-5 and J-6.
+`pnpm verify`: exit 0, 129 files, 2317 tests. `pnpm build` with CI's fake values, `check-bundle`, `check-static`: exit 0. Not run: `pnpm test:db`, any browser test, J-5 and J-6.
 
 ## Reviews (one round: code, security)
 
 Both: CHANGES REQUIRED. Fixed in the following commit, and not reviewed again: a sync in flight at sign-out restoring the list; a failed clear returning the rows; success read before the commit; batch size; missing tests for mounting and the visibility trigger. The open findings are decisions 1 to 3.
+
+The unsynced notice (8f7e125) had its own code review: APPROVE, three minor test and timing points left open.
+
+Delivery Gate for the notice: existing `Notice` primitive (warning kind, text label, polite announcement), words in `src/messages`, no new color, layout or motion. Not seen in a browser: widths, contrast on screen and screen reader are not verified.
 
 ## Decisions for the owner (safe defaults)
 
@@ -24,7 +29,7 @@ Both: CHANGES REQUIRED. Fixed in the following commit, and not reviewed again: a
 
 ## Not in this pull request
 
-The unsynced notice and server-rendered progress for a signed-in learner.
+Server-rendered progress for a signed-in learner.
 
 ## Risks and rollback
 
