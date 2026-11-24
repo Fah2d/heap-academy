@@ -190,7 +190,7 @@ export const workspace = {
   completeAgain: "Lesson complete. Its XP counted the first time you passed it.",
   // Storage refused (FR-PRG-01): what is kept lasts only while the tab is open.
   memoryTitle: "This browser is not saving your work.",
-  memoryBody: "Your code and completed lessons stay only until you close this tab.",
+  memoryBody: "Your code and completed lessons are lost when you reload or leave this page.",
   passed: "Passed",
   failedTest: "Failed",
   notRun: "Not run",

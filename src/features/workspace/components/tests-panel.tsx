@@ -5,6 +5,7 @@ import type { CheckSummary, TestResult } from "@/grader/grade";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
 import { Disclosure, Status, type StatusState } from "@/ui";
+import { CheckmarkFilled } from "@/ui/icons";
 import { consoleText } from "@/domain/workspace/console-text";
 import { testError, TIME_LIMIT_SECONDS } from "../client/workspace-view";
 import { LearnerErrorView } from "./learner-error-view";
@@ -79,7 +80,11 @@ export function TestsPanel({
         </h3>
       )}
       {completion !== undefined && (
-        <p data-completion className="text-base font-semibold text-text">
+        // DESIGN.md section 7: the pass icon and the words with the XP, at --text-2xl.
+        <p data-completion className="flex items-center gap-2 text-2xl font-semibold text-text">
+          <span className="text-pass">
+            <CheckmarkFilled size={20} aria-hidden="true" />
+          </span>
           {completion}
         </p>
       )}

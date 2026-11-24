@@ -133,8 +133,6 @@ export function Workspace({
   const edited = useRef(false);
   const pendingSave = useRef<number | undefined>(undefined);
   const latestCode = useRef(code);
-  // The code the last Check ran, kept as the completion's code.
-  const checkedCode = useRef(code);
   const [completion, setCompletion] = useState<{ summary: CheckSummary; first: boolean }>();
   const [durability, setDurability] = useState<Durability>("device");
   const recorded = useRef<CheckSummary | undefined>(undefined);
@@ -182,7 +180,7 @@ export function Workspace({
     }),
     [code, batchInput, lesson.tests],
   );
-  const { view, chart, dispatch, sendInput, endInput } = useRuntime(program, {
+  const { view, chart, dispatch, sendInput, endInput, lastCheckedSource } = useRuntime(program, {
     enabled: supported === true,
   });
 
@@ -204,15 +202,16 @@ export function Workspace({
   };
 
   // Whether the device keeps what is saved, known only in the browser (FR-PRG-01).
+  const mounted = useRef(true);
   useEffect(() => {
-    let active = true;
+    mounted.current = true;
     void deviceProgress()
       .durability()
       .then((known) => {
-        if (active) setDurability(known);
+        if (mounted.current) setDurability(known);
       });
     return () => {
-      active = false;
+      mounted.current = false;
     };
   }, []);
 
@@ -225,18 +224,15 @@ export function Workspace({
     if (recorded.current === summary) return;
     recorded.current = summary;
     const progress = deviceProgress();
-    let active = true;
     void progress
-      .record({ lessonId: lesson.id, completedAt: Date.now(), code: checkedCode.current })
+      .record({ lessonId: lesson.id, completedAt: Date.now(), code: lastCheckedSource() ?? "" })
       .then(async (first) => {
-        if (active) setCompletion({ summary, first });
+        // A later answer is harmless: the line shows only beside its own summary.
+        if (mounted.current) setCompletion({ summary, first });
         const known = await progress.durability();
-        if (active) setDurability(known);
+        if (mounted.current) setDurability(known);
       });
-    return () => {
-      active = false;
-    };
-  }, [view.ended, view.summary, lesson.id]);
+  }, [view.ended, view.summary, lesson.id, lastCheckedSource]);
 
   const completionText =
     completion !== undefined && completion.summary === view.summary
@@ -262,7 +258,6 @@ export function Workspace({
     setPhoneView("output");
     if (over !== undefined) return;
     setTab(action === "run" ? "console" : "tests");
-    if (action === "check") checkedCode.current = code;
     dispatch({ type });
   };
 
@@ -273,9 +268,7 @@ export function Workspace({
     view.ended === "run" && view.result !== undefined
       ? runAnnouncement(view.result, transcript(view.output, false).lines)
       : view.ended === "check" && view.summary !== undefined
-        ? [words.summary(view.summary.passed, view.summary.total), completionText]
-            .filter((part) => part !== undefined)
-            .join(". ")
+        ? words.summary(view.summary.passed, view.summary.total)
         : "";
 
   const moveTo = (line: number) => {
@@ -573,10 +566,17 @@ export function Workspace({
   );
 
   // Outside the views, so it is said whichever view is showing.
+  // The completion has its own region: it arrives after the summary, once
+  // the device has kept the pass, and the summary is not said again.
   const announcementRegion = (
-    <div role="status" className="sr-only">
-      {announcement}
-    </div>
+    <>
+      <div role="status" className="sr-only">
+        {announcement}
+      </div>
+      <div role="status" className="sr-only" data-completion-announcement>
+        {view.ended === "check" ? (completionText ?? "") : ""}
+      </div>
+    </>
   );
 
   const nav = (

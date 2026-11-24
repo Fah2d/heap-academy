@@ -49,6 +49,8 @@ export function useRuntime(
   dispatch: (event: WorkspaceEvent) => void;
   sendInput: (line: string) => InputRequest;
   endInput: () => void;
+  /** The source the last check started with, undefined before any. */
+  lastCheckedSource: () => string | undefined;
 } {
   const [view, setView] = useState<RuntimeView>(INITIAL_VIEW);
   const [chart, setChart] = useState<WorkspaceState>(INITIAL_STATE);
@@ -56,6 +58,9 @@ export function useRuntime(
   const controller = useRef<RuntimeController | undefined>(undefined);
   const programRef = useRef(program);
   const completeRef = useRef(onComplete);
+  // The source the last check really started with: a check pressed while
+  // Python loads starts later, with the code as it is then.
+  const checkedSource = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     programRef.current = program;
@@ -89,7 +94,10 @@ export function useRuntime(
           if (current === undefined) return NOT_READY;
           const { source, tests } = programRef.current(current.interactiveInput);
           const request = current.check(source, tests);
-          if (request.ok) setView((previous) => startCheck(previous, current.status));
+          if (request.ok) {
+            checkedSource.current = source;
+            setView((previous) => startCheck(previous, current.status));
+          }
           return request;
         },
         // The development page passes no callback: it has no lesson to record.
@@ -141,5 +149,7 @@ export function useRuntime(
     controller.current?.endInput();
   }, []);
 
-  return { view, chart, dispatch, sendInput, endInput };
+  const lastCheckedSource = useCallback(() => checkedSource.current, []);
+
+  return { view, chart, dispatch, sendInput, endInput, lastCheckedSource };
 }

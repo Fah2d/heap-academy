@@ -53,13 +53,13 @@ async function noAxeViolations(page: Page) {
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 }
 
-async function screens(page: Page, name: string) {
+async function screens(page: Page, name: string, workPackage?: string) {
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await settled(page);
-    // Below 768 px the screen is WP-5.3's phone layout.
+    // Below 768 px the screen is WP-5.3's phone layout, unless a later package owns the state.
     await saveScreen(page, name, width, {
-      workPackage: width < 768 ? "WP-5.3" : WORK_PACKAGE,
+      workPackage: workPackage ?? (width < 768 ? "WP-5.3" : WORK_PACKAGE),
       fullPage: width < 768,
     });
   }
@@ -133,7 +133,33 @@ test("[FR-WSP-06] [FR-PRG-01] a pass shows its XP once and is kept after a reloa
     page.getByRole("status").filter({ hasText: words.completeFirst(10) }),
   ).toBeAttached();
   await expect(page.getByText(words.memoryTitle)).toHaveCount(0);
+  // The pass is on the device with the code that was checked.
+  const kept = await page.evaluate(
+    () =>
+      new Promise<unknown[]>((resolve, reject) => {
+        const open = indexedDB.open("heap-academy");
+        open.onerror = () => {
+          reject(open.error ?? new Error("IndexedDB open failed"));
+        };
+        open.onsuccess = () => {
+          const database = open.result;
+          const read = database.transaction("completions").objectStore("completions").getAll();
+          read.onsuccess = () => {
+            database.close();
+            resolve(read.result);
+          };
+          read.onerror = () => {
+            database.close();
+            reject(read.error ?? new Error("IndexedDB read failed"));
+          };
+        };
+      }),
+  );
+  expect(kept).toEqual([
+    expect.objectContaining({ code: `${EXAMPLE_LESSON.solution}`, synced: false }),
+  ]);
   await noAxeViolations(page);
+  await screens(page, "workspace-complete", "WP-5.4");
 
   await page.reload();
   await ready(page);
