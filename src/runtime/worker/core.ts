@@ -244,7 +244,7 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       try {
         text = check(message.source, testCase.stdin, testCase.afterCode);
       } catch {
-        // The harness never raises; the runtime itself failed.
+        // The runtime failed, or learner code made the harness raise (harness.ts, check).
         return die("runtime_crashed");
       }
       const parsed = parseHarnessResult(text);
