@@ -2,6 +2,14 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 19:39), in `night-c`, on `wp/7.3-operations`
+
+- `origin/main` is still 7875ee2 and already in `wp/7.3-operations` (`git merge-base --is-ancestor`). Task 1 has nothing new.
+- Task 2 is still blocked for the same reason as the section below: WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches (`origin/wp/3.1-python-worker` moved at 19:33; `origin/wp/2.2-sign-in` is at 9717efb). No branch was started.
+- `gh pr list` still fails with the same TLS error (`x509: OSStatus -26276`).
+- Pushed `wp/7.3-operations` this time (fast-forward, only this file changed since 3634019), so the owner's chat can read the notes of the 15:24 to 19:39 runs. Default decision: one Vercel build is worth making these notes visible; the earlier runs held them back. Nothing else is due on this branch, so the next push waits for new work.
+- The run stops here, as the instructions say for a blocked task.
+
 ## Session of 2026-11-24 (from about 19:24), in `night-c`, on `wp/7.3-operations`
 
 New owner decisions of 2026-11-24 for WP-5.1: owner action 5 (fix the backtick `import()` lint bypass as its own small branch from `origin/main`) and owner action 6 (the error page wording). `origin/main` is still 7875ee2.
