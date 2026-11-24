@@ -29,6 +29,7 @@ Same task list. Still blocked: no new work package can start. No code was change
 - Checked again in a later run on 2026-11-24: `origin/main` still 0efe863; `origin/wp/5.1-catalog` is at a7c5ddf and `origin/wp/3.3-grader` at f65a033 (other agents' branches, not merged, not touched); `gh pr list` was not reachable from this run either. Still blocked, no code changed.
 - Checked again in a later run on 2026-11-24: `origin/main` still 0efe863; `origin/wp/5.1-catalog` moved (a7c5ddf to 213b75f, not touched); `gh pr list` fails with the same TLS error. Still blocked, no code changed.
 - Checked again in a later run on 2026-11-24: `origin/main` still 0efe863; no other branch moved since the last check (`origin/wp/5.1-catalog` still 213b75f, not touched); `gh pr list` fails with the same TLS error. Still blocked, no code changed.
+- Checked again in a later run on 2026-11-24: `origin/main` still 0efe863; only `origin/wp/5.1-catalog` moved (213b75f to 0569ef0, not touched); `gh pr list` fails with the same TLS error. Still blocked, no code changed.
 
 ### Owner: run this
 
