@@ -2,9 +2,63 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
+## Session of 2026-11-24 (from about 19:35), in `night-a`, on `wp/3.3-grader`, then `wp/5.2-workspace-laptop`
+
+Same task list and owner decisions, plus the WP-5.1 decisions (#5: the backtick `import()` lint fix as its own branch from `origin/main`; #6: "We could not prepare this page. Try again."). `git fetch`: `origin/main` is still 7875ee2, so task 1 had nothing to merge. `wp/fix-lint-template-import` is checked out in the `night-c` worktree with its own unpushed commits, so this run leaves WP-5.1 #5 to that run. This file is `wp/3.1-python-worker`'s copy (the newest, from part 50) with this section added on top.
+
+### Task 2, part 51 done: WP-3.1 security review 8's stream findings checked against WP-3.3's harness
+
+- Read, not run: round 4, MAJOR 1 (the codec search function) does not apply, because the harness captures into an `io.StringIO` subclass that looks up no codec. Round 3, MAJOR 2 and MINOR 3 reach only output that is not graded, so no verdict changes. Round 4, MAJOR 2 is fixed in WP-3.1's `core.ts` and arrives with the merge. Written under "Not fixed" in `docs/reports/pull-requests/WP-3.3.md` (881e51a).
+- Decision (safe default, in the description): `wp/3.1-python-worker` is still not merged into `wp/3.3-grader`, because no reviewer has seen 0330378.
+- No code changed, so `pnpm verify` was not rerun.
+- Push: `wp/3.3-grader` with f3c806d, 881e51a and this file.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+
+## Session of 2026-11-24 (from about 18:18), in `night-a`, on `wp/3.1-python-worker`
+
+Same task list and owner decisions as the section below. `git fetch`: `origin/main` is still 7875ee2, so task 1 had nothing to merge. Found on arrival, from two runs that stopped without writing here:
+
+- `wp/3.1-python-worker` had two unpushed commits from about 15:24: 7d76013 (the fixes for WP-3.1 security review 8, round 3) and 9940fc8 (its record in the description). The description said round 4 "is below"; it had not run.
+- `wp/3.3-grader` had f3c806d unpushed (it is on `origin` inside `wp/3.4-statechart`'s history).
+- `wp/5.2-workspace-laptop` had 9 unpushed commits: the merge of `wp/3.4-statechart` (49546a8), WP-5.2 decision 6 written into the spec (7d4a6ff), and 3d6d2d1 (saved code on the device, the support floor, a console that shows text only). On top of it, `stash@{0}` (17:50, "WP-5.2 part 2 WIP from interrupted session") holds 11 changed and 11 new files, about 1,240 lines: the lesson page, the workspace and its panels. Not checked or committed by this run.
+
+This file is `wp/3.4-statechart`'s copy (the newest, from part 49) with this section added on top.
+
+### Task 2, part 50 done: WP-3.1 security review 8, round 4, and its fixes
+
+- `pnpm verify` on 9940fc8 first: exit 0, `Tests  951 passed (951)`. A first attempt stalled for 10 minutes in seven test files at once while another job loaded the machine; the same files passed alone in 4 s, and the full run then took 22 s.
+- `security-reviewer`, round 4, on 7d76013: CHANGES REQUIRED, 2 MAJOR, 2 MINOR. Written into `docs/reports/reviews/WP-3.1/security-review-8.md`.
+- 0330378 fixes MAJOR 1 (a codec search function a program left), MAJOR 2's setters (bound at load), MINOR 3 (the encoder's state) and MINOR 4 (a test that fails without the leading restore). Each new test was checked to fail with its fix removed.
+- Decision (safe default, in the description): MAJOR 2's rest (`js` and `pyodide_js` reachable, Pyodide's file-system functions, audit hooks) stays under the residual risk the description already recorded: a program can rewrite the runner itself. A probe on 0330378 confirmed it through `gc.get_objects()` (a replaced `flush` printed in runs 2 and 3). A learner's program reaches only that learner's later runs in the same worker.
+- `pnpm verify` on 0330378: exit 0, `Test Files  38 passed (38)`, `Tests  955 passed (955)`. `pnpm build` with CI's fake public values: exit 0 (`runtime: worker compiled`). `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen 0330378.
+- Push: `wp/3.1-python-worker` with 7d76013, 9940fc8, 0330378 and the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. Confirm or change the round-4 default (`js` and `pyodide_js` stay reachable under the recorded residual risk). Round 5 on 0330378 if you want one.
+3. Still yours on WP-3.1: the browser tests in Firefox and WebKit, and the "Not fixed" items with no recommended default.
+
+### Next
+
+- Task 2 on `wp/3.3-grader`: whether its harness shares round 3's MAJOR 2 and MINOR 3 and round 4's MAJOR 1 (WP-3.1's run fixes are still not merged there).
+- Task 3: check and commit WP-5.2 part 2 from `stash@{0}` on `wp/5.2-workspace-laptop`, then push that branch's 9 waiting commits.
+
+## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list, with the owner decisions of 2026-11-24: every recommended default in every pull request description is approved (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, device progress cleared at sign-out, the stored row wins, every proposed spec change accepted), to be written into `docs/spec` on the branch each belongs to and marked approved on 2026-11-24. `git fetch`: `origin/main` moved to 7875ee2, the merge of #12 (WP-2.1). `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart` were each 20 commits behind it; `wp/5.2-workspace-laptop` 1. This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 46), with `main`'s two `night-b` sections added in time order and this section on top.
+
+### Task 1, part 49 done: `wp/3.3-grader` (with `main` at 7875ee2) merged into `wp/3.4-statechart`, and WP-3.4's approved decisions written
+
+- 014adf3: `wp/3.3-grader` at f3c806d merged. One conflict, this file (`wp/3.3-grader`'s copy taken; it held every line of this branch's).
+- Owner decisions written in the docs commit: ADR-0034 accepted (its status and its row in `02-architecture.md` section 15); `02-architecture.md` section 6: `CRASH` also covers a worker replaced after a memory error or the output cap, with a `reason`. Decision: of the two options the description proposed, the one that changes neither the diagram nor the code.
+- `pnpm verify` on 014adf3 and again with the spec edits (the chart's test reads section 6's diagram): exit 0, 47 files, 1247 tests. `pnpm build` with CI's fake public values: exit 0; `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen 014adf3.
+- Push: `wp/3.4-statechart` with 014adf3 and the docs commit. `wp/3.3-grader`'s f3c806d reaches `origin` inside this push's history, not on its own branch, until that branch's next push.
 
 ### Task 1, part 48 done: `main` at 7875ee2 merged into `wp/3.3-grader`, and WP-3.3's approved decisions written
 
@@ -26,12 +80,12 @@ Same task list, with the owner decisions of 2026-11-24: every recommended defaul
 
 ### Owner: run this
 
-1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader` if that pull request is open.
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader` if that pull request is open, and the same for `docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`.
 2. Still yours on WP-3.1: the browser tests in Firefox and WebKit, security review 8 round 3, and the three "Not fixed" items that have no recommended default (the worker's file system, the "crashed" message, a late callback's output).
 
 ### Next
 
-- Merge `wp/3.3-grader` (with `main`) into `wp/3.4-statechart`, writing its approved decisions (ADR-0034 among them).
+- Task 1 is done for `main` at 7875ee2. Next: `main` into `wp/5.2-workspace-laptop` (1 commit behind) through `wp/3.4-statechart`, and task 2.
 
 ## Session of 2026-11-24 (from about 13:48, continued), in `night-a`, on `wp/5.2-workspace-laptop`
 
