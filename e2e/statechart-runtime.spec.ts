@@ -52,7 +52,7 @@ test("[FR-GRD-01] the example solution passes its check and the lesson region pa
 }) => {
   await ready(page);
   await page.getByRole("button", { name: runtimeDev.sampleSolution }).click();
-  await page.getByRole("button", { name: runtimeDev.check }).click();
+  await page.getByRole("button", { name: runtimeDev.check, exact: true }).click();
   const tests = page.getByTestId("runtime-tests").locator("li");
   await expect(tests).toHaveCount(EXAMPLE_LESSON.testCases.length);
   for (const status of await tests.all()) {
@@ -79,7 +79,7 @@ test("[FR-WSP-07] Stop ends a running loop at once", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: runtimeDev.sampleLoop }).click();
   await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
-  await page.getByRole("button", { name: runtimeDev.stop }).click();
+  await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
   await expect(chart(page)).toContainText(runtimeDev.restartReason.stopped);
   await ready(page);
 });

@@ -90,7 +90,7 @@ test.describe("Python runtime", () => {
   test("[FR-RUN-02] Stop ends a run at once", async ({ page }) => {
     await runProgram(page, "while True: pass");
     await expect(page.getByRole("status")).toHaveAttribute("data-status", "running");
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
     await expect(outcome(page)).toHaveAttribute("data-outcome", "stopped");
   });
 
@@ -298,7 +298,7 @@ test.describe("Python runtime", () => {
         }),
     );
     expect(longestGap).toBeLessThan(50);
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
   });
 
   test("[NFR-SEC-01] drops nothing in a normal session", async ({ page }) => {
