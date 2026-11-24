@@ -2,6 +2,12 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 18:06), in `night-b`, nothing to do
+
+- `git fetch` at 18:06: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is six progress commits ahead (this section makes seven). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running; owner actions 5 and 6 are still undecided; `gh` still fails with `x509: OSStatus -26276`.
+- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped.
+
 ## Session of 2026-11-24 (from about 18:03), in `night-b`, nothing to do
 
 - `git fetch` at 18:03: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is four progress commits ahead (this section makes five). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
