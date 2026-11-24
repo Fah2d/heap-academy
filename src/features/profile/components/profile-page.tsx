@@ -20,7 +20,7 @@ export async function ProfilePage() {
   return (
     <>
       <TimeZoneReporter stored={summary.timeZone} updateProfile={updateProfile} />
-      <ProfileView summary={summary} />
+      <ProfileView summary={summary} updateProfile={updateProfile} />
     </>
   );
 }

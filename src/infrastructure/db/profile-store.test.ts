@@ -82,3 +82,23 @@ describe("[FR-PRF-01] the profile store", () => {
     );
   });
 });
+
+describe("[FR-PRF-02] the profile store's display name", () => {
+  it("writes only the caller's own row, and only when the name differs", async () => {
+    const { db, seen } = fakeDb({ update: ok([{ user_id: "u1" }]) });
+    expect(await supabaseProfileStore(db).setDisplayName("u1", "Alex")).toBe("changed");
+    expect(seen.update).toEqual({ display_name: "Alex" });
+    expect(seen.filters).toEqual([
+      ["profiles", "user_id", "u1"],
+      ["profiles", "not display_name", "Alex"],
+    ]);
+  });
+
+  it.each([
+    [ok([]), "unchanged"],
+    [failed, "unavailable"],
+  ])("answers %j as %s", async (update, outcome) => {
+    const { db } = fakeDb({ update });
+    expect(await supabaseProfileStore(db).setDisplayName("u1", "Alex")).toBe(outcome);
+  });
+});

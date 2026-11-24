@@ -1,11 +1,12 @@
 import "server-only";
 import { z } from "zod";
+import { parseDisplayName } from "@/domain/display-name";
 import { parseTimeZone, streak, totalXp, type TimeZone } from "@/domain/streak";
 import type { UseCaseResult } from "@/infrastructure/actions/define-action";
 import type { ProfileStore } from "@/infrastructure/db/profile-store";
 
 // What the profile shows, derived on every read (FR-PRF-01, FR-PRG-04,
-// FR-PRG-05), and the change of time zone the browser reports (FR-PRF-02).
+// FR-PRG-05), and the changes of time zone and display name (FR-PRF-02).
 
 export type ProfileSummary = {
   displayName: string;
@@ -42,18 +43,30 @@ export async function profileSummary(
   };
 }
 
-// The column holds 1 to 64 characters, and only a named zone is stored.
-export const updateProfileInput = z.strictObject({
-  timeZone: z
-    .string()
-    .max(64)
-    .transform((value, context) => {
-      const zone = parseTimeZone(value);
-      if (zone !== undefined && zone.length <= 64) return zone;
-      context.addIssue({ code: "custom", message: "not a time zone" });
-      return z.NEVER;
-    }),
+// The time zone column holds 1 to 64 characters, and only a named zone is stored.
+const timeZoneInput = z
+  .string()
+  .max(64)
+  .transform((value, context) => {
+    const zone = parseTimeZone(value);
+    if (zone !== undefined && zone.length <= 64) return zone;
+    context.addIssue({ code: "custom", message: "not a time zone" });
+    return z.NEVER;
+  });
+
+const displayNameInput = z.string().transform((value, context) => {
+  const name = parseDisplayName(value);
+  if (name.ok) return name.value;
+  context.addIssue({ code: "custom", message: name.problem });
+  return z.NEVER;
 });
+
+export const updateProfileInput = z
+  .strictObject({
+    timeZone: timeZoneInput.optional(),
+    displayName: displayNameInput.optional(),
+  })
+  .refine((input) => input.timeZone !== undefined || input.displayName !== undefined);
 export const MAX_PROFILE_BYTES = 512;
 
 export type UpdateProfileFailure = "unavailable";
@@ -63,7 +76,13 @@ export async function updateProfile(
   input: z.infer<typeof updateProfileInput>,
   store: ProfileStore,
 ): Promise<UseCaseResult<{ changed: boolean }, UpdateProfileFailure>> {
-  const outcome = await store.setTimeZone(userId, input.timeZone);
-  if (outcome === "unavailable") return { ok: false, error: "unavailable" };
-  return { ok: true, value: { changed: outcome === "changed" } };
+  const outcomes = [];
+  if (input.timeZone !== undefined) {
+    outcomes.push(await store.setTimeZone(userId, input.timeZone));
+  }
+  if (input.displayName !== undefined) {
+    outcomes.push(await store.setDisplayName(userId, input.displayName));
+  }
+  if (outcomes.includes("unavailable")) return { ok: false, error: "unavailable" };
+  return { ok: true, value: { changed: outcomes.includes("changed") } };
 }

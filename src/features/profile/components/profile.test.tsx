@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { profile as words } from "@/messages/profile";
+import { DisplayName } from "./display-name";
 import { ProfilePage } from "./profile-page";
 import { ProfileView } from "./profile-view";
 import { TimeZoneReporter } from "./time-zone-reporter";
@@ -40,7 +42,7 @@ const summary = {
 
 describe("[FR-PRF-01] the profile", () => {
   it("shows the name, XP, and both streaks", () => {
-    render(<ProfileView summary={summary} />);
+    render(<ProfileView summary={summary} updateProfile={vi.fn()} />);
     expect(screen.getByRole("heading", { level: 1, name: words.heading })).toBeTruthy();
     for (const text of ["Sam", "35 XP", "1 day", "4 days"]) {
       expect(screen.getByText(text)).toBeTruthy();
@@ -49,7 +51,7 @@ describe("[FR-PRF-01] the profile", () => {
   });
 
   it("says what to do on a new account", () => {
-    render(<ProfileView summary={{ ...summary, xp: 0, lessons: 0 }} />);
+    render(<ProfileView summary={{ ...summary, xp: 0, lessons: 0 }} updateProfile={vi.fn()} />);
     expect(screen.getByText(words.empty)).toBeTruthy();
     expect(screen.getByRole("link", { name: words.coursesLink }).getAttribute("href")).toBe(
       "/courses",
@@ -106,5 +108,61 @@ describe("[FR-PRF-02] the browser's time zone", () => {
     view.rerender(<TimeZoneReporter stored="Asia/Calcutta" updateProfile={second} />);
     expect(first).toHaveBeenCalledOnce();
     expect(second).not.toHaveBeenCalled();
+  });
+});
+
+describe("[FR-PRF-02] changing the display name", () => {
+  async function edit(
+    text: string,
+    answer: () => Promise<{ ok: true } | { ok: false; error: string }>,
+  ) {
+    const user = userEvent.setup();
+    const update = vi.fn(answer);
+    render(<DisplayName name="Sam" updateProfile={update} />);
+    await user.click(screen.getByRole("button", { name: words.changeName }));
+    const field = screen.getByRole("textbox", { name: words.nameLabel });
+    await user.clear(field);
+    if (text !== "") await user.type(field, text);
+    await user.click(screen.getByRole("button", { name: words.saveName }));
+    return update;
+  }
+
+  it("sends the trimmed name, closes, and returns focus", async () => {
+    const update = await edit("  Alex  ", async () => ({ ok: true }));
+    expect(update).toHaveBeenCalledWith({ displayName: "Alex" });
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce());
+    const open = await screen.findByRole("button", { name: words.changeName });
+    expect(document.activeElement).toBe(open);
+  });
+
+  it("says why an empty name is wrong and sends nothing", async () => {
+    const update = await edit("", async () => ({ ok: true }));
+    expect(screen.getByText(words.nameProblem.empty)).toBeTruthy();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["is refused", async () => ({ ok: false as const, error: "unavailable" }), words.saveFailed],
+    ["cannot be sent", async () => Promise.reject(new Error("offline")), words.saveFailed],
+    [
+      "has no sign-in",
+      async () => ({ ok: false as const, error: "not_signed_in" }),
+      words.signedOut,
+    ],
+  ])("keeps the form and says so when the change %s", async (_name, answer, sentence) => {
+    await edit("Alex", answer);
+    expect(await screen.findByText(sentence)).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: words.nameLabel })).toHaveProperty("value", "Alex");
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+
+  it("keeps the stored name on Cancel", async () => {
+    const user = userEvent.setup();
+    const update = vi.fn();
+    render(<DisplayName name="Sam" updateProfile={update} />);
+    await user.click(screen.getByRole("button", { name: words.changeName }));
+    await user.click(screen.getByRole("button", { name: words.cancel }));
+    expect(screen.getByText("Sam")).toBeTruthy();
+    expect(update).not.toHaveBeenCalled();
   });
 });

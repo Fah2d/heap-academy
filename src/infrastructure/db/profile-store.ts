@@ -16,10 +16,12 @@ export type ProfileStore = {
   /** The caller's profile, or null when the database cannot give it. */
   read: (userId: string) => Promise<ProfileRecord | null>;
   /** Stores the time zone on the caller's own row, if it differs from the stored one. */
-  setTimeZone: (userId: string, timeZone: string) => Promise<TimeZoneOutcome>;
+  setTimeZone: (userId: string, timeZone: string) => Promise<ChangeOutcome>;
+  /** Stores the display name on the caller's own row, if it differs. */
+  setDisplayName: (userId: string, displayName: string) => Promise<ChangeOutcome>;
 };
 
-export type TimeZoneOutcome = "changed" | "unchanged" | "unavailable";
+export type ChangeOutcome = "changed" | "unchanged" | "unavailable";
 
 type Db = Pick<SessionClient, "from">;
 
@@ -29,6 +31,22 @@ const completionRows = z.array(
 );
 
 export function supabaseProfileStore(db: Db): ProfileStore {
+  /** Writes one column of the caller's own row; no row comes back when it already holds the value. */
+  async function set(
+    userId: string,
+    column: "time_zone" | "display_name",
+    value: string,
+  ): Promise<ChangeOutcome> {
+    const { data, error } = await db
+      .from("profiles")
+      .update(column === "time_zone" ? { time_zone: value } : { display_name: value })
+      .eq("user_id", userId)
+      .neq(column, value)
+      .select("user_id");
+    if (error !== null || data === null) return "unavailable";
+    return data.length === 0 ? "unchanged" : "changed";
+  }
+
   return {
     async read(userId) {
       const [profile, completions] = await Promise.all([
@@ -49,15 +67,7 @@ export function supabaseProfileStore(db: Db): ProfileStore {
       };
     },
 
-    async setTimeZone(userId, timeZone) {
-      const { data, error } = await db
-        .from("profiles")
-        .update({ time_zone: timeZone })
-        .eq("user_id", userId)
-        .neq("time_zone", timeZone)
-        .select("user_id");
-      if (error !== null || data === null) return "unavailable";
-      return data.length === 0 ? "unchanged" : "changed";
-    },
+    setTimeZone: (userId, timeZone) => set(userId, "time_zone", timeZone),
+    setDisplayName: (userId, displayName) => set(userId, "display_name", displayName),
   };
 }

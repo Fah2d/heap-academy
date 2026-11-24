@@ -7,7 +7,8 @@ vi.mock("server-only", () => ({}));
 const at = (text: string) => Date.parse(text);
 
 function store(overrides: Partial<ProfileStore>): ProfileStore {
-  return { read: async () => null, setTimeZone: async () => "changed", ...overrides };
+  const changed = async () => "changed" as const;
+  return { read: async () => null, setTimeZone: changed, setDisplayName: changed, ...overrides };
 }
 
 const record = (timeZone: string, times: string[]) =>
@@ -92,5 +93,34 @@ describe("[FR-PRF-02] the time zone change", () => {
     expect(
       await updateProfile("u1", input, store({ setTimeZone: async () => "unchanged" })),
     ).toEqual({ ok: true, value: { changed: false } });
+  });
+});
+
+describe("[FR-PRF-02] the display name change", () => {
+  it("takes a name, trimmed", () => {
+    expect(updateProfileInput.parse({ displayName: " Sam " })).toEqual({ displayName: "Sam" });
+  });
+
+  it.each(["", "x".repeat(41), "a\nb"])("refuses %j", (displayName) => {
+    expect(updateProfileInput.safeParse({ displayName }).success).toBe(false);
+  });
+
+  it("refuses an empty change", () => {
+    expect(updateProfileInput.safeParse({}).success).toBe(false);
+  });
+
+  it("stores only the name, and says when it could not", async () => {
+    const setDisplayName = vi.fn(async () => "changed" as const);
+    const setTimeZone = vi.fn(async () => "changed" as const);
+    const input = updateProfileInput.parse({ displayName: "Sam" });
+    expect(await updateProfile("u1", input, store({ setDisplayName, setTimeZone }))).toEqual({
+      ok: true,
+      value: { changed: true },
+    });
+    expect(setDisplayName).toHaveBeenCalledWith("u1", "Sam");
+    expect(setTimeZone).not.toHaveBeenCalled();
+    expect(
+      await updateProfile("u1", input, store({ setDisplayName: async () => "unavailable" })),
+    ).toEqual({ ok: false, error: "unavailable" });
   });
 });

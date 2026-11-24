@@ -8,8 +8,8 @@ import {
   updateProfileInput,
 } from "./profile";
 
-// `updateProfile` of docs/spec/02-architecture.md section 9.1. It changes the
-// time zone only; the display name joins it with the profile's name editing.
+// `updateProfile` of docs/spec/02-architecture.md section 9.1: the time zone,
+// the display name, or both.
 
 export const updateProfile = defineAction({
   name: "update-profile",

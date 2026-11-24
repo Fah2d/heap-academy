@@ -1,9 +1,17 @@
+import type { ComponentProps } from "react";
 import { profile as words } from "@/messages/profile";
 import { Link } from "@/ui";
 import type { ProfileSummary } from "../server/profile";
+import { DisplayName } from "./display-name";
 
 /** The profile's content (docs/spec/03-experience.md section 5.5; FR-PRF-01). */
-export function ProfileView({ summary }: { summary: ProfileSummary }) {
+export function ProfileView({
+  summary,
+  updateProfile,
+}: {
+  summary: ProfileSummary;
+  updateProfile: ComponentProps<typeof DisplayName>["updateProfile"];
+}) {
   const numbers = [
     [words.xp, words.xpValue(summary.xp)],
     [words.currentStreak, words.days(summary.currentStreak)],
@@ -13,7 +21,7 @@ export function ProfileView({ summary }: { summary: ProfileSummary }) {
     <div className="mx-auto flex max-inline-page flex-col gap-5 px-gutter py-7">
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold text-text">{words.heading}</h1>
-        <p className="text-base break-words text-text-muted">{summary.displayName}</p>
+        <DisplayName name={summary.displayName} updateProfile={updateProfile} />
       </div>
       {/* DESIGN.md: XP and streak numerals at --text-2xl, tabular. */}
       <dl className="flex flex-wrap gap-x-7 gap-y-4">
