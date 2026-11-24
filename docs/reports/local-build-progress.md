@@ -23,11 +23,19 @@ Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 
 
 ### Task 1c done: wp/2.3-admin-gate
 
-- Started at 15:19. Merge commit d3a05da: `wp/2.2-sign-in`, no conflict.
+- Started at 15:17. Merge commit d3a05da: `wp/2.2-sign-in`, no conflict.
 - Spec changes written, each marked approved on 2026-11-24: `02-architecture.md` section 9.1 (the three second-step actions) and section 8.3 (`private.is_on_admin_list()`); `03-experience.md` section 7.1 (the button before the QR code); `06-security-privacy.md` section 6 (code guessing with a stolen session, T-19). `docs/runbooks/admin-access.md` section 4 says the risk is accepted.
 - `pnpm verify`: exit 0, 53 files, 1019 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
+
+### Task 1d done: wp/4.1-courses-chapters
+
+- Started at 15:18. Merge commit 6dc9213: `wp/2.3-admin-gate`, no conflict.
+- Spec change written, marked approved on 2026-11-24: `01-requirements.md` FR-ADM-03 (chapters have no status; delete when empty).
+- `pnpm verify`: exit 0, 62 files, 1112 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.1.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
 
 Decisions taken with a safe default:
 
@@ -37,7 +45,7 @@ Decisions taken with a safe default:
 
 ### Owner: run this
 
-1. Paste `WP-2.2.md` into the WP-2.2 pull request (base `main`) and `WP-2.3.md` into WP-2.3's.
+1. Paste `WP-2.2.md` into the WP-2.2 pull request (base `main`), `WP-2.3.md` into WP-2.3's and `WP-4.1.md` into WP-4.1's.
 
 
 ## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
