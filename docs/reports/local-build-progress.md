@@ -2,6 +2,40 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 02:50), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 9 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 10 took about 8 minutes, so the run went on with part 11, which carries this copy to `wp/3.3-grader`. The copy on `wp/3.4-statechart` is now older than this one.
+
+### Task 3, part 10 done: the worker's header rule (WP-3.1 security review 2, MINOR 3)
+
+- e340e4f: the worker's header rule was `/_runtime/worker/:path*`, so a miss under that folder got the worker's policy (no `sandbox`) instead of the runtime's static policy. The rule is now `/_runtime/worker/:path+.js`. `:path*.js` was tried first and rejected: its compiled regex also matches `/_runtime/worker.js`.
+- `scripts/next-config.test.ts` runs `next.config.ts` through Next.js's own `unstable_getResponseFromNextConfig`: the seven compiled worker files get the worker's policy and `no-cache`; six misses get the static policy.
+- Mutants: `:path*` fails 7 of 10; `:path*.js` fails 3 of 11.
+- Security review round 6 (`docs/reports/reviews/WP-3.1/security-review-6.md`): APPROVE, 3 MINOR, two fixed (comment, all seven files tested), one recorded (a miss ending in `.js`, in any case, still gets the worker's policy).
+- `pnpm verify` on e340e4f: exit 0, 37 files, 858 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the build: compiled files 200 with the worker policy and `no-cache`; `no-such-file`, `core.jsx`, `x.js/more`, `/_runtime/worker.js` 404 with the static policy; `missing.js` 404 with the worker policy.
+- Decision: the rule matches by extension, not by naming the seven files, so the file list stays in one place.
+- Not run: the browser tests.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, "Not fixed").
+- Push: `wp/3.1-python-worker` with e340e4f and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 11 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- bc73677: `wp/3.1-python-worker` at 2af8c6e merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict. In the merge, `scripts/next-config.test.ts`'s list of compiled worker files became this branch's eleven (under `runtime/` and `grader/`, as `scripts/build-runtime.test.ts` lists them); the built folder holds exactly those eleven.
+- `pnpm verify` on bc73677: exit 0, 42 files, 1033 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with bc73677 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 pull request with its description, if it is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with bc73677) into `wp/3.4-statechart`. Check there that `scripts/next-config.test.ts`'s list of compiled worker files matches `scripts/build-runtime.test.ts` on that branch.
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
 ## Session of 2026-11-24 (from about 00:25), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 7 took about 15 minutes, so the run went on with parts 8 and 9, which carry this copy to `wp/3.3-grader` and `wp/3.4-statechart`.

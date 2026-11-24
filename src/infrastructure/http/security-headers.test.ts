@@ -137,7 +137,7 @@ describe("runtime headers", () => {
         headers: [{ key: "Cache-Control", value: IMMUTABLE }],
       },
       {
-        source: "/_runtime/worker/:path*",
+        source: "/_runtime/worker/:path+.js",
         headers: [
           {
             key: "Content-Security-Policy",
@@ -171,9 +171,9 @@ describe("the runtime path's static policy", () => {
     );
     expect(setsPolicy.map((rule) => rule.source)).toEqual([
       "/_runtime/:path*",
-      "/_runtime/worker/:path*",
+      "/_runtime/worker/:path+.js",
     ]);
-    expect(rules.at(-1)?.source).toBe("/_runtime/worker/:path*");
+    expect(rules.at(-1)?.source).toBe("/_runtime/worker/:path+.js");
   });
 
   it("[T-15] keeps the static policy when the Pyodide files move to another host", () => {
@@ -184,7 +184,7 @@ describe("the runtime path's static policy", () => {
     });
     expect(moved.map((rule) => rule.source)).toEqual([
       "/_runtime/:path*",
-      "/_runtime/worker/:path*",
+      "/_runtime/worker/:path+.js",
     ]);
   });
 });
