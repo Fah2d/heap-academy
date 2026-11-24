@@ -7,6 +7,10 @@ import {
 } from "@/infrastructure/auth/sign-in-provider";
 import { type SecondStepProvider, supabaseSecondStep } from "@/infrastructure/auth/second-step";
 import { verifiedIdentity } from "@/infrastructure/auth/verified-identity";
+import {
+  type CompletionStore,
+  supabaseCompletionStore,
+} from "@/infrastructure/db/completion-store";
 import { createSessionClient, type SessionClient } from "@/infrastructure/db/session-client";
 import {
   createRequestId,
@@ -23,6 +27,8 @@ import { log } from "@/infrastructure/logging/logger";
 export type ActionServices = {
   /** The caller's own session: row level security decides every read and write. */
   db: SessionClient;
+  /** The learner's completions (FR-PRG-02). */
+  completions: CompletionStore;
   signIn: SignInProvider;
   /** The admin's second sign-in step (FR-ADM-02). */
   secondStep: SecondStepProvider;
@@ -43,6 +49,7 @@ export const defineAction = createActionFactory<ActionServices>({
       },
       services: {
         db,
+        completions: supabaseCompletionStore(db),
         signIn: supabaseSignInProvider(db.auth),
         secondStep: supabaseSecondStep(db.auth.mfa),
       },
