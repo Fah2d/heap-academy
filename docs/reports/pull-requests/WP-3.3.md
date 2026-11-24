@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 3e50d99, at 5b77939), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 3e50d99, at 5b77939), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit.
 
 ## What and why
 
@@ -93,7 +93,7 @@ runner, memory discard removed:   × after a memory error the next test case run
 grade, before the fix:   × fails at the output limit, even when the kept output would match
 ```
 
-Each mutant run also failed the hash test, which fails on any edit to the Python. The browser tests have not run.
+Each mutant run also failed the hash test, which fails on any edit to the Python. The browser tests had not run then (Chromium results below).
 
 **Up to date with main.** `wp/3.1-python-worker` at a288083 (WP-3.1 with `main` merged in) is merged into this branch (6f0cfe8), with no conflict. `pnpm verify` on 6f0cfe8, exit 0:
 
@@ -108,7 +108,7 @@ $ vitest run --coverage
       Tests  951 passed (951)
 ```
 
-`npx playwright test --list --project=runtime-chromium`: "Total: 28 tests in 2 files". The browser tests have not run.
+`npx playwright test --list --project=runtime-chromium`: "Total: 28 tests in 2 files". The browser tests had not run then (Chromium results below).
 
 Before the merge:
 
@@ -168,7 +168,15 @@ Before the fixes, `odd_exit` made the harness raise and the worker post `fatal r
 - `src/runtime/controller.test.ts`: a check end to end; each test case gets the full limit; the limit mid-check; Stop; a crash; a result out of order and a summary that disagrees; messages for another run and run messages during a check; memory restarts after the check; refusals before ready, during a run, and for invalid test cases. After review: `freshWorker` replaces a used worker and sends the check to the new one; a worker that has only loaded is kept; a run makes a worker used; Stop while the new worker starts; a new worker that fails to start.
 - `scripts/eslint/rules.test.ts`: the purity exemption applies only to `src/grader/node-runner/`; only tests and the runner itself may import it; only a test may import a test file; computed imports are refused outside the worker entry.
 
-**Not run, owner to run:** `e2e/grader-parity-runtime.spec.ts`, the 13 parity cases in each of `runtime-chromium`, `runtime-firefox` and `runtime-webkit`. `npx playwright test --list --project=runtime-chromium` loads it: "Total: 28 tests in 2 files" (13 here, 15 in `runtime.spec.ts`). Like WP-3.1's browser tests, it opens `/dev/runtime`, which routes once #3 is merged.
+**Browser tests in Chromium, on 459c0c3.** Chromium 159.0.8154.6 with `--no-sandbox --single-process`, one test per Playwright process, through a temporary configuration outside the repository with no web servers. The `runtime` project's files ran against `next dev --webpack` (with `WATCHPACK_POLLING=true`) on port 3259, after `node scripts/build-runtime.mjs`; the production project's files against `next start` of a `pnpm build` with CI's fake public values on port 3260.
+
+- `e2e/grader-parity-runtime.spec.ts`: 13 of 13 passed, the same verdicts as under Node.
+- `e2e/runtime.spec.ts`: 15 of 15 passed.
+- `e2e/runtime-headers.spec.ts`: 4 of 4 passed. `e2e/shell.spec.ts`: 16 of 16 passed.
+- `e2e/csp.spec.ts`: 1 of 3 passed. The two that fail ("the page runs its scripts with no policy violation", a 30 s timeout; "an injected inline script is blocked", `Received: false`) are the two that `wp/fix-smoke-and-runtime` corrects (the tests, not the policy). That branch is not in `main` yet; they pass here once it is merged into `main` and `main` into this branch. Not merged into this branch directly, so this pull request does not carry another pull request's change.
+- The same parity file also passed 13 of 13 on `wp/3.4-statechart` at 9414a88, which holds all of this branch.
+
+**Not run, owner to run:** the parity cases in `runtime-firefox` and `runtime-webkit` (not installed here), and in `runtime-chromium` through `pnpm test:e2e` with its own servers.
 
 ```sh
 pnpm test:e2e e2e/grader-parity-runtime.spec.ts --project=runtime-chromium --project=runtime-firefox --project=runtime-webkit
@@ -245,7 +253,7 @@ pnpm vitest run src/grader
 
 ## Owner actions now due
 
-1. After #3, #4 and WP-3.1 are merged, run the browser parity suite (command above) and paste the output.
+1. Run the browser parity suite (command above) in Firefox and WebKit, and in Chromium through `pnpm test:e2e`, and paste the output.
 2. Decide the deviations below.
 3. Decide whether to open a `spec-change` that adds to WP-4.3's "Done when": Validate uses `check(..., { freshWorker: true })` for every program, with a test that a tampering program in one validation does not change the next one's verdict; and adds to T-23 that Validate is no evidence for hostile imported code, so the owner reads imported code before pressing Validate.
 4. Decide whether `pyodide` moves to `devDependencies` (security review, MINOR 4).
@@ -280,8 +288,8 @@ pnpm vitest run src/grader
 
 ## Definition of Done
 
-- [ ] Every "Done when" line is met, with evidence above. **Not met:** the three browser engines (written, not run).
-- [x] Every cited Must requirement has a test that names its ID. The browser tests have not run.
+- [ ] Every "Done when" line is met, with evidence above. **Not met:** Firefox and WebKit (written, not run); Chromium passes, run by hand.
+- [x] Every cited Must requirement has a test that names its ID. The browser tests pass in Chromium; Firefox and WebKit have not run.
 - [x] `pnpm verify` and `pnpm build` pass.
 - [x] Every state of every changed view exists. The development page shows `checking`.
 - [x] No stub, dead control, placeholder, commented-out code, or invented number.
