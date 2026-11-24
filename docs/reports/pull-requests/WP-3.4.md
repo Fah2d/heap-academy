@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 7875ee2, is merged (last in 014adf3, at f3c806d). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 428c437, is merged (last in 818c111, at 68a69d2). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,7 +19,9 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at f3c806d is merged in 014adf3. It brings `main` at 7875ee2 (#12, `wp/2.1-schema-policies`), which `wp/3.3-grader` merged in 7d62414, and WP-3.3's spec changes approved on 2026-11-24. One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. WP-3.1's run fixes and WP-3.1's approved spec changes are still not on `wp/3.3-grader`, so they are not here either; they arrive with WP-3.1.
+`wp/3.3-grader` at 68a69d2 is merged in 818c111. It brings `main` at 428c437 (#14, `wp/db-types`: one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses), merged into `wp/3.3-grader` in bbd6d31, and WP-3.3's notes on WP-3.1 security review 8 (881e51a). One conflict, `docs/reports/local-build-progress.md`: `wp/5.2-workspace-laptop`'s copy, which holds every line of both sides, was taken. On 818c111: `pnpm verify` exit 0 (`Test Files  47 passed (47)`, `Tests  1247 passed (1247)`); `pnpm build` with CI's fake public values exit 0, and the built harness has `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `wp/3.3-grader` at f3c806d is merged in 014adf3. It brings `main` at 7875ee2 (#12, `wp/2.1-schema-policies`), which `wp/3.3-grader` merged in 7d62414, and WP-3.3's spec changes approved on 2026-11-24. One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. WP-3.1's run fixes and WP-3.1's approved spec changes are still not on `wp/3.3-grader`, so they are not here either; they arrive with WP-3.1.
 
 `pnpm verify` on 014adf3, exit 0:
 
