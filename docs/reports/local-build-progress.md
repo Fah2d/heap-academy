@@ -2,9 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 23:10), in `night-a`, on `wp/5.2-workspace-laptop`
+## Session of 2026-11-24 (from about 23:10), in `night-a`, on `wp/5.2-workspace-laptop`, then `wp/5.3-workspace-phone`
 
-Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the three runtime branches are 0 behind it. Task 2: nothing new that does not need the owner. Speed mode allows one review round, already done on WP-5.2, and no design review, so this run finished WP-5.2 instead of a second round. This file is `wp/5.2-workspace-laptop`'s copy with this section added on top.
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the three runtime branches are 0 behind it. Task 2: nothing new that does not need the owner. Speed mode allows one review round, already done on WP-5.2, and no design review, so this run finished WP-5.2 instead of a second round. This file is `wp/5.3-workspace-phone`'s copy (the newest) with this section added on top.
+
+### Task 3, part 57 done: WP-5.3 part 1, on the new branch `wp/5.3-workspace-phone`
+
+Part 56 took about 10 minutes, so the run went on.
+
+- Base: `wp/5.2-workspace-laptop` at 3f5f1bb (WP-5.3 depends on WP-5.2 only).
+- 1536808: below 768 px, three views (Lesson, Code, Output) through a tab list at the top; Run, Check and Stop in a bar fixed at the bottom and raised above the on-screen keyboard from `visualViewport`; Run and Check show the Output view; the Lesson view ends with "Write your code".
+- `code-reviewer` (one round, speed mode) on 1536808: CHANGES REQUIRED, 2 BLOCKER (a hand-written tab list against ADR-0014; focus lost after a shortcut), 5 MAJOR, 8 MINOR. 63a1097 fixes all of them: the views are the `Tabs` primitive's new `views` kind (React Aria), the selected tab takes focus when the view changes under it, more tests (Go to line, the inset on the element, the page's end above the bar, the unsupported browser), the spec in its own Playwright project, WP-5.2's 375 px screens restored. Found while fixing: crossing 768 px rebuilt the bar (axe `role-img-alt`) and lost the console's answered flag (J-3); both fixed. Report: `docs/reports/reviews/WP-5.3/code-review-1.md`. No security review (no sign-in, database or runtime change).
+- `pnpm verify` on 63a1097: exit 0, `Test Files  105 passed (105)`, `Tests  1959 passed (1959)`. `pnpm build`: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser on 63a1097: `e2e/workspace-phone.spec.ts` 4 of 4 (J-1 at 320, 375 and 430 px, the unsupported browser) on an emulated Pixel 7; the 15 desktop journeys 15 of 15. The development server was stopped by this run.
+- Not run: a real on-screen keyboard, Firefox and WebKit.
+- Description: `docs/reports/pull-requests/WP-5.3.md`.
+- Push: `wp/5.2-workspace-laptop` and `wp/5.3-workspace-phone` together, once 60 minutes had passed since the last push (23:09).
+- Stopped here: WP-5.3 took about 40 minutes. Next in plan order is WP-5.4, which also needs `wp/4.3-validate-publish` (night-b's line) merged in.
+
+### Owner: run this (part 57)
+
+1. Open a draft pull request from `wp/5.3-workspace-phone` with `docs/reports/pull-requests/WP-5.3.md` as its body (base for review: `wp/5.2-workspace-laptop`).
+2. Owner step from the plan: complete a lesson on a real phone on the preview.
 
 ### Task 3, part 56 done: WP-5.2 part 4, on `wp/5.2-workspace-laptop`
 
@@ -14,7 +33,7 @@ Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origi
 - Browser: 15 of 15 journeys passed in Chromium, one per process, against `next dev --webpack` on port 3264. The development server was stopped by this run.
 - Description: shortened to 59 lines (speed mode), with the Delivery Gate report.
 - Not run: Firefox and WebKit (speed mode), `pnpm test:db` (no database change), the real route with seeded data.
-- Push: `wp/5.2-workspace-laptop`, held until 60 minutes after the last push (23:09).
+- Push: with part 57's, below.
 
 ### Owner: run this (part 56)
 
