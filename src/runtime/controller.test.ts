@@ -55,8 +55,6 @@ function setUp(listen: Listeners = {}) {
   const workers: FakeWorker[] = [];
   const events: ControllerEvent[] = [];
   const reports: ControllerReport[] = [];
-  // Called after each event is recorded, as a page's handler would be.
-  const onEvents: ((event: ControllerEvent) => void)[] = [];
   let time = 0;
   const timers = new Map<number, { at: number; callback: () => void }>();
   let nextTimer = 1;
@@ -77,7 +75,6 @@ function setUp(listen: Listeners = {}) {
     now: () => time,
     onEvent: (event) => {
       events.push(event);
-      for (const listener of onEvents) listener(event);
       listen.onEvent?.(event, controller);
     },
     report: (report) => {
@@ -106,7 +103,6 @@ function setUp(listen: Listeners = {}) {
     workers,
     events,
     reports,
-    onEvents,
     advance,
     latest,
     makeReady,
@@ -739,7 +735,18 @@ describe("runtime controller: checks", () => {
   });
 
   it("[T-22] [T-23] [FR-RUN-02] a fresh check reaches the new worker before its ready is reported, so a run or check started then is refused and Stop ends the check", () => {
-    const setup = started();
+    const seen: { status: string; run: unknown; check: unknown }[] = [];
+    let watching = false;
+    const setup = started({
+      onEvent: (event, controller) => {
+        if (!watching || event.type !== "ready") return;
+        seen.push({
+          status: controller.status,
+          run: controller.run("print(2)"),
+          check: controller.check("print(3)", tests, { freshWorker: true }),
+        });
+      },
+    });
     const run = setup.controller.run("print(1)");
     if (!run.ok) throw new Error("run refused");
     setup.latest().send({
@@ -751,15 +758,7 @@ describe("runtime controller: checks", () => {
     });
     const request = setup.controller.check("print(1)", tests, { freshWorker: true });
     if (!request.ok) throw new Error("check refused");
-    const seen: { status: string; run: unknown; check: unknown }[] = [];
-    setup.onEvents.push((event) => {
-      if (event.type !== "ready") return;
-      seen.push({
-        status: setup.controller.status,
-        run: setup.controller.run("print(2)"),
-        check: setup.controller.check("print(3)", tests, { freshWorker: true }),
-      });
-    });
+    watching = true;
     setup.makeReady();
     expect(seen).toEqual([
       {
@@ -945,14 +944,33 @@ describe("runtime controller: checks", () => {
     return setup;
   }
 
-  it("[FR-RUN-01] dispose from the restarting event of a fresh check starts no new worker", () => {
-    const setup = waiting({
+  it("[FR-RUN-01] dispose from the restarting event of a fresh check starts no new worker and refuses the check", () => {
+    const setup = checking({
       onEvent: (event, controller) => {
         if (event.type === "restarting") controller.dispose();
       },
     });
+    sendAll(setup);
+    expect(setup.controller.check("print(1)", tests, { freshWorker: true })).toEqual({
+      ok: false,
+      error: "not_ready",
+    });
     expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "isolation" });
     expectCheckDisposed(setup, 1);
+  });
+
+  it("[FR-RUN-01] dispose from the ready event that sent a waiting check stops its clock", () => {
+    let dispose = false;
+    const setup = waiting({
+      onEvent: (event, controller) => {
+        if (dispose && event.type === "ready") controller.dispose();
+      },
+    });
+    dispose = true;
+    setup.makeReady();
+    expect(setup.latest().received.map((message) => message.type)).toEqual(["init", "check"]);
+    expect(setup.events.at(-1)?.type).toBe("ready");
+    expectCheckDisposed(setup, 2);
   });
 
   it("[FR-RUN-01] dispose from the check_done event of a waiting check whose new worker fails sends no failed", () => {

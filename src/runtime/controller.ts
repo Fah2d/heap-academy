@@ -415,6 +415,8 @@ export function createRuntimeController({
       if (options.freshWorker === true && used) {
         pending = message;
         restart("isolation");
+        // A `restarting` listener that disposed the controller gets no check.
+        if (isDisposed()) return { ok: false, error: "not_ready" };
       } else {
         send(check, message);
       }
