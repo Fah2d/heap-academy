@@ -76,19 +76,26 @@ test("[NFR-SEC-02] the page runs its scripts with no policy violation", async ({
   expect(await violations()).toEqual([]);
 });
 
-test("[NFR-SEC-02] an injected inline script is blocked", async ({ page }) => {
-  const violations = await watchPage(page);
-  await page.goto(PAGE);
-  // Inject only once the page's own scripts have run, so nothing the client
-  // does while it starts can touch the injected element. The document
-  // listener sees the event even if the element is gone by then: the event
-  // then goes to the document (CSP3, "Report a violation").
-  await scriptsRan(page);
-  await page.evaluate(() => {
-    const script = document.createElement("script");
-    script.textContent = "document.documentElement.dataset.injected = 'ran';";
-    document.body.append(script);
+test("[NFR-SEC-02] an inline script without the nonce in the page is blocked", async ({ page }) => {
+  // Markup injection: the server's HTML carries an inline script the nonce
+  // does not cover. The response keeps its own headers, the policy included.
+  // A script that the page's code creates is not tested: 'strict-dynamic'
+  // trusts what a trusted script inserts, and Chromium runs it (ADR-0028).
+  await page.route(`**${PAGE}`, async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    expect(html).toContain("</body>");
+    const body = html.replace(
+      "</body>",
+      "<script>document.documentElement.dataset.injected = 'ran';</script></body>",
+    );
+    await route.fulfill({ response, body });
   });
+  const violations = await watchPage(page);
+  const response = await page.goto(PAGE);
+  expect(response?.headers()["content-security-policy"]).toMatch(/'nonce-[^']+'/);
+  // The page's own scripts still run beside the blocked one.
+  await scriptsRan(page);
   await expect
     .poll(async () => (await violations()).some((entry) => entry.startsWith("script-src")))
     .toBe(true);
