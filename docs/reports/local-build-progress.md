@@ -2,6 +2,43 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 22:50), in `night-b`, PR #13's CI and `main` at 428c437
+
+Top priority from the owner: CI on PR #13 (`wp/2.2-sign-in`, 9717efb) failed in `unit` and in the `e2e` job's `stack` project. `git fetch` at 22:50: `origin/main` moved from 7875ee2 to 428c437 (#14, `wp/db-types`: `src/infrastructure/db/database.types.ts`).
+
+### PR #13's CI done: `wp/2.2-sign-in` (pushed 5eab223)
+
+- Started at 22:50. The CI log of run 45438429284 was read through the GitHub API with `curl` (`gh` itself still fails with `x509: OSStatus -26276`).
+- unit: `src/domain/auth/return-path.test.ts`, "never returns a path that leaves the site" (177,155 cases), has an explicit `60_000` ms limit, as the owner instructed (9161501).
+- e2e `stack`: the cause is the test. "Send code" stays enabled while Turnstile runs, and `requestCode` pressed it right after typing. The page then says "Wait for the check that keeps automated sign-ups out to finish, then try again." and stays on the email step. Shown on this branch's production build in Chromium: the early press gave that message, and the test key's token arrived after 2320 ms. `requestCode` now waits for a value in `input[name="cf-turnstile-response"]` (15 s limit) before it presses. With the wait, the press reaches the server action (HTTP 200; "not working right now", because no auth service ran here).
+- CI's own log: `supabase start` hit `toomanyrequests: Rate exceeded` on image pulls but started on retry; the server printed no error for the code requests. The `e2e` job does not upload `test-results/`, so its traces were not available.
+- Merge commit f8d21ed: `origin/main` (428c437), no conflict.
+- `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values: exit 0, five routes.
+- Not verified: the stack journeys. Docker is not running here, so CI on 5eab223 is their first run.
+- Description: `docs/reports/pull-requests/WP-2.2.md`, a new first section, "CI fixes for #13", with decisions K and L.
+
+### Task 1 done for `main` at 428c437
+
+Each branch merged the one before it, then `pnpm verify`, `next build` with CI's public values, `check-bundle` (22 files) and `check-static`, all exit 0. Each description has a new paragraph at the top of "Up to date with main".
+
+- `wp/2.3-admin-gate`: merge 10ac619. One conflict, `e2e/sign-in-journey.spec.ts`: 2.3 had moved the helpers into `e2e/sign-in-helpers.ts`, so 2.3's journey file was kept and the token wait went into that helper's `requestCode` (the admin journey signs in through it too). 53 files, 1019 tests. Pushed bdb9469.
+- `wp/4.1-courses-chapters`: merge 6672c50, no conflict. 62 files, 1114 tests. Pushed b10e6d6.
+- `wp/4.2-lesson-editor`: merge 93d529d, no conflict. 73 files, 1331 tests. Pushed 4417719.
+- `wp/4.3-validate-publish`: merge 610a729, no conflict. 102 files, 1901 tests. Pushed ef5abd5.
+- `wp/5.1-catalog`: merge efaaa98 of `wp/4.1-courses-chapters` (5.1 is built on 4.1, as before), no conflict. 67 files, 1218 tests, 15 routes. Pushed with this section, which also carries the eighteen progress commits that were waiting.
+- Not run on any branch: `pnpm test:db` and the `stack` journeys (no Docker).
+
+Decisions taken with a safe default:
+
+- K. The fix is in the test only: the page already tells a learner who presses too early what to do. Turning the button off until the token arrives would be an interface change for design review.
+- L. The new token wait has its own 15 s limit, the same as the code email's. It is a new wait, not a raised limit.
+- M. `wp/5.1-catalog` merges `wp/4.1-courses-chapters`, not 4.3, as every earlier session did.
+
+### Owner: run this
+
+1. Watch CI on #13 at 5eab223. If a `stack` journey still fails, the next suspects are the auth service's captcha check and the mail catcher. Reading them needs the trace, which the `e2e` job does not upload; adding that upload is a change to `.github/workflows/ci.yml`, and this session did not make it.
+2. As before: the WP-5.1 stack journey with the local stack, then design review 4 on `home`, `courses` and `course`.
+
 ## Session of 2026-11-24 (from about 19:24), in `night-b`, WP-5.1 owner actions 5 and 6
 
 New owner decisions (WP-5.1): action 5, fix the backtick `import()` lint gap as its own small branch from `origin/main`; action 6, the error page says "We could not prepare this page. Try again.". Pull requests are opened and updated from the owner's chat, so this session does not wait for descriptions to be pasted.
