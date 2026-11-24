@@ -30,9 +30,28 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
 - Task 1 is complete for `main` at 81fdc39: all seven branches have it.
 
+### Task 2, WP-5.1 part 6 done (as far as this sandbox allows)
+
+- Started at 13:53. Chromium runs here with `--no-sandbox --single-process` (night-a's finding), one test per Playwright process, from a temporary config outside the repository. Turbopack's development server stops here (`unable to start FSEvent stream`); `next dev --webpack` with `WATCHPACK_POLLING=true` works, so the gallery ran on that (decision 27).
+- First run, on abf86db: the 17 gallery tests passed; 12 screens committed in 4c41f93. Design review 3 on them: CHANGES REQUIRED (no failure screen, no focus screens, stale description, spacing minors; the stack journey's screens still missing).
+- 621d4aa: heading links laid out at their text height (`-my-2 py-2`), even chapter panel and section spacing. c820910: `e2e/catalog-outage.spec.ts` with a third web server (`next start` on 3102, database address `http://127.0.0.1:1`) for the "Could not load" state, and four focus tests in the gallery spec. 0b9e887: the new and updated screens.
+- Code review 3: CHANGES REQUIRED. MAJOR: both servers share `.next/cache`, so after the stack journey the outage server could serve the cached catalog. Reproduced here with a fake database (200 from the cache), fixed in 9268830 by keying the content cache by the database address (then 500 on all three pages), with three unit tests that failed first. b911903: a layout check for a one-line title (mutation: `Received: 16`), comments.
+- Security review 3: APPROVE, one minor for before WP-5.2's cached queries (owner action 7).
+- Final: 24 e2e tests passed (17 gallery states, 4 focus, 3 outage); `pnpm verify` exit 0, 1213 tests; `next build` exit 0; `check-bundle` and `check-static` exit 0.
+- Not run: the stack journey (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), Firefox, WebKit.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 6 (items 36 to 44, evidence, round 3 reviews, decisions 27 to 29, owner actions 1 and 7). Reports: `docs/reports/reviews/WP-5.1/*-review-3.md` (the reviewers are read-only; saved verbatim).
+- Time: WP-5.1 is at about 3.6 hours of its 3 hour box, under the 4.5 hour stop.
+
+### Owner: run this
+
+1. In your own terminal: `lsof -ti:3102,3302,3303,3304,3305,3306,3307,3399 | xargs kill`. This run left `next start`, `next dev` and a fake database server there, and the sandbox cannot stop them.
+2. With `supabase start`: `pnpm test:e2e --project=stack e2e/catalog-journey.spec.ts`, commit the `home`, `courses` and `course` screens, then ask `design-reviewer` for round 4.
+3. Decide WP-5.1 Deviation 1 (merge order for the Begin action), decision 9, and owner actions 4 to 7 in the description.
+4. When `gh` works: paste the "Up to date with main" sections of `WP-4.2.md`, `wp/4.3-validate-publish.md` and `wp/5.1-catalog.md`, and the whole WP-5.1 description.
+
 ### Next
 
-- Task 2: finish WP-5.1 (its open items are in the 5.1 description and the sections below).
+- WP-5.1 waits for the owner's stack run and decisions. Task 1 starts again when `origin/main` moves.
 
 ## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
 
