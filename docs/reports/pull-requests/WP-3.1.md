@@ -1,4 +1,4 @@
-**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run: no browser can start in the sandbox that built it. `pyodide@314.0.7` is now installed, `pnpm build` passes, and the worker core has run against real Pyodide under Node. See "Owner actions now due".
+**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
 
 ## What and why
 
@@ -273,20 +273,30 @@ On a 32-bit WebAssembly build, a single allocation of 2 GiB or more is an `Overf
 
 **The classic-worker probe** is in ADR-0033's Evidence section.
 
+**The first browser run, Chromium only (2026-11-24, on 0849b56 and f7dfb52).** Chromium 159.0.8154.6, Playwright 1.65.1. Chromium starts in this sandbox only with `--no-sandbox --single-process`, and a single-process browser dies after its first context, so a temporary config outside the repository passed those flags, had no web servers, and ran each test in its own Playwright process. Turbopack cannot start here (`unable to start FSEvent stream`), and webpack's watchers hit `EMFILE`, so the development server ran as `next dev --webpack` with `WATCHPACK_POLLING=true` on port 3256. The production server was `next start` of a `pnpm build` with CI's fake public values, on port 3254.
+
+- `e2e/runtime.spec.ts` against the development server: first run on 2af8c6e, 13 passed and 2 failed:
+  - "[T-01] Pyodide's own loaders cannot reach the network after the lock-down": `Expected pattern: /^2 True /`, `Received string: "0 True []"`, with `NameError: name 'note' is not defined` from a `PyodideFuture` callback.
+  - "[T-01] evaluating JavaScript from Python is refused, by the worker's own policy": the second program ended with outcome `runtime` at line 2 (`print(sys._heap_policies[0])`), so no violation was recorded.
+  - Cause: `run()` clears the program's globals when the run ends (`dict_clear(namespace)`, `src/runtime/worker/run-support.ts:196`). Both tests' callbacks fire after the run and looked up those globals. The tests were wrong, not the worker. 0849b56 gives each callback what it uses as default arguments.
+  - After the fix: 15 passed, 0 failed.
+- `e2e/runtime-headers.spec.ts` against the production server: 4 passed.
+- `e2e/csp.spec.ts -g "paths near"` against the production server: 1 passed. The two older tests in that file fail on this branch as on `main`; `wp/fix-smoke-and-runtime` fixes them.
+- Mutants, run by security review 7 through a rewriting proxy in front of the development server: with the lock-down switched off, the loader test fails, and the request log holds `/api/health` and `micropip-0.11.1-py3-none-any.whl`; with `'unsafe-eval'` added to the worker's policy, or the policy removed, the evaluation test fails.
+- `pnpm verify` on 0849b56: exit 0, 37 files, 858 tests.
+
 **Not verified:**
 
-- **No browser test has run.** No browser can start in this sandbox. Real Pyodide has run only under Node (above).
-  - Not run, owner to run: `e2e/runtime.spec.ts`, 15 tests in each of `runtime-chromium`, `runtime-firefox` and `runtime-webkit`; and `e2e/runtime-headers.spec.ts`, 4 tests in each of `chromium`, `firefox` and `webkit`.
-  - They can run on this branch as it is: #3's `pageExtensions` setting is merged in (f617391), so `/dev/runtime` is a page on the development server.
-  - They cover every line of "Done when", with the limits below.
+- **Firefox and WebKit.** Not installed here. Not run: `e2e/runtime.spec.ts` in `runtime-firefox` and `runtime-webkit`, and `e2e/runtime-headers.spec.ts` and the proxy-path test in `firefox` and `webkit`.
+- **Chromium through `pnpm test:e2e`** with its own web servers (Turbopack, one normal browser process for all tests). The run above used other server and browser flags.
 - **The page policy without `'wasm-unsafe-eval'`** is checked on the production server's headers (`runtime-headers.spec.ts`), but the runtime itself loads only on the development server, whose page policy has `'unsafe-eval'`. What the browser tests do prove: evaluation inside the worker is refused and the violation names the worker's policy, so the worker does not run under the page's policy in any engine that passes. A production run of the runtime needs the development page in a test build, a decision for you with #3's mechanism.
-- **"A second visit loads the runtime from cache"** (FR-RUN-07) is checked as `transferSize` 0 for `pyodide.asm.wasm` after a reload, read from the worker's own resource timing. Not run. WebKit's support for `transferSize` in workers is not verified.
+- **"A second visit loads the runtime from cache"** (FR-RUN-07) is checked as `transferSize` 0 for `pyodide.asm.wasm` after a reload, read from the worker's own resource timing. Passed in Chromium. WebKit's support for `transferSize` in workers is not verified.
 - **Main-thread long tasks under 50 ms** (FR-RUN-01) are measured as the longest gap between animation frames over 2 seconds of a busy loop, in all three engines. Chromium's Long Tasks API is not used.
 - **Pyodide API details, now seen under Node, not in a browser:** `setStdin`'s `stdin()` gives one line per call; an error thrown in a `write` handler surfaces in Python and stops the program at its next print; the runner `runPython` returns is a JavaScript function; `pyodide.version` is `"314.0.7"`; the line-buffered streams pass each line on as it is printed. Each is also exercised by a browser test.
-- **Whether deleting `postMessage` from the worker's scope breaks anything inside Pyodide.** The browser tests would show it.
-- **The `.mjs` and `.wasm` media types** from the production server are checked by `runtime-headers.spec.ts` (not run), and from Vercel by no check yet. Module scripts need a JavaScript type under `nosniff`, and `instantiateStreaming` needs `application/wasm`.
+- **Whether deleting `postMessage` from the worker's scope breaks anything inside Pyodide.** Nothing broke in Chromium's 15 tests; Firefox and WebKit not run.
+- **The `.mjs` and `.wasm` media types** from the production server are checked by `runtime-headers.spec.ts` (passed in Chromium), and from Vercel by no check yet. Module scripts need a JavaScript type under `nosniff`, and `instantiateStreaming` needs `application/wasm`.
 - **Whether Playwright reports a dedicated worker's requests** in every engine. The loader test has a control for it (the manifest request must appear). It checks the request log, that neither loader resolved with anything loaded, and that `importlib.util.find_spec("micropip")` is `None`. The lock-down test requires `open_url` to fail with `NameError` (what Pyodide 314.0.7 raises without `XMLHttpRequest`, seen under Node) and `/api/health` to stay out of the request log.
-- **Whether `securitypolicyviolation` fires on a worker's global** in Firefox and WebKit. If one does not, that test fails there, and the engine should be recorded.
+- **Whether `securitypolicyviolation` fires on a worker's global** in Firefox and WebKit. It does in Chromium. If one does not, that test fails there, and the engine should be recorded.
 - **Line-buffered Python streams in a browser.** Tested in CPython, and seen in Pyodide under Node (above); in a browser the streaming test shows it.
 
 ## Screens
@@ -363,6 +373,11 @@ Open MAJOR findings for you to waive:
 - Code review 1: the base path is a constant (a proposed spec change).
 - Code review 2, MAJOR 1: the burst departs from section 5.2 (a proposed spec change).
 
+- **security-reviewer, round 7** (`security-review-7.md`, at 0849b56, the fix to two browser tests): **APPROVE**, 3 MINOR. It confirmed the cause by running a late callback (6 globals during the run, 0 after) and killed both tests' mutants (lock-down off; `'unsafe-eval'` in, or no worker policy).
+  - MINOR 1: late callbacks break isolation between runs: a late `print` appeared in the next run's output. Not a vulnerability; matters once a program can yield or Check runs each case as its own run. **Not fixed**, under "Not fixed".
+  - MINOR 2: say that the loader test fails, not passes, if a promise settles late. **Fixed** in f7dfb52.
+  - MINOR 3: the development page's `dropped` list has no size limit. **Not fixed**, under "Not fixed".
+
 ## Try it
 
 On the development server (`pnpm dev`):
@@ -374,7 +389,7 @@ On the development server (`pnpm dev`):
 ## Owner actions now due
 
 1. Done: the dependency (be2c7c0), `pnpm why ws`, `pnpm audit --prod`, and the size lines (above).
-2. Run the browser tests on this branch and paste the output (#3 and #4 are merged in):
+2. Run the browser tests on this branch and paste the output (#3 and #4 are merged in). Chromium passed here with other server and browser flags (see "How it was verified"); Firefox and WebKit have not run anywhere:
 
    ```sh
    pnpm test:e2e --project=runtime-chromium --project=runtime-firefox --project=runtime-webkit
@@ -410,6 +425,8 @@ On the development server (`pnpm dev`):
 ## Not fixed, for later packages or for you
 
 - **Validate isolation** (security review 1, MINOR 2; security review 3, MAJOR 1). A callback set from Python with `js.setTimeout` runs after the run. Modules other than the module table, such as `json`'s attributes, keep a program's changes, as ADR-0004 accepts for learners. **The report can be forged by the running program**: it can reach the runner's closure through `sys._getframe` and `gc.get_referrers` and rewrite it, and the change lasts for every later run on that worker until the worker is replaced. For a learner that only touches their own results, which section 6 accepts. For Validate (T-22, T-23), code in an imported lesson could fake the results of every lesson validated after it on the same worker. The only fix that holds is **a fresh worker for each Validate case**: WP-3.3's check protocol, used by WP-4.3.
+- **A late callback's output reaches the next run** (security review 7, MINOR 1). Seen in Chromium: a late `print("GHOST", end="")` appeared in the next run's output as `GHOSTsecond run`. Runs are synchronous today, so nothing interleaves inside a run. Once a program can yield (WP-3.2's interactive input) or Check runs each case as its own run, an earlier run could change a later one. Suggested by the reviewer: record it in the residual risks of `06-security-privacy.md` or ADR-0004, and either a fresh worker per Check (as for Validate above) or discard stream buffers when a run starts, with an e2e test. For you to decide.
+- **The development page's `dropped` list has no size limit** (security review 7, MINOR 3, `src/features/workspace/client/runtime-view.ts:65`). A late `setInterval` that prints adds one entry per message. Only the development page uses it; cap it before a real page does.
 - **No time limit on loading.** A stalled download leaves the status at "Starting Python". The workspace's statechart (WP-3.4) owns the loading states and their recovery.
 - **A miss under `/_runtime/pyodide/`** gets `immutable` too, so a cache in between could keep a 404 for a year. A deployment's pages only ever ask for their own release's files, so this needs a request for a file the release does not have.
 - **The runtime base path is a constant** (see Deviations).
@@ -417,14 +434,14 @@ On the development server (`pnpm dev`):
 
 ## Risks and rollback
 
-- **The browser tests have not run.** That is why this is a draft.
+- **The browser tests have not run in Firefox and WebKit.** That is why this is a draft.
 - The runtime is loaded only by the development page. No learner page uses it yet, so a revert of the merge rolls everything back.
 - The lock-down is hardening, not a boundary (section 5.6). The worker policy is the second layer, and the residual risks are in `06-security-privacy.md` section 6.
 
 ## Definition of Done
 
-- [ ] Every "Done when" line is met, with evidence above. **Not met:** no browser run. Real Pyodide ran under Node only.
-- [x] Every cited Must requirement has a test that names its ID. The browser tests have not run.
+- [ ] Every "Done when" line is met, with evidence above. **Not met:** the browser tests ran in Chromium only.
+- [x] Every cited Must requirement has a test that names its ID. The browser tests passed in Chromium; Firefox and WebKit not run.
 - [x] `pnpm verify` passes, and `pnpm build` passes.
 - [x] Every state of every changed view exists. The development page shows every controller status and outcome.
 - [x] No stub, dead control, placeholder, commented-out code, or invented number.
