@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in bc73677, at 2af8c6e), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 3e50d99, at 5b77939), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
 
 ## What and why
 
@@ -37,16 +37,16 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
-`wp/3.1-python-worker` at 2af8c6e is merged in bc73677. It carries `main` at 0efe863 (#3 to #8), WP-3.1's round 4 fixes (58128a3), the proxy matcher fix (f8af00a, c03a7d0) and the worker header rule fix (e340e4f: only `/_runtime/worker/:path+.js` gets the worker's policy; any other path in that folder keeps the static policy with `sandbox`). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds this branch's sections. No code conflict. In the merge, `scripts/next-config.test.ts`'s list of compiled worker files was changed to this branch's eleven files (under `runtime/` and `grader/`, as `scripts/build-runtime.test.ts` lists them); the built folder holds exactly those eleven.
+`wp/3.1-python-worker` at 5b77939 is merged in 3e50d99. Since the last merge (bc73677, at 2af8c6e) it adds WP-3.1's two browser test fixes (0849b56, f7dfb52: `run()` clears a program's globals when the run ends, so the T-01 loader test and the T-01 evaluation test now bind what their late callbacks use as default arguments), security review 7 and the docs. `main` is still 0efe863 (#3 to #8). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds this branch's sections. No code conflict; `e2e/runtime.spec.ts` merged cleanly.
 
-`pnpm verify` on bc73677, exit 0:
+`pnpm verify` on 3e50d99, exit 0:
 
 ```
  Test Files  42 passed (42)
       Tests  1033 passed (1033)
 ```
 
-`pnpm build` with CI's fake public values on bc73677, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+`pnpm build` with CI's fake public values on 3e50d99, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
 
 Not run on the merge: the browser tests.
 
