@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list and owner decisions. `git fetch`: `origin/main` moved to 428c437, the merge of #14 (`wp/db-types`, one generated file: `src/infrastructure/db/database.types.ts`). This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 53) with this section added on top.
+
+Found on arrival: uncommitted work on `wp/5.2-workspace-laptop` from a run that stopped at about 20:04 without writing here. Six more browser journeys in `e2e/workspace-runtime.spec.ts` (loading, failed load and Retry, syntax error and Go to line, reset and Undo, saved code, unsupported browser, a long program), `tabindex="0"` on the editor's text area for axe's `scrollable-region-focusable`, and 12 new screens. It also deleted the T-07 test's `expect(await page.title()).not.toBe("owned")`; this run put that assertion back (a check is never removed), and stashed the rest as `stash@{0}` ("WP-5.2 part 3 second half WIP (night-a, about 20:04)"). Not checked or committed in part 54.
+
+### Task 1, part 54 done: `main` at 428c437 merged into the three runtime branches
+
+- `wp/3.1-python-worker`: 4775139, no conflict. `pnpm verify` exit 0, `Test Files  38 passed (38)`, `Tests  955 passed (955)`. `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. Description: f013090.
+- `wp/3.3-grader`: bbd6d31, `main` merged directly, no conflict (`wp/3.1-python-worker` still not merged, the approved default). `pnpm verify` exit 0, `Test Files  43 passed (43)`, `Tests  1132 passed (1132)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: 68a69d2.
+- `wp/3.4-statechart`: 818c111, `wp/3.3-grader` at 68a69d2 merged. One conflict, this file (`wp/5.2-workspace-laptop`'s copy taken; it holds every line of both sides). `pnpm verify` exit 0, `Test Files  47 passed (47)`, `Tests  1247 passed (1247)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: 053f322.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen the three merges (each clean apart from this file).
+- Push: the three branches.
+
+### Owner: run this (part 54)
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same with `WP-3.3.md` on `wp/3.3-grader` and `WP-3.4.md` on `wp/3.4-statechart`, if those pull requests are open.
+
+### Next
+
+- `wp/3.4-statechart` into `wp/5.2-workspace-laptop`, then `stash@{0}` checked, finished and committed there (WP-5.2 part 3, second half).
+
 ## Session of 2026-11-24 (from about 19:35), in `night-a`, on `wp/3.3-grader`, then `wp/5.2-workspace-laptop`
 
 Same task list and owner decisions, plus the WP-5.1 decisions (#5: the backtick `import()` lint fix as its own branch from `origin/main`; #6: "We could not prepare this page. Try again."). `git fetch`: `origin/main` is still 7875ee2, so task 1 had nothing to merge. `wp/fix-lint-template-import` is checked out in the `night-c` worktree with its own unpushed commits, so this run leaves WP-5.1 #5 to that run. This file is `wp/3.1-python-worker`'s copy (the newest, from part 50) with this section added on top.
