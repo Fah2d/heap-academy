@@ -38,6 +38,7 @@ describe("published content [FR-ADM-11]", () => {
     expect(state.cacheOptions).toEqual([
       { tags: ["content"], revalidate: 60 },
       { tags: ["content"], revalidate: 60 },
+      { tags: ["content"], revalidate: 60 },
     ]);
   });
 
@@ -133,6 +134,87 @@ describe("published content [FR-ADM-11]", () => {
     "[T-25] answers the address %j with no query, as no course",
     async (slug) => {
       expect(await content.publishedCourse(slug)).toEqual({ ok: true, value: null });
+      expect(state.db.calls).toHaveLength(0);
+    },
+  );
+
+  const lessonData = {
+    id: "00000000-0000-4000-8000-00000000a001",
+    slug: "printing",
+    title: "Printing",
+    xp: 10,
+    instructions_md: "Print **hello**.",
+    hints: ["Use print."],
+    starter_code: "# Write here\n",
+    tests: [{ id: "t1", name: "Says hello" }],
+    courses: { slug: "python-basics", title: "Python basics" },
+  };
+
+  it("[FR-WSP-02] reads one published lesson by its course's address and its own", async () => {
+    state.db.answer({ data: lessonData });
+    expect(await content.publishedLesson("python-basics", "printing")).toEqual({
+      ok: true,
+      value: {
+        id: lessonData.id,
+        slug: "printing",
+        title: "Printing",
+        xp: 10,
+        instructionsMarkdown: "Print **hello**.",
+        hints: ["Use print."],
+        starterCode: "# Write here\n",
+        tests: [{ id: "t1", name: "Says hello" }],
+        course: { slug: "python-basics", title: "Python basics" },
+      },
+    });
+    expect(state.db.calls[0]?.target).toBe("lessons");
+    expect(state.db.calls[0]?.chain).toEqual([
+      [
+        "select",
+        [
+          "id, slug, title, xp, instructions_md, hints, starter_code, tests, courses!inner(slug, title)",
+        ],
+      ],
+      ["eq", ["slug", "printing"]],
+      ["eq", ["courses.slug", "python-basics"]],
+      ["maybeSingle", []],
+    ]);
+  });
+
+  it("[T-21] never asks for a solution or a wrong answer", async () => {
+    state.db.answer({ data: lessonData });
+    await content.publishedLesson("python-basics", "printing");
+    const asked = JSON.stringify(state.db.calls);
+    expect(asked).not.toContain("solution");
+    expect(asked).not.toContain("wrong_answers");
+  });
+
+  it("answers null for a lesson that is not published, and fails on an unexpected shape", async () => {
+    state.db.answer({ data: null });
+    expect(await content.publishedLesson("python-basics", "draft")).toEqual({
+      ok: true,
+      value: null,
+    });
+    state.db.answer({ data: { ...lessonData, hints: "not a list" } });
+    expect(await content.publishedLesson("python-basics", "printing")).toEqual({ ok: false });
+    expect(logged).toEqual([
+      {
+        level: "error",
+        requestId: "none",
+        route: "GET /content/published-lesson",
+        outcome: "content-read-failed",
+      },
+    ]);
+  });
+
+  it.each([
+    ["Not-A-Slug", "printing"],
+    ["python-basics", "a/../b"],
+    ["python-basics", "x".repeat(61)],
+    ["", ""],
+  ])(
+    "[T-25] answers the addresses %j and %j with no query, as no lesson",
+    async (course, lesson) => {
+      expect(await content.publishedLesson(course, lesson)).toEqual({ ok: true, value: null });
       expect(state.db.calls).toHaveLength(0);
     },
   );

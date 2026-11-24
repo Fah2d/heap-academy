@@ -60,6 +60,7 @@ describe("log route", () => {
 describe("contentLogRoute", () => {
   it("[NFR-PRIV-03] names the content query, never a visitor's address", () => {
     expect(contentLogRoute("published-course")).toBe("GET /content/published-course");
+    expect(contentLogRoute("published-lesson")).toBe("GET /content/published-lesson");
     expect(contentLogRoute("published-courses")).toBe("GET /content/published-courses");
   });
 });
