@@ -2,6 +2,20 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 22:50), in `night-c`, on `wp/7.3-operations`
+
+- `git fetch` at 22:50: `origin/main` moved to 428c437 (pull request #14, `wp/db-types`: `src/infrastructure/db/database.types.ts`). Merged into `wp/7.3-operations` with no conflict.
+- `pnpm verify` after the merge: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`. pnpm warned that it could not lock the install directory; `git status` is clean, so nothing was installed or changed.
+- WP-7.3 has nothing else this run can do: decision C needs the two analytics packages installed (owner), decision E is the owner's patch (`docs/reports/pull-requests/WP-7.3-deploy-dispatch.patch`), and the backup workflow waits for the CI `db` job to prove the `backup_reader` role. `gh` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so that CI result could not be read.
+- Task 2 is still blocked: the generated database types are not a work package, so the plan's dependencies in `docs/spec/08-delivery-plan.md` are unchanged. WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches. No branch was started.
+- Pushed, because the branch now carries a new `main`.
+
+### Owner: run this
+
+1. Read the CI `db` job of the WP-7.3 pull request. If it passes, the next run can build the backup workflow.
+2. Decision C: `pnpm add @vercel/analytics @vercel/speed-insights`.
+3. Apply the Deploy patch (decision E), as in the 15:08 section below.
+
 ## Session of 2026-11-24 (from about 19:40), in `night-c`, on `wp/7.3-operations`
 
 - `git fetch` at 19:40: `origin/main` is still 7875ee2 and already in `wp/7.3-operations`. Task 1 has nothing new. The only branch that moved is another agent's `origin/wp/5.1-catalog` (now f2ab9b3), which this run does not touch.
