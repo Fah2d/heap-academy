@@ -1,4 +1,4 @@
-**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f). The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3). Run now gets the same state restore between runs as WP-3.3's harness, and each run gets new streams (4d6608f, 16711f5, a24111c, from security review 8); no reviewer has seen a24111c. Run also restores before its first collection now, as WP-3.3's harness does (a7c3ba7); no reviewer has seen it. On 7a6c233, which holds all of these, the 15 runtime tests pass in Chromium again; the header and proxy-path tests were not run again, as no header or proxy file changed after f7dfb52. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
+**Base: `main`.** `main` at 81fdc39 (#3 to #8 and #10) is merged into this branch (e3c9043). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f). The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3). Run now gets the same state restore between runs as WP-3.3's harness, and each run gets new streams (4d6608f, 16711f5, a24111c, from security review 8); no reviewer has seen a24111c. Run also restores before its first collection now, as WP-3.3's harness does (a7c3ba7); no reviewer has seen it. On 7a6c233, which holds all of these, the 15 runtime tests pass in Chromium again; the header and proxy-path tests were not run again, as no header or proxy file changed after f7dfb52. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
 
 ## What and why
 
@@ -41,13 +41,31 @@ The Python worker of architecture section 5: learner code runs in a module worke
 
 ## Up to date with main
 
-`main` at 0efe863 (#5, #6, #7 and #8 since the last merge) is merged in 5f72072. One file conflicted:
+`main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`, since the last merge) is merged in e3c9043. Two files conflicted:
+
+- `scripts/infra-verify.mjs`: both sides added a function at the same place, this branch `runtimeChecks()` and `main` `releaseOf()`, `parseJson()` and `healthFor()` (the 60 s wait for the promoted release). Both are kept, unchanged. `verifyDeployment()` merged with no conflict: it waits for the release first, then runs every check, the runtime checks among them.
+- `docs/reports/local-build-progress.md`: `wp/3.4-statechart`'s copy taken, the newest one, with a section added for this merge.
+
+`e2e/csp.spec.ts`, `tsconfig.json`, `eslint.config.mjs`, `.prettierignore` and `.gitignore` merged with no conflict. `public/_runtime` is now ignored by TypeScript, ESLint, Prettier and git on both sides.
+
+`pnpm verify` on e3c9043, exit 0:
+
+```
+ Test Files  37 passed (37)
+      Tests  929 passed (929)
+```
+
+`pnpm build` with CI's fake public values on e3c9043, exit 0. The runtime step printed `runtime: worker compiled`; the routes are `/_not-found`, `/api/csp-report` and `/api/health`, all dynamic. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+
+Not run on this merge: the browser tests, `e2e/csp.spec.ts` among them. No reviewer has seen e3c9043.
+
+The merge before, of `main` at 0efe863 (#5, #6, #7 and #8), is in 5f72072. One file conflicted:
 
 - `playwright.config.ts`: `main`'s three `phone` projects (Pixel 7 at 412, 375 and 360 px against the development server on port 3101) are added beside this branch's `runtime-*` projects. The three engine projects ignore the gallery, the runtime tests and the phone tests (`developmentOnly`). Nothing else in the file changed.
 
 The earlier merge of `main` at 037c4ad (#3 and #4) is in f617391; it resolved `next.config.ts`, `playwright.config.ts`, `package.json` and `pnpm-lock.yaml`.
 
-`pnpm verify` on 5f72072, exit 0:
+`pnpm verify` on 5f72072 then, exit 0:
 
 ```
  Test Files  36 passed (36)

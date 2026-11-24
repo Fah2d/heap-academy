@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:42), in `night-a`, on `wp/3.1-python-worker`
+
+Same task list. `git fetch`: `origin/main` moved to 81fdc39, the merge of #10 (`wp/fix-smoke-and-runtime`), so task 1 is done and merged. `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart` were each 9 commits behind it, so task 2 starts again. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy and of `main`'s copy, apart from one line `main` has in an older wording) with this section added on top.
+
+### Task 2, part 43 done: `main` at 81fdc39 merged into `wp/3.1-python-worker`
+
+- e3c9043: two conflicts. `scripts/infra-verify.mjs`: both sides added functions at the same place (this branch `runtimeChecks()`, `main` `releaseOf()`, `parseJson()` and `healthFor()`); both kept, unchanged. This file: `wp/3.4-statechart`'s copy taken.
+- `pnpm verify` on e3c9043: exit 0, 37 files, 929 tests. `pnpm build` with CI's fake public values: exit 0 (`runtime: worker compiled`). `check-bundle` and `check-static`: exit 0.
+- Seen, not a problem: `pnpm`'s install step before scripts could not take its store lock (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed.
+- Not run: the browser tests. No reviewer has seen e3c9043.
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.1.md`.
+- Push: `wp/3.1-python-worker` with e3c9043 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions of the sections below are still due. Merging `wp/fix-smoke-and-runtime` is no longer one of them.
+
+### Next
+
+- Merge `wp/3.1-python-worker` (with `main`) into `wp/3.3-grader`, then that into `wp/3.4-statechart`, each with `pnpm verify` and `pnpm build`. The 9 run-fix commits of WP-3.1 that wait on security review 8, round 3, come with it only if the owner wants them there; see that branch's section below.
+
 ## Session of 2026-11-24 (from about 13:37), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
 Same task list. `git fetch`: `origin/main` is still 0efe863. `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (d7633c7) and `wp/3.4-statechart` (1987e99) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). `wp/3.3-grader` is 9 commits behind `wp/3.1-python-worker`. Those 9 are the run fixes that wait on WP-3.1 security review 8, round 3, so this run did not merge them. The only open item that needed no owner decision was that no reviewer had seen WP-3.3's be9375c. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
