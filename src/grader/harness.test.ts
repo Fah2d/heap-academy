@@ -920,6 +920,31 @@ describe("the harness", () => {
     });
   });
 
+  it("[FR-RUN-04] an object a program puts in the capture's own state is freed before the harness's collections", () => {
+    // WP-3.3 security review 6, round 2, MINOR 1: run_case kept the capture's
+    // state dict until it returned, after its last collection.
+    const source = [
+      "import sys, json",
+      "class Link:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, sys=sys):",
+      '        sys.stdout.write("INJECTED\\n")',
+      "class Y:",
+      "    def __del__(self, Link=Link):",
+      "        Link()",
+      "json._keep = (Link, Y)",
+      "cells = type(sys.stdout).write.__closure__",
+      "state = [c.cell_contents for c in cells if isinstance(c.cell_contents, dict)][0]",
+      'state["zz"] = Y()',
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "", error: undefined });
+    expect(run('import gc\ngc.collect()\nprint("next")')).toMatchObject({
+      output: "next\n",
+      error: undefined,
+    });
+  });
+
   it("[FR-RUN-04] what a __del__ changes in the harness's last collection is put back before the harness returns", async () => {
     // Read on the interpreter itself, after check has returned: the next
     // case's own restore would hide it.
@@ -1050,6 +1075,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "5", hash: 454098534 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "5", hash: 2531234765 });
   });
 });

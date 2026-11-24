@@ -40,10 +40,11 @@
 // part has passed. A fresh worker is the control for all of these.
 //
 // Nor is the harness itself protected: a program can reach its closure and
-// change what later test cases on the same worker report, so a check is
-// evidence only for code that is not hostile. Validate
-// (WP-4.3) must start a new worker for each program (`freshWorker`); the spec
-// text for that is an open owner decision.
+// its frames (sys._getframe, f_locals), keep an object alive past the last
+// collection or change what later test cases on the same worker report, so a
+// check is evidence only for code that is not hostile. Validate (WP-4.3) must
+// start a new worker for each program (`freshWorker`); the spec text for that
+// is an open owner decision.
 //
 // This file must stay erasable TypeScript: the Node runner's thread loads it
 // with Node's own type stripping.
@@ -528,6 +529,8 @@ def _heap_make_grader():
         namespace = None
         failure = None
         output = None
+        # Reachable from the program through the capture's write method.
+        state = None
         collect_all()
         return result(stage, text, truncated, error)
 
