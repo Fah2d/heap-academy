@@ -19,21 +19,23 @@
 // namespace, the import system's lists (sys.path, sys.meta_path,
 // sys.path_hooks, sys.path_importer_cache), the line cache, the recursion
 // limit, the integer digit limit, the trace and profile hooks, the
-// sys.monitoring tools, the garbage collector's callbacks, thresholds and
-// enabled state, the async generator hooks, and the exception, unraisable,
-// display and breakpoint hooks.
+// sys.monitoring tools, the garbage collector's callbacks, saved garbage,
+// debug flags, thresholds and enabled state, the async generator hooks, and
+// the exception, unraisable, display and breakpoint hooks.
 //
 // Not undone: changes to a standard library module's attributes (ADR-0004),
-// audit hooks (they cannot be removed), and sys.monitoring local events set
-// on a code object (no call clears them for every code object; a later case
-// that takes the same tool id would receive them). A monitoring callback that
+// audit hooks (they cannot be removed), objects moved to the collector's
+// permanent generation with gc.freeze() (memory only), and sys.monitoring
+// local events set on a code object (no call clears them for every code
+// object; a later case that takes the same tool id would receive them). A monitoring callback that
 // moves to another tool id while the tools are freed is freed on a later
 // pass. After each restore the state is checked by identity; if it is not
 // back (a callback still moving after the last pass, or a __del__ that ran
 // while the state was put back and changed it again), the harness raises
-// NotRestored. The check itself runs no learner code, but an automatic
-// garbage collection while it runs can call a __del__ from a reference cycle
-// after a part has passed. A fresh worker is the control for all of these.
+// NotRestored. The check itself runs no learner code, and restore() keeps
+// the collector off until the check has passed, so an automatic collection
+// cannot call a __del__ from a reference cycle after a part has passed. A
+// fresh worker is the control for all of these.
 //
 // Nor is the harness itself protected: a program can reach its closure and
 // change what later test cases on the same worker report, so a check is
@@ -112,9 +114,16 @@ def _heap_make_grader():
     gc_callbacks = gc.callbacks
     gc_callbacks_snapshot = list(gc_callbacks)
     # A program can turn the collector off or change when it runs, which
-    # changes the timing of every later case on the worker.
+    # changes the timing of every later case on the worker. With
+    # gc.DEBUG_SAVEALL, the harness's own collection would keep the case's
+    # objects in gc.garbage for the next case to read.
+    gc_garbage = gc.garbage
+    gc_garbage_snapshot = list(gc_garbage)
+    gc_debug = gc.get_debug()
     gc_threshold = gc.get_threshold()
     gc_enabled = gc.isenabled()
+    get_debug = gc.get_debug
+    set_debug = gc.set_debug
     get_threshold = gc.get_threshold
     set_threshold = gc.set_threshold
     is_gc_enabled = gc.isenabled
@@ -215,7 +224,9 @@ def _heap_make_grader():
 
     # The profile hook goes first: it runs on the call that removes the trace
     # hook, and could put that hook back. A monitoring callback runs on these
-    # calls too, until its tool is freed.
+    # calls too, until its tool is freed. Then the collector stays off until
+    # the check has passed, so an automatic collection cannot run a __del__
+    # from a reference cycle after its part was checked.
     def restore():
         set_profile(None)
         set_trace(None)
@@ -228,13 +239,13 @@ def _heap_make_grader():
                     free_tool_id(tool)
             if not in_use:
                 break
+        disable_gc()
         list_clear(gc_callbacks)
         list_extend(gc_callbacks, gc_callbacks_snapshot)
+        list_clear(gc_garbage)
+        list_extend(gc_garbage, gc_garbage_snapshot)
+        set_debug(gc_debug)
         set_threshold(*gc_threshold)
-        if gc_enabled:
-            enable_gc()
-        else:
-            disable_gc()
         for current, snapshot in import_lists:
             list_clear(current)
             list_extend(current, snapshot)
@@ -253,8 +264,10 @@ def _heap_make_grader():
         dict_update(modules, modules_snapshot)
         dict_clear(line_cache)
         dict_update(line_cache, line_cache_snapshot)
-        if not intact():
+        if is_gc_enabled() or not intact():
             raise NotRestored()
+        if gc_enabled:
+            enable_gc()
 
     def same_list(current, snapshot):
         if length(current) != length(snapshot):
@@ -297,7 +310,7 @@ def _heap_make_grader():
             return False
         if get_recursion_limit() != recursion_limit or get_digit_limit() != digit_limit:
             return False
-        if get_threshold() != gc_threshold or is_gc_enabled() is not gc_enabled:
+        if get_debug() != gc_debug or get_threshold() != gc_threshold:
             return False
         if not plain_keys(sys_dict):
             return False
@@ -309,6 +322,7 @@ def _heap_make_grader():
                 return False
         return (
             same_list(gc_callbacks, gc_callbacks_snapshot)
+            and same_list(gc_garbage, gc_garbage_snapshot)
             and same_dict(importer_cache, importer_cache_snapshot)
             and same_dict(builtins_dict, builtins_snapshot)
             and same_dict(modules, modules_snapshot)
