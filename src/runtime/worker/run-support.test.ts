@@ -741,6 +741,38 @@ describe("run support (Pyodide)", () => {
     });
   }, 60_000);
 
+  it("[FR-RUN-04] a cycle that a __del__ makes when a restore frees its object is collected before the next run", async () => {
+    // The harness's case (WP-3.3 security review 6, MAJOR 1): the restore
+    // frees the object in sys.modules, whose __del__ makes a cycle. In the
+    // runner the first collection has always found the runner's own garbage
+    // too, so this passes with or without the leading restore; it guards the
+    // outcome. The automatic collector is off, so only the runner's
+    // collections and the next program's own one run; the link's __del__
+    // belongs in its own run.
+    const own = await pyodideRunner("import gc\ngc.disable()");
+    const source = [
+      "import sys, json",
+      "class Link:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, sys=sys):",
+      '        sys.stdout.write("INJECTED\\n")',
+      "class Y:",
+      "    def __del__(self, Link=Link):",
+      "        Link()",
+      "class X:",
+      "    def __del__(self, sys=sys, Y=Y):",
+      '        sys.modules["zz_evil"] = Y()',
+      "json._keep = (Link, Y, X, type(sys.stdout))",
+      "x = X()",
+    ].join("\n");
+    expect(own(source)).toEqual({ stdout: "INJECTED\n", report: ok });
+    expect(own('import gc\ngc.collect()\nprint("next")')).toEqual({
+      stdout: "next\n",
+      report: ok,
+    });
+  }, 60_000);
+
   it("[FR-RUN-04] a sys.monitoring callback that takes a freed tool id while the tools are freed is freed too", async () => {
     // As the harness's test (WP-3.3 security review 4, MINOR 1).
     const own = await pyodideRunner();

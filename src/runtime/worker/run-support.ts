@@ -448,6 +448,12 @@ def _heap_make_runner(require_streaming, fresh_streams=False):
         # would then run it in the middle of that program. So the runner
         # collects until nothing is found, and gives up after eight passes
         # (WP-3.1 security review 8, MAJOR 1).
+        # The restore first: the program's code runs while its namespace is
+        # cleared and while its error is read, after the restore above, and
+        # an object it puts in the state could make a cycle only when that
+        # restore frees it, after a first collection that found nothing (the
+        # same as the harness, WP-3.3 security review 6, MAJOR 1).
+        restore()
         for index in passes:
             found = collect()
             restore()
