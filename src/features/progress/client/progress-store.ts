@@ -32,6 +32,12 @@ export type ProgressStore = {
   durability: () => Promise<Durability>;
   /** Calls `listener` with each new completion; returns the unsubscribe. */
   subscribe: (listener: (completion: Completion) => void) => () => void;
+  /**
+   * Calls `listener` when a sync's answer rewrote the list, which adds the
+   * account's lessons and drops refused ones without a new pass; returns the
+   * unsubscribe.
+   */
+  subscribeRewrites: (listener: () => void) => () => void;
   /** What the next sync sends: what the server has not stored (FR-PRG-06). */
   pending: () => Promise<Completion[]>;
   /**
@@ -102,6 +108,7 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
   /** Passes not yet in IndexedDB, by lesson. */
   const pending = new Map<string, DeviceCompletion>();
   const listeners = new Set<(completion: Completion) => void>();
+  const rewriteListeners = new Set<() => void>();
   /** The clearing this store last saw; undefined until it has read the database. */
   let epoch: string | undefined;
   /** A clear IndexedDB has not taken yet: its rows are not read until it has. */
@@ -208,6 +215,10 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
     for (const listener of listeners) queueMicrotask(() => listener(completion));
   };
 
+  const rewritten = () => {
+    for (const listener of rewriteListeners) queueMicrotask(listener);
+  };
+
   /**
    * Rewrites the whole list in one transaction, so another tab's pass cannot
    * land between the read and the write. Does nothing when the list has been
@@ -295,23 +306,31 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
         ),
       ),
     applySync: (account, rejected, since) =>
-      serial(() =>
-        change(since, (rows) =>
+      serial(async () => {
+        await change(since, (rows) =>
           applyAccount(
             rows.filter((row) => !rejected.includes(row.lessonId)),
             account,
           ),
-        ),
-      ),
+        );
+        rewritten();
+      }),
     drop: (lessonIds, since) =>
-      serial(() =>
-        change(since, (rows) => rows.filter((row) => !lessonIds.includes(row.lessonId))),
-      ),
+      serial(async () => {
+        await change(since, (rows) => rows.filter((row) => !lessonIds.includes(row.lessonId)));
+        rewritten();
+      }),
     clear: () => serial(clear),
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    subscribeRewrites: (listener) => {
+      rewriteListeners.add(listener);
+      return () => {
+        rewriteListeners.delete(listener);
       };
     },
   };
