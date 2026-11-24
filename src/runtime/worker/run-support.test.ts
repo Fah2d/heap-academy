@@ -419,6 +419,52 @@ _heap_take
   };
 }
 
+/**
+ * The runner as the worker makes it: RUN_SUPPORT_SOURCE over Pyodide's own
+ * streams, whose bytes reach JavaScript as they are written.
+ */
+async function workerRunner(): Promise<
+  (source: string) => { stdout: string; stderr: string; report: ReturnType<typeof parseRunReport> }
+> {
+  const pyodide: PyodideAPI = await loadPyodide();
+  const decoder = new TextDecoder();
+  const written = { stdout: "", stderr: "" };
+  pyodide.setStdout({
+    write: (bytes: Uint8Array) => {
+      written.stdout += decoder.decode(bytes);
+      return bytes.length;
+    },
+  });
+  pyodide.setStderr({
+    write: (bytes: Uint8Array) => {
+      written.stderr += decoder.decode(bytes);
+      return bytes.length;
+    },
+  });
+  const runner: unknown = pyodide.runPython(RUN_SUPPORT_SOURCE);
+  if (typeof runner !== "function") throw new Error("the run support did not make a runner");
+  return (source) => {
+    written.stdout = "";
+    written.stderr = "";
+    const report = Reflect.apply(runner, undefined, [source]) as unknown;
+    return {
+      stdout: written.stdout,
+      stderr: written.stderr,
+      report: typeof report === "string" ? parseRunReport(report) : undefined,
+    };
+  };
+}
+
+/** The error a run raised, or undefined. */
+function raised(run: () => unknown): unknown {
+  try {
+    run();
+  } catch (error) {
+    return error;
+  }
+  return undefined;
+}
+
 describe("run support (Pyodide)", () => {
   let run: PyodideRun;
 
@@ -483,6 +529,9 @@ describe("run support (Pyodide)", () => {
     ],
     ["the integer digit limit", "sys.set_int_max_str_digits(5000)", "sys.get_int_max_str_digits()"],
     ["the recursion limit", "sys.setrecursionlimit(321)", "sys.getrecursionlimit()"],
+    ["the traceback limit", "sys.tracebacklimit = 0", 'hasattr(sys, "tracebacklimit")'],
+    ["the arguments list", 'sys.argv.append("x")', "sys.argv"],
+    ["the arguments name", 'sys.argv = ["y"]', "sys.argv"],
     [
       "the async generator hooks",
       "sys.set_asyncgen_hooks(firstiter=print)",
@@ -509,6 +558,118 @@ describe("run support (Pyodide)", () => {
     });
   }
 
+  it("[FR-RUN-04] a chain of __del__ methods that outlives the run's collections makes the run raise", async () => {
+    // WP-3.1 security review 8, MAJOR 1: each __del__ makes a new cycle that
+    // the collection running it does not free, so one collection left the
+    // chain for the next run's own collection, in the middle of that program.
+    const own = await pyodideRunner();
+    const source = [
+      "import builtins",
+      "class Q:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, b=builtins):",
+      "        b.print = lambda *a, **k: None",
+      "        type(self)()",
+      "class P:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, Q=Q):",
+      "        Q()",
+      "P()",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject({
+      type: expect.stringContaining("NotRestored"),
+    });
+  }, 60_000);
+
+  it("[FR-RUN-04] a __del__ that turns the collector on during the restore makes the run raise", async () => {
+    const own = await pyodideRunner("import gc\ngc.disable()");
+    const source = [
+      "import builtins, gc",
+      "class Ghost:",
+      "    def __del__(self, gc=gc):",
+      "        gc.enable()",
+      "builtins.ghost = Ghost()",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject({
+      type: expect.stringContaining("NotRestored"),
+    });
+  }, 60_000);
+
+  it("[FR-RUN-04] [FR-RUN-01] a stream method a program replaced is gone in the next run, and the traceback still shows the program's line", async () => {
+    // WP-3.1 security review 8, MAJOR 2: the stream objects stay for the
+    // worker's life, and the runner wrote its traceback through stderr.write.
+    const own = await workerRunner();
+    expect(
+      own(
+        [
+          "import sys",
+          "real = sys.stdout.write",
+          "sys.stdout.write = lambda s, real=real: real(s.upper())",
+          "sys.stderr.write = lambda s: 0",
+        ].join("\n"),
+      ).report,
+    ).toEqual(ok);
+    expect(own('print("second run")')).toMatchObject({ stdout: "second run\n", report: ok });
+    const failed = own("x = 1\ny = x / 0");
+    expect(failed.report).toEqual({
+      kind: "runtime",
+      message: "ZeroDivisionError: division by zero",
+      line: 2,
+    });
+    expect(failed.stderr).toContain(`File "${PROGRAM_FILENAME}", line 2`);
+    expect(failed.stderr).toContain("y = x / 0");
+  }, 60_000);
+
+  it("[FR-RUN-01] an error whose text replaces stderr.write still has its traceback written", async () => {
+    const own = await workerRunner();
+    const failed = own(
+      [
+        "import sys",
+        "class Sneaky(Exception):",
+        "    def __str__(self, sys=sys):",
+        "        sys.stderr.write = lambda s: 0",
+        '        return "sneaky"',
+        "raise Sneaky()",
+      ].join("\n"),
+    );
+    expect(failed.report).toEqual({ kind: "runtime", message: "Sneaky: sneaky", line: 6 });
+    expect(failed.stderr).toContain("raise Sneaky()");
+  }, 60_000);
+
+  it("[FR-RUN-04] a __del__ that replaces a stream method after its restore makes the run raise", async () => {
+    const own = await pyodideRunner();
+    const source = [
+      "import builtins, sys",
+      "class Ghost:",
+      "    def __del__(self, sys=sys):",
+      "        sys.stdout.write = lambda s: 0",
+      "builtins.ghost = Ghost()",
+    ].join("\n");
+    expect(raised(() => own(source))).toMatchObject({
+      type: expect.stringContaining("NotRestored"),
+    });
+  }, 60_000);
+
+  const streamChanges: [string, string][] = [
+    ["closes standard output", "import sys\nsys.stdout.close()"],
+    ["closes standard input", "import sys\nsys.stdin.close()"],
+    [
+      "turns streaming off",
+      "import sys\nsys.stdout.reconfigure(line_buffering=False, write_through=False)",
+    ],
+    ["changes the encoding", 'import sys\nsys.stdout.reconfigure(encoding="ascii")'],
+  ];
+  for (const [change, source] of streamChanges) {
+    it(`[FR-RUN-04] a program that ${change} makes the run raise, so the worker is replaced`, async () => {
+      const own = await workerRunner();
+      expect(raised(() => own(source))).toMatchObject({
+        type: expect.stringContaining("NotRestored"),
+      });
+    }, 60_000);
+  }
+
   it("[FR-RUN-04] puts back the garbage collector callbacks that were there when the runner was made", async () => {
     const own = await pyodideRunner("import gc\ngc.callbacks.append(lambda phase, info: None)");
     own("import gc\ngc.callbacks.clear()");
@@ -527,13 +688,9 @@ describe("run support (Pyodide)", () => {
       "builtins.ghost = Ghost()",
     ].join("\n");
     const own = await pyodideRunner();
-    let thrown: unknown;
-    try {
-      own(source);
-    } catch (error) {
-      thrown = error;
-    }
-    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
+    expect(raised(() => own(source))).toMatchObject({
+      type: expect.stringContaining("NotRestored"),
+    });
   }, 60_000);
 });
 

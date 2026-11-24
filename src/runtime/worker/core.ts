@@ -183,8 +183,11 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       reportText = run(message.source);
     } catch {
       // The run support catches what the program raises and guards what it
-      // reads from the error afterwards, so this is the runtime itself
-      // failing. The worker cannot be trusted any more.
+      // reads from the error afterwards. What still reaches here is the
+      // runtime failing, or a program that changed the interpreter's state in
+      // a way the run support could not put back (NotRestored, a monitoring
+      // callback that raises on every call). The worker cannot be trusted
+      // any more.
       output.flush();
       return die("runtime_crashed");
     }

@@ -47,10 +47,17 @@ def _heap_make_runner(require_streaming):
             name: sys_dict[name]
             for name in (
                 "excepthook", "unraisablehook", "displayhook", "breakpointhook",
-                "path", "meta_path", "path_hooks", "path_importer_cache",
+                "path", "meta_path", "path_hooks", "path_importer_cache", "argv",
             )
         },
     }
+    # Read by the traceback the runner prints. Absent unless a program sets
+    # it, and removed again after each run.
+    if "tracebacklimit" in sys_dict:
+        sys_snapshot["tracebacklimit"] = sys_dict["tracebacklimit"]
+        traceback_limit_absent = False
+    else:
+        traceback_limit_absent = True
 
     # The same state the grading harness puts back between test cases
     # (src/grader/harness.ts, which keeps its own copy of this routine): a
@@ -110,8 +117,8 @@ def _heap_make_runner(require_streaming):
     list_extend = list.extend
     # Changed in place by an import hook or a program; the names themselves
     # are put back with sys_snapshot.
-    import_lists = [(sys.path, list(sys.path)), (sys.meta_path, list(sys.meta_path)),
-                    (sys.path_hooks, list(sys.path_hooks))]
+    sys_lists = [(sys.path, list(sys.path)), (sys.meta_path, list(sys.meta_path)),
+                 (sys.path_hooks, list(sys.path_hooks)), (sys.argv, list(sys.argv))]
     importer_cache = sys.path_importer_cache
     importer_cache_snapshot = dict(importer_cache)
     dict_get = dict.get
@@ -121,6 +128,8 @@ def _heap_make_runner(require_streaming):
     dict_clear = dict.clear
     dict_update = dict.update
     dict_keys = dict.keys
+    dict_pop = dict.pop
+    attribute = getattr
     to_text = str
     length = len
     kind_of = type
@@ -157,6 +166,26 @@ def _heap_make_runner(require_streaming):
         for name in ("stdout", "stderr"):
             streams[name].reconfigure(line_buffering=True, write_through=True)
 
+    # The three stream objects stay for the worker's whole life, so what a
+    # program sets on them would reach the next run. An attribute in a
+    # stream's own __dict__, such as a replaced write, is removed again; a
+    # stream that was closed or reconfigured fails the check, and the worker
+    # is replaced. The runner writes through the methods of the stream's
+    # type, which a program cannot replace (WP-3.1 security review 8, MAJOR 2).
+    setting_names = ("closed", "encoding", "errors", "line_buffering", "write_through")
+
+    def settings(stream):
+        return tuple(attribute(stream, name, None) for name in setting_names)
+
+    stream_state = []
+    for name in ("stdin", "stdout", "stderr"):
+        stream = streams[name]
+        own = attribute(stream, "__dict__", None)
+        own_snapshot = None if own is None else dict(own)
+        stream_state.append((stream, own, own_snapshot, settings(stream)))
+    stderr_write = kind_of(streams["stderr"]).write
+    flushes = [(streams[name], kind_of(streams[name]).flush) for name in ("stdout", "stderr")]
+
     # Raised when the state is not back after a restore. It reaches core.ts,
     # which gives up with runtime_crashed, so the worker is replaced.
     class NotRestored(base_exception):
@@ -186,9 +215,13 @@ def _heap_make_runner(require_streaming):
         list_extend(gc_garbage, gc_garbage_snapshot)
         set_debug(gc_debug)
         set_threshold(*gc_threshold)
-        for current, snapshot in import_lists:
+        for current, snapshot in sys_lists:
             list_clear(current)
             list_extend(current, snapshot)
+        for stream, own, own_snapshot, stream_settings in stream_state:
+            if own is not None:
+                dict_clear(own)
+                dict_update(own, own_snapshot)
         dict_clear(importer_cache)
         dict_update(importer_cache, importer_cache_snapshot)
         if has_digit_limit:
@@ -198,6 +231,8 @@ def _heap_make_runner(require_streaming):
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
+        if traceback_limit_absent:
+            dict_pop(sys_dict, "tracebacklimit", None)
         # Cleared rather than emptied name by name, so the program's keys are
         # not hashed while the table is cleared.
         dict_clear(modules)
@@ -259,8 +294,17 @@ def _heap_make_runner(require_streaming):
         for name, value in dict_items(sys_snapshot):
             if dict_get(sys_dict, name, absent) is not value:
                 return False
-        for current, snapshot in import_lists:
+        if traceback_limit_absent and dict_get(sys_dict, "tracebacklimit", absent) is not absent:
+            return False
+        for current, snapshot in sys_lists:
             if not same_list(current, snapshot):
+                return False
+        for stream, own, own_snapshot, stream_settings in stream_state:
+            if attribute(stream, "__dict__", None) is not own:
+                return False
+            if own is not None and not same_dict(own, own_snapshot):
+                return False
+            if settings(stream) != stream_settings:
                 return False
         return (
             same_list(gc_callbacks, gc_callbacks_snapshot)
@@ -291,15 +335,15 @@ def _heap_make_runner(require_streaming):
     def report(error, tb):
         try:
             text = "".join(format_full(kind_of(error), error, tb))
-            streams["stderr"].write(text)
-            streams["stderr"].flush()
+            stderr_write(streams["stderr"], text)
+            flush()
         except base_exception:
             pass
 
     def flush():
-        for stream in ("stdout", "stderr"):
+        for stream, flush_stream in flushes:
             try:
-                streams[stream].flush()
+                flush_stream(stream)
             except base_exception:
                 pass
 
@@ -380,8 +424,18 @@ def _heap_make_runner(require_streaming):
         dict_clear(namespace)
         namespace = None
         failure = None
-        collect()
-        restore()
+        # A __del__ that runs in a collection can make a new reference cycle,
+        # which that collection does not free; the next run's own collection
+        # would then run it in the middle of that program. So the runner
+        # collects until nothing is found, and gives up after eight passes
+        # (WP-3.1 security review 8, MAJOR 1).
+        for index in passes:
+            found = collect()
+            restore()
+            if found == 0:
+                break
+        else:
+            raise NotRestored()
         return result(kind, message, line, length(split_lines(source)))
 
     return run
