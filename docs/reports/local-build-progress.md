@@ -2,6 +2,38 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 19:24), in `night-b`, WP-5.1 owner actions 5 and 6
+
+New owner decisions (WP-5.1): action 5, fix the backtick `import()` lint gap as its own small branch from `origin/main`; action 6, the error page says "We could not prepare this page. Try again.". Pull requests are opened and updated from the owner's chat, so this session does not wait for descriptions to be pasted.
+
+`git fetch` at 19:24: `origin/main` is still at 7875ee2, and it already has #10. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it. Task 1 has nothing to do.
+
+### Task 2a done: owner action 5, `wp/fix-lint-template-import` (pushed 9f15550)
+
+- Started at 19:24, from `origin/main` at 7875ee2.
+- 01c8227: the module boundary rule checks a backtick name like a quoted one, refuses an `import()` or `require()` whose name is computed (except the Python worker's `import(url)`), and lets only a test import a test file. This is bce0f08 from `wp/3.3-grader` (also on 3.4, 4.3 and 5.2) without its Node runner parts, so the open branches carry the same text. 9f15550: a test for a joined name and for the worker's other imports, the description and both reviews.
+- Security review 1 (on a first, uncommitted version that refused computed names only in `src/content`): CHANGES REQUIRED, two MAJORs, both fixed by taking bce0f08's text. Security review 2: APPROVE, two MINORs. MINOR 1 is fixed. MINOR 2 (`require` called through another name) is older than the branch, and is listed in the description.
+- The new tests against `main`'s rule: 6 failed, then 1 more for the joined-name test. With the change: 141 passed. `pnpm verify`: exit 0, 28 files, 726 tests.
+- Merging it into 4.3, 5.1 or 5.2 conflicts in `scripts/eslint/module-boundaries.mjs` (and `rules.test.ts` for 4.3 and 5.2). The description says how to resolve each, and the reviewer checked those resolutions in a copy.
+- Description: `docs/reports/pull-requests/fix-lint-template-import.md` on that branch. This file was not updated there, because that branch has `main`'s older copy; this section is its record.
+
+### Task 2b done: owner action 6 on `wp/5.1-catalog`
+
+- Started at 19:35. `src/messages/system.ts`: the error page body is "We could not prepare this page. Try again.".
+- `pnpm verify`: exit 0, 67 files, 1218 tests. `next build` with CI's public values: exit 0, 15 routes, no `/dev` route.
+- The outage spec against `next start` of that build on port 3418, in Chromium with `--no-sandbox --single-process`: 3 passed. The nine `catalog-error-*` screens were taken again; `catalog-error-courses-375.png` shows the new sentence. The first try on port 3417 lacked `RESEND_API_KEY` and failed at the server's environment check; that server was stopped.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 8 (items 45 and 46), owner actions 5 and 6 marked done.
+
+Decisions taken with a safe default:
+
+- I. The lint fix reuses bce0f08's text rather than a new rule, so one version of the check reaches every branch (security review 1's advice).
+- J. Design review was not run again for the one-sentence copy change, which is the wording the design reviewer proposed. WP-1.4's `/dev/error` screens were not taken again.
+
+### Owner: run this
+
+1. Open a pull request for `wp/fix-lint-template-import` (base `main`) with its description.
+2. As before: the WP-5.1 stack journey with the local stack, then design review 4 on `home`, `courses` and `course`.
+
 ## Session of 2026-11-24 (from about 18:06, checked again at 18:08, 18:09, 18:11, 18:13, 18:14, 18:16, 18:17, 18:19, 19:17, 19:19, 19:20, 19:22 and 19:23), in `night-b`, nothing to do
 
 - `git fetch` at 18:06, 18:08, 18:09, 18:11, 18:13, 18:14, 18:16, 18:17, 18:19, 19:17, 19:19, 19:20, 19:22 and 19:23: `origin/main` is still at 7875ee2, and it already contains #10 (`origin/wp/fix-smoke-and-runtime` at 27ce416 is an ancestor). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which was nine progress commits ahead before the 18:11 check (the 19:23 check makes twenty; each check updates this section instead of adding another identical one). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
