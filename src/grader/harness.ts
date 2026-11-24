@@ -32,22 +32,25 @@
 // is freed on a later pass. After each restore the state is checked by
 // identity; if it is not back (a callback still moving after the last pass, or
 // a __del__ that ran while the state was put back and changed it again), the
-// harness raises NotRestored. The check itself runs no learner code, and
+// harness raises NotRestored. It also raises when eight collections at the
+// end of a case still find garbage (a chain of __del__ methods, each making a
+// new reference cycle). The check itself runs no learner code, and
 // restore() keeps the collector off until the check has passed, so an
 // automatic collection cannot call a __del__ from a reference cycle after a
 // part has passed. A fresh worker is the control for all of these.
 //
 // Nor is the harness itself protected: a program can reach its closure and
-// change what later test cases on the same worker report, so a check is
-// evidence only for code that is not hostile. Validate
-// (WP-4.3) must start a new worker for each program (`freshWorker`); the spec
-// text for that is an open owner decision.
+// its frames (sys._getframe, f_locals), keep an object alive past the last
+// collection or change what later test cases on the same worker report, so a
+// check is evidence only for code that is not hostile. Validate (WP-4.3) must
+// start a new worker for each program (`freshWorker`); the spec text for that
+// is an open owner decision.
 //
 // This file must stay erasable TypeScript: the Node runner's thread loads it
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "4";
+export const HARNESS_VERSION = "5";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -193,6 +196,11 @@ def _heap_make_grader():
     # Raised when the state is not back after a restore, so that the harness
     # fails closed.
     class NotRestored(base_exception):
+        pass
+
+    # Raised when eight collections cannot free what a test case left. The
+    # fallback does not catch it: the chain would still be there.
+    class Uncollected(NotRestored):
         pass
 
     # Standard output of the program and the follow-up code, and how much
@@ -423,35 +431,63 @@ def _heap_make_grader():
     # hook on this frame; code that rewrites the harness's closure can too, and
     # so can a monitoring callback that raises on every call, as no call can
     # then run to free its tool. A state that is still not back after the
-    # fallback makes the harness raise too. Then the harness raises: the worker gives up with
-    # runtime_crashed and is replaced, and the Node runner reports the test
-    # case as crashed.
+    # fallback, garbage that eight collections cannot free, or any failure in
+    # the fallback's own collection makes the harness raise too. Then the
+    # worker gives up with runtime_crashed and is replaced, and the Node
+    # runner reports the test case as crashed.
     def check(source, stdin, after_code):
         try:
             return run_case(source, stdin, after_code)
+        except Uncollected:
+            raise
         except base_exception:
-            set_profile(None)
-            set_trace(None)
-            try:
-                for tool in tool_ids:
-                    if get_tool(tool) is not None:
-                        set_events(tool, 0)
-                        free_tool_id(tool)
-            except base_exception:
-                pass
-            try:
-                restore()
-            except base_exception:
-                pass
-            if not intact():
-                raise NotRestored()
-            # restore() may have raised after a __del__ turned the collector
-            # on or before it turned it back on; these two calls run no
-            # learner code.
-            disable_gc()
-            if gc_enabled:
-                enable_gc()
-            return result("program", "", False, ("runtime", "", None, None))
+            pass
+        # The fallback runs after the except block, so the failed case's
+        # frame, which holds the case's namespace, is released before the
+        # collection below.
+        set_profile(None)
+        set_trace(None)
+        try:
+            for tool in tool_ids:
+                if get_tool(tool) is not None:
+                    set_events(tool, 0)
+                    free_tool_id(tool)
+        except base_exception:
+            pass
+        try:
+            restore()
+        except base_exception:
+            pass
+        if not intact():
+            raise NotRestored()
+        # The namespace was not cleared, so what the case left is freed here.
+        # Any failure now makes the harness raise.
+        # collect_all() returns only after a restore that passed its check,
+        # which leaves the collector as it was saved.
+        try:
+            collect_all()
+        except base_exception:
+            raise NotRestored()
+        return result("program", "", False, ("runtime", "", None, None))
+
+    # A __del__ that runs in a collection can make a new reference cycle,
+    # which that collection does not free; the next case's own collection
+    # would then run it in the middle of that case. So the harness collects
+    # and restores until a collection finds nothing, and raises Uncollected
+    # after eight passes (the same as the run support, WP-3.1 security
+    # review 8, MAJOR 1).
+    # The restore first: learner code runs while the namespace is cleared,
+    # and an object it puts in the state could make a cycle only when that
+    # restore frees it, after a first collection that found nothing (WP-3.3
+    # security review 6, MAJOR 1).
+    def collect_all():
+        restore()
+        for index in passes:
+            found = collect()
+            restore()
+            if found == 0:
+                return
+        raise Uncollected()
 
     def run_case(source, stdin, after_code):
         restore()
@@ -493,8 +529,9 @@ def _heap_make_grader():
         namespace = None
         failure = None
         output = None
-        collect()
-        restore()
+        # Reachable from the program through the capture's write method.
+        state = None
+        collect_all()
         return result(stage, text, truncated, error)
 
     return check
