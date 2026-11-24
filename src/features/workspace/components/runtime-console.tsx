@@ -180,7 +180,7 @@ export function RuntimeConsole() {
         <dt>{m.restarts}</dt>
         <dd data-testid="runtime-restarts">{view.restarts}</dd>
         <dt>{m.dropped}</dt>
-        <dd data-testid="runtime-dropped">{view.dropped.length}</dd>
+        <dd data-testid="runtime-dropped">{view.dropped}</dd>
       </dl>
     </section>
   );

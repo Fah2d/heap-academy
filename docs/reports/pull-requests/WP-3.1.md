@@ -1,4 +1,4 @@
-**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
+**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f); the browser tests have not run on that fix. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
 
 ## What and why
 
@@ -59,6 +59,15 @@ The earlier merge of `main` at 037c4ad (#3 and #4) is in f617391; it resolved `n
 Not run on the merge: the browser tests (no browser can start in the sandbox). The commit hook's dependency check could not take pnpm's store lock in the sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed, and `node_modules` already held `pyodide@314.0.7`.
 
 ## How it was verified
+
+**The `dropped` count (547b394, dece44f), 2026-11-24.** `pnpm verify` on dece44f, exit 0:
+
+```
+ Test Files  37 passed (37)
+      Tests  859 passed (859)
+```
+
+`pnpm build` with CI's fake public values on 547b394, exit 0; `check-bundle`, exit 0. Mutant: `addReport` capping the count at 50 fails the new test (`1 failed | 4 passed`). The browser tests were not run on this change; `e2e/runtime.spec.ts:306` expects the `runtime-dropped` text "0", which a count of 0 still renders.
 
 **Worker header rule (e340e4f), 2026-11-24.** `pnpm verify` on e340e4f, exit 0:
 
@@ -376,7 +385,8 @@ Open MAJOR findings for you to waive:
 - **security-reviewer, round 7** (`security-review-7.md`, at 0849b56, the fix to two browser tests): **APPROVE**, 3 MINOR. It confirmed the cause by running a late callback (6 globals during the run, 0 after) and killed both tests' mutants (lock-down off; `'unsafe-eval'` in, or no worker policy).
   - MINOR 1: late callbacks break isolation between runs: a late `print` appeared in the next run's output. Not a vulnerability; matters once a program can yield or Check runs each case as its own run. **Not fixed**, under "Not fixed".
   - MINOR 2: say that the loader test fails, not passes, if a promise settles late. **Fixed** in f7dfb52.
-  - MINOR 3: the development page's `dropped` list has no size limit. **Not fixed**, under "Not fixed".
+  - MINOR 3: the development page's `dropped` list has no size limit. **Fixed later, in 547b394 and dece44f (2026-11-24):** the list is now a count, because the page only showed its length. Decision: a count rather than a list capped at some length, so the number the page shows stays exact and nothing is kept that no one reads. See code review 5 below.
+- **code-reviewer, round 5** (`code-review-5.md`, on 547b394): **APPROVE**, 2 MINOR, both fixed: this description still listed the finding as not fixed, and the field's comment now says the count also holds reports the controller acted on (dece44f). The page label "Messages dropped" has the same imprecision; it predates the fix and is unchanged.
 
 ## Try it
 
@@ -426,7 +436,6 @@ On the development server (`pnpm dev`):
 
 - **Validate isolation** (security review 1, MINOR 2; security review 3, MAJOR 1). A callback set from Python with `js.setTimeout` runs after the run. Modules other than the module table, such as `json`'s attributes, keep a program's changes, as ADR-0004 accepts for learners. **The report can be forged by the running program**: it can reach the runner's closure through `sys._getframe` and `gc.get_referrers` and rewrite it, and the change lasts for every later run on that worker until the worker is replaced. For a learner that only touches their own results, which section 6 accepts. For Validate (T-22, T-23), code in an imported lesson could fake the results of every lesson validated after it on the same worker. The only fix that holds is **a fresh worker for each Validate case**: WP-3.3's check protocol, used by WP-4.3.
 - **A late callback's output reaches the next run** (security review 7, MINOR 1). Seen in Chromium: a late `print("GHOST", end="")` appeared in the next run's output as `GHOSTsecond run`. Runs are synchronous today, so nothing interleaves inside a run. Once a program can yield (WP-3.2's interactive input) or Check runs each case as its own run, an earlier run could change a later one. Suggested by the reviewer: record it in the residual risks of `06-security-privacy.md` or ADR-0004, and either a fresh worker per Check (as for Validate above) or discard stream buffers when a run starts, with an e2e test. For you to decide.
-- **The development page's `dropped` list has no size limit** (security review 7, MINOR 3, `src/features/workspace/client/runtime-view.ts:65`). A late `setInterval` that prints adds one entry per message. Only the development page uses it; cap it before a real page does.
 - **No time limit on loading.** A stalled download leaves the status at "Starting Python". The workspace's statechart (WP-3.4) owns the loading states and their recovery.
 - **A miss under `/_runtime/pyodide/`** gets `immutable` too, so a cache in between could keep a 404 for a year. A deployment's pages only ever ask for their own release's files, so this needs a request for a file the release does not have.
 - **The runtime base path is a constant** (see Deviations).

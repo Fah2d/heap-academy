@@ -47,8 +47,16 @@ describe("runtime page view", () => {
     });
   });
 
-  it("[NFR-SEC-01] lists what the controller dropped", () => {
-    expect(addReport(INITIAL_VIEW, { code: "worker_error" }).dropped).toEqual(["worker_error"]);
+  it("[NFR-SEC-01] counts what the controller dropped", () => {
+    expect(addReport(INITIAL_VIEW).dropped).toBe(1);
+  });
+
+  it("[NFR-SEC-01] keeps one number however many messages are dropped", () => {
+    let view = INITIAL_VIEW;
+    for (let i = 0; i < 10_000; i += 1) {
+      view = addReport(view);
+    }
+    expect(view.dropped).toBe(10_000);
   });
 
   it("[NFR-COMPAT-04] records at ready whether the runtime can pause a program", () => {
