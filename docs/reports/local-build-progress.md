@@ -2,6 +2,20 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (run after the owner noted pull request #10 in `main`), in `night-c`, on `wp/7.3-operations`
+
+Task 1 done as far as it can go: `wp/7.3-operations` now contains `origin/main` at 81fdc39. Task 2 is still blocked.
+
+- Merged `origin/main` (81fdc39, pull request #10) into `wp/7.3-operations`. The only conflict was this file (both sides added it). Resolved by keeping every section from both sides: the header, then this branch's `night-c` and `night-b` sections, then the sections from `main`. The 21 sections both copies already shared appear once (checked with `diff`: identical). Sections are grouped by source, so they are not in strict time order across agents.
+- `pnpm verify` on the merged tree: exit 0, `Test Files  31 passed (31)`, `Tests  731 passed (731)`. pnpm printed a warning that its pre-run install failed (no package install is allowed here); the run itself passed.
+- WP-7.3 itself cannot go further: every remaining part in "What is left for later parts of WP-7.3" of `docs/reports/pull-requests/WP-7.3-part-2.md` still needs decision C, WP-2.1 in `main`, or the owner.
+- Task 2: `main` has WP-1.1 to 1.4, WP-6.1 part 1, WP-6.2 part 1 and the smoke fix. Every package that depends only on those already has an open pull request (WP-2.1 #12, WP-3.1 #9, WP-6.3 #11). Every other package in `docs/spec/08-delivery-plan.md` depends on WP-2.1, 2.2, 2.3, 3.1, 4.x or 5.x, none of which is in `main` (checked with `git merge-base --is-ancestor`). WP-7.1 and WP-7.2 review the whole application, so they wait too. No new branch was started.
+
+### Owner: run this
+
+- Merge WP-2.1 (#12) or WP-3.1 (#9), or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+- `wp/7.3-operations` no longer conflicts with `main`. `wp/6.3-legal-pages-footer` still will, in this file only.
+
 ## Session of 2026-11-24 (run after `main` moved to 81fdc39), in `night-c`, on `wp/7.3-operations`
 
 Same task list. Still blocked: no new work package can start. No code was changed.
@@ -598,6 +612,339 @@ Checked again at 23:56 in another fresh session: `origin/main` still at 0efe863;
 Checked again at 23:57 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
 
 No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
+
+## Session of 2026-11-24 (from about 03:10, second run), in `night-a`, on `wp/fix-smoke-and-runtime`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so task 2 needed nothing. This run found a way to start Chromium in the sandbox and finished task 1 (c). This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top; the copy on `wp/3.4-statechart` is now older than this one.
+
+### Task 1 (c) done: the cause of the second `e2e/csp.spec.ts` failure, proven and fixed
+
+- Chromium starts in this sandbox with `--no-sandbox --single-process`. A single-process browser dies after its first context, so each test runs in its own Playwright process, through a temporary config outside the repository with no web servers, against `next start` on port 3253.
+- At c5e789b: test 1 passed, test 2 failed in 3 of 3 runs (no violation). The injected script ran.
+- Cause: under `'strict-dynamic'`, a script that is not parser-inserted matches the policy (CSP3 section 6.7.3.3), so Chromium runs an inline script that code inserts. Proven on a test page: with `'strict-dynamic'` such scripts ran with no violation; without it, they were blocked. The earlier code review's reading was wrong.
+- fe08e92 and 33ac7f7: test 2 now injects an inline script without the nonce into the server's HTML (markup injection), keeps the real headers, and expects an `inline` `script-src` violation, the page's scripts running, and the script not run.
+- Both tests passed in each of 3 runs. Mutation: with the page's nonce on the injected script, test 2 fails.
+- Security review round 1 on fe08e92: APPROVE, 3 MINOR, all fixed in 33ac7f7. Report: `docs/reports/reviews/fix-smoke-and-runtime/security-review-1.md`. It notes a residual risk of `'strict-dynamic'` (not a defect, no exposure in `src` today) and suggests follow-ups for the owner.
+- `pnpm verify` on 33ac7f7: exit 0, 27 files, 710 tests. `pnpm build` with CI's fake public values: exit 0.
+- Not run: Firefox and WebKit (not installed).
+- Description: `docs/reports/pull-requests/fix-smoke-and-runtime.md` (part 3, verification, reviews, owner actions, decision 4, Definition of Done).
+- Push: `wp/fix-smoke-and-runtime` with fe08e92, 33ac7f7 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `lsof -ti:3190,3241,3253 | xargs kill` in your own terminal: `next start` servers from these runs may still listen there.
+2. Open the pull request, from the repository root:
+
+   ```sh
+   gh pr create --base main --head wp/fix-smoke-and-runtime \
+     --title "fix: wait for the promoted release in the smoke, ignore public/_runtime, correct the CSP e2e checks" \
+     --body-file docs/reports/pull-requests/fix-smoke-and-runtime.md
+   ```
+
+3. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on that branch, and Firefox and WebKit if installed.
+4. Decide the security review's follow-ups: the residual risk in ADR-0028 and T-06/T-07 (`spec-change`), lint rules against script-creation sinks, an ADR on Trusted Types.
+5. The owner actions of the sections below are still due.
+
+### Next
+
+- The e2e tests of the WP-3.x branches can now run here with the same flags, one test per process. A run of the WP-3.1 worker journeys is the next thing that needs no owner decision.
+
+## Session of 2026-11-24 (from about 03:10), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. Nothing new was left that needs no owner decision, so this run checked the state, tried the one unverified part of task 1, and stopped.
+
+### State checked
+
+- `origin/main` is still 0efe863. `wp/3.1-python-worker` (2af8c6e), `wp/3.3-grader` (c39ddc7), `wp/3.4-statechart` (bc0b142) and `wp/fix-smoke-and-runtime` (c5e789b) are each 0 commits behind it. `wp/3.3-grader` has all of `wp/3.1-python-worker`, and `wp/3.4-statechart` has all of `wp/3.3-grader`. Task 2 needs no new merge.
+- What is still open in the WP-3.x descriptions needs the owner or a later package: ADR-0034, the section 6 spec change, the phone check, the lint rule's bypasses, the `beforeAll` fix for `scripts/repository.test.ts`, Validate's fresh worker (WP-4.3), and the shared restore routine (WP-3.4 or later). The two header misses in WP-3.1 ("Not fixed") stay as they are: closing them means naming each file in the header rules, which goes against the decision recorded in part 10 to keep the file list in one place. No code changed.
+
+### Task 1 (c) tried again: `e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`, blocked
+
+- `pnpm build` at c5e789b with CI's fake public values: exit 0. `next start` on port 3241, then `playwright test` with a temporary config that has no web servers.
+- Both tests failed before any page loaded: Chromium cannot start in this sandbox (`bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`). The cause of test 2 is still not proven by a run.
+- The sandbox cannot stop the server it started (`pkill: Cannot get process list`).
+
+### Owner: run this
+
+1. `lsof -ti:3241 | xargs kill` in your own terminal: the `next start` from this run still listens there.
+2. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`, as in the task 1 section below.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Nothing on this task list needs no decision from the owner. Decide ADR-0034, the `beforeAll` fix and the section 6 spec change; then the next run can act on them.
+
+## Session of 2026-11-24 (from about 03:00), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every branch was level with `origin/main` (0efe863), so this run did the first item under "Next" in the section below, then looked for the flaky test WP-3.4 security review 2 saw. This file came to `wp/3.4-statechart` with the merge (the newest copy, from `wp/3.3-grader`) and this section was added on top.
+
+### Task 3, part 12 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 9730a70: `wp/3.3-grader` at c39ddc7 merged (WP-3.1's worker header rule fix e340e4f, its test, security review 6, the docs). No conflict.
+- `scripts/next-config.test.ts` lists the same eleven compiled worker files as `scripts/build-runtime.test.ts` on this branch; the build writes exactly those eleven to `public/_runtime/worker`.
+- `pnpm verify` on 9730a70: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 9730a70 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Task 3, part 13 done: the flaky test WP-3.4 security review 2 saw, found
+
+- Part 12 took about 3 minutes, so the run went on. WP-3.4 security review 2 saw 1 of 1066 tests fail once, unnamed.
+- On 9730a70: six single `vitest run`s, all 1148 passed. Three rounds of four runs at once, with coverage: two rounds failed in all four runs, one passed. All eight failures are one test: `scripts/repository.test.ts > lint for type escapes > [NFR-MAINT-01] fails lint for any`, `Test timed out in 5000ms`.
+- Cause: the test's first `lintText` loads `eslint.config.mjs`. That took 855 ms in a single `pnpm test` and passes 5000 ms when several suites share the machine. Other test runs on the same machine give that load.
+- The test is unchanged from `main` (939f9a0). That the reviewer hit this test is likely, not proven.
+- Decision: no code change. Raising the timeout is banned (CLAUDE.md rule 2), and the test guards the lint rules. Recorded in the WP-3.4 description's Reviews section with a fix for the owner to choose: load the configuration once in a `beforeAll`.
+- Push: `wp/3.4-statechart` with the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+- If the owner chooses the `beforeAll` fix for `scripts/repository.test.ts`, make it on a branch from `main`.
+
+## Session of 2026-11-24 (from about 02:50), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 9 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 10 took about 8 minutes, so the run went on with part 11, which carries this copy to `wp/3.3-grader`. The copy on `wp/3.4-statechart` is now older than this one.
+
+### Task 3, part 10 done: the worker's header rule (WP-3.1 security review 2, MINOR 3)
+
+- e340e4f: the worker's header rule was `/_runtime/worker/:path*`, so a miss under that folder got the worker's policy (no `sandbox`) instead of the runtime's static policy. The rule is now `/_runtime/worker/:path+.js`. `:path*.js` was tried first and rejected: its compiled regex also matches `/_runtime/worker.js`.
+- `scripts/next-config.test.ts` runs `next.config.ts` through Next.js's own `unstable_getResponseFromNextConfig`: the seven compiled worker files get the worker's policy and `no-cache`; six misses get the static policy.
+- Mutants: `:path*` fails 7 of 10; `:path*.js` fails 3 of 11.
+- Security review round 6 (`docs/reports/reviews/WP-3.1/security-review-6.md`): APPROVE, 3 MINOR, two fixed (comment, all seven files tested), one recorded (a miss ending in `.js`, in any case, still gets the worker's policy).
+- `pnpm verify` on e340e4f: exit 0, 37 files, 858 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the build: compiled files 200 with the worker policy and `no-cache`; `no-such-file`, `core.jsx`, `x.js/more`, `/_runtime/worker.js` 404 with the static policy; `missing.js` 404 with the worker policy.
+- Decision: the rule matches by extension, not by naming the seven files, so the file list stays in one place.
+- Not run: the browser tests.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, "Not fixed").
+- Push: `wp/3.1-python-worker` with e340e4f and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 11 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- bc73677: `wp/3.1-python-worker` at 2af8c6e merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict. In the merge, `scripts/next-config.test.ts`'s list of compiled worker files became this branch's eleven (under `runtime/` and `grader/`, as `scripts/build-runtime.test.ts` lists them); the built folder holds exactly those eleven.
+- `pnpm verify` on bc73677: exit 0, 42 files, 1033 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with bc73677 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 pull request with its description, if it is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with bc73677) into `wp/3.4-statechart`. Check there that `scripts/next-config.test.ts`'s list of compiled worker files matches `scripts/build-runtime.test.ts` on that branch.
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 00:25), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 7 took about 15 minutes, so the run went on with parts 8 and 9, which carry this copy to `wp/3.3-grader` and `wp/3.4-statechart`.
+
+### Task 3, part 7 done: the proxy matcher's exclusions (WP-3.1 security review 2, MINOR 7)
+
+- f8af00a: the matcher's exclusions for `_next/static`, `_next/image` and `favicon.ico` were prefixes, so `/favicon.icoX` and `/_next/imageX` skipped the proxy and their not-found page had no policy. Each exclusion now ends at a slash or at the end of the path. The matcher test uses Next.js's own `unstable_doesMiddlewareMatch` instead of a hand-built regular expression.
+- Security review round 1 on f8af00a: CHANGES REQUIRED, 3 MINOR. `/favicon.ico` itself still rendered the not-found page with no policy (there is no icon, ADR-0031); no production-server test; page-prefix mutants survived.
+- c03a7d0: `/favicon.ico` is no longer excluded; the test asserts `/admin`, `/sign-in`, `/courses`, `/learn`, `/profile` and states its no-basePath assumption; `e2e/csp.spec.ts` gains a request-only test that `/favicon.ico`, `/favicon.icoX`, `/_next/imageX` and `/_next/staticX` return 404 with the nonce policy and `frame-ancestors 'none'`.
+- Security review round 2 on c03a7d0: APPROVE. One note: add nested paths when `/admin` and the course routes land. Condensed in `docs/reports/reviews/WP-3.1/security-review-5.md`.
+- Mutants: the old matcher fails the prefix test; the favicon exclusion put back fails the favicon test.
+- `pnpm verify` on c03a7d0: exit 0, 37 files, 845 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the c03a7d0 build: the four paths above return 404 with the nonce policy; `/_runtime/no-such-file` keeps the runtime's static policy; `/_next/image?url=...` gets no page policy.
+- Not run by me: the new e2e test. `pnpm test:e2e` starts the development server too, and Turbopack fails in the sandbox (`unable to start FSEvent stream`). The reviewer ran it against a `next start` through a temporary config with no web servers: 1 passed.
+- Decision: fixed on `wp/3.1-python-worker`, not on a branch from `main`, because this branch already changes the matcher line.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, owner action 2, "Not fixed").
+- Push: `wp/3.1-python-worker` with f8af00a, c03a7d0 and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 8 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- 9e5ff23: `wp/3.1-python-worker` at d6ab769 merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on 9e5ff23: exit 0, 42 files, 1016 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten (7aa4f76).
+- Push: `wp/3.3-grader` with 9e5ff23, 7aa4f76 and the commit that adds these lines.
+
+### Task 3, part 9 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- fff5ece: `wp/3.3-grader` at 44d6425 merged. One conflict, this file; WP-3.3's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on fff5ece: exit 0, 46 files, 1131 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with fff5ece and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
+2. Stray servers the sandbox hides from me: a `next start` I launched holds port 3197, and something also answers on port 3100. In your own terminal: `lsof -ti:3197 | xargs kill`, and check `lsof -i:3100` before a local `pnpm test:e2e`, because Playwright reuses a server already on 3100.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+- Shared `$TMPDIR`: name logs by worktree (this run used `verify.log` and `build.log`; the counts it recorded match this branch, 842 plus 3 new tests).
+
+## Session of 2026-11-24 (from about 00:20), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy), this section added on top, and the copy carried back to `wp/3.4-statechart` by the merge.
+
+### Task 3, part 5 done: a test for the Node runner's harness-version check
+
+- f7261ad on `wp/3.3-grader`: WP-3.3 security review 2 MINOR 7 and code review 2 MINOR 4, the version part, said the runner's harness-version check had no test because a test needed a seam. `createNodeRunner` now takes an optional `threadUrl`, set only by the runner's own test. That test starts `scripts/testing/other-harness-version-thread.ts`, a stand-in thread that answers with a passing result of another version. The new test expects `crashed`, then `not_run`.
+- Mutation: with the version check removed from `runner.ts`, the new test fails (both test cases `passed`).
+- `pnpm verify` on f7261ad: exit 0, 42 files, 1013 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Decision: the stand-in lives in `scripts/testing/`, beside `property.ts`, so it is not counted in `src/grader`'s coverage and no file in `src` exists only for a test.
+- Description: the finding moved from "Not fixed, for you" to a "Fixed later" table; owner action 6 now names f7261ad; evidence added under "How it was verified".
+- Not run: the browser tests.
+- Push: `wp/3.3-grader` with f7261ad and the docs commit (89875fd).
+
+### Task 3, part 6 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 32c642f: `wp/3.3-grader` at 89875fd merged. No conflict.
+- `pnpm verify` on 32c642f: exit 0, 46 files, 1128 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 32c642f and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. The owner actions of the section below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" in the section below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy), this section added on top, and the copy carried to `wp/3.3-grader` and then `wp/3.4-statechart`.
+
+### Task 3, part 3 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- f178765: `wp/3.1-python-worker` at c4ca7f1 merged (58128a3 and its docs). One conflict, this file; WP-3.1's copy was taken, as the newer one.
+- `pnpm verify` on f178765: exit 0, 42 files, 1012 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with f178765 and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 4 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 03102ba: `wp/3.3-grader` at 99f61b4 merged (WP-3.3 round 2 fixes and WP-3.1 round 4 fixes). Two conflicts. `src/runtime/controller.ts`, the `ready` case: both sides kept (this branch sets `interactiveInput`, then WP-3.3's fix sends a pending fresh-worker check before reporting `ready`). This file: WP-3.3's copy taken.
+- `pnpm verify` on 03102ba: exit 0, 46 files, 1127 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 03102ba and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions in the WP-3.3 and WP-3.4 descriptions, and those of the sessions below.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a and 06c39bb (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 23:54 on 2026-11-23), in `night-a`, on `wp/3.3-grader`, then `wp/3.1-python-worker`
+
+Same task list. Tasks 1 and 2 were done (task 2 took about 6 minutes), so this run did task 3: the WP-3.x review findings still open. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top.
+
+### Task 3, part 1 done: the review rounds the descriptions said were missing, and the WP-3.3 fixes
+
+- Four reviews, each by a fresh reviewer: WP-3.3 round 2 (code and security, on the round-1 fixes 1da8b48..bce0f08) and WP-3.1 round 4 (code and security, on the round-3 fixes be2c7c0..2d94ead and the merges). Reports in `docs/reports/reviews/WP-3.3/*-review-2.md` and `docs/reports/reviews/WP-3.1/*-review-4.md`.
+- WP-3.1 round 4: both APPROVE, five minors in all.
+- WP-3.3 round 2: both CHANGES REQUIRED, no blocker. Both found the same major: during a fresh-worker check the controller reported `ready` before sending the check, so a page acting on `ready` could orphan the check and make Stop end nothing.
+- 9043a9a: the controller sends the pending check before it reports `ready`. Two new tests; the first failed before the fix, the second fails with `used = false` removed.
+- 06c39bb: the harness's fallback clears the hooks first; cut output with no error grades as `output_limit`; tests that pin each guard, the name and test case limits, and the runner's new thread after a memory error; comments corrected. Each new test failed against a mutant of its fix or the code before it.
+- `pnpm verify` on 06c39bb: exit 0, 41 files, 1009 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Decisions, in the WP-3.3 description: cut output grades as `output_limit`; `HARNESS_VERSION` stays "1" with the hash updated; `exit()` during the follow-up code recorded as a deviation for the owner; the lint rule's bypasses, a required `freshWorker`, and the extra Python hooks left for the owner.
+- Not run: the browser tests.
+- Push: `wp/3.3-grader` with 9043a9a, 06c39bb and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 2 done: the WP-3.1 round 4 minors
+
+- 58128a3 on `wp/3.1-python-worker`: an error whose attributes raise keeps `input_ended` and `memory` (the new test failed 2 of 3 before); `scripts/next-config.test.ts` checks that `next.config.ts` serves the security headers and then the runtime's rules, worker policy last (both cases fail with the runtime rules removed); the loader test's comment says the request log is its evidence in this build; the memory case has its own test.
+- The WP-3.1 description: round 4 in Reviews, the five passages that said #3 was not merged corrected, the round 4 evidence.
+- `pnpm verify` on 58128a3: exit 0, 37 files, 842 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Push: `wp/3.1-python-worker` with 58128a3 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- `wp/3.3-grader` and `wp/3.4-statechart` do not have 58128a3 yet, and `wp/3.4-statechart` does not have the WP-3.3 round 2 fixes yet.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. WP-3.3 owner actions 6 and 7 in its description (a third review round, or accept; the security minors left for you).
+3. Decide whether `wp/3.2-live-input` should also get `main` merged in.
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Merge `wp/3.1-python-worker` into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`, so both carry the round 4 and round 2 fixes; verify and build each.
+- A review round on 58128a3 (WP-3.1) and on 9043a9a and 06c39bb (WP-3.3), if the owner wants one.
+
+## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, each in under 20 minutes. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.
+
+### Task 2, part 1 done: `main` merged into `wp/3.1-python-worker`
+
+- 5f72072: `origin/main` at 0efe863 merged. One conflict, `playwright.config.ts`: `main`'s `phone` projects kept beside this branch's `runtime-*` projects; the engine projects ignore gallery, runtime and phone tests.
+- `pnpm verify` on 5f72072: exit 0, 36 files, 839 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests (Chromium cannot start in this sandbox).
+- The commit hook's dependency check could not take pnpm's store lock (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed.
+- Description: "Up to date with main" in `docs/reports/pull-requests/WP-3.1.md` rewritten; the `gh pr create` command replaced with `gh pr edit 9`, because the draft is open.
+- Push: `wp/3.1-python-worker` with 5f72072 and the docs commit. This line is pushed with the docs commit.
+
+### Task 2, part 2 done: `wp/3.1-python-worker` (with `main`) merged into `wp/3.3-grader`
+
+- 4e255ef: `wp/3.1-python-worker` at e06e9c3 merged; it carries `main` at 0efe863. No conflict.
+- `pnpm verify` on 4e255ef: exit 0, 41 files, 1002 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.3.md`. No pull request is open for WP-3.3, so its `gh pr create` command stays.
+- Push: `wp/3.3-grader` with 4e255ef and the docs commit. This line is pushed with the docs commit.
+
+### Task 2, part 3 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- a83b326: `wp/3.3-grader` at 67787b4 merged; it carries `main` at 0efe863 and WP-3.1. No conflict.
+- `pnpm verify` on a83b326: exit 0, 45 files, 1117 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Decision: `wp/3.2-live-input` was not merged with `main`; it is not in the task list. `wp/3.4-statechart` already holds its tip (6a9c165). Recorded in the WP-3.4 description.
+- Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with a83b326 and the docs commit. This line is pushed with the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker` (`gh` cannot reach GitHub from the sandbox).
+2. Decide whether `wp/3.2-live-input` should also get `main` merged in.
+3. The owner actions of the session below are still due.
+
+### Next
+
+- Task 3: the WP-3.x review findings still open in the WP-3.1, WP-3.3 and WP-3.4 descriptions.
+
+## Session of 2026-11-23 (from about 23:25), in `night-a`, on `wp/fix-smoke-and-runtime`
+
+Task list given by the owner for this run: (1) a new branch `wp/fix-smoke-and-runtime` from `origin/main` with three fixes; (2) merge `origin/main` into `wp/3.1-python-worker`, then `wp/3.3-grader`, then `wp/3.4-statechart`, one per task; (3) help with the WP-3.x review findings still open in those descriptions. This run did task 1. This file was copied from `origin/wp/5.1-catalog` (the newest copy) and this section added on top.
+
+### Task 1 done: `wp/fix-smoke-and-runtime`
+
+- 8ce22ea: `scripts/infra-verify.mjs` with `--release` asks `/api/health` every 5 s for up to 60 s until it names the release, then runs the other checks. Five new tests; four failed before the change.
+- 7f5c85a: `public/_runtime` ignored in `tsconfig.json`, `eslint.config.mjs`, `.prettierignore` and `.gitignore`, with WP-3.1's lines. Three new tests, all failed before. With `main`'s `tsconfig.json`, this checkout's leftover folder put 2 files in the project and 14927 error lines; now 0 files.
+- 714227f: `e2e/csp.spec.ts`. Cause of test 1 found: Next 16's client entry empties `self.__next_f` and replaces its `push` (`node_modules/next/dist/client/app-index.js` lines 124 to 130), so the old wait could pass only if the scripts never ran. The test now counts inline pushes with an init script. Cause of test 2 not proven; the test now injects after the page's scripts ran and listens on the element.
+- `pnpm verify` on 1829ec6: exit 0, 27 files, 710 tests. `pnpm build` with CI's fake public values: exit 0.
+- Not run: the e2e spec. Chromium is installed but cannot start in this sandbox (`bootstrap_check_in ... Permission denied (1100)`).
+- Found on the way: `$TMPDIR` is shared with the `night-b` session. A log named `$TMPDIR/verify.log` was overwritten by `night-b`'s run (it said `RUN v5.1.0 /private/tmp/claude-501/night-b`); `pnpm verify` was run again into a log with a unique name. Later sessions should name logs by worktree.
+- Description: `docs/reports/pull-requests/fix-smoke-and-runtime.md`, with the `gh pr create` command (`--base main`) and four decisions.
+- Code review round 1 on 714227f: CHANGES REQUIRED, no blocker. Both MAJORs fixed in 1829ec6: the CSP test polls the document listener again (the element listener missed the case its comment named), and a new test makes a health check that keeps failing reject after the wait (seen failing by mutation). Minors recorded in the description; the `infra-verify.mjs` conflict with `wp/3.1-python-worker` is for task 2.
+- Push: `wp/fix-smoke-and-runtime` created with 8ce22ea, 7f5c85a and 714227f; then 1829ec6 and the docs commit. This line is pushed with the docs commit.
+
+### Owner: run this
+
+1. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`; if test 2 still fails, paste its message into the pull request.
+2. `lsof -ti:3190 | xargs kill`: a `next start` from this session may still listen there; the sandbox cannot stop it.
+3. Open the pull request with the `gh` command at the end of its description.
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 2: merge `origin/main` into `wp/3.1-python-worker`, resolve conflicts, `pnpm verify` and `pnpm build`, push, and update "Up to date with main" in its description.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
 
