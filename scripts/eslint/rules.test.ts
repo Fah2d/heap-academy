@@ -210,6 +210,18 @@ describe("module boundaries", () => {
     );
   });
 
+  it("[T-21] refuses a joined module name, and keeps the worker's other imports checked", async () => {
+    const joined = 'void import("@/infrastructure/db/" + "privileged");';
+    expect(await ruleIds("src/features/catalog/components/list.tsx", joined)).toContain(boundary);
+    expect(await ruleIds("src/runtime/worker/python-worker.ts", joined)).not.toContain(boundary);
+    const fixed = "void import(`@/content/published`);";
+    expect(await ruleIds("src/runtime/worker/python-worker.ts", fixed)).toContain(boundary);
+    const computedRequire = 'const name = "x";\nrequire(name);';
+    expect(await ruleIds("src/runtime/worker/python-worker.ts", computedRequire)).toContain(
+      boundary,
+    );
+  });
+
   it.each([
     ["Date.now()", "const t = Date.now();"],
     ["new Date()", "const t = new Date();"],
