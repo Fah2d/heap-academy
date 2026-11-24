@@ -2,6 +2,18 @@
 
 ## Up to date with main
 
+`main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/2.2-sign-in`, which has it (4c297fc): merge commit d3a05da. No conflict. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings WP-2.2's and WP-2.1's approved spec changes. WP-2.1 is merged, so once WP-2.2 merges this pull request's base becomes `main`.
+
+With the merge and this package's approved spec changes, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  53 passed (53)
+      Tests  1019 passed (1019)
+```
+
+`next build` with CI's public values, exit 0. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
 `main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.2-sign-in`, which has it (30dbedc): merge commit d6dfb0c. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.2-sign-in`, which holds every section of this branch's copy (this branch's copy differed only in older lines of the same session). No test failed and no code changed.
 
 On d6dfb0c, `pnpm verify`, exit 0:
@@ -166,7 +178,16 @@ Do the owner actions below first. Then sign in, open `/admin`, and you are sent 
 2. `docs/runbooks/infrastructure-setup.md` section 10 step 8 for both projects: TOTP on for enrollment and verification.
 3. After the merge, on production: `docs/runbooks/admin-access.md` section 1. Sign in, add your admin row, enroll your authenticator app (the plan's owner step for WP-2.3).
 
-## Decisions for the owner
+## Your decisions
+
+Approved by you on 2026-11-24: both recommendations below, and every proposed spec change. The spec changes are written into `docs/spec` on this branch, each marked **"Approved by the owner on 2026-11-24"**:
+
+- Decision 1: the not-found page at `/admin` stays as built; no spec text changes.
+- Decision 2: `06-security-privacy.md` section 6, a residual risk row for code guessing with a stolen session (T-19); `docs/runbooks/admin-access.md` section 4 now says the risk is accepted.
+- Deviation 1: `02-architecture.md` section 9.1, the three second-step actions, and section 8.3, `private.is_on_admin_list()`.
+- Deviation 2: `03-experience.md` section 7.1, the button before the QR code.
+
+The questions as they were put:
 
 1. **The not-found page at `/admin` is not byte-identical.**
    - What happens: Next.js renders a `notFound()` thrown by a layout as an error shell that the browser fills in. Status, title and visible page match `/no-such-page`.
@@ -180,8 +201,8 @@ Do the owner actions below first. Then sign in, open `/admin`, and you are sent 
 
 ## Deviations from the plan or the spec
 
-1. `startSecondStepSetup`, `confirmSecondStepSetup` and `verifySecondStep` are not in the action table of `02-architecture.md` section 9.1. `private.is_on_admin_list()` is not in the table of section 8.3. Spec-change proposed.
-2. `/admin/setup` shows a button before the QR code (`03-experience.md` section 7.1 says "a QR code and a manual key"), so that loading the page changes nothing. Spec-change proposed.
+1. `startSecondStepSetup`, `confirmSecondStepSetup` and `verifySecondStep` are not in the action table of `02-architecture.md` section 9.1. `private.is_on_admin_list()` is not in the table of section 8.3. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
+2. `/admin/setup` shows a button before the QR code (`03-experience.md` section 7.1 says "a QR code and a manual key"), so that loading the page changes nothing. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
 3. The dashboard's empty state says "There are no courses yet." and offers no action. Section 7.2's "says what to do first" and its one action, Create a course, come with WP-4.1, which builds that action. Rule 3 forbids a dead control.
 4. `e2e/sign-in-helpers.ts` takes the code helpers out of `e2e/sign-in-journey.spec.ts`, so both journeys share them.
 
