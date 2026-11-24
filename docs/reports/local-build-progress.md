@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 23:20), in `night-b`, merge-forward to 5.1
+
+- Merged in order: `wp/2.2-sign-in` into 2.3 (conflicts: this file, and the journey spec, where 2.3's shared helper already has the token wait), then 2.3 into 4.1, 4.1 into 4.2, 4.2 into 4.3 (no conflicts), then 4.3 into 5.1 (conflicts: this file and `playwright.config.ts`, both comments kept).
+- 5.1 broke after the merge: the stricter import rule (from the 3.x line) refuses the computed `import()` in `src/app/indexing.test.ts`. The test now has one fixed import per page, lists `/admin/lessons/[id]`, and drops the check that read `next.config.ts`, which now calls `pageExtensions` (tested in its own file).
+- On 5.1 without the unfinished part 2 files: `pnpm verify` exit 0, 108 files, 2009 tests; `next build` with CI's public values exit 0; `check-bundle` and `check-static` exit 0. 2.3 alone: `pnpm verify` exit 0. 4.1 to 4.3 were not verified on their own (merges without conflicts; 5.1 contains them).
+- Not run: stack e2e and `pnpm test:db` (no Docker).
+- WP-5.1 owner decision 6 (error text) is in `src/messages/system.ts`; decision 5 (lint bypass) is branch `wp/fix-lint-template-import` (2 commits ahead of `main`).
+- Left in this checkout, not committed: part 2 of WP-6.1 (progress server module, completion store). Its test "refuses an upper-case ID" fails: next task.
+
 ## Session of 2026-11-24 (from about 23:10), in `night-b`, CI fixes for #13 (`wp/2.2-sign-in`)
 
 - Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
