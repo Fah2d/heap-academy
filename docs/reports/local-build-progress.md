@@ -2,6 +2,34 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 17:50), in `night-b`, task 2
+
+`origin/main` is still at 7875ee2, and 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already have it with their approved spec changes (the 15:14 session below). Task 1 has nothing to do; no branch of it was pushed again.
+
+### Task 2, WP-5.1 part 7 done: owner action 7
+
+- Started at 17:50. Docker is still not running here (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), so the stack journey, its screens and design review 4 stay with the owner. The one WP-5.1 item left that this sandbox can do was owner action 7 (security review 3 MINOR 1), recommended by that review and so approved on 2026-11-24.
+- a2f4122: `cachedReader` in `src/content/published.ts` reads the database address once, puts it first in the cache arguments and builds the public client from the same value; `createPublicClient(address)` takes the address. A repeated key part throws (security review 4's MINOR, decision 30).
+- Three new tests; two mutations each failed one of them (output in the description, part 7).
+- Security review 4: APPROVE, one minor (fixed in a2f4122) and one note. Saved as `docs/reports/reviews/WP-5.1/security-review-4.md`.
+- `pnpm verify`: exit 0, 67 files, 1218 tests. `next build` with CI's public values: exit 0, 15 routes, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db`, the stack journey, and the gallery and outage specs again (no page changed).
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 7, round 4, owner action 7 marked done, decision 30.
+
+Decision taken with a safe default:
+
+- G. No other branch was pushed: `origin/main` has not moved, and a push without a change only costs a Vercel build.
+
+### Owner: run this
+
+1. Kill the leftover servers and run the stack journey, as in the 13:49 session's list (items 1 and 2); then design review 4 on the `home`, `courses` and `course` screens.
+2. WP-5.1 owner actions 5 (lint MINOR A) and 6 (the error page's wording) have no recommendation, so they are still yours to decide.
+3. When `gh` works: paste the WP-5.1 description into its pull request.
+
+### Next
+
+- WP-5.1 has nothing left that this sandbox can do. Task 1 starts again when `origin/main` moves.
+
 ## Session of 2026-11-24 (from about 15:14), in `night-b`, `main` at 7875ee2 and the owner's decisions
 
 Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 in that order, each also merging the one before it; verify, build, push. (2) Finish WP-5.1. New: the owner's decisions of 2026-11-24 approve every recommended default in every pull request description (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, clear device progress at sign-out, the stored row wins, every proposed spec change). Each approved spec change is written into `docs/spec` on the branch it belongs to and marked "Approved by the owner on 2026-11-24".
