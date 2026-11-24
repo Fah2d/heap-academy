@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { loadPyodide, type PyodideAPI } from "pyodide";
 import {
   parseRunReport,
   PROGRAM_FILENAME,
@@ -369,6 +370,171 @@ describe("run support (CPython)", () => {
     expect(no?.report?.kind).toBe("ok");
     expect(three?.report).toEqual({ kind: "runtime", message: "SystemExit: 3", line: undefined });
   });
+});
+
+// The parts of the interpreter's state that only Python 3.11 and later have
+// (sys.monitoring, the integer digit limit), and the rest of the state the
+// harness restores between test cases, checked in Pyodide under Node: the
+// same interpreter the worker loads (WP-3.3 "Not fixed": Run does not get the
+// harness's restore).
+type PyodideRun = (source: string) => {
+  stdout: string;
+  report: ReturnType<typeof parseRunReport>;
+};
+
+/**
+ * A runner on a new Pyodide interpreter, with stdout an in-memory stream.
+ * `setup` runs first, so the runner starts from the state it leaves.
+ */
+async function pyodideRunner(setup = ""): Promise<PyodideRun> {
+  const pyodide: PyodideAPI = await loadPyodide();
+  pyodide.setStdout({ batched: () => {} });
+  pyodide.setStderr({ batched: () => {} });
+  pyodide.runPython(setup);
+  pyodide.runPython(RUN_SUPPORT_DEFINITION);
+  const runner: unknown = pyodide.runPython(String.raw`
+import io, sys
+sys.stdin = io.StringIO("")
+sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+_heap_make_runner(False)
+`);
+  if (typeof runner !== "function") throw new Error("the run support did not make a runner");
+  const take: unknown = pyodide.runPython(String.raw`
+def _heap_take(stream):
+    text = stream.getvalue()
+    stream.seek(0)
+    stream.truncate()
+    return text
+_heap_take
+`);
+  if (typeof take !== "function") throw new Error("the output reader did not evaluate");
+  const stdout: unknown = pyodide.runPython("import sys\nsys.stdout");
+  return (source) => {
+    const report = Reflect.apply(runner, undefined, [source]) as unknown;
+    const text = Reflect.apply(take, undefined, [stdout]) as unknown;
+    return {
+      stdout: typeof text === "string" ? text : "",
+      report: typeof report === "string" ? parseRunReport(report) : undefined,
+    };
+  };
+}
+
+describe("run support (Pyodide)", () => {
+  let run: PyodideRun;
+
+  beforeAll(async () => {
+    run = await pyodideRunner();
+  }, 60_000);
+
+  const ok = { kind: "ok", message: "", line: undefined };
+
+  it("[FR-RUN-04] a sys.monitoring callback set by one run does not reach the next, and its tool id is free again", () => {
+    expect(
+      run(
+        [
+          "import sys",
+          "m = sys.monitoring",
+          'm.use_tool_id(2, "ghost")',
+          'm.register_callback(2, m.events.CALL, lambda *args: print("GHOST"))',
+          "m.set_events(2, m.events.CALL)",
+        ].join("\n"),
+      ).report,
+    ).toEqual(ok);
+    expect(run('import sys\nlen("x")\nprint(sys.monitoring.get_tool(2), "after")')).toEqual({
+      stdout: "None after\n",
+      report: ok,
+    });
+  });
+
+  it("[FR-RUN-04] a line-cache key left by one run does not run its __eq__ in the next", () => {
+    // WP-3.3 security review 4, round 5: the key has the hash of the
+    // program's file name, so writing that name into the cache compared them.
+    run(
+      [
+        "import linecache",
+        `H = hash("${PROGRAM_FILENAME}")`,
+        "class Key:",
+        "    def __hash__(self, H=H):",
+        "        return H",
+        "    def __eq__(self, other, say=print):",
+        '        say("INJECTED")',
+        "        return False",
+        `linecache.cache.pop("${PROGRAM_FILENAME}")`,
+        'linecache.cache[Key()] = (0, None, [], "key")',
+      ].join("\n"),
+    );
+    expect(run('print("next")')).toEqual({ stdout: "next\n", report: ok });
+  });
+
+  const carriedOver: [string, string, string][] = [
+    ["the trace hook", "sys.settrace(lambda *args: None)", "sys.gettrace()"],
+    ["the profile hook", "sys.setprofile(lambda *args: None)", "sys.getprofile()"],
+    ["the exception hook", "sys.excepthook = print", "sys.excepthook is print"],
+    ["the display hook", "sys.displayhook = print", "sys.displayhook is print"],
+    ["the breakpoint hook", "sys.breakpointhook = print", "sys.breakpointhook is print"],
+    ["the unraisable hook", "sys.unraisablehook = print", "sys.unraisablehook is print"],
+    ["the module search path", 'sys.path.append("/nowhere")', '"/nowhere" in sys.path'],
+    ["the finders", "sys.meta_path.insert(0, object())", "type(sys.meta_path[0]) is object"],
+    ["the path hooks", "sys.path_hooks.insert(0, print)", "sys.path_hooks[0] is print"],
+    [
+      "the importer cache",
+      'sys.path_importer_cache["/nowhere"] = None',
+      '"/nowhere" in sys.path_importer_cache',
+    ],
+    ["the integer digit limit", "sys.set_int_max_str_digits(5000)", "sys.get_int_max_str_digits()"],
+    ["the recursion limit", "sys.setrecursionlimit(321)", "sys.getrecursionlimit()"],
+    [
+      "the async generator hooks",
+      "sys.set_asyncgen_hooks(firstiter=print)",
+      "sys.get_asyncgen_hooks()",
+    ],
+    ["the garbage collector's callbacks", "gc.callbacks.append(print)", "len(gc.callbacks)"],
+    ["the garbage collector's thresholds", "gc.set_threshold(1, 1, 0)", "gc.get_threshold()"],
+    ["the garbage collector's enabled state", "gc.disable()", "gc.isenabled()"],
+    ["the garbage collector's debug flags", "gc.set_debug(gc.DEBUG_SAVEALL)", "gc.get_debug()"],
+    ["the garbage collector's saved garbage", "gc.garbage.append(1)", "len(gc.garbage)"],
+  ];
+  it("[FR-RUN-04] the garbage collector is on in every run, as it was when the runner was made", () => {
+    run("import gc\ngc.disable()");
+    expect(run("import gc\nprint(gc.isenabled())")).toEqual({ stdout: "True\n", report: ok });
+  });
+
+  for (const [part, change, probe] of carriedOver) {
+    it(`[FR-RUN-04] ${part} set by one run is back in the next`, () => {
+      const show = `import gc, sys\nprint(${probe})`;
+      const before = run(show);
+      expect(before.report).toEqual(ok);
+      expect(run(`import gc, sys\n${change}`).report).toEqual(ok);
+      expect(run(show)).toEqual(before);
+    });
+  }
+
+  it("[FR-RUN-04] puts back the garbage collector callbacks that were there when the runner was made", async () => {
+    const own = await pyodideRunner("import gc\ngc.callbacks.append(lambda phase, info: None)");
+    own("import gc\ngc.callbacks.clear()");
+    expect(own("import gc\nprint(len(gc.callbacks))")).toEqual({ stdout: "1\n", report: ok });
+  }, 60_000);
+
+  it("[FR-RUN-04] a __del__ that changes the state after its restore makes the run raise, so the worker is replaced", async () => {
+    // The object is freed while the restore clears the builtins, after the
+    // trace hook was put back; the state is then not back, and run raises
+    // NotRestored instead of reporting (core.ts gives up with runtime_crashed).
+    const source = [
+      "import builtins, sys",
+      "class Ghost:",
+      "    def __del__(self, sys=sys):",
+      "        sys.settrace(lambda *args: None)",
+      "builtins.ghost = Ghost()",
+    ].join("\n");
+    const own = await pyodideRunner();
+    let thrown: unknown;
+    try {
+      own(source);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
+  }, 60_000);
 });
 
 describe("parseRunReport", () => {

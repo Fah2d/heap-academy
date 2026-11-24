@@ -40,14 +40,87 @@ def _heap_make_runner(require_streaming):
     modules = sys.modules
     modules_snapshot = dict(modules)
     streams = {name: sys_dict[name] for name in ("stdin", "stdout", "stderr")}
-    sys_snapshot = {"modules": modules, **streams}
+    sys_snapshot = {
+        "modules": modules,
+        **streams,
+        **{
+            name: sys_dict[name]
+            for name in (
+                "excepthook", "unraisablehook", "displayhook", "breakpointhook",
+                "path", "meta_path", "path_hooks", "path_importer_cache",
+            )
+        },
+    }
+
+    # The same state the grading harness puts back between test cases
+    # (src/grader/harness.ts, which keeps its own copy of this routine): a
+    # program could otherwise change the learner's next run through it.
+    # Each run writes the program's file name here, so a key the program left
+    # could run its __eq__ there; the cache is put back.
     line_cache = linecache.cache
+    line_cache_snapshot = dict(line_cache)
+    recursion_limit = sys.getrecursionlimit()
+    set_recursion_limit = sys.setrecursionlimit
+    get_recursion_limit = sys.getrecursionlimit
+    set_trace = sys.settrace
+    set_profile = sys.setprofile
+    get_trace = sys.gettrace
+    get_profile = sys.getprofile
+    # sys.monitoring (3.12) and the integer digit limit (3.11) are missing in
+    # the older CPython some unit tests start; Pyodide has both.
+    monitoring = getattr(sys, "monitoring", None)
+    if monitoring is None:
+        tool_ids = []
+    else:
+        get_tool = monitoring.get_tool
+        set_events = monitoring.set_events
+        free_tool_id = monitoring.free_tool_id
+        # The tool ids (0 to 5) that are free now are freed again after each
+        # run; freeing one also removes its events and callbacks.
+        tool_ids = [tool for tool in range(6) if get_tool(tool) is None]
+    # A callback can take a freed id again while the others are freed, so
+    # the ids are freed in up to eight passes.
+    passes = [index for index in range(8)]
+    has_digit_limit = hasattr(sys, "set_int_max_str_digits")
+    if has_digit_limit:
+        digit_limit = sys.get_int_max_str_digits()
+        set_digit_limit = sys.set_int_max_str_digits
+        get_digit_limit = sys.get_int_max_str_digits
+    asyncgen_hooks = sys.get_asyncgen_hooks()
+    set_asyncgen_hooks = sys.set_asyncgen_hooks
+    get_asyncgen_hooks = sys.get_asyncgen_hooks
+    # The interpreter calls this list object, whatever gc.callbacks names.
+    gc_callbacks = gc.callbacks
+    gc_callbacks_snapshot = list(gc_callbacks)
+    # With gc.DEBUG_SAVEALL, the run's own collection would keep the
+    # program's objects in gc.garbage for the next run to read.
+    gc_garbage = gc.garbage
+    gc_garbage_snapshot = list(gc_garbage)
+    gc_debug = gc.get_debug()
+    gc_threshold = gc.get_threshold()
+    gc_enabled = gc.isenabled()
+    get_debug = gc.get_debug
+    set_debug = gc.set_debug
+    get_threshold = gc.get_threshold
+    set_threshold = gc.set_threshold
+    is_gc_enabled = gc.isenabled
+    enable_gc = gc.enable
+    disable_gc = gc.disable
+    list_clear = list.clear
+    list_extend = list.extend
+    # Changed in place by an import hook or a program; the names themselves
+    # are put back with sys_snapshot.
+    import_lists = [(sys.path, list(sys.path)), (sys.meta_path, list(sys.meta_path)),
+                    (sys.path_hooks, list(sys.path_hooks))]
+    importer_cache = sys.path_importer_cache
+    importer_cache_snapshot = dict(importer_cache)
+    dict_get = dict.get
+    dict_items = dict.items
+    absent = object()
 
     dict_clear = dict.clear
     dict_update = dict.update
-    dict_pop = dict.pop
     dict_keys = dict.keys
-    to_list = list
     to_text = str
     length = len
     kind_of = type
@@ -84,14 +157,122 @@ def _heap_make_runner(require_streaming):
         for name in ("stdout", "stderr"):
             streams[name].reconfigure(line_buffering=True, write_through=True)
 
+    # Raised when the state is not back after a restore. It reaches core.ts,
+    # which gives up with runtime_crashed, so the worker is replaced.
+    class NotRestored(base_exception):
+        pass
+
+    # The profile hook goes first: it runs on the call that removes the trace
+    # hook, and could put that hook back. A monitoring callback runs on these
+    # calls too, until its tool is freed. Then the collector stays off until
+    # the check has passed, so an automatic collection cannot run a __del__
+    # from a reference cycle after its part was checked.
     def restore():
+        set_profile(None)
+        set_trace(None)
+        for index in passes:
+            in_use = False
+            for tool in tool_ids:
+                if get_tool(tool) is not None:
+                    in_use = True
+                    set_events(tool, 0)
+                    free_tool_id(tool)
+            if not in_use:
+                break
+        disable_gc()
+        list_clear(gc_callbacks)
+        list_extend(gc_callbacks, gc_callbacks_snapshot)
+        list_clear(gc_garbage)
+        list_extend(gc_garbage, gc_garbage_snapshot)
+        set_debug(gc_debug)
+        set_threshold(*gc_threshold)
+        for current, snapshot in import_lists:
+            list_clear(current)
+            list_extend(current, snapshot)
+        dict_clear(importer_cache)
+        dict_update(importer_cache, importer_cache_snapshot)
+        if has_digit_limit:
+            set_digit_limit(digit_limit)
+        set_asyncgen_hooks(*asyncgen_hooks)
+        set_recursion_limit(recursion_limit)
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
-        for name in to_list(dict_keys(modules)):
-            if name not in modules_snapshot:
-                dict_pop(modules, name, None)
+        # Cleared rather than emptied name by name, so the program's keys are
+        # not hashed while the table is cleared.
+        dict_clear(modules)
         dict_update(modules, modules_snapshot)
+        dict_clear(line_cache)
+        dict_update(line_cache, line_cache_snapshot)
+        if is_gc_enabled() or not intact():
+            raise NotRestored()
+        if gc_enabled:
+            enable_gc()
+
+    def same_list(current, snapshot):
+        if length(current) != length(snapshot):
+            return False
+        index = 0
+        for item in current:
+            if item is not snapshot[index]:
+                return False
+            index += 1
+        return True
+
+    # Every key is a plain str, checked before any lookup: a lookup compares
+    # keys with the same hash, and a program's key could run its __eq__.
+    def plain_keys(current):
+        for key in dict_keys(current):
+            if kind_of(key) is not to_text:
+                return False
+        return True
+
+    def same_dict(current, snapshot):
+        if length(current) != length(snapshot) or not plain_keys(current):
+            return False
+        for key, value in dict_items(snapshot):
+            if dict_get(current, key, absent) is not value:
+                return False
+        return True
+
+    # Whether the state is back, checked by identity and with calls that free
+    # no object. Clearing a dict or a list frees the program's objects in it,
+    # and a __del__ that runs then can change the state again after its part
+    # was put back.
+    def intact():
+        if get_trace() is not None or get_profile() is not None:
+            return False
+        for tool in tool_ids:
+            if get_tool(tool) is not None:
+                return False
+        hooks = get_asyncgen_hooks()
+        if hooks[0] is not asyncgen_hooks[0] or hooks[1] is not asyncgen_hooks[1]:
+            return False
+        if get_recursion_limit() != recursion_limit:
+            return False
+        if has_digit_limit and get_digit_limit() != digit_limit:
+            return False
+        if get_debug() != gc_debug or get_threshold() != gc_threshold:
+            return False
+        if not plain_keys(sys_dict):
+            return False
+        for name, value in dict_items(sys_snapshot):
+            if dict_get(sys_dict, name, absent) is not value:
+                return False
+        for current, snapshot in import_lists:
+            if not same_list(current, snapshot):
+                return False
+        return (
+            same_list(gc_callbacks, gc_callbacks_snapshot)
+            and same_list(gc_garbage, gc_garbage_snapshot)
+            and same_dict(importer_cache, importer_cache_snapshot)
+            and same_dict(builtins_dict, builtins_snapshot)
+            and same_dict(modules, modules_snapshot)
+            and same_dict(line_cache, line_cache_snapshot)
+        )
+
+    def register(source):
+        line_cache[filename] = (length(source), None, split_lines(source, True), filename)
 
     def learner_frames(error):
         tb = error.__traceback__
@@ -168,7 +349,7 @@ def _heap_make_runner(require_streaming):
 
     def run(source):
         restore()
-        line_cache[filename] = (length(source), None, split_lines(source, True), filename)
+        register(source)
         namespace = {"__name__": "__main__", "__builtins__": builtins}
         failure = None
         try:
@@ -176,8 +357,11 @@ def _heap_make_runner(require_streaming):
         except base_exception as error:
             failure = error
         # Builtins back first, so the error can be formatted; the program's
-        # globals stay until then, because its __str__ may read them.
+        # globals stay until then, because its __str__ may read them. The
+        # restore empties the line cache, and the traceback shows the
+        # program's lines from it, so the program goes back in.
         restore()
+        register(source)
         flush()
         try:
             kind, message, line = outcome(failure)
