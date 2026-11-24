@@ -17,3 +17,11 @@ export function createPublicClient(): PublicClient {
     { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
   );
 }
+
+/**
+ * The address of the database the public client reads, from the environment
+ * the server runs with. The content cache keys its answers by it.
+ */
+export function publicDatabaseAddress(): string {
+  return parsePublicEnvironment(process.env).NEXT_PUBLIC_SUPABASE_URL;
+}

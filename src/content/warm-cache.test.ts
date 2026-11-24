@@ -11,6 +11,7 @@ vi.mock("server-only", () => ({}));
 const state = vi.hoisted(() => ({
   db: null as unknown as FakeDb,
   store: new Map<string, unknown>(),
+  database: "http://127.0.0.1:54321",
 }));
 
 vi.mock("next/cache", () => ({
@@ -25,7 +26,10 @@ vi.mock("next/cache", () => ({
     },
   updateTag: () => undefined,
 }));
-vi.mock("@/infrastructure/db/public-client", () => ({ createPublicClient: () => state.db }));
+vi.mock("@/infrastructure/db/public-client", () => ({
+  createPublicClient: () => state.db,
+  publicDatabaseAddress: () => state.database,
+}));
 vi.mock("@/infrastructure/logging/logger", () => ({ log: () => undefined }));
 
 const content = await import("./index");
@@ -51,6 +55,7 @@ const list = { data: [{ slug: "one", title: "One", summary: "S", lessons: [{ slu
 beforeEach(() => {
   state.db = fakeDb();
   state.store.clear();
+  state.database = "http://127.0.0.1:54321";
 });
 
 describe("published content with a warm cache [FR-ADM-11]", () => {
@@ -81,5 +86,28 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
     expect(retried.ok && retried.value?.slug).toBe("one");
     // The list once (kept), the failed course read, then the course again.
     expect(state.db.calls).toHaveLength(3);
+  });
+  // The cache is kept on disk and shared by every server of one build, so an
+  // answer read from one database must never answer for another.
+  it("keeps the answers of two databases apart", async () => {
+    state.db.answer(list, {
+      data: [{ slug: "two", title: "Two", summary: "S", lessons: [{ slug: "b" }] }],
+    });
+    const first = await content.publishedCourses();
+    state.database = "http://127.0.0.1:1";
+    const second = await content.publishedCourses();
+    expect(first.ok && first.value.map((row) => row.slug)).toEqual(["one"]);
+    expect(second.ok && second.value.map((row) => row.slug)).toEqual(["two"]);
+    expect(state.db.calls).toHaveLength(2);
+  });
+
+  it("keeps a course page of two databases apart", async () => {
+    state.db.answer(list, { data: course }, list, { data: { ...course, title: "Other" } });
+    const first = await content.publishedCourse("one");
+    state.database = "http://127.0.0.1:1";
+    const second = await content.publishedCourse("one");
+    expect(first.ok && first.value?.title).toBe("One");
+    expect(second.ok && second.value?.title).toBe("Other");
+    expect(state.db.calls).toHaveLength(4);
   });
 });

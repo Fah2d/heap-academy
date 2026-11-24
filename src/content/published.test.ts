@@ -21,7 +21,10 @@ vi.mock("next/cache", () => ({
   },
   updateTag: (tag: string) => state.updated.push(tag),
 }));
-vi.mock("@/infrastructure/db/public-client", () => ({ createPublicClient: () => state.db }));
+vi.mock("@/infrastructure/db/public-client", () => ({
+  createPublicClient: () => state.db,
+  publicDatabaseAddress: () => "http://127.0.0.1:54321",
+}));
 const logged = vi.hoisted(() => [] as unknown[]);
 vi.mock("@/infrastructure/logging/logger", () => ({ log: (entry: unknown) => logged.push(entry) }));
 

@@ -2,7 +2,11 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { SLUG_PATTERN } from "@/domain/admin/course-details";
-import { createPublicClient, type PublicClient } from "@/infrastructure/db/public-client";
+import {
+  createPublicClient,
+  publicDatabaseAddress,
+  type PublicClient,
+} from "@/infrastructure/db/public-client";
 import { log } from "@/infrastructure/logging/logger";
 import { contentLogRoute } from "@/infrastructure/logging/route";
 
@@ -132,14 +136,18 @@ export async function readPublishedCourse(
   };
 }
 
+// The database's address is the first argument, so it is part of every cache
+// key. The cache is kept on disk (.next/cache) and shared by every server of
+// one build, and an answer read from one database must never answer for
+// another. The client itself reads the same address from the environment.
 const cachedCourses = unstable_cache(
-  () => readPublishedCourses(createPublicClient()),
+  (_database: string) => readPublishedCourses(createPublicClient()),
   ["published-courses"],
   { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
 );
 
 const cachedCourse = unstable_cache(
-  (slug: string) => readPublishedCourse(createPublicClient(), slug),
+  (_database: string, slug: string) => readPublishedCourse(createPublicClient(), slug),
   ["published-course"],
   { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
 );
@@ -168,7 +176,7 @@ async function settle<Value>(
 const MAX_SLUG = 60;
 
 export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary[]>> {
-  return settle("published-courses", cachedCourses);
+  return settle("published-courses", () => cachedCourses(publicDatabaseAddress()));
 }
 
 /**
@@ -184,5 +192,5 @@ export async function publishedCourse(
   const listed = await publishedCourses();
   if (!listed.ok) return listed;
   if (!listed.value.some((course) => course.slug === slug)) return { ok: true, value: null };
-  return settle("published-course", () => cachedCourse(slug));
+  return settle("published-course", () => cachedCourse(publicDatabaseAddress(), slug));
 }

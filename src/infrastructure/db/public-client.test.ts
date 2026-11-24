@@ -15,7 +15,7 @@ vi.mock("next/headers", () => ({
   },
 }));
 
-const { createPublicClient } = await import("./public-client");
+const { createPublicClient, publicDatabaseAddress } = await import("./public-client");
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -48,5 +48,16 @@ describe("createPublicClient", () => {
     // No user token: the only bearer, if any, is the publishable key itself.
     const authorization = headers.get("authorization");
     expect(authorization === null || authorization === "Bearer sb_publishable_test").toBe(true);
+  });
+});
+
+describe("publicDatabaseAddress", () => {
+  it("is the database address the public client uses, read when called", () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.test");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
+    expect(publicDatabaseAddress()).toBe("https://project.supabase.test");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:1");
+    expect(publicDatabaseAddress()).toBe("http://127.0.0.1:1");
   });
 });
