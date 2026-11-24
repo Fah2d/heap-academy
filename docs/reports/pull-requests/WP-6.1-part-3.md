@@ -27,6 +27,10 @@ Delivery Gate for the notice: existing `Notice` primitive (warning kind, text la
 3. Sign-out does not try to send unsent passes first, and clears them on the button press even if the sign-out request then fails.
 4. The progress index exports `SignedInProgressSync`, which imports the server actions when it renders, so client code can still load the index.
 
+## Later change
+
+`wp/5.4-progress-preview` at fea2606 was merged in. The course list and course page now also read the device list again when a sync rewrites it (found in review: on a new device they showed nothing completed until the tab was shown again). `pnpm verify` steps pass on the merged line; the build was run on the branch stacked above.
+
 ## Not in this pull request
 
 Server-rendered progress for a signed-in learner.
