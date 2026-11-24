@@ -17,10 +17,11 @@
 // "The state" is what section 5.5 lists, plus the interpreter's hooks and
 // settings: builtins, the module table, the three streams, a fresh
 // namespace, the import system's lists (sys.path, sys.meta_path,
-// sys.path_hooks, sys.path_importer_cache), the recursion limit, the integer
-// digit limit, the trace and profile hooks, the sys.monitoring tools, the
-// garbage collector's callbacks, the async generator hooks, and the
-// exception, unraisable, display and breakpoint hooks.
+// sys.path_hooks, sys.path_importer_cache), the line cache, the recursion
+// limit, the integer digit limit, the trace and profile hooks, the
+// sys.monitoring tools, the garbage collector's callbacks, the async
+// generator hooks, and the exception, unraisable, display and breakpoint
+// hooks.
 //
 // Not undone: changes to a standard library module's attributes (ADR-0004),
 // audit hooks (they cannot be removed), and sys.monitoring local events set
@@ -87,7 +88,10 @@ def _heap_make_grader():
             "path", "meta_path", "path_hooks", "path_importer_cache",
         )
     }
+    # The harness writes its two file names here before each case, so a key
+    # the program left could run its __eq__ there; the cache is put back.
     line_cache = linecache.cache
+    line_cache_snapshot = dict(line_cache)
     # Interpreter settings outside sys.__dict__ that a test case could change
     # for the next one, or use to run its code inside the harness.
     recursion_limit = sys.getrecursionlimit()
@@ -130,9 +134,7 @@ def _heap_make_grader():
 
     dict_clear = dict.clear
     dict_update = dict.update
-    dict_pop = dict.pop
     dict_keys = dict.keys
-    to_list = list
     to_text = str
     join = str.join
     plain_text = str.__str__
@@ -230,10 +232,12 @@ def _heap_make_grader():
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
-        for name in to_list(dict_keys(modules)):
-            if name not in modules_snapshot:
-                dict_pop(modules, name, None)
+        # Cleared rather than emptied name by name: a lookup would hash the
+        # program's keys and could call their __eq__.
+        dict_clear(modules)
         dict_update(modules, modules_snapshot)
+        dict_clear(line_cache)
+        dict_update(line_cache, line_cache_snapshot)
         if not intact():
             raise NotRestored()
 
@@ -291,6 +295,7 @@ def _heap_make_grader():
             and same_dict(importer_cache, importer_cache_snapshot)
             and same_dict(builtins_dict, builtins_snapshot)
             and same_dict(modules, modules_snapshot)
+            and same_dict(line_cache, line_cache_snapshot)
         )
 
     def register(name, source):

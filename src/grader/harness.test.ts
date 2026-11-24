@@ -577,6 +577,20 @@ describe("the harness", () => {
       "sys.set_asyncgen_hooks(firstiter=say)",
     ],
     ["the recursion limit", "builtins.ghost = Ghost()", "sys.setrecursionlimit(500)"],
+    // Round 4, MAJOR: the parts the table left out.
+    ["the profile hook", "builtins.ghost = Ghost()", "sys.setprofile(lambda *args: None)"],
+    ["the integer digit limit", "builtins.ghost = Ghost()", "sys.set_int_max_str_digits(5000)"],
+    [
+      "the async generator finalizer",
+      "builtins.ghost = Ghost()",
+      "sys.set_asyncgen_hooks(finalizer=say)",
+    ],
+    ["a monitoring tool", "builtins.ghost = Ghost()", 'sys.monitoring.use_tool_id(4, "ghost")'],
+    [
+      "the line cache",
+      'sys.modules["linecache"].cache["ghost"] = Ghost()',
+      'sys.modules["linecache"].cache["extra"] = (0, None, [], "extra")',
+    ],
   ];
   for (const [part, place, change] of changedAfterItsRestore) {
     it(`[FR-RUN-04] a __del__ that changes ${part} after its restore makes the test case a runtime error`, () => {
@@ -617,6 +631,102 @@ describe("the harness", () => {
     ].join("\n");
     expect(run(source)).toMatchObject({ output: "", error: { kind: "runtime", message: "" } });
     expect(run('print(len("abc"))')).toMatchObject({ output: "3\n", error: undefined });
+  });
+
+  // WP-3.3 security review 4, round 4, MAJOR: a str subclass is not a plain
+  // str. Its __eq__ runs before str's, so a lookup of "len" would call it.
+  it("[FR-RUN-04] a builtin key of a str subclass makes the test case a runtime error, and its __eq__ does not run", () => {
+    const source = [
+      "import builtins, sys",
+      'H = hash("len")',
+      "class Key(str):",
+      "    def __hash__(self, H=H):",
+      "        return H",
+      "    def __eq__(self, other, say=print):",
+      '        say("INJECTED")',
+      "        return True",
+      "class Ghost:",
+      "    def __del__(self, b=builtins.__dict__, Key=Key):",
+      '        b[Key("other")] = b.pop("len")',
+      'sys.modules["ghost_module"] = Ghost()',
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "", error: { kind: "runtime", message: "" } });
+    expect(run('print(len("abc"))')).toMatchObject({ output: "3\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] a sys name key of a str subclass makes the harness raise", async () => {
+    // It takes the place of sys.stdout and equals "stdout". The restore puts
+    // the value back under that key, so the key stays. Its own interpreter.
+    const own = await loadHarness();
+    const source = [
+      "import sys",
+      'H = hash("stdout")',
+      "class Key(str):",
+      "    def __hash__(self, H=H):",
+      "        return H",
+      "    def __eq__(self, other):",
+      "        return True",
+      "class Ghost:",
+      "    def __del__(self, s=sys.__dict__, Key=Key):",
+      '        s[Key("other")] = s.pop("stdout")',
+      'sys.modules["ghost_module"] = Ghost()',
+    ].join("\n");
+    let thrown: unknown;
+    try {
+      own.check(source, "", "");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
+  }, 60_000);
+
+  // WP-3.3 security review 4, round 4, MAJOR: the key types are checked before
+  // any lookup. This key takes the place of a name, and if its __eq__ runs it
+  // puts the name back and removes itself, so a check that looked up first
+  // would find the state back and let the case pass.
+  const healingKey: [string, string, string][] = [
+    ["a builtin", "builtins.__dict__", "len"],
+    ["a sys name", "sys.__dict__", "stdout"],
+  ];
+  for (const [part, place, name] of healingKey) {
+    it(`[FR-RUN-04] the restore check looks at the key types of ${part} before any lookup`, () => {
+      const source = [
+        "import builtins, sys",
+        `H = hash("${name}")`,
+        "class Key:",
+        "    def __hash__(self, H=H):",
+        "        return H",
+        `    def __eq__(self, other, d=${place}):`,
+        `        d["${name}"] = d.pop(self)`,
+        "        return False",
+        "class Ghost:",
+        `    def __del__(self, d=${place}, Key=Key):`,
+        `        d[Key()] = d.pop("${name}")`,
+        'sys.modules["ghost_module"] = Ghost()',
+      ].join("\n");
+      expect(run(source)).toMatchObject({ output: "", error: { kind: "runtime", message: "" } });
+      expect(run('print(len("abc"))')).toMatchObject({ output: "3\n", error: undefined });
+    });
+  }
+
+  it("[FR-RUN-04] a line cache key the program leaves does not run its __eq__ in the next test case", () => {
+    // WP-3.3 security review 4, round 4, MINOR 1: the harness writes the
+    // program's file name into linecache.cache before each case. The key's
+    // __eq__ also runs in its own case, when the program adds it.
+    const source = [
+      "import linecache",
+      `H = hash("${HARNESS_PROGRAM_FILENAME}")`,
+      "class Key:",
+      "    def __hash__(self, H=H):",
+      "        return H",
+      "    def __eq__(self, other, say=print):",
+      '        say("INJECTED")',
+      "        return False",
+      'linecache.cache[Key()] = (0, None, [], "key")',
+      'print("first")',
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "INJECTED\nfirst\n", error: undefined });
+    expect(run('print("honest")')).toMatchObject({ output: "honest\n", error: undefined });
   });
 
   it("[FR-GRD-01] a sys name key that is not a plain str makes the harness raise", async () => {
@@ -674,6 +784,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 1526123713 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2479067531 });
   });
 });
