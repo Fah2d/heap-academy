@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 81fdc39 (#3 to #8 and #10) and is merged into this branch directly (0f8a64c). `wp/3.1-python-worker` is merged into this branch up to aec6c83 (last in df1c7bb), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which security review 7, round 2, has seen. Security review 7 (each test case starts with the harness's collections, 3ab21e9 to be9375c): **APPROVE** in round 2, on d757f11 and ff9e6eb; its two minors are answered in be9375c, which round 3 approved with no findings.
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 7875ee2 (#3 to #8, #10 and #12) and is merged into this branch directly (7d62414). `wp/3.1-python-worker` is merged into this branch up to aec6c83 (last in df1c7bb), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which security review 7, round 2, has seen. Security review 7 (each test case starts with the harness's collections, 3ab21e9 to be9375c): **APPROVE** in round 2, on d757f11 and ff9e6eb; its two minors are answered in be9375c, which round 3 approved with no findings.
 
 ## What and why
 
@@ -37,7 +37,18 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
-`main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`, since the last merge) is merged in 0f8a64c, directly and not through `wp/3.1-python-worker`. Two conflicts:
+`main` at 7875ee2 (#12, `wp/2.1-schema-policies`, since the last merge) is merged in 7d62414, directly and not through `wp/3.1-python-worker`. One conflict: `docs/reports/local-build-progress.md`, where `wp/3.1-python-worker`'s copy (the newest) was taken. `package.json` gains `main`'s `test:db` with no conflict. Decision, approved with the defaults on 2026-11-24: `wp/3.1-python-worker` is still not merged, so its run fixes wait on WP-3.1 security review 8, round 3; WP-3.1's own approved spec changes reach this branch when WP-3.1 does.
+
+`pnpm verify` on 7d62414, exit 0:
+
+```
+ Test Files  43 passed (43)
+      Tests  1132 passed (1132)
+```
+
+`pnpm build` with CI's fake public values on 7d62414, exit 0 (`runtime: worker compiled`; the built harness has `HARNESS_VERSION = "7"`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run: the browser tests and `pnpm test:db`. No reviewer has seen 7d62414.
+
+The merge before, of `main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`), is in 0f8a64c, directly and not through `wp/3.1-python-worker`. Two conflicts:
 
 - `scripts/infra-verify.mjs`: both sides added a function at the same place, this branch (from WP-3.1) `runtimeChecks()` and `main` `releaseOf()`, `parseJson()` and `healthFor()` (the 60 s wait for the promoted release). Both are kept, unchanged. The merged file is byte for byte the one on `wp/3.1-python-worker` after its own merge of `main` (e3c9043).
 - `docs/reports/local-build-progress.md`: `wp/3.1-python-worker`'s copy taken, the newest one.
@@ -407,15 +418,26 @@ There is no learner-facing change to try. From the repository root, the grader's
 pnpm vitest run src/grader
 ```
 
+## Owner decisions of 2026-11-24
+
+Every recommended default in this description was approved. Written into this branch, each marked "approved by the owner on 2026-11-24 (proposed in WP-3.3)":
+
+- `08-delivery-plan.md` WP-4.3, "Done when": Validate uses `check(..., { freshWorker: true })` for every program, with a test that a tampering program in one validation does not change the next one's verdict (former owner action 3).
+- `06-security-privacy.md` T-23: a fresh worker for each program, and Validate is no evidence for hostile imported code, so the owner reads imported code before pressing Validate (former owner action 3).
+- The deviations below that contradict the spec's text: `04-content-system.md` section 3.1 (the harness returns output and error; `grade` decides the verdict in TypeScript), section 2.2 (each test case has its own 5 second clock; after a time limit, Stop or a crash the rest are `not_run`; output cut with no error is `output_limit`), and `02-architecture.md` section 5.4 (each test case's own budget).
+- Kept as they are, the defaults: `freshWorker` stays optional and off by default (security review 2, MINOR 1), because WP-4.3's "Done when" now requires it for Validate; `HARNESS_VERSION` keeps counting from this branch's first version (now "7") rather than restarting at "1"; `threadUrl` stays an optional argument set only by the runner's own test (code review 3, MINOR 3).
+
+Still yours, because they give options with no recommended default: actions 4, 5 and 7's MINOR 4 below, and whether `SystemExit` in the follow-up code counts as an error.
+
 ## Owner actions now due
 
 1. Run the browser parity suite (command above) in Firefox and WebKit, and in Chromium through `pnpm test:e2e`, and paste the output.
-2. Decide the deviations below.
-3. Decide whether to open a `spec-change` that adds to WP-4.3's "Done when": Validate uses `check(..., { freshWorker: true })` for every program, with a test that a tampering program in one validation does not change the next one's verdict; and adds to T-23 that Validate is no evidence for hostile imported code, so the owner reads imported code before pressing Validate.
+2. Done: the deviations below are approved (2026-11-24).
+3. Done: the WP-4.3 and T-23 changes are written into the spec (2026-11-24).
 4. Decide whether `pyodide` moves to `devDependencies` (security review, MINOR 4).
 5. Decide whether `contains` with an empty expected text should be refused; today it always passes (code review, design notes).
-6. Review round 3 has run (both APPROVE). Decide code review 3 MINOR 3 (`threadUrl` enforcement) and whether `HARNESS_VERSION` should count from the first release instead (see Deviations).
-7. Decide security review 2, MINOR 1 (make `freshWorker` required) with action 3, and MINOR 4 (the lint rule's remaining bypasses and a build-output check).
+6. Done: `threadUrl` and `HARNESS_VERSION` stay as they are (2026-11-24).
+7. Security review 2, MINOR 1: done, `freshWorker` stays optional (2026-11-24). Still yours: MINOR 4 (the lint rule's remaining bypasses and a build-output check).
 
 ## Deviations from the plan or the spec
 

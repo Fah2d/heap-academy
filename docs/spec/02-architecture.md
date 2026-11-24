@@ -174,6 +174,7 @@ Cross-origin isolation (and with it `SharedArrayBuffer`) is deliberately not use
 ### 5.4 Watchdog
 
 - The page owns the clock. A run's budget counts only time between `run` (or `input`) and the next `input_request` or `run_done`. Waiting for the learner is free.
+- In a check, each test case has its own 5 second budget, because each test case is its own run (`04-content-system.md` section 2.2). **Approved by the owner on 2026-11-24 (proposed in WP-3.3).**
 - On budget exceeded, Stop, or silence after `fatal`: terminate the worker, report the outcome, start a new worker. Measured cost: terminate is immediate; a new worker is ready in about 1.7 s with a warm cache (E-04).
 
 ### 5.5 Isolation between runs
