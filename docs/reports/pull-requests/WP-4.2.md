@@ -2,6 +2,18 @@
 
 ## Up to date with main
 
+`main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/4.1-courses-chapters`, its base (1910c3b): merge commit 7acef42. One file conflicted, `docs/reports/local-build-progress.md`: this branch's copy with the new session section from `wp/4.1-courses-chapters` added; no section dropped. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings the approved spec changes of WP-2.1, WP-2.2, WP-2.3 and WP-4.1.
+
+With the merge and this package's approved rule and spec changes, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  73 passed (73)
+      Tests  1329 passed (1329)
+```
+
+`next build` with CI's public values, exit 0. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
 `main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/4.1-courses-chapters`, its base, which has it through `wp/2.3-admin-gate` (00c025d): merge commit 9808fb4. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/4.1-courses-chapters`, which holds every section of this branch's copy (this branch's copy differed only in older status lines of the 23:25 session). No test failed and no code changed.
 
 On 9808fb4, `pnpm verify`, exit 0:
@@ -138,7 +150,15 @@ Open MAJOR findings for the owner: the lockfile (owner action 1), and the Done-w
 2. Everything WP-2.2, WP-2.3 and WP-4.1 still wait for. This branch is stacked on them.
 3. After CI runs the `e2e` job: commit the screenshots, then ask `design-reviewer` for round 2.
 
-## Decisions for the owner
+## Your decisions
+
+Approved by you on 2026-11-24: all three recommendations below, and the rule changes they propose. Each is marked **"approved by the owner on 2026-11-24"** where it is written:
+
+- Decision 1: `.claude/rules/react-next.md` now says a client component uses the nonce of the loaded document, read from its own scripts, and the server's nonce only when no script carries one. `02-architecture.md` section 14, item 12, says the same.
+- Decision 2: `.claude/rules/react-next.md` now says the renderer is in `src/content` and the lesson-content component in `src/features/workspace`. `02-architecture.md` section 7 has the same note.
+- Decision 3: `save_lesson` ignores `p_position` unless the chapter changes, as built; no spec text changes.
+
+The questions as they were put:
 
 1. **Where the editor's nonce comes from.** `.claude/rules/react-next.md` says to read the nonce from the request headers on the server and pass it down. After a move inside the app, that nonce is not the document's, and the browser refuses the styles. The editor now reads the nonce from the document's own scripts first. Recommendation: a `spec-change` to the rule, saying a client component uses the nonce of the loaded document. Default: as built, with the rule unchanged until you decide.
 2. **Where the lesson-content component lives.** The rule says Markdown is rendered "by the one component in `src/content`". The module rules do not let `src/content` import `src/ui` or `src/messages`, so the component is in `src/features/workspace`, and the parser and highlighter stay in `src/content`. Recommendation: a `spec-change` to the rule. Default: as built.
