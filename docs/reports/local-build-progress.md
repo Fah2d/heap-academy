@@ -2,6 +2,20 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (run after `main` moved to 81fdc39), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` moved from 0efe863 to 81fdc39 (pull request #10, `wp/fix-smoke-and-runtime`). That change touches the CSP end-to-end test, `scripts/infra-verify.mjs`, build ignores and reports. It merges no WP-2.x, 3.x, 4.x or 5.x package, so it unblocks nothing in Days 6 and 7.
+- Checked with `git merge-base --is-ancestor`: `wp/2.1-schema-policies`, `wp/2.2-sign-in`, `wp/4.3-validate-publish`, `wp/3.1-python-worker`, `wp/6.3-legal-pages-footer` and `wp/7.3-operations` are all still not in `origin/main`.
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- `main` now carries its own copy of this file (811 added lines from other agents' sessions). The copies on `wp/6.3-legal-pages-footer` and `wp/7.3-operations` will conflict with it in this file only. Not merged here: the owner decides how to combine the reports.
+
+### Owner: run this
+
+- Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+- Before merging `wp/6.3-legal-pages-footer` or `wp/7.3-operations`, expect a conflict in `docs/reports/local-build-progress.md` only.
+
 ## Session of 2026-11-24 (run after "next run after the 03:25 chain"), in `night-c`, on `wp/7.3-operations`
 
 Same task list. Still blocked: no new work package can start. No code was changed.
