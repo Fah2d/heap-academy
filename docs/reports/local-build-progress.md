@@ -2,6 +2,89 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 03:40), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it. This run did the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.
+
+### Task 3, part 15 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- 3e50d99: `wp/3.1-python-worker` at 5b77939 merged (the two browser test fixes 0849b56 and f7dfb52, security review 7, the docs). One conflict, this file; WP-3.1's copy taken, as the newer one (it holds every section of this branch's copy). `e2e/runtime.spec.ts` merged with no conflict.
+- `pnpm verify` on 3e50d99: exit 0, 42 files, 1033 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with 3e50d99 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Next
+
+- Merge `wp/3.3-grader` into `wp/3.4-statechart`.
+- Run the WP-3.3 and WP-3.4 browser tests in Chromium the same way as WP-3.1's.
+
+## Session of 2026-11-24 (from about 03:10, second run, continued), in `night-a`, on `wp/3.1-python-worker`
+
+Task 1 (c) took about 15 minutes, so the run went on with the first item under "Next" in the section below: WP-3.1's browser tests in Chromium. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top; the copies on the other branches are older.
+
+### Task 3, part 14 done: WP-3.1's browser tests run in Chromium, two tests fixed
+
+- Servers: `next start` of a `pnpm build` (CI's fake public values) on port 3254; `next dev --webpack` with `WATCHPACK_POLLING=true` on port 3256. Turbopack cannot start here, and webpack's normal watchers hit `EMFILE` and restart in a loop.
+- Browser: Chromium 159.0.8154.6 with `--no-sandbox --single-process`, one test per Playwright process, through a temporary config outside the repository.
+- On 2af8c6e: `e2e/runtime-headers.spec.ts` 4 passed; `e2e/csp.spec.ts -g "paths near"` 1 passed; `e2e/runtime.spec.ts` 13 passed, 2 failed (the T-01 loader test and the T-01 evaluation test).
+- Cause: `run()` clears a program's globals when the run ends, and both tests' callbacks fire later and looked them up (`NameError`). 0849b56 binds what they use as default arguments. After it: 15 of 15 passed.
+- Security review round 7 on 0849b56: APPROVE, 3 MINOR. It confirmed the cause and killed both tests' mutants. MINOR 2 fixed in f7dfb52; MINOR 1 (a late callback's output reaches the next run) and MINOR 3 (`dropped` has no size limit) recorded under "Not fixed" for the owner. Report: `docs/reports/reviews/WP-3.1/security-review-7.md`.
+- `pnpm verify` on 0849b56: exit 0, 37 files, 858 tests.
+- Not run: Firefox and WebKit (not installed); Chromium through `pnpm test:e2e` with its own servers.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the first line, "How it was verified", "Not verified", the reviews, owner action 2, "Not fixed", risks, Definition of Done). Still a draft: Firefox and WebKit have not run.
+- Not done: merging this into `wp/3.3-grader` and `wp/3.4-statechart`. Their copies of `e2e/runtime.spec.ts` still have the two broken tests.
+- Push: `wp/3.1-python-worker` with 0849b56, f7dfb52 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `lsof -ti:3190,3241,3253,3254,3256 | xargs kill` in your own terminal, if any of those still listen (this run stopped 3253, 3254 and 3256 itself).
+2. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+3. Owner action 2 of the WP-3.1 description: the browser tests in Firefox and WebKit, and in Chromium through `pnpm test:e2e`.
+4. Decide security review 7's MINOR 1 (isolation between runs) with the existing "fresh worker for Validate" item.
+5. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.1-python-worker` (with f7dfb52) into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`, so they get the fixed tests.
+- Run the WP-3.3 and WP-3.4 browser tests in Chromium the same way, if those branches have any.
+
+## Session of 2026-11-24 (from about 03:10, second run), in `night-a`, on `wp/fix-smoke-and-runtime`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so task 2 needed nothing. This run found a way to start Chromium in the sandbox and finished task 1 (c). This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top; the copy on `wp/3.4-statechart` is now older than this one.
+
+### Task 1 (c) done: the cause of the second `e2e/csp.spec.ts` failure, proven and fixed
+
+- Chromium starts in this sandbox with `--no-sandbox --single-process`. A single-process browser dies after its first context, so each test runs in its own Playwright process, through a temporary config outside the repository with no web servers, against `next start` on port 3253.
+- At c5e789b: test 1 passed, test 2 failed in 3 of 3 runs (no violation). The injected script ran.
+- Cause: under `'strict-dynamic'`, a script that is not parser-inserted matches the policy (CSP3 section 6.7.3.3), so Chromium runs an inline script that code inserts. Proven on a test page: with `'strict-dynamic'` such scripts ran with no violation; without it, they were blocked. The earlier code review's reading was wrong.
+- fe08e92 and 33ac7f7: test 2 now injects an inline script without the nonce into the server's HTML (markup injection), keeps the real headers, and expects an `inline` `script-src` violation, the page's scripts running, and the script not run.
+- Both tests passed in each of 3 runs. Mutation: with the page's nonce on the injected script, test 2 fails.
+- Security review round 1 on fe08e92: APPROVE, 3 MINOR, all fixed in 33ac7f7. Report: `docs/reports/reviews/fix-smoke-and-runtime/security-review-1.md`. It notes a residual risk of `'strict-dynamic'` (not a defect, no exposure in `src` today) and suggests follow-ups for the owner.
+- `pnpm verify` on 33ac7f7: exit 0, 27 files, 710 tests. `pnpm build` with CI's fake public values: exit 0.
+- Not run: Firefox and WebKit (not installed).
+- Description: `docs/reports/pull-requests/fix-smoke-and-runtime.md` (part 3, verification, reviews, owner actions, decision 4, Definition of Done).
+- Push: `wp/fix-smoke-and-runtime` with fe08e92, 33ac7f7 and the docs commit. This line is pushed with the docs commit.
+
+### Owner: run this
+
+1. `lsof -ti:3190,3241,3253 | xargs kill` in your own terminal: `next start` servers from these runs may still listen there.
+2. Open the pull request, from the repository root:
+
+   ```sh
+   gh pr create --base main --head wp/fix-smoke-and-runtime \
+     --title "fix: wait for the promoted release in the smoke, ignore public/_runtime, correct the CSP e2e checks" \
+     --body-file docs/reports/pull-requests/fix-smoke-and-runtime.md
+   ```
+
+3. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on that branch, and Firefox and WebKit if installed.
+4. Decide the security review's follow-ups: the residual risk in ADR-0028 and T-06/T-07 (`spec-change`), lint rules against script-creation sinks, an ADR on Trusted Types.
+5. The owner actions of the sections below are still due.
+
+### Next
+
+- The e2e tests of the WP-3.x branches can now run here with the same flags, one test per process. A run of the WP-3.1 worker journeys is the next thing that needs no owner decision.
+
 ## Session of 2026-11-24 (from about 03:10), in `night-a`, on `wp/3.4-statechart`
 
 Same task list. Nothing new was left that needs no owner decision, so this run checked the state, tried the one unverified part of task 1, and stopped.
