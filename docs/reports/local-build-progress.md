@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 08:15), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below.
+
+### Task 3, part 27 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- a9c8c0c: `wp/3.3-grader` at a35dc80 merged (WP-3.3 security review 4 and its six fix commits, ending in 3fa2bd3). One conflict, this file: each branch's copy had one section the other lacked (this branch's "part 26" merge record, WP-3.3's "part 26" security fixes), so both are kept, newest first. Two sections are numbered part 26; they are left as written. The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "2"`; `grade.ts` takes the value from the harness.
+- `pnpm verify` on a9c8c0c: exit 0, 46 files, 1213 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "3"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen a9c8c0c (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with a9c8c0c and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+- Open WP-3.x findings that need no owner decision, from the "Not fixed" lists of the three descriptions. Known: the same state restore for WP-3.1's Run (`run-support.ts`), and the `gc` thresholds and enabled state carrying over between test cases.
+
 ## Session of 2026-11-24 (from about 07:50), in `night-a`, on `wp/3.3-grader`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). The worktree held unfinished work from an earlier run that stopped without a record here: three unpushed commits on `wp/3.3-grader` (203b6bb, 6a4f0f8, 839707a), uncommitted round-3 fixes, and an unfinished `docs/reports/reviews/WP-3.3/security-review-4.md`. This run finished that work instead of starting the "Next" items below.
