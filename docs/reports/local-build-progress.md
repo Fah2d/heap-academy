@@ -2,6 +2,30 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:05), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 35 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 68595de: `wp/3.3-grader` at 6aafe2b merged (WP-3.3 security review 7: 3ab21e9, d757f11 and the docs). One conflict, this file; `wp/3.3-grader`'s copy taken (no line of this branch's copy is missing from it). The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "5"`; `grade.ts` and the Node runner take the value from the harness.
+- `pnpm verify` on 68595de: exit 0, 46 files, 1229 tests. `pnpm build` with CI's fake public values: exit 0; the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "6"`. `check-bundle` and `check-static`: exit 0.
+- Seen, not a problem: `pnpm`'s install step before scripts could not take its store lock in this sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); the scripts ran on the existing `node_modules`, and no package was installed.
+- Not run: the browser tests. No reviewer has seen 68595de (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with 68595de and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open. (`gh` could not reach GitHub from this sandbox: `x509: OSStatus -26276`.)
+2. The owner actions of the sections below are still due (a review of WP-3.3's d757f11, and security review 8, round 3, on WP-3.1's a24111c and a7c3ba7, among them).
+
+### Next
+
+- After security review 8, round 3, approves WP-3.1's a24111c and a7c3ba7: merge `wp/3.1-python-worker` into `wp/3.3-grader` and on into `wp/3.4-statechart`.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
 ## Session of 2026-11-24 (from about 12:50, continued), in `night-a`, on `wp/3.3-grader`
 
 Part 33 took about 10 minutes, so the run went on with an open WP-3.3 item that needed no owner decision: "Timers between test cases in the Node runner", left as not checked by security review 6, round 2. This file is `wp/3.1-python-worker`'s copy (the newest, from part 33) with this section added on top.
