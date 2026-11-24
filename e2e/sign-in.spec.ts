@@ -23,6 +23,21 @@ test("[FR-AUTH-04] the header's sign-in link carries the page the visitor is on"
   );
 });
 
+test("[FR-AUTH-06] the header's sign-in link loads the page with the policy that frames the bot challenge", async ({
+  page,
+}) => {
+  // A client-side navigation would keep the not-found page's policy.
+  await page.goto("/no-such-page");
+  const document = page.waitForResponse(
+    (response) =>
+      response.request().isNavigationRequest() && new URL(response.url()).pathname === "/sign-in",
+  );
+  await page.getByRole("link", { name: account.signIn }).click();
+  expect((await document).headers()["content-security-policy"]).toContain(
+    "frame-src https://challenges.cloudflare.com",
+  );
+});
+
 test("[FR-AUTH-01] [FR-AUTH-02] offers Google and the email code, and is not indexed", async ({
   page,
 }) => {
