@@ -527,6 +527,25 @@ Task list: build new work packages that depend only on `origin/main` (0efe863: W
 - WP-7.x: no Day 7 package depends only on `main`. WP-7.1, 7.2 and 7.4 check the whole application, which needs WP-2.x to 5.x. WP-7.3's backup workflow needs the database (WP-2.1). Its `/api/client-error` route, client reporter and logger allowlist tests could be a part 1 on `main` alone; the next run decides after reading WP-7.3 in full.
 - WP-6.3 part 2 after WP-2.1 and WP-2.2 merge.
 
+## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
+
+Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 81fdc39 (#10: the smoke wait, `public/_runtime` ignored, the CSP e2e fixes), so task 1 starts again: each of the seven branches is 9 commits behind `main`. One branch per task, as the task list says; at most two tasks per session.
+
+`main` now carries its own copy of this file (night-a's sessions). Every merge resolves the add/add conflict the same way: the sections of both copies, night-b's from the newest copy on `wp/5.1-catalog` and night-a's from `main`, with no section dropped. Sections both copies shared were identical.
+
+### Task 1a done: wp/2.1-schema-policies
+
+- Merge commit ff187e9: `origin/main` (81fdc39) into this branch. One conflict: this file (resolved as above).
+- `pnpm verify`: exit 0, 28 files, 718 tests. `next build` with CI's public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.1.md`, "Up to date with main" section rewritten for 81fdc39.
+
+### Next
+
+- Task 1b: `wp/2.2-sign-in`, merging `wp/2.1-schema-policies` (with the new `main`).
+- Then 2.3, 4.1, 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
+
 ## Session of 2026-11-23 (from about 23:25), in `night-b`, merging `main` into the open branches
 
 New task list: (1) merge `origin/main` (0efe863: WP-1.1 to 1.4, #5, #6, #7, #8) into wp/2.1-schema-policies, wp/2.2-sign-in, wp/2.3-admin-gate, wp/4.1-courses-chapters, wp/4.2-lesson-editor, wp/4.3-validate-publish and wp/5.1-catalog, one branch per task, each later branch also merging the branch before it; `pnpm verify` and `pnpm build` on each; push; update each description's "Up to date with main" section. (2) Then continue WP-5.1.
@@ -605,13 +624,7 @@ WP-5.1's five parts are built and reviewed twice (see the 20:35 session below). 
 - Docker: `failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock ... no such file or directory`, so no `supabase start` and no `stack` journey.
 - Chromium: `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`, so no gallery spec, axe or screenshot.
 
-Checked once more at 23:52 in a fresh session: `git fetch` shows `origin/main` still at 0efe863 and none of the seven branches behind it, so task 1 needs no new merge. Docker and Chromium fail with the same two errors.
-
-Checked again at 23:54 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`, and each stacked branch already contains the one before it (2.1 in 2.2, 2.2 in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, 4.1 in 5.1). Local and remote branches match. Docker and Chromium fail with the same two errors.
-
-Checked again at 23:56 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
-
-Checked again at 23:57 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
+Checked again in 262 fresh sessions, from 23:52 to 2026-11-24 13:39 (the list of times is shortened to this range; the old list is in git history): `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it (2.1 in 2.2, 2.2 in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, 4.1 in 5.1); local and remote branches match. Docker fails with the same error each time (at 13:39: `failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`). Chromium was checked at 13:15 and fails the same way as at 13:13, 13:11, 10:30, 09:36, 09:35, 09:33, 09:31, 09:30, 09:28, 09:26, 09:24, 09:22 and 09:07 (`browserType.launch: Target page, context or browser has been closed`; earlier checks showed `MachPortRendezvousServer... Permission denied (1100)`); it was not checked from 08:25 to 09:06, from 09:08 to 09:21, from 09:37 to 10:29, from 10:31 to 13:10, at 13:12, at 13:14, at 13:16, at 13:18, at 13:19, at 13:21, at 13:22, at 13:24, at 13:26, at 13:27, at 13:29, at 13:31, at 13:32, at 13:34, at 13:36, at 13:37 or at 13:39. Nothing to merge and nothing new to build.
 
 No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
 

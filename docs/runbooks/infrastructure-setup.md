@@ -104,6 +104,7 @@ No credential is a repository-level secret (ADR-0029, ADR-0030). Each lives in e
 1. [ ] **Settings → Environments → New environment** `staging`.
    - **Deployment branches and tags → Selected branches and tags → Add rule** `main`.
    - **Environment secrets → Add**: `SUPABASE_DB_URL` = `staging database URL`.
+   - **Environment variables → Add**: `STAGING_PROJECT_REF` = the staging project's reference (`<staging-ref>`, the part before `.supabase.co`). The deploy seeds the sample course only into a database whose URL contains it, so a production URL pasted here by mistake is never seeded.
 2. [ ] **New environment** `production`.
    - Deployment branches: `main` only, as above.
    - **Required reviewers**: yourself. Tick **Prevent self-review** off (you are the only reviewer). See the note under "Choices" in the WP-1.3 pull request: every production deploy waits for your approval, not only those with a migration.
