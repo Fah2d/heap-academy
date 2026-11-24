@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 18:03), in `night-b`, nothing to do
+
+- `git fetch` at 18:03: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is four progress commits ahead (this section makes five). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 and 6 have no recommendation, so the 2026-11-24 approval does not decide them. `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`).
+- Decision H again: committed on `wp/5.1-catalog`, not pushed.
+- Stopped. Nothing moves until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+
 ## Session of 2026-11-24 (from about 18:01), in `night-b`, nothing to do
 
 - `git fetch` at 18:01: `origin/main` is still at 7875ee2 (#12; #10 has been in it since 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is three progress commits ahead (this section makes four). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
