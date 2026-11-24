@@ -9,7 +9,7 @@ Same task list. Still blocked: no new work package can start. No code was change
 - `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved since the last run (it is at abf73dc; another agent's branch, not touched).
 - `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
 - The dependency list in the "later run" sections below still holds.
-- Checked again in 184 later runs on 2026-11-24, the last one with `origin/wp/5.1-catalog` at e954662, `origin/wp/3.1-python-worker` at 87a989a, `origin/wp/3.4-statechart` at e85481a and `origin/wp/3.3-grader` at c8e67f4. Every time: `origin/main` still 0efe863; only other agents' branches moved (`wp/5.1-catalog`, `wp/3.1-python-worker`, `wp/3.3-grader`, `wp/3.4-statechart`, and `wp/fix-smoke-and-runtime` at 27ce416; not merged, not touched); `gh pr list` failed with the same TLS error. Still blocked, no code changed. The one-line notes from those runs were folded into this line so the file stays readable.
+- Checked again in 185 later runs on 2026-11-24, the last one with `origin/wp/5.1-catalog` at 4520193, `origin/wp/3.1-python-worker` at 87a989a, `origin/wp/3.4-statechart` at e85481a and `origin/wp/3.3-grader` at c8e67f4. Every time: `origin/main` still 0efe863; only other agents' branches moved (`wp/5.1-catalog`, `wp/3.1-python-worker`, `wp/3.3-grader`, `wp/3.4-statechart`, and `wp/fix-smoke-and-runtime` at 27ce416; not merged, not touched); `gh pr list` failed with the same TLS error. Still blocked, no code changed. The one-line notes from those runs were folded into this line so the file stays readable.
 
 ### Owner: run this
 
