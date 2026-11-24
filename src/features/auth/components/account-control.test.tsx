@@ -30,5 +30,8 @@ describe("[FR-PRG-02] the progress sync runs for a signed-in learner only", () =
     render(await AccountControl());
     expect(screen.getByTestId("sync")).toBeTruthy();
     expect(screen.getByRole("button", { name: account.signOut })).toBeTruthy();
+    expect(screen.getByRole("link", { name: account.profile }).getAttribute("href")).toBe(
+      "/profile",
+    );
   });
 });
