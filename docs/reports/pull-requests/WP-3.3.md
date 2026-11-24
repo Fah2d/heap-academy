@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 9e1a9dc, at e3c39b7), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you (see Reviews).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you (see Reviews).
 
 ## What and why
 
@@ -37,16 +37,22 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
-`wp/3.1-python-worker` at e3c39b7 is merged in 9e1a9dc. Since the last merge (3e50d99, at 5b77939) it adds WP-3.1's fix for security review 7, MINOR 3 (547b394, dece44f: the development page's `dropped` list is now a count, because the page only showed its length), code review 5 and the docs. `main` is still 0efe863 (#3 to #8). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds every section of this branch's copy. No code conflict; `runtime-view.ts` merged cleanly.
+`wp/3.1-python-worker` at aec6c83 is merged in df1c7bb. Since the last merge (9e1a9dc, at e3c39b7) it adds WP-3.1's fix for a listener that disposes the controller (c1114d4, 1266681, d2e7ff8), WP-3.1 code reviews 6 and 7, and the docs. `main` is still 0efe863 (#3 to #8). Three conflicts:
 
-`pnpm verify` on 9e1a9dc, exit 0:
+- `src/runtime/controller.ts`, `crashed()`: WP-3.1's guard at the top kept, then this branch's waiting-check branch, with a new guard after its `endCheck("crashed")`. The merge also adds guards after the `test_result` event and after `completeCheck` in `check_done`, which WP-3.1 does not have.
+- `src/runtime/controller.test.ts`: both imports kept; the test helper took WP-3.1's `listen` listeners, and 89fb157 then removed this branch's `onEvents` array.
+- `docs/reports/local-build-progress.md`: WP-3.1's copy taken, as the newer one.
+
+Code review 4 on df1c7bb: CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157 (see Reviews). No reviewer has seen 89fb157.
+
+`pnpm verify` on 89fb157, exit 0:
 
 ```
  Test Files  42 passed (42)
-      Tests  1037 passed (1037)
+      Tests  1066 passed (1066)
 ```
 
-`pnpm build` with CI's fake public values on 9e1a9dc, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+`pnpm build` with CI's fake public values on 89fb157, exit 0. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Also on df1c7bb: `pnpm verify` exit 0 (42 files, 1065 tests), `pnpm build` exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`), both checks exit 0.
 
 Not run on the merge: the browser tests.
 
@@ -242,7 +248,7 @@ Fixed in 9043a9a and 06c39bb, each new test seen failing without its fix (a muta
 | Code MINOR 6: `used = false` in `spawn` had no test | Test: after a time limit restart, a fresh check uses the new worker as it is (removing the line fails it). |
 | Code MINOR 7, security MINOR 2 and 3: comments | The harness header and `check` say the harness does not raise because of the program's own errors, and that code rewriting its closure can still make it raise (the worker then gives up and is replaced); the fallback has no message and no output whichever stage failed. The capture comment says the count can be reached and memory is not bounded on that route. Both Validate comments say "must", and that the spec text is an open owner decision. |
 
-Fixed since, outside the range (security review 3): calling `dispose()` from a `restarting` listener left a worker running, because `restart()` spawned after the event. WP-3.1 fixed it in its controller (c1114d4, 1266681, d2e7ff8; WP-3.1 code reviews 6 and 7). The merge of that fix into this branch adds the same guard to the check paths: after `check_done` (a finished check no longer sets `ready` on a disposed controller), after `test_result` (no clock starts for the next test case), and after a waiting check ends because its new worker failed (no `failed` event). Ten new tests cover dispose from `check_done` after each way a check ends, from `test_result`, and from the `restarting` event of a fresh check; removing any of the three new guards fails one of them.
+Fixed since, outside the range (security review 3): calling `dispose()` from a `restarting` listener left a worker running, because `restart()` spawned after the event. WP-3.1 fixed it in its controller (c1114d4, 1266681, d2e7ff8; WP-3.1 code reviews 6 and 7). The merge of that fix into this branch adds the same guard to the check paths: after `check_done` (a finished check no longer sets `ready` on a disposed controller), after `test_result` (no clock starts for the next test case), and after a waiting check ends because its new worker failed (no `failed` event). The merge (df1c7bb) added nine tests: dispose from `check_done` after each of the six ways a check ends, from `test_result`, from the `restarting` event of a fresh check, and from the `check_done` of a waiting check whose new worker fails. Code review 4 (CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157) found that the merge's commit message and this description said ten. The fix also makes `check()` refuse a fresh check when its `restarting` listener disposed the controller, adds a tenth test (dispose from the `ready` event that sent a waiting check), and removes the duplicate `onEvents` test helper. Removing any of the four new guards fails at least one test. Report: `docs/reports/reviews/WP-3.3/code-review-4.md`.
 
 Not fixed, for you:
 
