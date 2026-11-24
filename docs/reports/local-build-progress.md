@@ -2,11 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
+## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, then `wp/5.2-workspace-laptop`
 
 Same task list and owner decisions. `git fetch`: `origin/main` moved to 428c437, the merge of #14 (`wp/db-types`, one generated file: `src/infrastructure/db/database.types.ts`). This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 53) with this section added on top.
 
 Found on arrival: uncommitted work on `wp/5.2-workspace-laptop` from a run that stopped at about 20:04 without writing here. Six more browser journeys in `e2e/workspace-runtime.spec.ts` (loading, failed load and Retry, syntax error and Go to line, reset and Undo, saved code, unsupported browser, a long program), `tabindex="0"` on the editor's text area for axe's `scrollable-region-focusable`, and 12 new screens. It also deleted the T-07 test's `expect(await page.title()).not.toBe("owned")`; this run put that assertion back (a check is never removed), and stashed the rest as `stash@{0}` ("WP-5.2 part 3 second half WIP (night-a, about 20:04)"). Not checked or committed in part 54.
+
+### Task 3, part 55 done: WP-5.2 part 3 (second half), on `wp/5.2-workspace-laptop`
+
+Part 54 took about 6 minutes, so the run went on. Task 2: nothing new since part 51; the open WP-3.x items still need the owner or a review round.
+
+- 03033a6: `wp/3.4-statechart` at 053f322 (with `main` at 428c437) merged. One conflict, this file (`wp/3.4-statechart`'s copy taken).
+- `stash@{0}` applied (and dropped by `git stash pop`). d8c7888: its seven browser journeys and the editor's `tabindex="0"`, with the T-07 assertion kept.
+- ae88d7c: the screens showed that `min-h-64`, `min-h-72`, `min-h-40` and `w-48` make no CSS (the theme declares spacing steps 0 to 8 only; confirmed in Chromium). The editor and output had no floor below 768 px, and a syntax-error card squeezed the console to one line at 1280 px. Now tokens in `src/ui/tokens/components.css`, and a test fails on any numeric step the theme does not declare (it failed on the old code).
+- `pnpm verify` on ae88d7c: exit 0, `Test Files  104 passed (104)`, `Tests  1942 passed (1942)`. `pnpm build`: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser: 14 of 14 journeys passed in Chromium, one per process, against `next dev --webpack` on port 3264 (it now also needs the fake `RESEND_API_KEY`). Screens of 12 states at 1280, 768 and 375 px, all retaken on ae88d7c. The development server was stopped by this run.
+- Description: cdad8a8, decisions 15 to 17.
+- Not run: round 2 of the code and security reviews, the design review, the Delivery Gate report, Firefox and WebKit, the throttled-runtime check, the real route with the local stack.
+- `stash@{1}` from part 52 is now `stash@{0}` ("WP-5.2 part 2 WIP from interrupted session"); its content is all in b386309, so it can be dropped.
+- Push: `wp/5.2-workspace-laptop`.
+- Stopped here: the run passed 20 minutes.
+
+### Owner: run this (part 55)
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-5.2.md` on `wp/5.2-workspace-laptop`, or open the draft pull request with that body.
+2. Still open from part 53: confirm decision 10 (WP-5.1 merges first) and the spec change proposed in decision 14. Decisions 10 to 17 came after the 2026-11-24 approval, so this run did not treat them as approved.
 
 ### Task 1, part 54 done: `main` at 428c437 merged into the three runtime branches
 
@@ -14,7 +34,7 @@ Found on arrival: uncommitted work on `wp/5.2-workspace-laptop` from a run that 
 - `wp/3.3-grader`: bbd6d31, `main` merged directly, no conflict (`wp/3.1-python-worker` still not merged, the approved default). `pnpm verify` exit 0, `Test Files  43 passed (43)`, `Tests  1132 passed (1132)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: 68a69d2.
 - `wp/3.4-statechart`: 818c111, `wp/3.3-grader` at 68a69d2 merged. One conflict, this file (`wp/5.2-workspace-laptop`'s copy taken; it holds every line of both sides). `pnpm verify` exit 0, `Test Files  47 passed (47)`, `Tests  1247 passed (1247)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: 053f322.
 - Not run: the browser tests and `pnpm test:db`. No reviewer has seen the three merges (each clean apart from this file).
-- Push: the three branches.
+- Push: the three branches. The first push of `wp/3.1-python-worker` was refused by GitHub with `! [remote rejected] ... (failed)` and no reason; the same push a minute later went through.
 
 ### Owner: run this (part 54)
 
@@ -22,7 +42,7 @@ Found on arrival: uncommitted work on `wp/5.2-workspace-laptop` from a run that 
 
 ### Next
 
-- `wp/3.4-statechart` into `wp/5.2-workspace-laptop`, then `stash@{0}` checked, finished and committed there (WP-5.2 part 3, second half).
+- WP-5.2: round 2 of `code-reviewer` and `security-reviewer` on ae88d7c, then `design-reviewer` and the Delivery Gate report.
 
 ## Session of 2026-11-24 (from about 19:35), in `night-a`, on `wp/3.3-grader`, then `wp/5.2-workspace-laptop`
 
