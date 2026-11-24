@@ -19,9 +19,9 @@
 // namespace, the import system's lists (sys.path, sys.meta_path,
 // sys.path_hooks, sys.path_importer_cache), the line cache, the recursion
 // limit, the integer digit limit, the trace and profile hooks, the
-// sys.monitoring tools, the garbage collector's callbacks, the async
-// generator hooks, and the exception, unraisable, display and breakpoint
-// hooks.
+// sys.monitoring tools, the garbage collector's callbacks, thresholds and
+// enabled state, the async generator hooks, and the exception, unraisable,
+// display and breakpoint hooks.
 //
 // Not undone: changes to a standard library module's attributes (ADR-0004),
 // audit hooks (they cannot be removed), and sys.monitoring local events set
@@ -45,7 +45,7 @@
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "3";
+export const HARNESS_VERSION = "4";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -111,6 +111,15 @@ def _heap_make_grader():
     # The interpreter calls this list object, whatever gc.callbacks names.
     gc_callbacks = gc.callbacks
     gc_callbacks_snapshot = list(gc_callbacks)
+    # A program can turn the collector off or change when it runs, which
+    # changes the timing of every later case on the worker.
+    gc_threshold = gc.get_threshold()
+    gc_enabled = gc.isenabled()
+    get_threshold = gc.get_threshold
+    set_threshold = gc.set_threshold
+    is_gc_enabled = gc.isenabled
+    enable_gc = gc.enable
+    disable_gc = gc.disable
     list_clear = list.clear
     list_extend = list.extend
     # Changed in place by an import hook or a program; the names themselves
@@ -221,6 +230,11 @@ def _heap_make_grader():
                 break
         list_clear(gc_callbacks)
         list_extend(gc_callbacks, gc_callbacks_snapshot)
+        set_threshold(*gc_threshold)
+        if gc_enabled:
+            enable_gc()
+        else:
+            disable_gc()
         for current, snapshot in import_lists:
             list_clear(current)
             list_extend(current, snapshot)
@@ -282,6 +296,8 @@ def _heap_make_grader():
         if hooks[0] is not asyncgen_hooks[0] or hooks[1] is not asyncgen_hooks[1]:
             return False
         if get_recursion_limit() != recursion_limit or get_digit_limit() != digit_limit:
+            return False
+        if get_threshold() != gc_threshold or is_gc_enabled() is not gc_enabled:
             return False
         if not plain_keys(sys_dict):
             return False

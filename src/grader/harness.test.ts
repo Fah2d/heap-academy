@@ -591,6 +591,8 @@ describe("the harness", () => {
       'sys.modules["linecache"].cache["ghost"] = Ghost()',
       'sys.modules["linecache"].cache["extra"] = (0, None, [], "extra")',
     ],
+    ["the garbage collector's thresholds", "builtins.ghost = Ghost()", "gc.set_threshold(1, 1, 0)"],
+    ["the garbage collector's enabled state", "builtins.ghost = Ghost()", "gc.disable()"],
   ];
   for (const [part, place, change] of changedAfterItsRestore) {
     it(`[FR-RUN-04] a __del__ that changes ${part} after its restore makes the test case a runtime error`, () => {
@@ -804,6 +806,21 @@ describe("the harness", () => {
     });
   });
 
+  it("[FR-RUN-04] the garbage collector's thresholds and enabled state come back for the next test case", () => {
+    // WP-3.3 security review 4, round 4, noted: "(1, 1, 0) False" carried over.
+    const settings = "import gc\nprint(gc.get_threshold(), gc.isenabled())";
+    const before = run(settings);
+    expect(before).toMatchObject({ error: undefined, output: expect.stringContaining("True") });
+    expect(run("import gc\ngc.set_threshold(1, 1, 0)\ngc.disable()")).toMatchObject({
+      error: undefined,
+    });
+    expect(run(settings)).toEqual(before);
+    expect(run("import gc\ngc.disable()\nraise ValueError")).toMatchObject({
+      error: { kind: "runtime" },
+    });
+    expect(run(settings)).toEqual(before);
+  });
+
   it("[FR-GRD-04] the harness version changes with the harness: this hash is updated together with HARNESS_VERSION", () => {
     // A stale cached worker is refused only if the version moves with the Python.
     // FNV-1a over the UTF-16 code units: the grader's tests stay free of I/O modules.
@@ -811,6 +828,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2294114720 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "4", hash: 1339154858 });
   });
 });
