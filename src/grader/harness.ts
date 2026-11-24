@@ -14,10 +14,12 @@
 // ends, in a `__str__` or a `__del__`, so the state is restored after the
 // program, again after its objects are freed, and before the next case.
 //
-// "The state" is what section 5.5 lists, plus the recursion limit and the
-// trace and profile hooks: builtins, the module table, the three streams and
-// a fresh namespace. Changes to a standard library module's attributes are
-// not undone (ADR-0004). Nor is the harness itself protected: a program can
+// "The state" is what section 5.5 lists, plus the interpreter's hooks:
+// builtins, the module table, the three streams, a fresh namespace, the
+// recursion limit, the trace and profile hooks, the sys.monitoring tools, the
+// garbage collector's callbacks, and the exception, unraisable, display and
+// breakpoint hooks. Changes to a standard library module's attributes are
+// not undone (ADR-0004), and an audit hook cannot be removed once added. Nor is the harness itself protected: a program can
 // reach its closure and change what later test cases on the same worker
 // report, so a check is evidence only for code that is not hostile. Validate
 // (WP-4.3) must start a new worker for each program (`freshWorker`); the spec
@@ -27,7 +29,7 @@
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "2";
+export const HARNESS_VERSION = "3";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -62,7 +64,13 @@ def _heap_make_grader():
     sys_dict = sys.__dict__
     modules = sys.modules
     modules_snapshot = dict(modules)
-    sys_snapshot = {name: sys_dict[name] for name in ("modules", "stdin", "stdout", "stderr")}
+    sys_snapshot = {
+        name: sys_dict[name]
+        for name in (
+            "modules", "stdin", "stdout", "stderr",
+            "excepthook", "unraisablehook", "displayhook", "breakpointhook",
+        )
+    }
     line_cache = linecache.cache
     # Interpreter settings outside sys.__dict__ that a test case could change
     # for the next one, or use to run its code inside the harness.
@@ -70,6 +78,18 @@ def _heap_make_grader():
     set_recursion_limit = sys.setrecursionlimit
     set_trace = sys.settrace
     set_profile = sys.setprofile
+    # The sys.monitoring tool ids (0 to 5) that are free now are freed again
+    # after each case; freeing one also removes its events and callbacks.
+    monitoring = sys.monitoring
+    get_tool = monitoring.get_tool
+    set_events = monitoring.set_events
+    free_tool_id = monitoring.free_tool_id
+    tool_ids = [tool for tool in range(6) if get_tool(tool) is None]
+    # The interpreter calls this list object, whatever gc.callbacks names.
+    gc_callbacks = gc.callbacks
+    gc_callbacks_snapshot = list(gc_callbacks)
+    list_clear = list.clear
+    list_extend = list.extend
 
     dict_clear = dict.clear
     dict_update = dict.update
@@ -141,10 +161,17 @@ def _heap_make_grader():
         return Capture(), state
 
     # The profile hook goes first: it runs on the call that removes the trace
-    # hook, and could put that hook back.
+    # hook, and could put that hook back. A monitoring callback runs on these
+    # calls too, until its tool is freed.
     def restore():
         set_profile(None)
         set_trace(None)
+        for tool in tool_ids:
+            if get_tool(tool) is not None:
+                set_events(tool, 0)
+                free_tool_id(tool)
+        list_clear(gc_callbacks)
+        list_extend(gc_callbacks, gc_callbacks_snapshot)
         set_recursion_limit(recursion_limit)
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
@@ -245,8 +272,9 @@ def _heap_make_grader():
     # case is a runtime error of the program, with no message and no output,
     # whichever stage it came from. The hooks are cleared first. A profile
     # hook still runs on the call that removes it, and can set a raising trace
-    # hook on this frame; code that rewrites the harness's closure can too.
-    # Then the harness raises: the worker gives up with runtime_crashed and is
+    # hook on this frame; code that rewrites the harness's closure can too, and
+    # so can a monitoring callback that raises on every call, as no call can
+    # then run to free its tool. Then the harness raises: the worker gives up with runtime_crashed and is
     # replaced, and the Node runner reports the test case as crashed.
     def check(source, stdin, after_code):
         try:
@@ -254,6 +282,13 @@ def _heap_make_grader():
         except base_exception:
             set_profile(None)
             set_trace(None)
+            try:
+                for tool in tool_ids:
+                    if get_tool(tool) is not None:
+                        set_events(tool, 0)
+                        free_tool_id(tool)
+            except base_exception:
+                pass
             try:
                 restore()
             except base_exception:

@@ -358,6 +358,89 @@ describe("the harness", () => {
     expect(run(deep)).toMatchObject({ output: "100 None\n", error: undefined });
   });
 
+  it("[FR-RUN-04] a sys.monitoring callback set by one test case does not reach the next, and its tool id is free again", () => {
+    // WP-3.3 security review 2, MINOR 5: before, the next case's output had "MON f".
+    const monitor = [
+      "import sys",
+      "m = sys.monitoring",
+      'm.use_tool_id(2, "probe")',
+      'm.register_callback(2, m.events.PY_START, lambda code, offset: print("MON", code.co_name))',
+      "m.set_events(2, m.events.PY_START)",
+    ].join("\n");
+    expect(run(monitor).stage).toBe("program");
+    const next = run(
+      'import sys\ndef f():\n    pass\nf()\nprint(sys.monitoring.get_tool(2), "after")',
+    );
+    expect(next).toMatchObject({ output: "None after\n", error: undefined });
+    expect(run(monitor)).toMatchObject({ stage: "program", error: undefined });
+  });
+
+  it("[FR-GRD-01] never raises: a sys.monitoring callback that raises when a harness step starts gives a result, and is removed", () => {
+    const source = [
+      "import sys",
+      "m = sys.monitoring",
+      'm.use_tool_id(3, "probe")',
+      "def raising(code, offset):",
+      '    if code.co_name == "restore":',
+      "        raise RuntimeError('in the harness')",
+      "m.register_callback(3, m.events.PY_START, raising)",
+      "m.set_events(3, m.events.PY_START)",
+    ].join("\n");
+    expect(run(source)).toEqual({
+      version: HARNESS_VERSION,
+      stage: "program",
+      output: "",
+      truncated: false,
+      error: { kind: "runtime", message: "" },
+    });
+    expect(run('print(len("next"))')).toMatchObject({ output: "4\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] a sys.monitoring callback that raises on every call makes the harness raise", async () => {
+    // No call can run to free the tool, so the harness raises and its caller
+    // replaces the runtime (the worker's runtime_crashed, the Node runner's
+    // crashed). Its own interpreter: this one cannot run another test case.
+    const own = await loadHarness();
+    const source = [
+      "import sys",
+      "m = sys.monitoring",
+      'm.use_tool_id(3, "probe")',
+      "def raising(*args):",
+      "    raise RuntimeError('in the harness')",
+      "m.register_callback(3, m.events.CALL, raising)",
+      "m.set_events(3, m.events.CALL)",
+    ].join("\n");
+    expect(() => own.check(source, "", "")).toThrow();
+  }, 60_000);
+
+  it("[FR-RUN-04] the exception, unraisable, display and breakpoint hooks come back for the next test case", () => {
+    // Pyodide sets its own exception hook, so the hooks are compared with
+    // what a test case saw before, not with sys.__excepthook__.
+    const hooks =
+      "import sys\nprint(sys.excepthook, sys.unraisablehook, sys.displayhook, sys.breakpointhook)";
+    const before = run(hooks);
+    expect(before.error).toBeUndefined();
+    expect(before.output).not.toContain("built-in function print");
+    run(
+      [
+        "import sys",
+        "sys.excepthook = print",
+        "sys.unraisablehook = print",
+        "sys.displayhook = print",
+        "sys.breakpointhook = print",
+      ].join("\n"),
+    );
+    expect(run(hooks)).toEqual(before);
+  });
+
+  it("[FR-RUN-04] a garbage collector callback set by one test case is gone in the next, and does not write into it", () => {
+    run('import gc\ngc.callbacks.append(lambda phase, info: print("GC", phase))');
+    expect(run("import gc\ngc.collect()\nprint(len(gc.callbacks))")).toMatchObject({
+      output: "0\n",
+      error: undefined,
+    });
+  });
+
   it("[FR-GRD-04] the harness version changes with the harness: this hash is updated together with HARNESS_VERSION", () => {
     // A stale cached worker is refused only if the version moves with the Python.
     // FNV-1a over the UTF-16 code units: the grader's tests stay free of I/O modules.
@@ -365,6 +448,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "2", hash: 2318042681 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2428621754 });
   });
 });
