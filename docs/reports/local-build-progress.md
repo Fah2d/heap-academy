@@ -13,9 +13,17 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-4.2.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
 
+### Task 1f done: wp/4.3-validate-publish
+
+- Started at 13:52, after task 1e took about 3 minutes.
+- Merge commit ceac6b5: `wp/4.2-lesson-editor` (with 4.1, 2.3 and `main` at 81fdc39). Two conflicts: this file (took 4.2's copy) and `scripts/infra-verify.mjs`, where this branch's `runtimeChecks` and `main`'s `healthFor` (with `releaseOf` and `parseJson`) were added at the same place; both kept unchanged. `infra-verify.test.ts`: 48 tests pass.
+- No test failed. `pnpm verify`: exit 0, 102 files, 1901 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser), `pnpm infra:verify` (no deployment of this branch).
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+
 ### Next
 
-- Task 1f: `wp/4.3-validate-publish`, merging `wp/4.2-lesson-editor`. Then 1g: `wp/5.1-catalog`, merging `wp/4.1-courses-chapters` (5.1 is stacked on 4.1, as in the 23:25 session).
+- Task 1g: `wp/5.1-catalog`, merging `wp/4.1-courses-chapters` (5.1 is stacked on 4.1, as in the 23:25 session). Then task 2, WP-5.1.
 
 ## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
 
