@@ -1,5 +1,45 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## CI fixes for #13 (at 9717efb)
+
+The `unit` and `e2e` jobs failed on 9717efb (run 45438429284). Both are fixed on this branch, and `main` at 428c437 (#14, the generated database types) is merged in (f8d21ed, no conflict).
+
+**unit.** `src/domain/auth/return-path.test.ts`, "[FR-AUTH-04] [T-11] never returns a path that leaves the site", checks 177,155 paths and ran past Vitest's 5000 ms default on GitHub's runners. As you instructed, the test now has an explicit `60_000` ms limit. No other test changed.
+
+**e2e, `stack` project.** The three journeys that ask for a code failed at `e2e/sign-in-journey.spec.ts:39`, each in about 6.0 s: about 1 s of navigation plus the 5 s wait for "We sent a six-digit code…". The cause is in the test, not in the stack. The "Send code" button stays enabled while the bot challenge runs, and the test pressed it right after typing the address, before Turnstile had handed back a token. The page then shows "Wait for the check that keeps automated sign-ups out to finish, then try again." and stays on the email step. That is the designed state for a learner who presses too early.
+
+Shown on this branch's production build (`pnpm start` on port 3419, CI's public values, Chromium):
+
+```
+after early click: Error: Wait for the check that keeps automated sign-ups out to finish, then try again. |
+token after ms 2320 value XXXX.DUMMY.TOKEN.XXXX
+```
+
+The fix: `requestCode` in the journey waits until Turnstile has written its token into `input[name="cf-turnstile-response"]` (up to 15 s, the same limit as the code email), then presses "Send code". With that wait, against the same build without the local stack, the press reaches the server action:
+
+```
+action status 200
+notice: Error: Sign-in is not working right now. Try again in a few minutes. |
+```
+
+("Not working" is the right answer there: no auth service was running.) The CI log shows the stack started (the image pulls hit `toomanyrequests: Rate exceeded` and succeeded on retry), and the Next.js server printed no error for these requests.
+
+Not verified: the journeys against the local stack. Docker is not running on this machine, so `supabase start` and `pnpm test:e2e --project=stack` were not run here; CI on this push is the first run. If a journey still fails, the next suspects are the auth service's captcha check and the mail catcher, and the trace has to be read. The `e2e` job does not upload `test-results/`, so its traces are lost; uploading them would need a change to `.github/workflows/ci.yml`, which this fix does not make.
+
+`pnpm verify` on f8d21ed with both fixes, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  927 passed (927)
+```
+
+`next build` with CI's public values: exit 0, the same five routes.
+
+Decisions taken with a safe default:
+
+- K. The fix is in the test only. The page already tells a learner who presses too early what to do, so its behavior did not change. Turning the button off until the token arrives would be an interface change for design review, not a CI fix.
+- L. The new wait for the token has its own 15 s limit, the same as the code email. It is a new wait, not a raised limit on an existing one.
+
 ## Up to date with main
 
 **Base: `main`.** WP-2.1 is merged (#12, 7875ee2), so this pull request now targets `main` and shows only WP-2.2's own work. `main` at 7875ee2 is merged into this branch (4c297fc) with no conflict; #12's merge commit changes no file against `wp/2.1-schema-policies` at 57903a0, which this branch already had.
