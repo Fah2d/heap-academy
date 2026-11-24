@@ -97,7 +97,6 @@ describe("safeReturnPath over every short combination", () => {
       }
     }
     expect(checked).toBe(11 + 11 ** 2 + 11 ** 3 + 11 ** 4 + 11 ** 5);
-    // 177,155 cases take longer than the 5 s default on GitHub's runners
-    // (PR #13); the owner set this limit on 2026-11-24.
+    // 177,155 cases: with coverage on CI runners they take over 5 s.
   }, 60_000);
 });
