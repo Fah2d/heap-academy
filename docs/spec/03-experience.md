@@ -79,7 +79,9 @@ A short list, not a marketplace: the first release has one course. Each course i
 
 ### 5.4 Sign-in
 
-One column. Google button and an email field with a Continue action. After Continue, the same view asks for the six-digit code with one input that accepts paste, a resend control with a visible cooldown, and a way to change the email. In an in-app browser the email path leads and a sentence explains that Google does not allow sign-in inside this app's browser (FR-AUTH-03).
+One column. Google button and an email field with a "Send code" action. After "Send code", the same view asks for the six-digit code with one input that accepts paste, a resend control with a visible cooldown, and a way to change the email. In an in-app browser the email path leads and a sentence explains that Google does not allow sign-in inside this app's browser (FR-AUTH-03).
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.2):** the email action says "Send code", not "Continue", because section 9 asks a button to name its action.
 
 ### 5.5 Profile
 
@@ -246,11 +248,13 @@ Every data-bearing view implements all applicable states.
 | Course list | Server-rendered; no spinner | No published course | Could not load | |
 | Course page | Server-rendered | New learner: nothing completed | Could not load | |
 | Workspace | Python loading | Console empty; tests not run | Python failed; learner errors; server unreachable | Unsynced completion; saved code restored; unsupported browser |
-| Sign-in | Sending code; verifying | | Wrong code; expired code; too many attempts; provider down | In-app browser |
+| Sign-in | Sending code; verifying | | Code not accepted; too many attempts; provider down | In-app browser |
 | Profile | Server-rendered | No completions yet | Could not load | Deleting; deleted |
 | Dashboard: courses | Server-rendered | No course yet | Could not load | |
 | Dashboard: lesson editor | Python loading | No test case yet | Save failed; newer version exists; validation failed | Unsaved changes; saving; validating |
 | Dashboard: second step | Verifying | | Wrong code; too many attempts | |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.2):** a wrong code and an expired code on the sign-in screen are one state, "code not accepted", with one message. The auth service reports both as `otp_expired`, so the screen cannot tell them apart.
 
 ## 9. Words
 
