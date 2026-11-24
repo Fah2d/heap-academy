@@ -2,6 +2,17 @@
 
 ## Up to date with main
 
+`main` at 428c437 (#14, the generated database types) is in this branch through `wp/2.2-sign-in` (f8d21ed), with #13's two CI fixes (9161501): merge commit 10ac619. One conflict, `e2e/sign-in-journey.spec.ts`: this branch had moved `latestCode` and `requestCode` into `e2e/sign-in-helpers.ts`, so this branch's version of the journey file was kept and WP-2.2's fix went into the helper. `requestCode` now waits for Turnstile's token in `input[name="cf-turnstile-response"]` (up to 15 s) before it presses "Send code". Before the fix, the stack journeys pressed too early and stayed on the email step; WP-2.2's description, "CI fixes for #13", has the evidence. The admin journeys sign in through the same helper, so they get the same wait.
+
+`pnpm verify` on 10ac619, exit 0:
+
+```
+ Test Files  53 passed (53)
+      Tests  1019 passed (1019)
+```
+
+`next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` and the `stack` journeys (Docker is not running here).
+
 `main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/2.2-sign-in`, which has it (4c297fc): merge commit d3a05da. No conflict. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings WP-2.2's and WP-2.1's approved spec changes. WP-2.1 is merged, so once WP-2.2 merges this pull request's base becomes `main`.
 
 With the merge and this package's approved spec changes, `pnpm verify`, exit 0:
