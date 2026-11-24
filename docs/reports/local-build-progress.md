@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2b on `wp/6.1-synced-progress`
+
+- State found: `origin/main` at 428c437; every branch from 2.2 to 5.1 contains it and is pushed. Nothing to merge.
+- Done: the device store (`src/features/progress/device`): `DeviceStore` with a memory store and an IndexedDB store, `openDeviceStore` (falls back to memory when IndexedDB is missing, fails or throws), and `syncOnce` / `createSyncer` (send what the server has not stored, keep the answer through `applyAccount`, drop refused lessons, keep every unsynced entry on failure, one run at a time). `prettier`, `eslint`, `tsc` clean; vitest on `src/features/progress`: 36 passed.
+- Not verified: the IndexedDB store against a real IndexedDB (the package for a fake is not installed and none can be added; a Chromium test is needed). Not run: the full `pnpm verify`, `pnpm test:db`. There is a short window between the second read and `replaceAll` in `syncOnce` in which a completion stored by another tab could be lost; it is retried only if that tab's entry is still unsynced, which it is not after the replace. Left as a known gap for the browser-test pass.
+- Not done: the triggers (sign-in, load, tab visible, online), the unsynced state in the interface, server-rendered progress for a signed-in learner. WP-5.4 (the workspace and its progress store) is not on this stack, so the store is not yet used by any screen.
+- Not pushed: the last push was at 23:22; the next is allowed from 00:22.
+- Next: wire the triggers and the unsynced notice once a screen uses the store; then WP-6.2 and 6.3 part 2. Blocked: UI parts need a screen that holds the store.
+
 ## Session of 2026-11-24 (from about 23:20), in `night-b`, WP-6.1 part 2a on `wp/6.1-synced-progress`
 
 - State found: the top-priority CI fixes for #13 were already pushed (3ce8e49). `origin/main` is at 428c437 and every later branch contains it. Another session was merging the branches forward in this same checkout at the same time (unpushed merges 290cc7e to b58dae6), so this work was built and checked in a separate copy and committed without switching branches.
