@@ -33,8 +33,9 @@
 // identity; if it is not back (a callback still moving after the last pass, or
 // a __del__ that ran while the state was put back and changed it again), the
 // harness raises NotRestored. It also raises when eight collections at the
-// end of a case still find garbage (a chain of __del__ methods, each making a
-// new reference cycle). The check itself runs no learner code, and
+// start or the end of a case still find garbage (a chain of __del__ methods,
+// each making a new reference cycle). The collections at the start free what
+// a JavaScript timer's callback left between cases. The check itself runs no learner code, and
 // restore() keeps the collector off until the check has passed, so an
 // automatic collection cannot call a __del__ from a reference cycle after a
 // part has passed. A fresh worker is the control for all of these.
@@ -50,7 +51,7 @@
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "5";
+export const HARNESS_VERSION = "6";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -489,8 +490,13 @@ def _heap_make_grader():
                 return
         raise Uncollected()
 
+    # A case starts with the same collections as it ends with: in the Node
+    # runner's thread a JavaScript timer a case set fires before the next
+    # case's message, and in the worker before the next check, so what its
+    # callback put in the state is undone, and a cycle it made is freed now,
+    # not by an automatic collection in the middle of the next program.
     def run_case(source, stdin, after_code):
-        restore()
+        collect_all()
         register(program_file, source)
         register(test_file, after_code)
         line_count = length(split_lines(source))
