@@ -37,7 +37,7 @@ Vendor screens change. The menu names and figures below were checked against eac
 | Resend Free | Emails | 100 a day, 3,000 a month | 80 a day, 1,500 a month (ADR-0029) | Email sign-in codes until 00:00 UTC (or the month's end); Google sign-in still works |
 | GitHub Free | Artifact storage | 500 MB | 250 MB (ADR-0029); ADR-0030 is also revisited when a dump passes 50 MB | Backups (later parts of WP-7.3, ADR-0030) |
 
-Every trigger is in ADR-0029, amended on 2026-11-24 with the owner's approval (WP-7.3 decision D): half of each free amount where no other figure was set. The rate-limit row is from WP-7.3 decision N, which awaits the owner's approval.
+Every trigger is in ADR-0029, amended on 2026-11-24 with the owner's approval (WP-7.3 decision D): half of each free amount where no other figure was set. The rate-limit row is from WP-7.3 decision N, approved by the owner on 2026-11-24.
 
 ## 2. Vercel: a spike in transfer, invocations, or CPU
 

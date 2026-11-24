@@ -34,7 +34,7 @@ No reviewer asked: no code, screen, style or product text changed, and the chang
 
 ## Owner actions now due
 
-1. Approve or change decision N below. Until then the ADR-0029 note says it awaits approval.
+1. Decision N is approved: the owner's instruction of 2026-11-24 approves every recommended default in every pull request description, and this run read it after N was written. ADR-0029 and the usage runbook now say so. To change N, edit the ADR-0029 row and the runbook row together.
 2. The owner actions of parts 1 to 4 are still due. When opening or updating the pull request, add this file to the body:
 
 ```sh
@@ -48,7 +48,7 @@ If it is already open: `gh pr edit wp/7.3-operations --add-label spec-change --b
 
 ## Decisions taken by default
 
-- **N. The rate-limit trigger is 500,000 allowed requests, read as a month, and its action is the Vercel row's (move to Vercel Pro).** Half of the free amount, like every other row of decision D. Vercel does not state the period, so a month is assumed, like the other Hobby figures; if the period is shorter the trigger fires later than it should. The runbook plans for the rule to stop limiting when the amount is used up, which leaves only the per-action Postgres limits; that is the safe reading of an unstated effect. Alternative: no trigger until WP-7.1 measures real counts, which leaves NFR-COST-02 unmet at launch.
+- **N (approved by the owner on 2026-11-24). The rate-limit trigger is 500,000 allowed requests, read as a month, and its action is the Vercel row's (move to Vercel Pro).** Half of the free amount, like every other row of decision D. Vercel does not state the period, so a month is assumed, like the other Hobby figures; if the period is shorter the trigger fires later than it should. The runbook plans for the rule to stop limiting when the amount is used up, which leaves only the per-action Postgres limits; that is the safe reading of an unstated effect. Alternative: no trigger until WP-7.1 measures real counts, which leaves NFR-COST-02 unmet at launch.
 
 ## Deviations from the plan or the spec
 

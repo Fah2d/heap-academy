@@ -37,7 +37,7 @@ The owner wants the project to cost nothing except the domain. The original plan
 
 Amended on 2026-11-24 (approved by the owner on 2026-11-24, WP-7.3 decision D): the Vercel row names every Hobby figure, the Supabase row adds the monthly active users trigger of `07-operations.md` section 9.2, and the Resend month and GitHub artifact storage rows are new, each at half the free amount. Vercel's figures are in E-23 and E-27. The runtime clause adds the security review: a runtime on another origin changes the script policies and T-13's "served by us". The deliberate exhaustion line uses Vercel's current name, Attack Mode.
 
-Amended on 2026-11-24 (WP-7.3 part 5, decision N, awaiting the owner's approval): the Vercel row adds the 1,000,000 allowed requests of the one rate-limit rule of a Hobby project, at half like the other figures. Vercel states neither the period of that amount nor what happens when it is used up (E-23, checked again on 2026-11-24); the trigger reads it as a month, like the other Hobby figures.
+Amended on 2026-11-24 (WP-7.3 part 5, decision N, approved by the owner on 2026-11-24): the Vercel row adds the 1,000,000 allowed requests of the one rate-limit rule of a Hobby project, at half like the other figures. Vercel states neither the period of that amount nor what happens when it is used up (E-23, checked again on 2026-11-24); the trigger reads it as a month, like the other Hobby figures.
 
 ## Consequences
 

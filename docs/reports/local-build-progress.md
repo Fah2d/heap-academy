@@ -2,6 +2,26 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 15:24), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` is still 7875ee2 and already in `wp/7.3-operations`. No branch was merged since the run before.
+
+### Task 1 done: decision N marked approved
+
+- The owner's instruction of 2026-11-24 approves every recommended default in every pull request description. This run read it after part 5 wrote decision N (the 500,000 rate-limit trigger), so N is now approved.
+- ADR-0029's part 5 note and the usage runbook now say "approved by the owner on 2026-11-24" instead of "awaiting the owner's approval". `WP-7.3-part-5.md` says the same in its owner actions and its decision N.
+- `npm_config_verify_deps_before_run=false pnpm verify`: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`. pnpm printed `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` for its pre-run install; nothing was installed.
+- WP-7.3 has nothing left that this run can do: decision C needs two packages installed, decision E is the owner's patch, and the backup workflow waits for the CI `db` job to prove the `backup_reader` role.
+
+### Task 2: still blocked
+
+Same as the run before. `origin/main` has WP-1.1 to 1.4, WP-2.1, WP-6.1 part 1 and WP-6.2 part 1. The only packages that depend on nothing else are WP-2.2 (`origin/wp/2.2-sign-in`, 9717efb at 15:17) and WP-3.1 (`origin/wp/3.1-python-worker`, pull request #9), and both already have another agent's branch. Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or all of WP-6.1. No branch was started.
+
+### Owner: run this
+
+1. The three owner actions of the 15:08 section below are still due: apply the Deploy patch, decide how to install the analytics packages (decision C), and open or update the WP-7.3 pull request with the `spec-change` label and `WP-7.3-part-{1,2,3,4,5}.md` as its body.
+2. Merge WP-2.2 or WP-3.1, and the next run can start a package.
+
 ## Session of 2026-11-24 (from about 15:20), in `night-c`, on `wp/7.3-operations`
 
 `origin/main` is still 7875ee2 and already in `wp/7.3-operations`. No other branch was merged since the run before.
