@@ -156,6 +156,8 @@ One component renders every learner error with the same shape: a heading in plai
 | `stopped` | You stopped the program | |
 | `crashed` | Python stopped unexpectedly | Restarting. Includes a reference once `/api/client-error` exists (WP-7.3). |
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-5.2, decision 6):** the `syntax` body shows the message and the line, with no caret under the column, because protocol version 1 (`02-architecture.md` section 5.2) carries a line and no column. A caret needs a protocol change, which is a later spec change.
+
 ### 6.6 Completion moment
 
 When every test case passes: the tests list shows each one passed, one line states "Lesson complete" and the XP earned, and the primary action becomes "Next" with the next lesson's title. The acknowledgement is the 160 ms state change defined in `DESIGN.md` section 7, with no animation beyond it. No modal, no confetti, no sound.

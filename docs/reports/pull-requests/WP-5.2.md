@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.4-statechart`, with `origin/wp/4.2-lesson-editor` merged in (48ee7b3). Merges after WP-3.1, WP-3.2, WP-3.3, WP-3.4 and WP-4.2 (and so after WP-2.1, WP-2.2 and WP-2.3, which WP-4.2 carries).** Until those merge, this pull request also shows their commits. It is a **draft**, built in parts. Part 1 (this push) adds the data and the rules the workspace needs, with tests. The lesson page and every screen are part 2; the browser tests, screenshots, axe, the Delivery Gate report and the reviews are part 3.
+**Base: `wp/3.4-statechart`, with `origin/wp/4.2-lesson-editor` merged in (48ee7b3). `wp/3.4-statechart` at a3957a7, which carries `main` at 7875ee2 (#12), is merged in 49546a8. Merges after WP-3.1, WP-3.2, WP-3.3, WP-3.4 and WP-4.2 (and so after WP-2.1, WP-2.2 and WP-2.3, which WP-4.2 carries).** Until those merge, this pull request also shows their commits. It is a **draft**, built in parts. Part 1 (this push) adds the data and the rules the workspace needs, with tests. The lesson page and every screen are part 2; the browser tests, screenshots, axe, the Delivery Gate report and the reviews are part 3.
 
 ## What and why
 
@@ -21,6 +21,14 @@ Six conflicts, all two sides adding beside each other:
 - `playwright.config.ts`, `scripts/eslint/module-boundaries.mjs`, `src/features/workspace/index.ts`: taken from `origin/wp/4.3-validate-publish`, whose copies are exactly this branch's plus WP-4.2's additions (checked with `diff`; WP-4.3 merged an older WP-3.4 in 938a05d, and none of these files changed on the WP-3.x side since).
 - `src/infrastructure/http/security-headers.test.ts`, `src/proxy.test.ts`: both sides' imports and test blocks kept, unchanged.
 - `docs/reports/local-build-progress.md`: this branch's copy kept (the `night-a` copy). The `night-b` copy on WP-4.2 is unchanged on its own branch.
+
+### The merge of `wp/3.4-statechart` with `main` at 7875ee2 (49546a8)
+
+`main` moved to 7875ee2 (#12, WP-2.1), which this branch already held through WP-4.2 apart from the merge commit itself. `wp/3.4-statechart` brought it with the approved spec changes of WP-3.3 and WP-3.4 (2026-11-24). One conflict, `docs/reports/local-build-progress.md`: `wp/3.4-statechart`'s copy held every line of this branch's, so it was taken.
+
+- `pnpm verify` on 49546a8: exit 0, `Test Files  95 passed (95)`, `Tests  1880 passed (1880)`.
+- `pnpm build` on 49546a8 with CI's fake public values and the Turnstile test key: exit 0, `runtime: worker compiled`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen 49546a8.
 
 ## Work package
 
@@ -51,13 +59,17 @@ None yet. Due in part 3: `code-reviewer`, `security-reviewer` (the runtime, the 
 
 Nothing to try yet: no route is added in part 1.
 
+## Owner decisions of 2026-11-24
+
+Every recommended default in this description was approved, so decisions 1 to 6 below stand. Decision 6 departs from `03-experience.md` section 6.5, so it is written there with the note "approved by the owner on 2026-11-24". The open default for part 2 (saved code in IndexedDB with a memory fallback, sharing WP-5.4's database) is approved too.
+
 ## Owner actions now due
 
 None for part 1.
 
 ## Decisions taken without the owner (safe defaults)
 
-1. Base: `wp/3.4-statechart` (which carries WP-3.1 to WP-3.3 and `main` at 81fdc39) with `origin/wp/4.2-lesson-editor` merged, as the owner's task list asked. `wp/4.3-validate-publish` is not merged: WP-5.2 does not depend on it.
+1. Base: `wp/3.4-statechart` (which carries WP-3.1 to WP-3.3 and, since 49546a8, `main` at 7875ee2) with `origin/wp/4.2-lesson-editor` merged, as the owner's task list asked. `wp/4.3-validate-publish` is not merged: WP-5.2 does not depend on it.
 2. WP-3.1's run fixes that wait on its security review 8, round 3, are not here, because `wp/3.4-statechart` does not carry them.
 3. Shortcuts: on Apple systems both Cmd and Ctrl work (Ctrl + Enter is no browser key there); on Windows and Linux only Ctrl, because the system key belongs to the system. A held key does not run again, and Enter that ends input-method composition is not a shortcut. The check against browser shortcuts on each system is in part 3.
 4. The published-lesson read returns the stored test cases unparsed. The architecture's rule that `content` imports only `infrastructure` and `domain` keeps the grader's schema out of it; the workspace parses them before any use.
@@ -72,7 +84,7 @@ None for part 1.
 ## Deviations from the plan or the spec
 
 - The base is not `main`: WP-3.4 and WP-4.2 are not merged yet (the owner's task list asked for this).
-- Decision 6 above, if the owner accepts it.
+- Decision 6 above, approved on 2026-11-24 and written into `03-experience.md` section 6.5.
 
 ## Risks and rollback
 
