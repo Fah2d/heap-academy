@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in a9c8c0c, at a35dc80). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 4fe1874, at b12f6ec). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,20 +19,20 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at a35dc80 is merged in a9c8c0c. It adds WP-3.3 security review 4 and its fixes (203b6bb, 6a4f0f8, 839707a, f4c7a16, 7468f65, 3fa2bd3): between test cases the harness frees the `sys.monitoring` tools, restores `gc.callbacks`, the `sys` hooks, the import lists, the importer cache, the line cache, the digit limit and the async generator hooks, checks them by identity, and raises `NotRestored` when the state is not back. `HARNESS_VERSION` is now "3". One conflict, `docs/reports/local-build-progress.md`: each copy had one section the other lacked, so both are kept, newest first. `src/grader/harness.ts` and its tests merged with no conflict.
+`wp/3.3-grader` at b12f6ec is merged in 4fe1874. It adds WP-3.3 security review 5 and its fixes (853f0c1, 04fcffa, 5649d7a): between test cases the harness puts back the garbage collector's thresholds, enabled state, debug flags and `gc.garbage`, keeps the collector off from the start of the restore until the check passes, and checks all of it in `intact()`. `HARNESS_VERSION` is now "4". One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. `src/grader/harness.ts` and its tests merged with no conflict.
 
-This branch has no code that depends on the harness version: `grade.ts` reads `HARNESS_VERSION` from the harness, and no test or browser test expects "2". No reviewer has seen a9c8c0c (a clean code merge).
+This branch has no code that depends on the harness version: `grade.ts` reads `HARNESS_VERSION` from the harness, and no test or browser test expects "3". No reviewer has seen 4fe1874 (a clean code merge).
 
 `main` is still 0efe863, which `wp/3.3-grader` carries.
 
-`pnpm verify` on a9c8c0c, exit 0:
+`pnpm verify` on 4fe1874, exit 0:
 
 ```
  Test Files  46 passed (46)
-      Tests  1213 passed (1213)
+      Tests  1221 passed (1221)
 ```
 
-`pnpm build` with CI's fake public values on a9c8c0c, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built harness has `HARNESS_VERSION = "3"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+`pnpm build` with CI's fake public values on 4fe1874, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "4"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
 
 ## How it was verified
 
