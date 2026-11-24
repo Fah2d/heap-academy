@@ -2,6 +2,8 @@
 
 ## Up to date with main
 
+**The course form's focus fix, from WP-4.3** (its decision 17, approved by you on 2026-11-24): 84aff13 carries the course form part of 87af7ec, so the race in `course-details-form.tsx` does not reach `main` with this package first. A field a failed save marks now takes focus after the render that marks it, not on the next frame. The two new tests failed without the fix (`AssertionError: expected <button …(8)></button> to be <input tabindex="0" …(9)></input>`) and pass with it. On 84aff13, `pnpm verify`, exit 0, 62 files, 1114 tests; `next build` with CI's public values, exit 0; `check-bundle` (22 files) and `check-static`: exit 0.
+
 `main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/2.3-admin-gate`, which has it (d3a05da): merge commit 6dc9213. No conflict. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings the approved spec changes of WP-2.1, WP-2.2 and WP-2.3.
 
 With the merge and this package's approved spec change, `pnpm verify`, exit 0:

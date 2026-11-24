@@ -37,6 +37,12 @@ Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-4.1.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
 
+### WP-4.3 decision 17 on wp/4.1-courses-chapters
+
+- 84aff13: the course form part of 87af7ec (WP-4.3's focus fix) cherry-picked onto this branch, as WP-4.3 decision 17 recommends and the owner approved. The lesson editor part is left out: the lesson editor arrives with WP-4.2.
+- The two new tests failed without the fix (`AssertionError: expected <button …(8)></button> to be <input tabindex="0" …(9)></input>`), and pass with it.
+- `pnpm verify`: exit 0, 62 files, 1114 tests. `next build`: exit 0. `check-bundle` and `check-static`: exit 0. Pushed with 4.2 and 4.3 at the end of task 1f.
+
 Decisions taken with a safe default:
 
 - B. A merged branch's approved spec changes go on the next branch in the chain to reach `main`, not on a new branch, because no new pull request can be opened from here (`gh` still fails: `x509: OSStatus -26276`).
