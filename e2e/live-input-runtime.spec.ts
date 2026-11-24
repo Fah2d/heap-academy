@@ -28,12 +28,12 @@ async function open(page: Page) {
 
 async function start(page: Page, source: string) {
   await page.getByLabel(runtimeDev.program).fill(source);
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
 }
 
 async function answer(page: Page, line: string) {
   await expect(status(page)).toHaveAttribute("data-status", "awaitingInput");
-  await page.getByLabel(runtimeDev.answer).fill(line);
+  await page.getByLabel(runtimeDev.answer, { exact: true }).fill(line);
   await page.getByRole("button", { name: runtimeDev.send }).click();
 }
 

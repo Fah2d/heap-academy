@@ -28,7 +28,7 @@ async function runProgram(page: Page, source: string, stdin = "") {
   });
   await page.getByLabel(runtimeDev.program).fill(source);
   await page.getByLabel(runtimeDev.input).fill(stdin);
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
 }
 
 const outcome = (page: Page) => page.locator("[data-outcome]");

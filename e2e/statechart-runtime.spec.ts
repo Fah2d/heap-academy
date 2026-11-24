@@ -37,7 +37,7 @@ test("[FR-WSP-17] Run pressed while Python starts waits and then runs", async ({
   await page.reload();
   await page.getByLabel(runtimeDev.input).fill("Ada");
   await expect(chart(page)).toHaveAttribute("data-chart-state", "loading");
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
   await expect(chart(page)).toContainText(runtimeDev.pending.run);
   await expect.poll(() => held).toBe(true);
   release();
@@ -67,7 +67,7 @@ test("[FR-RUN-02] [FR-WSP-07] a runaway loop is stopped at the limit and Python 
 }) => {
   await ready(page);
   await page.getByRole("button", { name: runtimeDev.sampleLoop }).click();
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
   await expect(chart(page)).toHaveAttribute("data-chart-state", "running");
   await expect(chart(page)).toHaveAttribute("data-chart-state", "restarting", { timeout: 15_000 });
   await expect(chart(page)).toContainText(runtimeDev.restartReason.time_limit);
@@ -78,7 +78,7 @@ test("[FR-RUN-02] [FR-WSP-07] a runaway loop is stopped at the limit and Python 
 test("[FR-WSP-07] Stop ends a running loop at once", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: runtimeDev.sampleLoop }).click();
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
   await page.getByRole("button", { name: runtimeDev.stop }).click();
   await expect(chart(page)).toContainText(runtimeDev.restartReason.stopped);
   await ready(page);
