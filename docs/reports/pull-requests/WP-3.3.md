@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in 9e5ff23, at d6ab769), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in bc73677, at 2af8c6e), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it).
 
 ## What and why
 
@@ -37,16 +37,16 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
-`wp/3.1-python-worker` at d6ab769 is merged in 9e5ff23. It carries `main` at 0efe863 (#3 to #8), WP-3.1's round 4 fixes (58128a3) and the proxy matcher fix (f8af00a, c03a7d0: the exclusions end at a slash or the path's end, and `/favicon.ico` gets the page policy). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds this branch's sections. No code conflict.
+`wp/3.1-python-worker` at 2af8c6e is merged in bc73677. It carries `main` at 0efe863 (#3 to #8), WP-3.1's round 4 fixes (58128a3), the proxy matcher fix (f8af00a, c03a7d0) and the worker header rule fix (e340e4f: only `/_runtime/worker/:path+.js` gets the worker's policy; any other path in that folder keeps the static policy with `sandbox`). One conflict, `docs/reports/local-build-progress.md`: WP-3.1's copy was taken, because it is the newer one and already holds this branch's sections. No code conflict. In the merge, `scripts/next-config.test.ts`'s list of compiled worker files was changed to this branch's eleven files (under `runtime/` and `grader/`, as `scripts/build-runtime.test.ts` lists them); the built folder holds exactly those eleven.
 
-`pnpm verify` on 9e5ff23, exit 0:
+`pnpm verify` on bc73677, exit 0:
 
 ```
  Test Files  42 passed (42)
-      Tests  1016 passed (1016)
+      Tests  1033 passed (1033)
 ```
 
-`pnpm build` with CI's fake public values on 9e5ff23, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+`pnpm build` with CI's fake public values on bc73677, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
 
 Not run on the merge: the browser tests.
 
