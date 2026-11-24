@@ -28,6 +28,7 @@ beforeAll(async () => {
   // fake values of .env.example.
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321");
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_example");
+  vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
   config = ((await import("../next.config")) as { default: Config }).default;
 });
 
