@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in c77c2e0, at 459c0c3). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in dcac7dc, at 303c495). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,62 +19,16 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at 459c0c3 is merged in c77c2e0. It adds WP-3.1's two browser test fixes (0849b56, f7dfb52: `run()` clears a program's globals when the run ends, so the T-01 loader test and the T-01 evaluation test in `e2e/runtime.spec.ts` now bind what their late callbacks use as default arguments), WP-3.1 security review 7, and the docs. One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, because it is the newer one and holds every section of this branch's copy. No code conflict. `main` is still at 0efe863.
+`wp/3.3-grader` at 303c495 is merged in dcac7dc. It adds WP-3.3's review round 3 (both APPROVE) and its fixes in b67f730: the harness's `restore` clears the profile hook before the trace hook, three harness tests pin the fallback's limits, `HARNESS_VERSION` is "2", and a doc comment on the controller's `ready` event (it can arrive while the status is `checking`; this branch's page reads `status`). One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy taken, as the newer one (it holds every section of this branch's copy). `src/runtime/controller.ts` and `src/runtime/worker/core.ts` merged with no conflict. `main` is still 0efe863, which `wp/3.3-grader` carries.
 
-`pnpm verify` on c77c2e0, exit 0:
-
-```
- Test Files  46 passed (46)
-      Tests  1148 passed (1148)
-```
-
-`pnpm build` with CI's fake public values on c77c2e0, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
-
-The merges before it:
-
-`wp/3.3-grader` at c39ddc7 is merged in 9730a70. It adds WP-3.1's worker header rule fix (e340e4f: the rule is `/_runtime/worker/:path+.js`, so a miss under the worker folder gets the runtime's static policy), its test in `scripts/next-config.test.ts`, security review 6, and the docs. No conflict. `scripts/next-config.test.ts` lists the same eleven compiled worker files as `scripts/build-runtime.test.ts` on this branch, and the build writes exactly those eleven to `public/_runtime/worker`. `main` is still at 0efe863. `pnpm verify` on 9730a70: exit 0, 46 files, 1148 tests. `pnpm build`: exit 0.
-
-`wp/3.3-grader` at 44d6425 is merged in fff5ece. It adds WP-3.1's proxy matcher fix (f8af00a, c03a7d0: the exclusions end at a slash or the path's end, and `/favicon.ico` gets the page policy) and the docs. One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, as the newer one. No code conflict. `main` is still at 0efe863.
-
-`pnpm verify` on fff5ece, exit 0:
+`pnpm verify` on dcac7dc, exit 0:
 
 ```
  Test Files  46 passed (46)
-      Tests  1131 passed (1131)
+      Tests  1151 passed (1151)
 ```
 
-`pnpm build` with CI's fake public values on fff5ece, exit 0. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
-
-`wp/3.3-grader` at 89875fd is merged in 32c642f, with no conflict. It adds WP-3.3's test of the Node runner's harness-version check (f7261ad) and the docs. `main` is still at 0efe863.
-
-`pnpm verify` on 32c642f, exit 0:
-
-```
- Test Files  46 passed (46)
-      Tests  1128 passed (1128)
-```
-
-`pnpm build` with CI's fake public values on 32c642f, exit 0. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
-
-`wp/3.3-grader` at 99f61b4 is merged in 03102ba. It carries `main` at 0efe863 (#3 to #8), WP-3.1's round 4 fixes (58128a3) and WP-3.3's round 2 fixes (9043a9a, 06c39bb). The earlier merge, of `wp/3.3-grader` at 67787b4, is a83b326.
-
-Two conflicts:
-
-- `src/runtime/controller.ts`, the `ready` case. Both sides kept: this branch's `interactiveInput = message.capabilities.interactiveInput;` comes first, then WP-3.3's fix, which sends a pending fresh-worker check before `ready` is reported and leaves the status at `checking` in that case. The chart is unaffected: it takes `RUNTIME_READY` only from `loading` and `restarting`, and the events the controller sends are the same as before.
-- `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, as the newer one.
-
-`wp/3.2-live-input` (6a9c165, already in this branch) was not merged with `main`: it is not in the task list. This branch has `main` through WP-3.3 either way.
-
-`pnpm verify` on 03102ba, exit 0:
-
-```
- Test Files  46 passed (46)
-      Tests  1127 passed (1127)
-```
-
-`pnpm build` with CI's fake public values on 03102ba, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
-
-Not run on the merge: the browser tests.
+`pnpm build` with CI's fake public values on dcac7dc, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`); the built harness has `HARNESS_VERSION = "2"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
 
 ## How it was verified
 
