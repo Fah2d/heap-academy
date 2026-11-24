@@ -10,6 +10,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Task 2 is still blocked: the generated database types are not a work package, so the plan's dependencies in `docs/spec/08-delivery-plan.md` are unchanged. WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches. No branch was started.
 - Pushed, because the branch now carries a new `main`.
 - Checked again at 22:52: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since this branch's 22:51 push. Task 1 has nothing new and task 2 is still blocked for the reasons above. No code changed. Committed, not pushed: nothing new for the owner's chat, so not worth a Vercel build. The run stops here.
+- Checked again at 22:54: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since this branch's 22:51 push. `gh pr list` still fails with the same TLS error, so the CI `db` job could not be read. Task 1 has nothing new and task 2 is still blocked. No code changed. Committed, not pushed. The run stops here.
 
 ### Owner: run this
 
