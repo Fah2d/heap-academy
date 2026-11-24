@@ -41,6 +41,8 @@ const consoleProps = {
   endInput: ignore,
   onGoToLine: ignore,
   workspaceRef: { current: null },
+  answered: () => false,
+  setAnswered: () => undefined,
 };
 
 describe("[T-07] the console", () => {

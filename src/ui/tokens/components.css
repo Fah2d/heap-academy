@@ -48,12 +48,11 @@
   --hairline: 1px;
 
   /* The workspace from 768 px (FR-WSP-01): the instructions keep at least
-     320 px beside the work; the editor takes three parts of the work column's
-     height and the output two. */
+     320 px beside the work. Rows: the title; the editor, three parts of the
+     work column's height; the actions; the output, two parts; previous and
+     next. The instructions span the editor, actions and output rows. */
   --workspace-columns: minmax(20rem, 2fr) 3fr;
-  --workspace-rows: auto minmax(0, 1fr) auto;
-  --workspace-editor-share: 3;
-  --workspace-output-share: 2;
+  --workspace-rows: auto minmax(0, 3fr) auto minmax(0, 2fr) auto;
   /* Below 768 px the editor and the output stack, each with a floor so neither
      collapses (16 rem and 18 rem). At every width the console keeps four lines
      (6 rem) above an error card; the panel around it scrolls instead. */
@@ -63,6 +62,14 @@
   /* Below 768 px the page scrolls, so the console scrolls inside a ceiling
      (24 rem) and an error card under it stays near the output. */
   --workspace-console-max: 24rem;
+  /* The console's answer field keeps room for an answer; on a phone, Send and
+     End input wrap to the next line instead of squeezing it. */
+  --console-answer-min: 10rem;
+  /* Below 768 px: how far the on-screen keyboard reaches up, and the fixed
+     action bar's height. 0 until the workspace measures them in the browser
+     and sets them on its own element (FR-WSP-13). */
+  --keyboard-inset: 0px;
+  --action-bar-size: 0px;
   /* A code editor that does not fill its box, as in the admin's lesson editor. */
   --code-editor-min: 10rem;
   /* The loading bar beside Python's status. */

@@ -57,7 +57,11 @@ async function screens(page: Page, name: string) {
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await settled(page);
-    await saveScreen(page, name, width, { workPackage: WORK_PACKAGE, fullPage: width < 768 });
+    // Below 768 px the screen is WP-5.3's phone layout.
+    await saveScreen(page, name, width, {
+      workPackage: width < 768 ? "WP-5.3" : WORK_PACKAGE,
+      fullPage: width < 768,
+    });
   }
   await page.setViewportSize({ width: 1280, height: 900 });
 }
