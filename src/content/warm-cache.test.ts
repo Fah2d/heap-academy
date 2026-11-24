@@ -52,12 +52,22 @@ const course = {
       title: "First",
       summary: "",
       position: 0,
-      lessons: [{ slug: "a", title: "A", position: 0 }],
+      lessons: [
+        { id: "00000000-0000-4000-8000-0000000001a1", slug: "a", title: "A", xp: 10, position: 0 },
+      ],
     },
   ],
 };
 
-const list = { data: [{ slug: "one", title: "One", summary: "S", lessons: [{ slug: "a" }] }] };
+/** A course list row whose one chapter holds one lesson. */
+const row = (slug: string, title: string, lesson: string, id: string) => ({
+  slug,
+  title,
+  summary: "S",
+  chapters: [{ position: 0, lessons: [{ id, slug: lesson, position: 0 }] }],
+});
+
+const list = { data: [row("one", "One", "a", "00000000-0000-4000-8000-0000000001a1")] };
 
 beforeEach(() => {
   state.db = fakeDb();
@@ -69,9 +79,7 @@ beforeEach(() => {
 
 describe("published content with a warm cache [FR-ADM-11]", () => {
   it("reads the course list from the database once, then from the cache", async () => {
-    state.db.answer({
-      data: [{ slug: "one", title: "One", summary: "S", lessons: [{ slug: "a" }] }],
-    });
+    state.db.answer(list);
     const first = await content.publishedCourses();
     const second = await content.publishedCourses();
     expect(second).toEqual(first);
@@ -100,7 +108,7 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
   // answer read from one database must never answer for another.
   it("keeps the answers of two databases apart", async () => {
     state.db.answer(list, {
-      data: [{ slug: "two", title: "Two", summary: "S", lessons: [{ slug: "b" }] }],
+      data: [row("two", "Two", "b", "00000000-0000-4000-8000-0000000001b1")],
     });
     const first = await content.publishedCourses();
     state.database = "http://127.0.0.1:1";
@@ -174,11 +182,11 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
   // Two readers with one key part would share cache entries, so a lesson
   // could answer for a course (security review of WP-5.1 owner action 7).
   it("refuses a second reader with a key part already in use", () => {
-    expect(() => cachedReader("published-course", () => Promise.resolve(null))).toThrow(
-      "content cache: key part published-course is taken",
+    expect(() => cachedReader("published-course-2", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-course-2 is taken",
     );
-    expect(() => cachedReader("published-courses", () => Promise.resolve(null))).toThrow(
-      "content cache: key part published-courses is taken",
+    expect(() => cachedReader("published-courses-2", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-courses-2 is taken",
     );
     expect(() => cachedReader("published-lesson", () => Promise.resolve(null))).toThrow(
       "content cache: key part published-lesson is taken",

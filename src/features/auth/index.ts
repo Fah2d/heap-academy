@@ -3,3 +3,4 @@
 export { AccountControl } from "./components/account-control";
 export { SignInPage } from "./components/sign-in-page";
 export { handleGoogleCallback } from "./server/google-callback";
+export { guestInvitation } from "./server/guest-invitation";

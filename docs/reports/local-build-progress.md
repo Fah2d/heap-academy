@@ -30,6 +30,29 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Next: the unsynced notice and server-rendered progress (rest of WP-6.1), then WP-6.2 part 2 (XP and streak on screen). WP-5.4 part 3 is another session's.
 - Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule).
 
+## Session of 2026-11-25 (from about 01:13), in `night-a`, on `wp/5.4-progress-preview`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the runtime branches, `wp/5.2`, `wp/5.3` and `wp/5.4` are 0 behind it and equal to `origin`. Task 2: nothing new that does not need the owner.
+
+### Task 3, parts 60 and 61 done: WP-5.4 parts 3 and 4
+
+- Part 3, 2da1c68: progress on the course list and course page (FR-CAT-02, FR-CRS-02): "N of M lessons completed", one action (begin, continue to the first lesson not completed, or review), and each lesson row links to its workspace with its XP and state. The rule is `courseStanding` in `src/domain`. The content reads carry lesson IDs in course order and each lesson's XP. Code review 3: CHANGES REQUIRED, 2 MAJOR, 6 MINOR; all fixed in d3ad772 (one answered in the description).
+- Part 4, bab29d3: the invitation to save progress (FR-AUTH-07), below a lesson's first completion, for a guest only. The root layout reads the visitor once per request and hands the card down through the progress feature, so the lesson page reads no identity. Code review 4: CHANGES REQUIRED, 1 MAJOR, 4 MINOR; security review 1: APPROVED, 2 MINOR. Fixed in a4dd570 (one minor of each answered without change). Reports: `docs/reports/reviews/WP-5.4/code-review-3.md` and `code-review-4.md`.
+- `pnpm verify` on a4dd570: exit 0, `Test Files  128 passed (128)`, `Tests  2296 passed (2296)`. `pnpm build` with the fake public values: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser on a4dd570, Chromium, one test per process against the dev server on `localhost:3265`: workspace 17 of 17, phone 4 of 4, catalog gallery 25 of 25. The output-limit journey failed once reading the console mid-resize; it now waits for the region (3 of 3 after).
+- Found: after `pnpm build` the running dev server answers 500 until it recompiles; a second `next dev` in the same folder is refused ("Another next dev server is already running").
+- Not run: the stack journeys and `pnpm test:db` (no Docker), Firefox and WebKit (speed mode).
+- Push: `wp/5.4-progress-preview`, once 60 minutes had passed since the last push (01:12).
+
+### Owner: run this (parts 60 and 61)
+
+1. Update the WP-5.4 pull request body with `docs/reports/pull-requests/WP-5.4.md` (58 lines), or open it as a draft from `wp/5.4-progress-preview`.
+2. Stop the dev servers the sandbox cannot stop: `lsof -ti tcp:3264,3265 | xargs kill` from a terminal outside the sandbox.
+
+### Next
+
+- WP-5.4 part 5: the admin preview route (records nothing, not-found to a learner), J-8, the network-cut journey.
+
 ## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2 reviewed
 
 - Another session built a second device store (`src/features/progress/device`) in this checkout and committed both. This session kept `src/features/progress/client` (atomic across tabs, retry with backoff) and removed `device`; its note below about a lost-entry window no longer applies.

@@ -5,3 +5,5 @@ export { deviceProgress } from "./client/device-progress";
 export { createProgressStore, type Durability, type ProgressStore } from "./client/progress-store";
 export { syncStatus } from "./client/sync-status";
 export { SignedInProgressSync } from "./signed-in-sync";
+export { useDeviceCompletions } from "./client/use-device-completions";
+export { GuestInvitationProvider, useGuestInvitation } from "./client/guest-invitation";
