@@ -8,9 +8,9 @@ const SIGN_IN = "/sign-in";
 
 /**
  * "Sign in", carrying the page the visitor is on, so sign-in returns there
- * (FR-AUTH-04). A full load: after a client-side navigation the page would
- * keep the previous page's policy, which does not let the bot challenge frame
- * load, so no code could be sent (FR-AUTH-06).
+ * (FR-AUTH-04). Loads in full so the sign-in page gets its own policy
+ * (FR-AUTH-06); every link to sign-in should be this one. On the sign-in page
+ * the policy is already there, and a reload would lose the form.
  */
 export function SignInLink({ label }: { label: string }) {
   const pathname = usePathname();
@@ -19,7 +19,7 @@ export function SignInLink({ label }: { label: string }) {
   const returnTo = query === "" ? pathname : `${pathname}?${query}`;
   const href = current ? SIGN_IN : `${SIGN_IN}?${new URLSearchParams({ returnTo })}`;
   return (
-    <Link href={href} variant="nav" current={current} fullLoad>
+    <Link href={href} variant="nav" current={current} fullLoad={!current}>
       {label}
     </Link>
   );

@@ -17,7 +17,7 @@ vi.mock("next/link", () => ({
 afterEach(cleanup);
 
 describe("Link", () => {
-  it("[ADR-0014] navigates on the client by default", () => {
+  it("[FR-AUTH-06] navigates on the client by default", () => {
     render(
       <Link href="/courses" variant="nav">
         Courses

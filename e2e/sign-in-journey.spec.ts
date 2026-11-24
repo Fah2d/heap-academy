@@ -35,10 +35,8 @@ async function latestCode(request: APIRequestContext, address: string): Promise<
 
 async function requestCode(page: Page, address: string) {
   await page.getByRole("textbox", { name: signIn.emailLabel }).fill(address);
-  // The send button stays enabled while the bot challenge runs, and a press
-  // before its token arrives only says the check is needed. Turnstile writes
-  // the token into this field when it has one; it loads from Cloudflare, so
-  // it gets the same limit as the code email.
+  // Turnstile puts its token here. A press before then only shows the
+  // "wait for the check" notice.
   await expect(page.locator('input[name="cf-turnstile-response"]')).toHaveValue(/.+/, {
     timeout: 15_000,
   });
