@@ -27,15 +27,15 @@
 // audit hooks (they cannot be removed), objects moved to the collector's
 // permanent generation with gc.freeze() (memory only), and sys.monitoring
 // local events set on a code object (no call clears them for every code
-// object; a later case that takes the same tool id would receive them). A monitoring callback that
-// moves to another tool id while the tools are freed is freed on a later
-// pass. After each restore the state is checked by identity; if it is not
-// back (a callback still moving after the last pass, or a __del__ that ran
-// while the state was put back and changed it again), the harness raises
-// NotRestored. The check itself runs no learner code, and restore() keeps
-// the collector off until the check has passed, so an automatic collection
-// cannot call a __del__ from a reference cycle after a part has passed. A
-// fresh worker is the control for all of these.
+// object; a later case that takes the same tool id would receive them). A
+// monitoring callback that moves to another tool id while the tools are freed
+// is freed on a later pass. After each restore the state is checked by
+// identity; if it is not back (a callback still moving after the last pass, or
+// a __del__ that ran while the state was put back and changed it again), the
+// harness raises NotRestored. The check itself runs no learner code, and
+// restore() keeps the collector off until the check has passed, so an
+// automatic collection cannot call a __del__ from a reference cycle after a
+// part has passed. A fresh worker is the control for all of these.
 //
 // Nor is the harness itself protected: a program can reach its closure and
 // change what later test cases on the same worker report, so a check is
@@ -445,6 +445,12 @@ def _heap_make_grader():
                 pass
             if not intact():
                 raise NotRestored()
+            # restore() may have raised after a __del__ turned the collector
+            # on or before it turned it back on; these two calls run no
+            # learner code.
+            disable_gc()
+            if gc_enabled:
+                enable_gc()
             return result("program", "", False, ("runtime", "", None, None))
 
     def run_case(source, stdin, after_code):

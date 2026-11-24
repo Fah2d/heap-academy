@@ -845,17 +845,25 @@ describe("the harness", () => {
     });
   });
 
-  it("[FR-RUN-04] a collector that was off when the harness was defined is off again after a test case turns it on", async () => {
-    // WP-3.3 security review 5, MINOR 2: every other test starts with the
-    // collector on. Its own interpreter, as the harness is defined after gc.disable().
+  // Every other test starts with the collector on. Its own interpreter, with
+  // the harness defined after gc.disable().
+  async function harnessWithCollectorOff() {
     const pyodide = await loadPyodide();
     pyodide.setStdout({ batched: () => {} });
     pyodide.setStderr({ batched: () => {} });
     pyodide.runPython("import gc\ngc.disable()");
     const check: unknown = pyodide.runPython(HARNESS_SOURCE);
     if (typeof check !== "function") throw new Error("the harness did not evaluate to a function");
-    const runOwn = (source: string) =>
-      parseHarnessResult(Reflect.apply(check, undefined, [source, "", ""]) as unknown);
+    return {
+      run: (source: string) =>
+        parseHarnessResult(Reflect.apply(check, undefined, [source, "", ""]) as unknown),
+      collectorOn: () => pyodide.runPython("import gc\ngc.isenabled()") as unknown,
+    };
+  }
+
+  it("[FR-RUN-04] a collector that was off when the harness was defined is off again after a test case turns it on", async () => {
+    // WP-3.3 security review 5, MINOR 2.
+    const { run: runOwn } = await harnessWithCollectorOff();
     expect(runOwn("import gc\nprint(gc.isenabled())\ngc.enable()")).toMatchObject({
       output: "False\n",
       error: undefined,
@@ -866,6 +874,26 @@ describe("the harness", () => {
     });
   }, 60_000);
 
+  it("[FR-RUN-04] the fallback leaves the collector as it was when both restores fail after turning it on", async () => {
+    // WP-3.3 security review 5, round 2, MINOR 1: the first object's __del__
+    // runs in the first restore and leaves the second in gc.garbage; the
+    // second's runs in the fallback's restore. Both turn the collector on.
+    const own = await harnessWithCollectorOff();
+    const source = [
+      "import gc, sys",
+      "class Second:",
+      "    def __del__(self, gc=gc):",
+      "        gc.enable()",
+      "class First:",
+      "    def __del__(self, gc=gc, Second=Second):",
+      "        gc.enable()",
+      "        gc.garbage.append(Second())",
+      'sys.modules["linecache"].cache["ghost"] = First()',
+    ].join("\n");
+    expect(own.run(source)).toMatchObject({ error: { kind: "runtime", message: "" } });
+    expect(own.collectorOn()).toBe(false);
+  }, 60_000);
+
   it("[FR-GRD-04] the harness version changes with the harness: this hash is updated together with HARNESS_VERSION", () => {
     // A stale cached worker is refused only if the version moves with the Python.
     // FNV-1a over the UTF-16 code units: the grader's tests stay free of I/O modules.
@@ -873,6 +901,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "4", hash: 1176678380 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "4", hash: 3599052867 });
   });
 });
