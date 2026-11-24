@@ -2,6 +2,17 @@
 
 ## Up to date with main
 
+`main` at 428c437 (#14, the generated database types) is in this branch through `wp/4.1-courses-chapters`, with WP-2.2's two CI fixes for #13: merge commit 93d529d, no conflict. The fixes give the return path sweep a 60 s limit, and make the sign-in helper wait for Turnstile's token before it presses "Send code". WP-2.2's description, "CI fixes for #13", has the evidence.
+
+`pnpm verify` on 93d529d, exit 0:
+
+```
+ Test Files  73 passed (73)
+      Tests  1331 passed (1331)
+```
+
+`next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` and the `stack` journeys (Docker is not running here).
+
 `wp/4.1-courses-chapters` with the course form focus fix from WP-4.3 (84aff13, WP-4.3 decision 17) is merged into this branch: a2ab47e. One conflict, `docs/reports/local-build-progress.md`: this branch's copy plus the new subsection. On a2ab47e, `pnpm verify`, exit 0, 73 files, 1331 tests; `next build` with CI's public values, exit 0; `check-bundle` (22 files) and `check-static`: exit 0. This branch's lesson editor keeps its own copy of the race until WP-4.3 merges, which fixes it.
 
 `main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/4.1-courses-chapters`, its base (1910c3b): merge commit 7acef42. One file conflicted, `docs/reports/local-build-progress.md`: this branch's copy with the new session section from `wp/4.1-courses-chapters` added; no section dropped. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings the approved spec changes of WP-2.1, WP-2.2, WP-2.3 and WP-4.1.
