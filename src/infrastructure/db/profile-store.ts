@@ -15,9 +15,11 @@ export type ProfileRecord = {
 export type ProfileStore = {
   /** The caller's profile, or null when the database cannot give it. */
   read: (userId: string) => Promise<ProfileRecord | null>;
-  /** True when the caller's own row took the time zone. */
-  setTimeZone: (userId: string, timeZone: string) => Promise<boolean>;
+  /** Stores the time zone on the caller's own row, if it differs from the stored one. */
+  setTimeZone: (userId: string, timeZone: string) => Promise<TimeZoneOutcome>;
 };
+
+export type TimeZoneOutcome = "changed" | "unchanged" | "unavailable";
 
 type Db = Pick<SessionClient, "from">;
 
@@ -52,8 +54,10 @@ export function supabaseProfileStore(db: Db): ProfileStore {
         .from("profiles")
         .update({ time_zone: timeZone })
         .eq("user_id", userId)
+        .neq("time_zone", timeZone)
         .select("user_id");
-      return error === null && data !== null && data.length === 1;
+      if (error !== null || data === null) return "unavailable";
+      return data.length === 0 ? "unchanged" : "changed";
     },
   };
 }

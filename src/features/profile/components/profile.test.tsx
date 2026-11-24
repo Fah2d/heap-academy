@@ -24,7 +24,7 @@ vi.mock("@/infrastructure/db/session-client", () => ({ createSessionClient: asyn
 vi.mock("@/infrastructure/db/profile-store", () => ({
   supabaseProfileStore: () => ({ read: mocks.read }),
 }));
-vi.mock("../server/actions", () => ({ updateProfile: vi.fn(async () => ({ ok: true })) }));
+vi.mock("../server/actions", () => ({ updateProfile: vi.fn() }));
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
@@ -74,20 +74,21 @@ describe("[FR-PRF-02] the browser's time zone", () => {
   const zone = new Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   it("is sent when it differs, and the page is rendered again", async () => {
-    const update = vi.fn(async () => ({ ok: true }));
+    const update = vi.fn(async () => ({ ok: true as const, value: { changed: true } }));
     render(<TimeZoneReporter stored="Nowhere/Never" updateProfile={update} />);
     expect(update).toHaveBeenCalledWith({ timeZone: zone });
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce());
   });
 
   it("is not sent when it is the stored one", () => {
-    const update = vi.fn(async () => ({ ok: true }));
+    const update = vi.fn(async () => ({ ok: true as const, value: { changed: true } }));
     render(<TimeZoneReporter stored={zone} updateProfile={update} />);
     expect(update).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["is refused", async () => ({ ok: false })],
+    ["is refused", async () => ({ ok: false as const })],
+    ["finds the same zone", async () => ({ ok: true as const, value: { changed: false } })],
     ["fails", async () => Promise.reject(new Error("offline"))],
   ])("changes nothing on screen when the change %s", async (_name, answer) => {
     const update = vi.fn(answer);
@@ -95,5 +96,15 @@ describe("[FR-PRF-02] the browser's time zone", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+
+  it("is sent once, though a new render passes a new action", () => {
+    const answer = async () => ({ ok: true as const, value: { changed: false } });
+    const first = vi.fn(answer);
+    const second = vi.fn(answer);
+    const view = render(<TimeZoneReporter stored="Asia/Calcutta" updateProfile={first} />);
+    view.rerender(<TimeZoneReporter stored="Asia/Calcutta" updateProfile={second} />);
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
   });
 });

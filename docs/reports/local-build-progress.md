@@ -2,6 +2,16 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 01:45), in `night-b`, profile page on `wp/6.3-profile-page`
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- Done: `/profile` with name, XP and both streaks, the header link, and the time zone update. Code and security review, one round: both found a possible endless refresh; fixed, not reviewed again. `pnpm verify`: 132 files, 2349 tests. Not run: browser tests, `pnpm test:db`.
+- Description: `docs/reports/pull-requests/WP-6.3-profile-page.md`.
+- Push: after 02:36 (one push per 60 minutes). Only `wp/6.3-profile-page` is pushed then; it contains the two unpushed commits of `wp/6.1-sync-wiring`.
+- Owner: open a draft pull request from `wp/6.3-profile-page`.
+- Next: per-course progress and display name editing on the profile.
+- Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule).
+
 ## Session of 2026-11-25 (from about 01:36), in `night-b`, unsynced notice on `wp/6.1-sync-wiring`
 
 - `origin/main` still 428c437: nothing to merge for task 1.

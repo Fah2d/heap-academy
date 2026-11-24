@@ -62,7 +62,8 @@ export async function updateProfile(
   userId: string,
   input: z.infer<typeof updateProfileInput>,
   store: ProfileStore,
-): Promise<UseCaseResult<null, UpdateProfileFailure>> {
-  if (await store.setTimeZone(userId, input.timeZone)) return { ok: true, value: null };
-  return { ok: false, error: "unavailable" };
+): Promise<UseCaseResult<{ changed: boolean }, UpdateProfileFailure>> {
+  const outcome = await store.setTimeZone(userId, input.timeZone);
+  if (outcome === "unavailable") return { ok: false, error: "unavailable" };
+  return { ok: true, value: { changed: outcome === "changed" } };
 }

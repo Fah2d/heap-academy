@@ -20,7 +20,12 @@ function fakeDb(answers: { profile?: Answer; completions?: Answer; update?: Answ
         eq: (column: string, value: string) => {
           seen.update = values;
           seen.filters.push([table, column, value]);
-          return { select: () => Promise.resolve(answers.update) };
+          return {
+            neq: (other: string, unwanted: string) => {
+              seen.filters.push([table, `not ${other}`, unwanted]);
+              return { select: () => Promise.resolve(answers.update) };
+            },
+          };
         },
       }),
     }),
@@ -58,17 +63,22 @@ describe("[FR-PRF-01] the profile store", () => {
     expect(await supabaseProfileStore(fakeDb(answers).db).read("u1")).toBeNull();
   });
 
-  it("changes only the time zone, only on the caller's row", async () => {
+  it("changes only the time zone, only on the caller's row, only when it differs", async () => {
     const { db, seen } = fakeDb({ update: ok([{ user_id: "u1" }]) });
-    expect(await supabaseProfileStore(db).setTimeZone("u1", "Europe/London")).toBe(true);
+    expect(await supabaseProfileStore(db).setTimeZone("u1", "Europe/London")).toBe("changed");
     expect(seen.update).toEqual({ time_zone: "Europe/London" });
-    expect(seen.filters).toEqual([["profiles", "user_id", "u1"]]);
+    expect(seen.filters).toEqual([
+      ["profiles", "user_id", "u1"],
+      ["profiles", "not time_zone", "Europe/London"],
+    ]);
   });
 
   it.each([
-    ["the database fails", failed],
-    ["no row changed", ok([])],
-  ])("reports a change that did not happen when %s", async (_name, update) => {
-    expect(await supabaseProfileStore(fakeDb({ update }).db).setTimeZone("u1", "UTC")).toBe(false);
+    ["unavailable", failed],
+    ["unchanged", ok([])],
+  ])("answers %s", async (outcome, update) => {
+    expect(await supabaseProfileStore(fakeDb({ update }).db).setTimeZone("u1", "UTC")).toBe(
+      outcome,
+    );
   });
 });

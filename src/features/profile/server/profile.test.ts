@@ -7,7 +7,7 @@ vi.mock("server-only", () => ({}));
 const at = (text: string) => Date.parse(text);
 
 function store(overrides: Partial<ProfileStore>): ProfileStore {
-  return { read: async () => null, setTimeZone: async () => true, ...overrides };
+  return { read: async () => null, setTimeZone: async () => "changed", ...overrides };
 }
 
 const record = (timeZone: string, times: string[]) =>
@@ -79,16 +79,18 @@ describe("[FR-PRF-02] the time zone change", () => {
   });
 
   it("stores it for the caller, and says when it could not", async () => {
-    const setTimeZone = vi.fn(async () => true);
+    const setTimeZone = vi.fn(async () => "changed" as const);
     const input = updateProfileInput.parse({ timeZone: "UTC" });
     expect(await updateProfile("u1", input, store({ setTimeZone }))).toEqual({
       ok: true,
-      value: null,
+      value: { changed: true },
     });
     expect(setTimeZone).toHaveBeenCalledWith("u1", "UTC");
-    expect(await updateProfile("u1", input, store({ setTimeZone: async () => false }))).toEqual({
-      ok: false,
-      error: "unavailable",
-    });
+    expect(
+      await updateProfile("u1", input, store({ setTimeZone: async () => "unavailable" })),
+    ).toEqual({ ok: false, error: "unavailable" });
+    expect(
+      await updateProfile("u1", input, store({ setTimeZone: async () => "unchanged" })),
+    ).toEqual({ ok: true, value: { changed: false } });
   });
 });
