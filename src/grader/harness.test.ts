@@ -892,6 +892,34 @@ describe("the harness", () => {
     });
   });
 
+  it("[FR-RUN-04] a cycle that a __del__ makes only when the first restore frees its object is collected before the next test case", () => {
+    // WP-3.3 security review 6, MAJOR 1: the classes are kept alive in a
+    // standard library module, so the first collection found nothing; then
+    // the restore freed the object in sys.modules, whose __del__ made a cycle
+    // that the next case's collection ran.
+    const source = [
+      "import sys, json",
+      "class Link:",
+      "    def __init__(self):",
+      "        self.me = self",
+      "    def __del__(self, sys=sys):",
+      '        sys.stdout.write("INJECTED\\n")',
+      "class Y:",
+      "    def __del__(self, Link=Link):",
+      "        Link()",
+      "class X:",
+      "    def __del__(self, sys=sys, Y=Y):",
+      '        sys.modules["zz_evil"] = Y()',
+      "json._keep = (Link, Y, X, type(sys.stdout))",
+      "x = X()",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "", error: undefined });
+    expect(run('import gc\ngc.collect()\nprint("next")')).toMatchObject({
+      output: "next\n",
+      error: undefined,
+    });
+  });
+
   it("[FR-RUN-04] what a __del__ changes in the harness's last collection is put back before the harness returns", async () => {
     // Read on the interpreter itself, after check has returned: the next
     // case's own restore would hide it.
@@ -1022,6 +1050,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "5", hash: 3614412670 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "5", hash: 454098534 });
   });
 });

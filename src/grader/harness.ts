@@ -461,16 +461,12 @@ def _heap_make_grader():
             raise NotRestored()
         # The namespace was not cleared, so what the case left is freed here.
         # Any failure now makes the harness raise.
+        # collect_all() returns only after a restore that passed its check,
+        # which leaves the collector as it was saved.
         try:
             collect_all()
         except base_exception:
             raise NotRestored()
-        # restore() may have raised after a __del__ turned the collector
-        # on or before it turned it back on; these two calls run no
-        # learner code.
-        disable_gc()
-        if gc_enabled:
-            enable_gc()
         return result("program", "", False, ("runtime", "", None, None))
 
     # A __del__ that runs in a collection can make a new reference cycle,
@@ -479,7 +475,12 @@ def _heap_make_grader():
     # and restores until a collection finds nothing, and raises Uncollected
     # after eight passes (the same as the run support, WP-3.1 security
     # review 8, MAJOR 1).
+    # The restore first: learner code runs while the namespace is cleared,
+    # and an object it puts in the state could make a cycle only when that
+    # restore frees it, after a first collection that found nothing (WP-3.3
+    # security review 6, MAJOR 1).
     def collect_all():
+        restore()
         for index in passes:
             found = collect()
             restore()
