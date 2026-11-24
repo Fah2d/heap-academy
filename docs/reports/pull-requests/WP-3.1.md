@@ -489,7 +489,6 @@ On the development server (`pnpm dev`):
 - **The worker's file system carries over between runs** (security review 8, round 1, MINOR 3). `sys.path[0]` is `''` and the working directory is `/home/pyodide`, so a run that writes `statistics.py` there changes what the next run's `import statistics` loads. For you to decide: a new empty working directory for each run, or a residual risk recorded in ADR-0004 and spec 06.
 - **A program that breaks the restore gets the "crashed" message** (security review 8, round 1, MINOR 6). The worker is replaced, which is safe; whether the learner should see another message is for you to decide.
 - **The harness had the same single `collect()`** that review 8 found in Run (round 1, MAJOR 1). Fixed on `wp/3.3-grader` in 65af875, c694902 and ff9e6eb (WP-3.3 security review 6); reaches this branch only through WP-3.3.
-- **The multi-pass monitoring loop is not tested in the run support** (round 1, MINOR 5). The reviewer checked it by hand, and the harness tests it.
 - **`warnings.simplefilter("error")` and other `sys` names outside the snapshot carry over**, as ADR-0004 accepts for learners. `asyncio.run` fails in Pyodide under Node, on aec6c83 as well.
 
 ## Risks and rollback

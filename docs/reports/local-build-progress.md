@@ -2,6 +2,81 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:05, continued), in `night-a`, on `wp/3.1-python-worker`
+
+Part 35 took about 5 minutes, so the run went on with an open WP-3.1 item that needed no owner decision: "The multi-pass monitoring loop is not tested in the run support" (security review 8, round 1, MINOR 5), listed under "Not fixed" in `docs/reports/pull-requests/WP-3.1.md`. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 36 done: the "Not fixed" line on the monitoring loop's test was out of date
+
+- Found: the test exists. a24111c added "a sys.monitoring callback that takes a freed tool id while the tools are freed is freed too" to `src/runtime/worker/run-support.test.ts` (round 2, MINOR 4 lists it), but the description still listed round 1's MINOR 5 as not fixed.
+- Checked that the test guards the loop, by hand, with no commit: with only the monitoring loop in `restore()` cut to one pass (`for index in passes[:1]:`), the test fails (`1 failed`); with the file put back, it passes (`1 passed`). Cutting the shared `passes` list to one entry also fails it, but that changes the collection loop too, so it proves less.
+- No code change. The line is removed from "Not fixed" in `docs/reports/pull-requests/WP-3.1.md`. The review report is left as written: it records round 1 as the reviewer saw it.
+- Push: `wp/3.1-python-worker` with the docs commit. This line is pushed with that commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- The same as in the section below.
+
+## Session of 2026-11-24 (from about 13:05), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 35 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 68595de: `wp/3.3-grader` at 6aafe2b merged (WP-3.3 security review 7: 3ab21e9, d757f11 and the docs). One conflict, this file; `wp/3.3-grader`'s copy taken (no line of this branch's copy is missing from it). The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "5"`; `grade.ts` and the Node runner take the value from the harness.
+- `pnpm verify` on 68595de: exit 0, 46 files, 1229 tests. `pnpm build` with CI's fake public values: exit 0; the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "6"`. `check-bundle` and `check-static`: exit 0.
+- Seen, not a problem: `pnpm`'s install step before scripts could not take its store lock in this sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); the scripts ran on the existing `node_modules`, and no package was installed.
+- Not run: the browser tests. No reviewer has seen 68595de (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with 68595de and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open. (`gh` could not reach GitHub from this sandbox: `x509: OSStatus -26276`.)
+2. The owner actions of the sections below are still due (a review of WP-3.3's d757f11, and security review 8, round 3, on WP-3.1's a24111c and a7c3ba7, among them).
+
+### Next
+
+- After security review 8, round 3, approves WP-3.1's a24111c and a7c3ba7: merge `wp/3.1-python-worker` into `wp/3.3-grader` and on into `wp/3.4-statechart`.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
+## Session of 2026-11-24 (from about 12:50, continued), in `night-a`, on `wp/3.3-grader`
+
+Part 33 took about 10 minutes, so the run went on with an open WP-3.3 item that needed no owner decision: "Timers between test cases in the Node runner", left as not checked by security review 6, round 2. This file is `wp/3.1-python-worker`'s copy (the newest, from part 33) with this section added on top.
+
+### Task 3, part 34 done: each test case starts with the harness's collections (WP-3.3 security review 7)
+
+- Checked first: a learner `js.setTimeout` callback fires in the Node runner's thread between test cases. It made a reference cycle whose `__del__` wrote into the next case's output (`True True\nINJECTED ok\n`). The `print` it replaced was put back by the restore.
+- 3ab21e9: `run_case` starts with `collect_all()` instead of a bare `restore()`. `HARNESS_VERSION` is "6". The new Node runner test failed on the parent the way above.
+- Security review 7, round 1 on 3ab21e9: **APPROVE**, 2 MINOR (say who a failed start collection is reported against; rewrap a header line). Both fixed in d757f11. No reviewer has seen d757f11. Report: `docs/reports/reviews/WP-3.3/security-review-7.md`.
+- `pnpm verify` on d757f11: exit 0, 42 files, 1114 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "6"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Decisions: `HARNESS_VERSION` "6", because "5" had already reached `wp/3.4-statechart` by merge; it stays "6" through d757f11 (a comment inside the Python text; the hash pin moved).
+- Found, not changed (WP-3.1 code, owner decision there): Run still starts with a bare `restore()`, so a timer a check or a run set can still write into the next run's output in the browser. That is WP-3.1 security review 7, MINOR 1.
+- Not done: merging this into `wp/3.4-statechart`.
+- Description: the first line, "How it was verified", Reviews and "Not fixed" of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with 3ab21e9, d757f11 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. Ask for a review of d757f11, or accept it on the evidence in the description.
+3. The owner actions of the sections below are still due (part 33's among them).
+
+### Next
+
+- Merge `wp/3.3-grader` (with d757f11) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+- After security review 8, round 3, approves WP-3.1's a24111c and a7c3ba7: merge `wp/3.1-python-worker` into `wp/3.3-grader` and on into `wp/3.4-statechart`.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
 ## Session of 2026-11-24 (from about 12:50), in `night-a`, on `wp/3.1-python-worker`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Every item under "Next" below waits on security review 8, round 3, of WP-3.1's a24111c. This run did the first part of the first item anyway, as it needs no owner decision; the merges stay until the review. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
