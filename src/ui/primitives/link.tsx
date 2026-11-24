@@ -31,8 +31,9 @@ const classes: Record<LinkVariant, string> = {
   inline: underlined,
   standalone: cx(underlined, "inline-flex min-h-target items-center font-medium"),
   // The 44 px target reaches past the line box, by padding that a negative
-  // margin of the same size takes back, so a one-line title takes the room of
-  // its line, as a wrapped title does.
+  // margin of the same size takes back, so a one-line title takes about the
+  // room of its line, as a wrapped title does: exactly at text-lg (28 px
+  // lines), 2.4 px more at text-base (25.6 px lines).
   heading: cx(underlined, "inline-flex min-block-target items-center -my-2 py-2 font-semibold"),
   nav: "inline-flex min-h-target min-w-target items-center justify-center border-be-(length:--marker-width) no-underline",
   action:

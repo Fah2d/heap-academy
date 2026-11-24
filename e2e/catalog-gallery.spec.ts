@@ -9,7 +9,8 @@ import { saveScreen } from "./screens";
 // address and is drawn alone as its whole page, so the axe check and the
 // screen see that page and nothing else. Runs in the `gallery` project,
 // against the development server. A read that fails ends on the shared error
-// page, which e2e/gallery.spec.ts checks at /dev/error. The published pages
+// page, which e2e/catalog-outage.spec.ts checks on the catalog's own pages
+// against the production build. The published pages
 // themselves are in e2e/catalog-journey.spec.ts, against the local stack.
 
 // 320 px is the narrowest width NFR-A11Y-05 names; the rest are the screenshot widths.
@@ -42,6 +43,14 @@ const STATES: { state: string; tags: string; check: (page: Page) => Promise<void
     check: async (page) => {
       await expect(page.getByRole("link", { name: catalogGallery.longCourse })).toBeVisible();
       await expect(page.getByText(catalogCommon.lessonCount(3))).toBeVisible();
+      // A one-line title takes the height of its line, not of its 44 px
+      // target, so rows with one-line and wrapped titles are spaced alike.
+      const title = page.getByRole("heading", { level: 2, name: catalogGallery.sampleCourse });
+      const { height, lineHeight } = await title.evaluate((element) => ({
+        height: element.getBoundingClientRect().height,
+        lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+      }));
+      expect(Math.abs(height - lineHeight)).toBeLessThan(1);
     },
   },
   {

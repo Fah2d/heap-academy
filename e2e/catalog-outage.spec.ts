@@ -8,7 +8,12 @@ import { saveScreen } from "./screens";
 // page answers 500 and the browser draws the shared error page. These tests
 // run against the production build served a second time with a database
 // address where nothing listens (playwright.config.ts, `outagePort`), so every
-// read fails here and in CI, where the local stack is running.
+// read fails here and in CI, where the local stack is running. The content
+// cache is keyed by the database address, so answers the other server cached
+// from the stack never answer here. Each page takes about 14 s: the database
+// library tries a refused read three more times, after 1, 2 and 4 s, and a
+// failed view reads twice (WP-5.1 decision 9).
+// The port must match `outagePort` in playwright.config.ts.
 test.use({ baseURL: "http://127.0.0.1:3102" });
 
 // 320 px is the narrowest width NFR-A11Y-05 names; the rest are the screenshot widths.

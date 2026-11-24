@@ -7,7 +7,7 @@ const port = 3100;
 // The same production build, served with a database address where nothing
 // listens (port 1), so every content read fails: e2e/catalog-outage.spec.ts
 // sees the catalog's "Could not load" state there, even when the local stack
-// is running.
+// is running. e2e/catalog-outage.spec.ts names the same port.
 const outagePort = 3102;
 // The primitive gallery and the error page exist only on the development
 // server, so e2e/gallery.spec.ts runs against one beside the production build.
