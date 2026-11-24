@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 9730a70, at c39ddc7). Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in c77c2e0, at 459c0c3). Until those merge, this pull request also shows their commits. It is a **draft**: no browser test has run (no browser can start in the sandbox that built it), and the phone check is the owner's.
 
 ## What and why
 
@@ -19,18 +19,20 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at c39ddc7 is merged in 9730a70. It adds WP-3.1's worker header rule fix (e340e4f: the rule is `/_runtime/worker/:path+.js`, so a miss under the worker folder gets the runtime's static policy), its test in `scripts/next-config.test.ts`, security review 6, and the docs. No conflict. `scripts/next-config.test.ts` lists the same eleven compiled worker files as `scripts/build-runtime.test.ts` on this branch, and the build writes exactly those eleven to `public/_runtime/worker`. `main` is still at 0efe863.
+`wp/3.3-grader` at 459c0c3 is merged in c77c2e0. It adds WP-3.1's two browser test fixes (0849b56, f7dfb52: `run()` clears a program's globals when the run ends, so the T-01 loader test and the T-01 evaluation test in `e2e/runtime.spec.ts` now bind what their late callbacks use as default arguments), WP-3.1 security review 7, and the docs. One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, because it is the newer one and holds every section of this branch's copy. No code conflict. `main` is still at 0efe863.
 
-`pnpm verify` on 9730a70, exit 0:
+`pnpm verify` on c77c2e0, exit 0:
 
 ```
  Test Files  46 passed (46)
       Tests  1148 passed (1148)
 ```
 
-`pnpm build` with CI's fake public values on 9730a70, exit 0. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+`pnpm build` with CI's fake public values on c77c2e0, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
 
 The merges before it:
+
+`wp/3.3-grader` at c39ddc7 is merged in 9730a70. It adds WP-3.1's worker header rule fix (e340e4f: the rule is `/_runtime/worker/:path+.js`, so a miss under the worker folder gets the runtime's static policy), its test in `scripts/next-config.test.ts`, security review 6, and the docs. No conflict. `scripts/next-config.test.ts` lists the same eleven compiled worker files as `scripts/build-runtime.test.ts` on this branch, and the build writes exactly those eleven to `public/_runtime/worker`. `main` is still at 0efe863. `pnpm verify` on 9730a70: exit 0, 46 files, 1148 tests. `pnpm build`: exit 0.
 
 `wp/3.3-grader` at 44d6425 is merged in fff5ece. It adds WP-3.1's proxy matcher fix (f8af00a, c03a7d0: the exclusions end at a slash or the path's end, and `/favicon.ico` gets the page policy) and the docs. One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy was taken, as the newer one. No code conflict. `main` is still at 0efe863.
 

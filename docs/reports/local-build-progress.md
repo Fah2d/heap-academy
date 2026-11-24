@@ -2,7 +2,7 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 03:40), in `night-a`, on `wp/3.3-grader`
+## Session of 2026-11-24 (from about 03:40), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it. This run did the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.
 
@@ -14,9 +14,22 @@ Same task list. `origin/main` is still 0efe863 and every branch is 0 commits beh
 - Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md`.
 - Push: `wp/3.3-grader` with 3e50d99 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
 
+### Task 3, part 16 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- Part 15 took about 5 minutes, so the run went on. This copy of the file was carried to `wp/3.4-statechart` with the merge.
+- c77c2e0: `wp/3.3-grader` at 459c0c3 merged (WP-3.1's two browser test fixes, security review 7, the docs). One conflict, this file; WP-3.3's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on c77c2e0: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with c77c2e0 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, and the same with `WP-3.4.md` on `wp/3.4-statechart`, if those pull requests are open.
+2. The owner actions of the sections below are still due.
+
 ### Next
 
-- Merge `wp/3.3-grader` into `wp/3.4-statechart`.
 - Run the WP-3.3 and WP-3.4 browser tests in Chromium the same way as WP-3.1's.
 
 ## Session of 2026-11-24 (from about 03:10, second run, continued), in `night-a`, on `wp/3.1-python-worker`
