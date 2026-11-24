@@ -1,9 +1,4 @@
-import type {
-  ControllerEvent,
-  ControllerReport,
-  ControllerStatus,
-  RunResult,
-} from "@/runtime/controller";
+import type { ControllerEvent, ControllerStatus, RunResult } from "@/runtime/controller";
 import type { OutputStream } from "@/runtime/protocol";
 
 // What the development runtime page shows, built from the controller's
@@ -15,7 +10,9 @@ export type RuntimeView = {
   output: { stream: OutputStream; text: string }[];
   result: RunResult | undefined;
   restarts: number;
-  dropped: ControllerReport["code"][];
+  /** How many messages the controller dropped or acted on. A count, not a
+   * list, so a late timer that prints for ever cannot grow it without limit. */
+  dropped: number;
 };
 
 export const INITIAL_VIEW: RuntimeView = {
@@ -24,7 +21,7 @@ export const INITIAL_VIEW: RuntimeView = {
   output: [],
   result: undefined,
   restarts: 0,
-  dropped: [],
+  dropped: 0,
 };
 
 export function reduceView(
@@ -66,6 +63,7 @@ export function startRun(view: RuntimeView, status: ControllerStatus): RuntimeVi
   return { ...view, status, output: [], result: undefined };
 }
 
-export function addReport(view: RuntimeView, report: ControllerReport): RuntimeView {
-  return { ...view, dropped: [...view.dropped, report.code] };
+/** Counts one message the controller dropped or acted on. */
+export function addReport(view: RuntimeView): RuntimeView {
+  return { ...view, dropped: view.dropped + 1 };
 }
