@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a, which no reviewer has seen (see Reviews).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which no reviewer has seen (see Reviews).
 
 ## What and why
 
@@ -57,6 +57,15 @@ Code review 4 on df1c7bb: CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157 (see R
 Not run on the merge: the browser tests.
 
 ## How it was verified
+
+**Security review 6 fixes (65af875 to ff9e6eb), 2026-11-24.** At the end of each test case the harness now restores, then collects and restores until a collection finds nothing, and raises `Uncollected` (a `NotRestored` that the fallback re-raises) after eight passes. The fallback in `check()` runs after the except block and collects the same way; any failure there makes the harness raise. `run_case` drops the capture's state before collecting. `HARNESS_VERSION` is "5". Before, a chain of `__del__` methods, each making a new reference cycle, ran its next link in the next test case's own collection and wrote into that case's output. `pnpm verify` on ff9e6eb, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1113 passed (1113)
+```
+
+`pnpm build` with CI's fake public values on ff9e6eb: exit 0; `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0; the built `public/_runtime/worker/grader/harness.js` has `HARNESS_VERSION = "5"`. Six new tests; each fails on the code before its fix (the first two and the fallback test on 5649d7a, the reviewers' probes on 65af875 and c694902). Mutants of `src/grader/harness.ts`, each run against `src/grader/harness.test.ts` and then restored; each fails at least one test other than the hash pin: one collection in `run_case`; no `except Uncollected`; no collection in the fallback; the fallback's collection failure swallowed; `return` instead of `raise Uncollected()`; no restore inside the loop; the fallback moved back into the except block; no restore before the first collection; no `state = None`. Two survive, both equivalent: `Uncollected` not a subclass of `NotRestored` (the fallback re-raises it by name), and restore-then-collect inside the loop (safe with the leading restore). Not run: the browser tests.
 
 **Security review 5 fixes (853f0c1 to 5649d7a), 2026-11-24.** Between test cases the harness now restores the garbage collector's thresholds, enabled state, debug flags and saved garbage (`gc.garbage`), checks them in `intact()`, and keeps the collector off from the start of the restore until the check has passed. `HARNESS_VERSION` is "4". `pnpm verify` on 5649d7a, exit 0:
 
@@ -333,6 +342,15 @@ Security review 5, on 853f0c1 to 5649d7a (security review 4, round 4, noted: the
 
 Decisions: `HARNESS_VERSION` is "4", because "3" had left this branch by merge into `wp/3.4-statechart` (a9c8c0c). `gc.freeze()` is not undone: frozen objects change memory, not output, and `gc.unfreeze()` would also move objects the runtime froze.
 
+Security review 6, on 65af875 to c694902 (found during WP-3.1 security review 8: the harness had the same single collection at the end of `run_case` as the run support before 16711f5). Report: `docs/reports/reviews/WP-3.3/security-review-6.md`. Two rounds:
+
+| Round, on | Verdict | What was done |
+|---|---|---|
+| 1, 65af875 | CHANGES REQUIRED, 1 MAJOR, 1 MINOR | c694902: a restore before the first collection (an object planted while the namespace was cleared made a cycle only when the first restore freed it, after a collection that found nothing), with the reviewer's probe as a test; the fallback's two dead collector calls removed. |
+| 2, c694902 | **APPROVE**, 2 MINOR | ff9e6eb: the capture's state dict dropped before collecting, with the reviewer's probe as a test; the header names the harness's frames as well as its closure. No reviewer has seen ff9e6eb. |
+
+Decisions: `HARNESS_VERSION` is "5", because "4" had left this branch by merge into `wp/3.4-statechart` (4fe1874); it stays "5" through the three commits, which were pushed together. `Uncollected` is a subclass of `NotRestored`, so callers that read the type see the same family. Locals rebound through `sys._getframe(...).f_locals` can still keep an object alive past the last collection; clearing locals cannot close that from inside Python, and `freshWorker` is the control (listed below).
+
 ## Try it
 
 There is no learner-facing change to try. From the repository root, the grader's own tests run the harness in real Pyodide:
@@ -369,8 +387,11 @@ pnpm vitest run src/grader
 - **Validate must ask for a fresh worker before each program it validates** (WP-3.1 security review 3, MAJOR 1; WP-3.3 security review 1, MAJOR 1). A program can rewrite the harness's closure, as it can the run support's, and the change lasts until the worker is replaced. For a learner this only touches their own results. The controller now offers `freshWorker`; WP-4.3 must use it. No isolation stops a hostile lesson from forging its own pass.
 - **The run support and the harness each restore the state** with their own copy of the same routine. Moving Run onto the harness would leave one copy; that changes WP-3.1's tested code and is left for WP-3.4 or later.
 - **Hooks the harness cannot undo** (what is left of security review 2, MINOR 5, after 203b6bb to 839707a): audit hooks (Python cannot remove them) and `sys.monitoring` local events set on a code object (no call clears them for every code object) stay for the later test cases on the same worker. A fresh worker is the control.
-- **Run does not get the new restore.** WP-3.1's run support (`src/runtime/worker/run-support.ts`) has its own copy of the routine and still restores only builtins, the module table, the streams and the trace and profile hooks, so a `sys.monitoring` callback set in one run reaches the learner's next run. It also empties the module table name by name and does not put the line cache back, so a run can leave a line-cache key whose `__eq__` runs during the next run (security review 4, round 5, noted outside its range). That is the same learner's own output, with no verdict, and the next check's first restore clears the cache; closing it is the shared routine above.
+- **Run gets the restore on `wp/3.1-python-worker`, not yet here.** WP-3.1's run support (`src/runtime/worker/run-support.ts`) has its own copy of the routine. Since 4d6608f to a24111c (WP-3.1 security review 8, rounds 1 and 2) it restores and checks the same state and raises `NotRestored`; round 3 on a24111c has not run. Those commits are not merged into this branch yet; the merge waits for that round. Until then a `sys.monitoring` callback or a line-cache key set in one run reaches the learner's next run on this branch: the same learner's own output, with no verdict, and the next check's first restore clears it.
 - **Objects frozen with `gc.freeze()`** stay in the collector's permanent generation for the later test cases (security review 5, MINOR 1). They change memory, not output, and `gc.unfreeze()` would also move objects the runtime froze. A fresh worker is the control. The collector's thresholds, enabled state, debug flags and saved garbage are restored since 853f0c1 and 04fcffa.
+- **Objects kept alive through the harness's frames** (security review 6, round 2, MINOR 2). A program can rebind a local of `run_case` or `check` through `sys._getframe(...).f_locals`, so an object outlives the last collection and its cycle runs in the next test case on the same worker. The header names this; a fresh worker is the control.
+- **Run has the same first-pass gap** (security review 6, round 1, argued, not reproduced). WP-3.1's run support (16711f5, `run-support.ts`) collects before its first restore, as this harness did in 65af875; the fix is the same leading restore. It is WP-3.1 code, so it is not changed here.
+- **Timers between test cases in the Node runner** (security review 6, round 2, not checked). The Node runner's thread runs one test case per message, so a learner timer could fire between cases there, in tests and scripts only; in the browser all test cases run in one synchronous loop.
 - **The lint rule's remaining bypasses** (security review 2, MINOR 4), for you.
 - **FR-GRD-07** (naming a near miss) is a Should requirement for a later package.
 
