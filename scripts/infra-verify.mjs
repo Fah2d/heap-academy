@@ -15,7 +15,9 @@
 //              is accepted as long as the response is a page.
 //   --release  the commit the address must serve, by /api/health. The deploy
 //              smoke passes its own commit, so a deploy that never went live
-//              fails instead of checking the previous one.
+//              fails instead of checking the previous one. A promotion takes
+//              a few seconds to reach the address, so the script asks again
+//              for up to 60 s before it runs the other checks or fails.
 //   --repo     also check the repository settings of ADR-0029 and T-18 with
 //              `gh api`: secret scanning, push protection, private
 //              vulnerability reporting, interaction limits, no repository
@@ -34,6 +36,10 @@ const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const ONE_YEAR = 31_536_000;
 /** No single request may take longer: a hung deployment fails the smoke, so it rolls back. */
 const TIMEOUT_MS = 15_000;
+/** How long the address may take to serve a just-promoted release. */
+export const RELEASE_WAIT_MS = 60_000;
+/** The pause between two health requests while waiting for the release. */
+const RELEASE_POLL_MS = 5_000;
 
 /** The features turned off by Permissions-Policy (src/infrastructure/http/security-headers.ts). */
 export const DISABLED_FEATURES = [
@@ -211,16 +217,87 @@ export function securityHeaderChecks(headers, secure) {
 }
 
 /**
+ * The release /api/health names, or "absent".
+ * @param {unknown} json
+ */
+const releaseOf = (json) =>
+  typeof json === "object" && json !== null && "release" in json && typeof json.release === "string"
+    ? json.release
+    : "absent";
+
+/** @param {string} body */
+function parseJson(body) {
+  try {
+    return /** @type {unknown} */ (JSON.parse(body));
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Asks /api/health until it names `release` or `waitMs` has passed, so the
+ * other checks run against the deployment that was just promoted. Without a
+ * release it asks once. A failed request inside the wait is asked again; the
+ * last one's error is thrown when the wait ends on it.
+ * @param {(url: string | URL, init?: RequestInit) => Promise<Response>} request
+ * @param {URL} base
+ * @param {{ release: string | undefined, waitMs: number, pollMs: number }} options
+ * @returns {Promise<{ health: Response, body: string, requests: number, waitedMs: number }>}
+ */
+async function healthFor(request, base, { release, waitMs, pollMs }) {
+  const started = Date.now();
+  for (let requests = 1; ; requests += 1) {
+    /** @type {{ health: Response, body: string } | undefined} */
+    let answer;
+    try {
+      const health = await request(new URL("/api/health", base));
+      answer = { health, body: await health.text() };
+    } catch (error) {
+      if (release === undefined || Date.now() - started >= waitMs) throw error;
+    }
+    const waitedMs = Date.now() - started;
+    if (
+      answer !== undefined &&
+      (release === undefined || releaseOf(parseJson(answer.body)) === release || waitedMs >= waitMs)
+    ) {
+      return { ...answer, requests, waitedMs };
+    }
+    // The last request goes out when the wait ends, not a pause after it.
+    const pause = Math.max(0, Math.min(pollMs, waitMs - waitedMs));
+    await new Promise((resolve) => setTimeout(resolve, pause));
+  }
+}
+
+/**
  * Runs every check against a running deployment.
- * @param {{ url: string, page?: string, release?: string, timeoutMs?: number }} options
+ * @param {{ url: string, page?: string, release?: string, timeoutMs?: number, releaseWaitMs?: number, releasePollMs?: number }} options
  * @returns {Promise<Check[]>}  rejects when the deployment does not answer in time
  */
-export async function verifyDeployment({ url, page = "/", release, timeoutMs = TIMEOUT_MS }) {
+export async function verifyDeployment({
+  url,
+  page = "/",
+  release,
+  timeoutMs = TIMEOUT_MS,
+  releaseWaitMs = RELEASE_WAIT_MS,
+  releasePollMs = RELEASE_POLL_MS,
+}) {
   const request = requester(timeoutMs);
   const base = new URL(url);
   const secure = base.protocol === "https:";
   /** @type {Check[]} */
   const checks = [];
+
+  // The health endpoint first: with a release, it waits for the promotion.
+  const {
+    health,
+    body: healthBody,
+    requests: healthRequests,
+    waitedMs,
+  } = await healthFor(request, base, {
+    release,
+    waitMs: releaseWaitMs,
+    pollMs: releasePollMs,
+  });
 
   // The page and its script policy.
   const first = await request(new URL(page, base), {
@@ -312,16 +389,8 @@ export async function verifyDeployment({ url, page = "/", release, timeoutMs = T
     ),
   );
 
-  // The health endpoint.
-  const health = await request(new URL("/api/health", base));
-  const healthBody = await health.text();
-  /** @type {unknown} */
-  let healthJson;
-  try {
-    healthJson = JSON.parse(healthBody);
-  } catch {
-    healthJson = undefined;
-  }
+  // The health endpoint, as asked above.
+  const healthJson = parseJson(healthBody);
   const healthy =
     health.status === 200 &&
     typeof healthJson === "object" &&
@@ -331,13 +400,11 @@ export async function verifyDeployment({ url, page = "/", release, timeoutMs = T
   checks.push(
     check("/api/health answers ok", healthy, `${health.status} ${healthBody.slice(0, 80)}`),
   );
-  const served =
-    typeof healthJson === "object" &&
-    healthJson !== null &&
-    "release" in healthJson &&
-    typeof healthJson.release === "string"
-      ? healthJson.release
-      : "absent";
+  const served = releaseOf(healthJson);
+  const asked =
+    healthRequests === 1
+      ? "after 1 request"
+      : `after ${healthRequests} requests in ${(waitedMs / 1000).toFixed(1)} s`;
   checks.push(
     release === undefined
       ? {
@@ -348,7 +415,7 @@ export async function verifyDeployment({ url, page = "/", release, timeoutMs = T
       : check(
           "the address serves the expected release",
           served === release,
-          `${served}, expected ${release}`,
+          `${served}, expected ${release}, ${asked}`,
         ),
   );
   checks.push(
