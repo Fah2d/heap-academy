@@ -29,8 +29,8 @@ export function useRuntime(): {
       onEvent: (event) => {
         setView((current) => reduceView(current, event, created.status));
       },
-      report: (report) => {
-        setView((current) => addReport(current, report));
+      report: () => {
+        setView(addReport);
       },
     });
     controller.current = created;
