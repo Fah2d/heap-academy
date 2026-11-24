@@ -1,16 +1,32 @@
+diff --git a/.env.example b/.env.example
+index e092ea4..b750bcd 100644
+--- a/.env.example
++++ b/.env.example
+@@ -7,8 +7,7 @@
+ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+ # Supabase publishable key for this environment. Safe in the browser; row level security decides access.
+ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_example
++# Optional, and not secret: /api/health returns it. The release in logs, in /api/health and in browser error reports: the commit SHA, set by the deploy workflow at build. Unset, it is "local".
++NEXT_PUBLIC_HEAP_RELEASE=local
+ # Server only. Resend API key for the deletion record email to the owner (ADR-0030). Shares the 100-a-day cap with sign-in codes.
+ RESEND_API_KEY=re_example_not_a_real_key
+-# Optional, and not secret. The release in logs and in /api/health: the commit SHA, set by the deploy workflow at build. Unset, it is "local".
+-# next.config.ts also inlines it into the browser bundle as NEXT_PUBLIC_HEAP_RELEASE, for error reports.
+-HEAP_RELEASE=local
 diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
-index f3a1126..668ae8b 100644
+index f3a1126..4c70e02 100644
 --- a/.github/workflows/deploy.yml
 +++ b/.github/workflows/deploy.yml
-@@ -14,9 +14,15 @@
+@@ -14,9 +14,16 @@
  # a credential-free build job that hands its output on is the stronger form.
  name: Deploy
  
 +# A push to main, or the owner's manual run from main when production needs a
 +# new deployment of the same code, such as after a secret rotation (the
 +# runbook docs/runbooks/rotate-a-secret.md section 1). The environments'
-+# deployment branch policies refuse a run from any other branch, and the
-+# production job still waits for the owner's approval.
++# deployment branch policies and the first job's condition refuse a run from
++# any other branch, and the production job still waits for the owner's
++# approval.
  on:
    push:
      branches: [main]
@@ -18,8 +34,30 @@ index f3a1126..668ae8b 100644
  
  permissions: {}
  
+@@ -33,8 +40,10 @@ jobs:
+     name: staging migrations
+     # Off until the owner sets the repository variable DEPLOY_ENABLED to
+     # `true`, the last item of section 7 of the infrastructure-setup runbook.
+-    # Until then both jobs are skipped: `production` needs this one.
+-    if: vars.DEPLOY_ENABLED == 'true'
++    # Until then both jobs are skipped: `production` needs this one. A manual
++    # run from any branch but main is skipped too, even if an environment's
++    # branch policy is changed by mistake.
++    if: vars.DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+     runs-on: ubuntu-24.04
+     timeout-minutes: 10
+     environment: staging
+@@ -130,7 +139,7 @@ jobs:
+         run: vercel pull --yes --environment=production
+       - name: Build
+         env:
+-          HEAP_RELEASE: ${{ github.sha }}
++          NEXT_PUBLIC_HEAP_RELEASE: ${{ github.sha }}
+         run: vercel build --prod
+       # Covers every server variable `vercel pull` wrote. A Sensitive
+       # variable arrives as a placeholder, so for it this checks the name;
 diff --git a/docs/runbooks/rotate-a-secret.md b/docs/runbooks/rotate-a-secret.md
-index 08b53f2..732fa64 100644
+index 08b53f2..34a91fb 100644
 --- a/docs/runbooks/rotate-a-secret.md
 +++ b/docs/runbooks/rotate-a-secret.md
 @@ -42,7 +42,7 @@ Vercel variables reach only deployments made after the change (Vercel: changes "
@@ -27,24 +65,247 @@ index 08b53f2..732fa64 100644
     - Otherwise production was rolled back by hand (`deploy-and-rollback.md`), and a re-run would promote the release you took down. Stop, and deal with the rollback first.
  3. [ ] That run → **Re-run all jobs**. The staging migrations job skips migrations already applied. Approve the `production` job when it asks. It builds the commit again, deploys it, promotes it, and smoke-tests it.
 -4. [ ] GitHub allows a re-run only up to 30 days after the run started, and at most 50 times. If the latest run is older, there is nothing to re-run: open a pull request that changes only a document (the incident report, or the day report's line for this rotation), and merge it when its checks pass. Its Deploy run deploys the same code. Never merge a pull request that changes code only to cause a deploy, and never deploy from your machine (`vercel deploy`): the token lives only in GitHub (`deploy-and-rollback.md`, CLAUDE.md rule 10). A manual trigger for the Deploy workflow is proposed in the pull request of this runbook (decision E).
-+4. [ ] GitHub allows a re-run only up to 30 days after the run started, and at most 50 times. If the latest run is older, there is nothing to re-run. When step 1's commit is the head of `main`: GitHub → **Actions → Deploy → Run workflow**, branch `main`, **Run workflow**, and approve the `production` job when it asks. It deploys the head of `main`, so do not use it while `main` holds a commit that production does not serve yet. Never deploy from your machine (`vercel deploy`): the token lives only in GitHub (`deploy-and-rollback.md`, CLAUDE.md rule 10).
++4. [ ] GitHub allows a re-run only up to 30 days after the run started, and at most 50 times. If the latest run is older, there is nothing to re-run. When step 1's commit is the head of `main`: GitHub → **Actions → Deploy → Run workflow**, branch `main`, **Run workflow**, and approve the `production` job when it asks. It deploys the head of `main`, so do not use it while `main` holds a commit that production does not serve yet: first let that commit's own Deploy run finish (approve it, or reject it and revert the commit on `main` through a pull request), then run this. Never deploy from your machine (`vercel deploy`): the token lives only in GitHub (`deploy-and-rollback.md`, CLAUDE.md rule 10).
  
  For a **staging** value (the Preview variables of Vercel), push a commit to an open pull request's branch, or use **Redeploy** on that branch's preview in Vercel; there is no staging deploy in the Deploy workflow.
  
+diff --git a/next.config.ts b/next.config.ts
+index 7ad5abf..2aa72ff 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -2,24 +2,19 @@ import type { NextConfig } from "next";
+ import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
+ import { z } from "zod";
+ import { SECURITY_HEADERS } from "./src/infrastructure/http/security-headers";
+-import {
+-  parsePublicEnvironment,
+-  RELEASE_LOCAL,
+-  serverEnvironmentSchema,
+-} from "./src/infrastructure/env/schema";
++import { parsePublicEnvironment, RELEASE_LOCAL } from "./src/infrastructure/env/schema";
+ 
+ // The variables the browser bundle needs are validated at build; server
+ // variables are validated when the server starts, in src/instrumentation.ts
+ // (docs/spec/02-architecture.md section 13).
+-parsePublicEnvironment(process.env);
++const publicEnvironment = parsePublicEnvironment(process.env);
+ 
+-// Inlined into server code, because a prebuilt deployment does not see the
+-// build's environment at run time. Parsed by the one schema like any variable.
+-// The browser gets the same value as NEXT_PUBLIC_HEAP_RELEASE and sends it
+-// with an error report (docs/spec/07-operations.md section 4.2). It is not
+-// secret: /api/health returns it.
+-const release =
+-  serverEnvironmentSchema.shape.HEAP_RELEASE.parse(process.env.HEAP_RELEASE) ?? RELEASE_LOCAL;
++// The release, inlined into server code and the browser bundle, with "local"
++// when the build has none. Server code needs it inlined because a prebuilt
++// deployment does not see the build's environment at run time; the browser
++// sends it with an error report (docs/spec/07-operations.md section 4.2). It
++// is not secret: /api/health returns it.
++const release = publicEnvironment.NEXT_PUBLIC_HEAP_RELEASE ?? RELEASE_LOCAL;
+ 
+ const PAGE_EXTENSIONS = ["tsx", "ts", "jsx", "js"];
+ 
+@@ -40,7 +35,7 @@ export default function config(phase: string): NextConfig {
+     // instructions live in CLAUDE.md, which the owner keeps.
+     agentRules: false,
+     reactStrictMode: true,
+-    env: { HEAP_RELEASE: release, NEXT_PUBLIC_HEAP_RELEASE: release },
++    env: { NEXT_PUBLIC_HEAP_RELEASE: release },
+     // Development-only pages end in `.dev.tsx`. Only the development server
+     // treats that as a page extension, so `next build` leaves them out
+     // entirely: no route, no bundle (WP-1.4).
+diff --git a/scripts/check-bundle.test.ts b/scripts/check-bundle.test.ts
+index 5279746..7ad851d 100644
+--- a/scripts/check-bundle.test.ts
++++ b/scripts/check-bundle.test.ts
+@@ -27,10 +27,7 @@ function bundle(files: Record<string, string>): string {
+ 
+ describe("bundle secret check", () => {
+   it("[T-12] takes the server variables from .env.example, leaving out the public ones", () => {
+-    expect(serverVariableNames(readFileSync(".env.example", "utf8"))).toEqual([
+-      "RESEND_API_KEY",
+-      "HEAP_RELEASE",
+-    ]);
++    expect(serverVariableNames(readFileSync(".env.example", "utf8"))).toEqual(["RESEND_API_KEY"]);
+     expect(serverVariableNames("# comment\nNEXT_PUBLIC_A=1\nB_SECRET=2\n")).toEqual(["B_SECRET"]);
+   });
+ 
+diff --git a/scripts/next-config.test.ts b/scripts/next-config.test.ts
+index cf7084f..3b6006b 100644
+--- a/scripts/next-config.test.ts
++++ b/scripts/next-config.test.ts
+@@ -6,7 +6,7 @@ async function loadConfig(release: string | undefined) {
+   vi.resetModules();
+   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321");
+   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_example");
+-  vi.stubEnv("HEAP_RELEASE", release);
++  vi.stubEnv("NEXT_PUBLIC_HEAP_RELEASE", release);
+   const { default: config } = await import("../next.config");
+   return config("phase-production-build");
+ }
+@@ -19,12 +19,12 @@ describe("next.config", () => {
+   it("[NFR-OBS-01] inlines the deploy's release into server code and the browser bundle", async () => {
+     const sha = "0123456789abcdef0123456789abcdef01234567";
+     const { env } = await loadConfig(sha);
+-    expect(env).toEqual({ HEAP_RELEASE: sha, NEXT_PUBLIC_HEAP_RELEASE: sha });
++    expect(env).toEqual({ NEXT_PUBLIC_HEAP_RELEASE: sha });
+   });
+ 
+   it("[NFR-OBS-01] inlines local when the build has no release", async () => {
+     const { env } = await loadConfig(undefined);
+-    expect(env).toEqual({ HEAP_RELEASE: "local", NEXT_PUBLIC_HEAP_RELEASE: "local" });
++    expect(env).toEqual({ NEXT_PUBLIC_HEAP_RELEASE: "local" });
+   });
+ 
+   it("[NFR-OBS-01] fails the build on a release that is not a commit SHA", async () => {
 diff --git a/scripts/workflows.test.ts b/scripts/workflows.test.ts
-index 99ce3a7..1189eb7 100644
+index 99ce3a7..27502d8 100644
 --- a/scripts/workflows.test.ts
 +++ b/scripts/workflows.test.ts
-@@ -207,6 +207,12 @@ describe("workflows", () => {
+@@ -207,9 +207,17 @@ describe("workflows", () => {
      expect(job(text, "production")).not.toContain("seed");
    });
  
+-  it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, and production waits for it", () => {
 +  it("[T-18] the deploy runs on a push to main or a manual run, and on nothing else", () => {
-+    const text = read("deploy.yml");
+     const text = read("deploy.yml");
+-    expect(job(text, "staging-migrations")).toMatch(/^ {4}if: vars\.DEPLOY_ENABLED == 'true'$/m);
 +    const triggers = text.slice(text.indexOf("\non:\n") + 1, text.indexOf("\npermissions:"));
 +    expect(triggers).toBe("on:\n  push:\n    branches: [main]\n  workflow_dispatch:\n");
 +  });
 +
-   it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, and production waits for it", () => {
-     const text = read("deploy.yml");
-     expect(job(text, "staging-migrations")).toMatch(/^ {4}if: vars\.DEPLOY_ENABLED == 'true'$/m);
++  it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, runs only from main, and production waits for it", () => {
++    const text = read("deploy.yml");
++    expect(job(text, "staging-migrations")).toMatch(
++      /^ {4}if: vars\.DEPLOY_ENABLED == 'true' && github\.ref == 'refs\/heads\/main'$/m,
++    );
+     // Skipped with the first job, because it needs it.
+     expect(job(text, "production")).toMatch(/^ {4}needs: staging-migrations$/m);
+     expect(job(text, "production")).not.toMatch(/^ {4}if:/m);
+@@ -251,7 +259,7 @@ describe("workflows", () => {
+ 
+   it("[T-12] [NFR-REL-04] the build gets no Vercel token, and the smoke checks this commit is live", () => {
+     const production = job(read("deploy.yml"), "production");
+-    expect(step(production, "Build")).toContain("HEAP_RELEASE: ${{ github.sha }}");
++    expect(step(production, "Build")).toContain("NEXT_PUBLIC_HEAP_RELEASE: ${{ github.sha }}");
+     expect(step(production, "Build")).not.toContain("VERCEL_TOKEN");
+     expect(step(production, "No server variable in a browser bundle")).not.toContain(
+       "VERCEL_TOKEN",
+diff --git a/src/features/system/server/health.ts b/src/features/system/server/health.ts
+index 2ecf83d..b84fa56 100644
+--- a/src/features/system/server/health.ts
++++ b/src/features/system/server/health.ts
+@@ -7,7 +7,7 @@ import { RELEASE_LOCAL } from "@/infrastructure/env/schema";
+ // database answers joins this response with the database client in WP-2.1
+ // (docs/spec/02-architecture.md section 9.2).
+ export function healthResponse(
+-  release: string = process.env.HEAP_RELEASE ?? RELEASE_LOCAL,
++  release: string = process.env.NEXT_PUBLIC_HEAP_RELEASE ?? RELEASE_LOCAL,
+ ): Response {
+   return Response.json({ status: "ok", release }, { headers: { "cache-control": "no-store" } });
+ }
+diff --git a/src/infrastructure/env/process-env.d.ts b/src/infrastructure/env/process-env.d.ts
+index 3dcd2aa..4c882fe 100644
+--- a/src/infrastructure/env/process-env.d.ts
++++ b/src/infrastructure/env/process-env.d.ts
+@@ -1,9 +1,8 @@
+-// The build-time variables that next.config.ts inlines: HEAP_RELEASE into
+-// server code, NEXT_PUBLIC_HEAP_RELEASE into server and browser code. They
+-// are read as `process.env.NAME`, the form the compiler replaces.
++// The build-time variable that next.config.ts inlines into server and
++// browser code. It is read as `process.env.NAME`, the form the compiler
++// replaces.
+ declare namespace NodeJS {
+   interface ProcessEnv {
+-    readonly HEAP_RELEASE?: string;
+     readonly NEXT_PUBLIC_HEAP_RELEASE?: string;
+   }
+ }
+diff --git a/src/infrastructure/env/schema.test.ts b/src/infrastructure/env/schema.test.ts
+index 96fad14..b048bed 100644
+--- a/src/infrastructure/env/schema.test.ts
++++ b/src/infrastructure/env/schema.test.ts
+@@ -30,16 +30,19 @@ describe("environment schema", () => {
+       public: {
+         NEXT_PUBLIC_SUPABASE_URL: valid.NEXT_PUBLIC_SUPABASE_URL,
+         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
++        NEXT_PUBLIC_HEAP_RELEASE: "local",
+       },
+-      server: { RESEND_API_KEY: valid.RESEND_API_KEY, HEAP_RELEASE: "local" },
++      server: { RESEND_API_KEY: valid.RESEND_API_KEY },
+     });
+   });
+ 
+   it("[NFR-OBS-01] takes the release from the deploy, and refuses anything but a commit SHA", () => {
+     const sha = "0123456789abcdef0123456789abcdef01234567";
+-    expect(parseEnvironment({ ...valid, HEAP_RELEASE: sha }).server.HEAP_RELEASE).toBe(sha);
+-    expect(() => parseEnvironment({ ...valid, HEAP_RELEASE: "v1; rm -rf" })).toThrow(
+-      /HEAP_RELEASE/,
++    expect(
++      parseEnvironment({ ...valid, NEXT_PUBLIC_HEAP_RELEASE: sha }).public.NEXT_PUBLIC_HEAP_RELEASE,
++    ).toBe(sha);
++    expect(() => parseEnvironment({ ...valid, NEXT_PUBLIC_HEAP_RELEASE: "v1; rm -rf" })).toThrow(
++      /NEXT_PUBLIC_HEAP_RELEASE/,
+     );
+   });
+ 
+diff --git a/src/infrastructure/env/schema.ts b/src/infrastructure/env/schema.ts
+index 16cea41..e650ad7 100644
+--- a/src/infrastructure/env/schema.ts
++++ b/src/infrastructure/env/schema.ts
+@@ -29,21 +29,23 @@ const publishableKey = required.startsWith("sb_publishable_", {
+   error: "must be a publishable key (sb_publishable_...), never a secret key",
+ });
+ 
++// The release in log lines, in the health answer and in browser error
++// reports: the commit SHA, which the deploy workflow sets when it builds.
++// Unset everywhere else, where the release is "local". Public, because the
++// browser sends it; not secret, because /api/health returns it. next.config.ts
++// inlines it at build, because a prebuilt deployment does not see the build's
++// environment at run time.
++export { RELEASE_LOCAL };
++const release = z.string().regex(RELEASE_PATTERN, "must be a full commit SHA or local").optional();
++
+ export const publicEnvironmentSchema = z.object({
+   NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
++  NEXT_PUBLIC_HEAP_RELEASE: release,
+ });
+ 
+-// The release in log lines and in the health answer: the commit SHA, which
+-// the deploy workflow sets when it builds. Unset everywhere else, where the
+-// release is "local". next.config.ts inlines it at build, because a prebuilt
+-// deployment does not see the build's environment at run time.
+-export { RELEASE_LOCAL };
+-const release = z.string().regex(RELEASE_PATTERN, "must be a full commit SHA or local").optional();
+-
+ export const serverEnvironmentSchema = z.object({
+   RESEND_API_KEY: required,
+-  HEAP_RELEASE: release,
+ });
+ 
+ export type PublicEnvironment = z.infer<typeof publicEnvironmentSchema>;
+@@ -78,10 +80,10 @@ export function parseEnvironment(source: Source): {
+     public: {
+       NEXT_PUBLIC_SUPABASE_URL: all.NEXT_PUBLIC_SUPABASE_URL,
+       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: all.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
++      NEXT_PUBLIC_HEAP_RELEASE: all.NEXT_PUBLIC_HEAP_RELEASE ?? RELEASE_LOCAL,
+     },
+     server: {
+       RESEND_API_KEY: all.RESEND_API_KEY,
+-      HEAP_RELEASE: all.HEAP_RELEASE ?? RELEASE_LOCAL,
+     },
+   };
+ }
+diff --git a/src/infrastructure/logging/logger.ts b/src/infrastructure/logging/logger.ts
+index b92de05..ce5158b 100644
+--- a/src/infrastructure/logging/logger.ts
++++ b/src/infrastructure/logging/logger.ts
+@@ -80,5 +80,5 @@ export const log: Logger = createLogger({
+   },
+   now: () => new Date(),
+   // Inlined at build by next.config.ts.
+-  release: process.env.HEAP_RELEASE ?? RELEASE_LOCAL,
++  release: process.env.NEXT_PUBLIC_HEAP_RELEASE ?? RELEASE_LOCAL,
+ });
