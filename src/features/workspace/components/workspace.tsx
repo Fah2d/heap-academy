@@ -14,7 +14,12 @@ import {
 import type { LessonId } from "@/domain/ids";
 import type { Neighbours } from "@/domain/workspace/neighbours";
 import { ariaKeyShortcuts, workspaceShortcut } from "@/domain/workspace/shortcuts";
-import { deviceProgress, type Durability, syncStatus } from "@/features/progress";
+import {
+  deviceProgress,
+  type Durability,
+  syncStatus,
+  useGuestInvitation,
+} from "@/features/progress";
 import type { CheckSummary } from "@/grader/grade";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
@@ -234,6 +239,18 @@ export function Workspace({
         if (mounted.current) setDurability(known);
       });
   }, [view.ended, view.summary, lesson.id, lastCheckedSource]);
+
+  // A guest is invited to save progress below a lesson's first completion,
+  // when the device keeps it (FR-AUTH-07): in memory the warning above the
+  // editor already says what is lost, and "saved on this device" would be false.
+  const guestInvitation = useGuestInvitation();
+  const invitation =
+    completion !== undefined &&
+    completion.summary === view.summary &&
+    completion.first &&
+    durability === "device"
+      ? guestInvitation
+      : null;
 
   const completionText =
     completion !== undefined && completion.summary === view.summary
@@ -559,6 +576,7 @@ export function Workspace({
                 results={view.tests}
                 summary={view.summary}
                 completion={completionText}
+                invitation={invitation}
                 checking={runtime.name === "checking"}
                 checkEnded={view.ended === "check"}
                 strategy={strategy}

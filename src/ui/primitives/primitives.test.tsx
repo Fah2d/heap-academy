@@ -392,6 +392,7 @@ describe("Status", () => {
     ["pass", "Passed"],
     ["fail", "Failed"],
     ["not-run", "Not run"],
+    ["next", "Next up"],
   ] as const)("[ADR-0014] shows the %s state with an icon and a word", (state, label) => {
     const { container } = render(<Status state={state} label={label} />);
     expect(container.textContent).toBe(label);

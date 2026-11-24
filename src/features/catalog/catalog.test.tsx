@@ -23,6 +23,8 @@ vi.mock("next/navigation", () => ({
 
 const state = vi.hoisted(() => ({
   pathname: "/",
+  /** What the device answers; undefined until it has answered. */
+  completed: undefined as ReadonlySet<string> | undefined,
   courses: { ok: true, value: [] } as unknown,
   course: { ok: true, value: null } as unknown,
   courseCalls: [] as string[],
@@ -36,6 +38,8 @@ vi.mock("@/content", () => ({
   },
 }));
 
+vi.mock("@/features/progress", () => ({ useDeviceCompletions: () => state.completed }));
+
 const { HomePage } = await import("./components/home-page");
 const { CourseListPage } = await import("./components/course-list-page");
 const { CoursePage } = await import("./components/course-page");
@@ -43,14 +47,29 @@ const { CoursesNavLink } = await import("./components/courses-nav-link");
 const { CatalogStateGallery } = await import("./components/catalog-state-gallery");
 const { courseListMetadata, courseMetadata, homeMetadata } = await import("./server/metadata");
 
+/** A lesson ID for these tests. */
+const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+
+const BASICS_LESSONS = Array.from({ length: 12 }, (_, index) => ({
+  id: id(index + 1),
+  slug: `lesson-${String(index + 1)}`,
+}));
+
 const TWO_COURSES = [
   {
     slug: "python-basics",
     title: "Python basics",
     summary: "Print, names and numbers.",
     lessonCount: 12,
+    lessons: BASICS_LESSONS,
   },
-  { slug: "loops", title: "Loops", summary: "Repeat work with for and while.", lessonCount: 1 },
+  {
+    slug: "loops",
+    title: "Loops",
+    summary: "Repeat work with for and while.",
+    lessonCount: 1,
+    lessons: [{ id: id(100), slug: "for" }],
+  },
 ];
 
 const COURSE = {
@@ -64,15 +83,15 @@ const COURSE = {
       title: "First steps",
       summary: "Your first program.",
       lessons: [
-        { slug: "hello", title: "Say hello" },
-        { slug: "names", title: "Names" },
+        { id: id(201), slug: "hello", title: "Say hello", xp: 10 },
+        { id: id(202), slug: "names", title: "Names", xp: 10 },
       ],
     },
     {
       id: "9e1a4b63-7a1f-4b68-8b65-5c2f3d4e5f60",
       title: "Numbers",
       summary: "",
-      lessons: [{ slug: "sums", title: "Sums" }],
+      lessons: [{ id: id(203), slug: "sums", title: "Sums", xp: 20 }],
     },
   ],
 };
@@ -83,6 +102,7 @@ function params(course: string) {
 
 beforeEach(() => {
   state.pathname = "/";
+  state.completed = undefined;
   state.courses = { ok: true, value: [] };
   state.course = { ok: true, value: null };
   state.courseCalls = [];
@@ -155,6 +175,59 @@ describe("the course list", () => {
     );
   });
 
+  /** Each course row's action as [label, address]. */
+  function rowActions(): (string | null)[][] {
+    const rows = within(screen.getByRole("list", { name: courseList.heading })).getAllByRole(
+      "listitem",
+    );
+    return rows.map((row) => {
+      const links = within(row).getAllByRole("link");
+      expect(links).toHaveLength(2);
+      // The visible label, then the course's title for a screen reader.
+      const title = links[0]!.textContent ?? "";
+      const name = links[1]!.textContent ?? "";
+      expect(name.endsWith(catalogCommon.actionCourse(title))).toBe(true);
+      return [
+        name.slice(0, -catalogCommon.actionCourse(title).length),
+        links[1]!.getAttribute("href"),
+      ];
+    });
+  }
+
+  it("[FR-CAT-02] begins each course before the device answers, with the lesson count only", async () => {
+    state.courses = { ok: true, value: TWO_COURSES };
+    render(await CourseListPage());
+    expect(rowActions()).toEqual([
+      [catalogCommon.action.begin, "/learn/python-basics/lesson-1"],
+      [catalogCommon.action.begin, "/learn/loops/for"],
+    ]);
+    expect(screen.queryByText(/completed$/)).toBeNull();
+    expect(screen.getByText(catalogCommon.lessonCount(12))).toBeTruthy();
+    expect(screen.getByText(catalogCommon.lessonCount(1))).toBeTruthy();
+  });
+
+  it("[FR-CAT-02] labels each course's action by progress: 0 percent, partial and 100 percent", async () => {
+    state.courses = {
+      ok: true,
+      value: [...TWO_COURSES, { ...TWO_COURSES[1]!, slug: "loops-2", title: "Loops again" }],
+    };
+    state.completed = new Set([id(1), id(2), id(4), id(100)]);
+    render(await CourseListPage());
+    // Loops and its twin share their one lesson, so both are complete.
+    expect(rowActions()).toEqual([
+      [catalogCommon.action.continue, "/learn/python-basics/lesson-3"],
+      [catalogCommon.action.review, "/learn/loops/for"],
+      [catalogCommon.action.review, "/learn/loops-2/for"],
+    ]);
+    expect(screen.getByText(catalogCommon.progress(3, 12))).toBeTruthy();
+    expect(screen.getAllByText(catalogCommon.progress(1, 1))).toHaveLength(2);
+    cleanup();
+    state.completed = new Set();
+    render(await CourseListPage());
+    expect(rowActions()[0]).toEqual([catalogCommon.action.begin, "/learn/python-basics/lesson-1"]);
+    expect(screen.getByText(catalogCommon.progress(0, 12))).toBeTruthy();
+  });
+
   it("[FR-CAT-04] says so in one sentence when no course is published", async () => {
     render(await CourseListPage());
     expect(screen.getByText(courseList.empty)).toBeTruthy();
@@ -197,13 +270,13 @@ describe("the course page", () => {
       within(first)
         .getAllByRole("listitem")
         .map((li) => li.textContent),
-    ).toEqual(["1.1 Say hello", "1.2 Names"]);
+    ).toEqual(["1.1 Say hello 10 XP", "1.2 Names 10 XP"]);
     const second = screen.getByRole("list", { name: coursePage.chapterLessonsLabel("Numbers") });
     expect(
       within(second)
         .getAllByRole("listitem")
         .map((li) => li.textContent),
-    ).toEqual(["2.1 Sums"]);
+    ).toEqual(["2.1 Sums 20 XP"]);
     expect(screen.getByText("Your first program.")).toBeTruthy();
   });
 
@@ -213,10 +286,92 @@ describe("the course page", () => {
     expect(screen.queryByRole("heading", { name: coursePage.outcomesHeading })).toBeNull();
   });
 
-  it("[FR-CRS-01] links to no lesson until the lesson page exists (CLAUDE.md rule 3)", async () => {
+  it("[FR-CRS-01] links each lesson to its workspace", async () => {
     state.course = { ok: true, value: COURSE };
     render(await CoursePage({ params: params("python-basics") }));
-    expect(screen.queryAllByRole("link")).toEqual([]);
+    const chapters = screen.getByRole("list", { name: coursePage.chaptersHeading });
+    expect(
+      within(chapters)
+        .getAllByRole("link")
+        .map((link) => [link.textContent, link.getAttribute("href")]),
+    ).toEqual([
+      ["Say hello", "/learn/python-basics/hello"],
+      ["Names", "/learn/python-basics/names"],
+      ["Sums", "/learn/python-basics/sums"],
+    ]);
+  });
+
+  /** The course page's one action, outside the chapters. */
+  function courseAction() {
+    const header = screen.getByRole("heading", { level: 1 }).closest("header");
+    const links = within(header!).getAllByRole("link");
+    expect(links).toHaveLength(1);
+    return [links[0]!.textContent, links[0]!.getAttribute("href")];
+  }
+
+  /** Each lesson row's state word, or "" when it shows none. */
+  function lessonStates(): string[] {
+    const chapters = screen.getByRole("list", { name: coursePage.chaptersHeading });
+    const words = Object.values(coursePage.lessonState);
+    return within(chapters)
+      .getAllByRole("listitem")
+      .filter((row) => row.closest("ol")?.getAttribute("aria-label")?.startsWith("Lessons in"))
+      .map((row) => words.find((word) => row.textContent?.endsWith(word)) ?? "");
+  }
+
+  it("[FR-CAT-02] begins at the first lesson, and claims no state before the device answers", async () => {
+    state.course = { ok: true, value: COURSE };
+    render(await CoursePage({ params: params("python-basics") }));
+    expect(courseAction()).toEqual([catalogCommon.action.begin, "/learn/python-basics/hello"]);
+    expect(lessonStates()).toEqual(["", "", ""]);
+    expect(screen.queryByText(/completed$/)).toBeNull();
+  });
+
+  it("[FR-CAT-02] [FR-CRS-02] begins with nothing completed: the first lesson is next up", async () => {
+    state.course = { ok: true, value: COURSE };
+    state.completed = new Set([id(999)]);
+    render(await CoursePage({ params: params("python-basics") }));
+    expect(courseAction()).toEqual([catalogCommon.action.begin, "/learn/python-basics/hello"]);
+    expect(lessonStates()).toEqual([
+      coursePage.lessonState.next,
+      coursePage.lessonState.open,
+      coursePage.lessonState.open,
+    ]);
+    expect(screen.getByText(catalogCommon.progress(0, 3))).toBeTruthy();
+  });
+
+  it("[FR-CAT-02] [FR-CRS-02] continues to the next incomplete lesson", async () => {
+    state.course = { ok: true, value: COURSE };
+    state.completed = new Set([id(201), id(203)]);
+    render(await CoursePage({ params: params("python-basics") }));
+    expect(courseAction()).toEqual([catalogCommon.action.continue, "/learn/python-basics/names"]);
+    expect(lessonStates()).toEqual([
+      coursePage.lessonState.completed,
+      coursePage.lessonState.next,
+      coursePage.lessonState.completed,
+    ]);
+    expect(screen.getByText(catalogCommon.progress(2, 3))).toBeTruthy();
+  });
+
+  it("[FR-CAT-02] [FR-CRS-02] reviews from the first lesson when every lesson is completed", async () => {
+    state.course = { ok: true, value: COURSE };
+    state.completed = new Set([id(201), id(202), id(203)]);
+    render(await CoursePage({ params: params("python-basics") }));
+    expect(courseAction()).toEqual([catalogCommon.action.review, "/learn/python-basics/hello"]);
+    expect(lessonStates()).toEqual(Array(3).fill(coursePage.lessonState.completed));
+    expect(screen.getByText(catalogCommon.progress(3, 3))).toBeTruthy();
+  });
+
+  it("[FR-CRS-02] says each state in words, with its icon hidden from assistive technology", async () => {
+    state.course = { ok: true, value: COURSE };
+    state.completed = new Set([id(201)]);
+    const { container } = render(await CoursePage({ params: params("python-basics") }));
+    for (const word of Object.values(coursePage.lessonState)) {
+      expect(screen.getByText(word)).toBeTruthy();
+    }
+    const icons = container.querySelectorAll("svg");
+    expect(icons.length).toBe(3);
+    for (const icon of icons) expect(icon.closest("[aria-hidden='true']")).not.toBeNull();
   });
 
   it("[FR-CAT-04] answers not found for a course that is not published", async () => {
@@ -246,6 +401,14 @@ describe("the course page", () => {
     state.course = { ok: true, value: { ...COURSE, outcomes: [" ", "\t"] } };
     render(await CoursePage({ params: params("python-basics") }));
     expect(screen.queryByRole("heading", { name: coursePage.outcomesHeading })).toBeNull();
+  });
+});
+
+describe("lesson addresses", () => {
+  it("[FR-CAT-02] match the workspace's own address for a lesson", async () => {
+    const { lessonPath } = await import("./paths");
+    const { learnPath } = await import("@/features/workspace");
+    expect(lessonPath("python-basics", "hello")).toBe(learnPath("python-basics", "hello"));
   });
 });
 

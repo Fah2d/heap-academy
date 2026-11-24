@@ -47,6 +47,8 @@ const progress = vi.hoisted(() => ({
   /** When set, `record` answers only once the test calls it. */
   hold: undefined as undefined | ((answer: () => void) => void),
   record: vi.fn<(completion: { lessonId: string; completedAt: number; code: string }) => void>(),
+  /** What the root layout hands down: the invitation for a guest, null when signed in. */
+  invitation: null as unknown,
 }));
 // What the sync says is still waiting, as the test sets it.
 const sync = vi.hoisted(() => {
@@ -80,6 +82,7 @@ vi.mock("@/features/progress", () => ({
     },
     durability: () => Promise.resolve(progress.durability),
   }),
+  useGuestInvitation: () => progress.invitation,
 }));
 vi.mock("../client/browser-support", () => ({ supportsPython: () => true }));
 vi.mock("../client/saved-code", () => ({
@@ -146,6 +149,7 @@ beforeEach(() => {
   progress.durability = "device";
   progress.record.mockReset();
   progress.hold = undefined;
+  progress.invitation = null;
   runtime.checkedSource = undefined;
 });
 
@@ -550,6 +554,70 @@ describe("[FR-WSP-06] [FR-PRG-01] [NFR-REL-01] the completion moment", () => {
     runtime.view = { ...runtime.view, summary: { ...passedOne }, ended: "check" };
     rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" />);
     expect(line()).toBeNull();
+  });
+
+  const INVITATION = "Save your progress here";
+  const invitation = () => screen.queryByText(INVITATION);
+
+  it("[FR-AUTH-07] invites a guest below a first completion, without a dialog", async () => {
+    progress.invitation = <p>{INVITATION}</p>;
+    const { rerender } = show();
+    expect(invitation()).toBeNull();
+    await check(passedAll, rerender);
+    await waitFor(() => {
+      expect(invitation()).not.toBeNull();
+    });
+    const host = invitation()?.closest("[data-invitation-host]");
+    expect(host?.getAttribute("tabindex")).toBe("-1");
+    // Below the completion line, in the tests panel, and nothing is modal.
+    const completion = document.querySelector("[data-completion]");
+    expect(completion?.compareDocumentPosition(host!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(button(words.check).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("[FR-AUTH-07] does not invite after a repeat pass", async () => {
+    progress.invitation = <p>{INVITATION}</p>;
+    progress.first = false;
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    await waitFor(() => {
+      expect(line()).toBe(words.completeAgain);
+    });
+    expect(invitation()).toBeNull();
+  });
+
+  it("[FR-AUTH-07] does not invite a signed-in learner, for whom the layout hands down nothing", async () => {
+    progress.invitation = null;
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    await waitFor(() => {
+      expect(line()).toBe(words.completeFirst(10));
+    });
+    expect(document.querySelector("[data-invitation-host]")).toBeNull();
+  });
+
+  it("[FR-AUTH-07] does not say progress is saved on the device when it is kept only in memory", async () => {
+    progress.invitation = <p>{INVITATION}</p>;
+    progress.durability = "memory";
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    await waitFor(() => {
+      expect(line()).toBe(words.completeFirst(10));
+    });
+    expect(invitation()).toBeNull();
+  });
+
+  it("drops the invitation with the completion line when a later check fails", async () => {
+    progress.invitation = <p>{INVITATION}</p>;
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    await waitFor(() => {
+      expect(invitation()).not.toBeNull();
+    });
+    runtime.view = { ...runtime.view, summary: { ...passedOne }, ended: "check" };
+    rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" />);
+    expect(invitation()).toBeNull();
   });
 
   it("says when the device keeps nothing past this tab", async () => {

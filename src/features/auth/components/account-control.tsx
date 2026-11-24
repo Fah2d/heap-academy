@@ -1,7 +1,7 @@
 import { SignedInProgressSync } from "@/features/progress";
-import { pageIdentity } from "@/infrastructure/auth/page-identity";
 import { account } from "@/messages/sign-in";
 import { signOut } from "../server/actions";
+import { viewer } from "../server/viewer";
 import { SignInLink, SignOutButton } from "./account-buttons";
 
 /**
@@ -11,7 +11,7 @@ import { SignInLink, SignOutButton } from "./account-buttons";
  * the progress sync for a signed-in learner (FR-PRG-02).
  */
 export async function AccountControl() {
-  const identity = await pageIdentity();
+  const identity = await viewer();
   if (identity === null) return <SignInLink label={account.signIn} />;
   return (
     <>

@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { account } from "@/messages/sign-in";
 import { AccountControl } from "./account-control";
 
+// `viewer` is a server module; its guard throws outside a server build.
+vi.mock("server-only", () => ({}));
 const { pageIdentity } = vi.hoisted(() => ({ pageIdentity: vi.fn() }));
 vi.mock("@/infrastructure/auth/page-identity", () => ({ pageIdentity }));
 vi.mock("../server/actions", () => ({ signOut: vi.fn() }));
