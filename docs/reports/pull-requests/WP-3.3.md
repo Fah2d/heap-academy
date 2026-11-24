@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which security review 7, round 2, has seen. Security review 7 (each test case starts with the harness's collections, 3ab21e9 to be9375c): **APPROVE** in round 2, on d757f11 and ff9e6eb; its two minors are answered in be9375c, which round 3 approved with no findings.
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 81fdc39 (#3 to #8 and #10) and is merged into this branch directly (0f8a64c). `wp/3.1-python-worker` is merged into this branch up to aec6c83 (last in df1c7bb), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which security review 7, round 2, has seen. Security review 7 (each test case starts with the harness's collections, 3ab21e9 to be9375c): **APPROVE** in round 2, on d757f11 and ff9e6eb; its two minors are answered in be9375c, which round 3 approved with no findings.
 
 ## What and why
 
@@ -36,6 +36,26 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 | The development page shows the new `checking` status; it sends no checks. | `src/features/workspace/client/runtime-view.ts`, `src/messages/runtime-dev.ts` |
 
 ## Up to date with main
+
+`main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`, since the last merge) is merged in 0f8a64c, directly and not through `wp/3.1-python-worker`. Two conflicts:
+
+- `scripts/infra-verify.mjs`: both sides added a function at the same place, this branch (from WP-3.1) `runtimeChecks()` and `main` `releaseOf()`, `parseJson()` and `healthFor()` (the 60 s wait for the promoted release). Both are kept, unchanged. The merged file is byte for byte the one on `wp/3.1-python-worker` after its own merge of `main` (e3c9043).
+- `docs/reports/local-build-progress.md`: `wp/3.1-python-worker`'s copy taken, the newest one.
+
+Decision: `wp/3.1-python-worker` is not merged this time. Since aec6c83 it holds WP-3.1's run fixes (4d6608f, 16711f5, a24111c, a7c3ba7) that wait on WP-3.1 security review 8, round 3, and earlier runs kept them out of this branch until that review. Merging `main` directly brings #10 without them. `main` at 81fdc39 is also in `wp/3.1-python-worker` (e3c9043), so the next merge of that branch adds no `main` change.
+
+`pnpm verify` on 0f8a64c, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1124 passed (1124)
+```
+
+`pnpm build` with CI's fake public values on 0f8a64c, exit 0 (`runtime: worker compiled`; the built harness has `HARNESS_VERSION = "7"`). `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+
+Not run on this merge: the browser tests. No reviewer has seen 0f8a64c.
+
+The merge before:
 
 `wp/3.1-python-worker` at aec6c83 is merged in df1c7bb. Since the last merge (9e1a9dc, at e3c39b7) it adds WP-3.1's fix for a listener that disposes the controller (c1114d4, 1266681, d2e7ff8), WP-3.1 code reviews 6 and 7, and the docs. `main` is still 0efe863 (#3 to #8). Three conflicts:
 

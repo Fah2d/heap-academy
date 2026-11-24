@@ -2,6 +2,30 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:42, continued), in `night-a`, on `wp/3.3-grader`
+
+Part 43 took about 3 minutes, so the run went on with task 2's next branch. This file is `wp/3.1-python-worker`'s copy (the newest, from part 43; it held every line of this branch's copy, apart from one line in an older wording) with this section added on top.
+
+### Task 2, part 44 done: `main` at 81fdc39 merged into `wp/3.3-grader`
+
+- 0f8a64c: `main` merged directly. Two conflicts, resolved as on WP-3.1: `scripts/infra-verify.mjs` (both sides' functions kept; the result is byte for byte WP-3.1's e3c9043 copy) and this file (`wp/3.1-python-worker`'s copy taken).
+- Decision: `wp/3.1-python-worker` not merged. Its run fixes since aec6c83 wait on WP-3.1 security review 8, round 3, as in part 42's section. `main` reaches this branch without them.
+- `pnpm verify` on 0f8a64c: exit 0, 42 files, 1124 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen 0f8a64c.
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with 0f8a64c and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open; and `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. Say whether WP-3.1's run fixes (4d6608f to a7c3ba7) may reach `wp/3.3-grader` before security review 8, round 3. By default the next runs keep them out.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with `main`) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+
 ## Session of 2026-11-24 (from about 13:42), in `night-a`, on `wp/3.1-python-worker`
 
 Same task list. `git fetch`: `origin/main` moved to 81fdc39, the merge of #10 (`wp/fix-smoke-and-runtime`), so task 1 is done and merged. `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart` were each 9 commits behind it, so task 2 starts again. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy and of `main`'s copy, apart from one line `main` has in an older wording) with this section added on top.
