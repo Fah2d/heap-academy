@@ -86,7 +86,7 @@ If it is already open: `gh pr edit wp/7.3-operations --add-label spec-change --b
 ## What is left for WP-7.3
 
 - Analytics, after owner action 1. With it, ADR-0029 needs triggers for Web Analytics (50,000 events a month) and Speed Insights (10,000 events over 30 days), from E-27.
-- A trigger in ADR-0029 for the firewall's 1,000,000 allowed rate-limit requests (E-23), which NFR-COST-02 asks for and no row has yet.
+- A trigger in ADR-0029 for the firewall's 1,000,000 allowed rate-limit requests (E-23), which NFR-COST-02 asks for and no row has yet. Done in part 5 (decision N).
 - After the CI `db` job is green: the backup workflow and the rest of the list in part 3. `backup.yml` is a workflow file, so like the patch above it reaches `main` through the owner.
 - The deletion email and the deletion request runbook, after account deletion (WP-6.3 part 2).
 - The owner's drills, monitors and notifications.

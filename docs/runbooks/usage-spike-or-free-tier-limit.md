@@ -12,7 +12,7 @@ Vendor screens change. The menu names and figures below were checked against eac
 
 1. [ ] Note the time.
 2. [ ] Find which vendor and which figure. Open, in this order:
-   - Vercel → **Usage** in the sidebar: fast data transfer, fast origin transfer, function invocations, active CPU, provisioned memory, CDN requests.
+   - Vercel → **Usage** in the sidebar: fast data transfer, fast origin transfer, function invocations, active CPU, provisioned memory, CDN requests, and the rate-limit rule's allowed requests once WP-7.1 has created the rule. Where that last figure is shown is not verified; if it is not on **Usage**, read it on the **Firewall** overview.
    - Supabase → the organization's **Usage** page: database size, egress, monthly active users. And each project's home page: is production or staging **Paused**?
    - Resend → **Settings → Usage**: emails sent today and this month.
    - `https://<domain>/api/health`, and the uptime monitor once you have created it (an owner action of WP-7.3). Until WP-2.1 merges, the health answer does not check the database.
@@ -29,6 +29,7 @@ Vendor screens change. The menu names and figures below were checked against eac
 | Vercel Hobby | Active CPU | 4 hours a month | 2 hours (ADR-0029) | Every page |
 | Vercel Hobby | Provisioned memory | 360 GB-hours a month | 180 GB-hours (ADR-0029) | Every page |
 | Vercel Hobby | CDN requests | 1,000,000 a month | 500,000 (ADR-0029) | Not stated by Vercel; treat it like transfer |
+| Vercel Hobby | Allowed requests of the rate-limit rule (from WP-7.1) | 1,000,000; Vercel does not state the period, read here as a month | 500,000 (ADR-0029) | Not stated by Vercel. Plan for the rule to stop limiting, which leaves only the per-action limits of `07-operations.md` section 7 |
 | Supabase Free | Database size | 500 MB | 400 MB (ADR-0029) | Restrictions after a warning: read-only, or 402 on every API request |
 | Supabase Free | Egress | 5 GB | 2.5 GB (ADR-0029) | Same as above |
 | Supabase Free | Monthly active users | 50,000 | 40,000 (ADR-0029) | Same as above |
@@ -36,7 +37,7 @@ Vendor screens change. The menu names and figures below were checked against eac
 | Resend Free | Emails | 100 a day, 3,000 a month | 80 a day, 1,500 a month (ADR-0029) | Email sign-in codes until 00:00 UTC (or the month's end); Google sign-in still works |
 | GitHub Free | Artifact storage | 500 MB | 250 MB (ADR-0029); ADR-0030 is also revisited when a dump passes 50 MB | Backups (later parts of WP-7.3, ADR-0030) |
 
-Every trigger is in ADR-0029, amended on 2026-11-24 with the owner's approval (WP-7.3 decision D): half of each free amount where no other figure was set.
+Every trigger is in ADR-0029, amended on 2026-11-24 with the owner's approval (WP-7.3 decision D): half of each free amount where no other figure was set. The rate-limit row is from WP-7.3 decision N, which awaits the owner's approval.
 
 ## 2. Vercel: a spike in transfer, invocations, or CPU
 

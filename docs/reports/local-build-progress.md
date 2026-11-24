@@ -2,6 +2,26 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 15:20), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` is still 7875ee2 and already in `wp/7.3-operations`. No other branch was merged since the run before.
+
+### Task 1 done: WP-7.3 part 5 (the rate-limit trigger)
+
+- The one item of "What is left for WP-7.3" that needed nobody else: ADR-0029 had no trigger for the 1,000,000 allowed requests of the firewall's rate-limit rule (E-23), which NFR-COST-02 asks for. Added at 500,000 (decision N, awaiting the owner's approval), with the usage runbook row.
+- Reading Vercel's pages again found that neither states the period of that amount or what happens when it runs out; `07-operations.md` section 7 said "a month". E-23 and section 7 now say so.
+- `npm_config_verify_deps_before_run=false pnpm verify`: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`.
+- Description: `docs/reports/pull-requests/WP-7.3-part-5.md`. Documents only; no reviewer asked.
+
+### Task 2: still blocked
+
+Same as the run before: every package that depends only on `origin/main` (WP-2.2, WP-3.1) already has another agent's branch, and every other one depends on a package not in `main` (checked with `git merge-base --is-ancestor` at about 15:20). No branch was started.
+
+### Owner: run this
+
+1. Decide N in `WP-7.3-part-5.md`.
+2. The three owner actions of the 15:08 section below are still due; the pull request body now also takes `WP-7.3-part-5.md`.
+
 ## Session of 2026-11-24 (from about 15:08, after the owner's decisions of 2026-11-24), in `night-c`, on `wp/7.3-operations`
 
 `origin/main` is still 7875ee2 and already in `wp/7.3-operations`. The owner approved every recommended default (see the task list); for WP-7.3 that is decisions A to H.
