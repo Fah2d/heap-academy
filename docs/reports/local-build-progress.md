@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:48, continued), in `night-a`, on `wp/5.2-workspace-laptop`
+
+Part 45 took about 2 minutes, so the run went on. Task 2: no open review item in the WP-3.1, WP-3.3 or WP-3.4 descriptions needs no owner decision; nothing changed since part 39's list (the run fixes and security review 8, round 3, of WP-3.1 stay with the owner). Task 3: WP-4.3 is the first package in plan order that needs the 3.x runtime, but it is already under way on `wp/4.3-validate-publish` (night-b's line), so this run started WP-5.2. This file is `wp/3.4-statechart`'s copy (the newest, from part 45) with this section added on top.
+
+### Task 3, part 46 done: WP-5.2 part 1, on the new branch `wp/5.2-workspace-laptop`
+
+- Base: `wp/3.4-statechart` at 02bb6fe, with `origin/wp/4.2-lesson-editor` (b4f01d1) merged in 48ee7b3. Six conflicts, each two sides adding beside each other; three files taken from `origin/wp/4.3-validate-publish`, whose copies are this branch's plus WP-4.2's additions (checked with `diff`), two test files with both sides kept, and this file (this branch's copy).
+- 5bcd59c: `scripts/next-config.test.ts` (WP-3.1) failed after the merge, `NEXT_PUBLIC_TURNSTILE_SITE_KEY: required`; it now stubs the same fake value Playwright uses. No assertion changed.
+- 395c8e4, 0472ed2, c86b7b4: the published-lesson read in `src/content` (no solution columns, no query for an impossible address), previous and next across chapters, the Run and Check shortcut rules, and the words for each kind of learner error. 22 new tests.
+- `pnpm verify` on c86b7b4: exit 0, 95 files, 1880 tests. `pnpm build` on 5bcd59c with CI's fake public values (and the Turnstile test key): exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db` (no interface and no database change yet). No reviewer has seen this branch.
+- Description: `docs/reports/pull-requests/WP-5.2.md`, with six decisions taken as safe defaults and what parts 2 and 3 hold.
+- Push: `wp/5.2-workspace-laptop`, new on `origin`. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: WP-5.2 part 2 (the page and every screen) is several hours of work and needs its own run.
+
+### Owner: run this
+
+1. Open a draft pull request from `wp/5.2-workspace-laptop` with `docs/reports/pull-requests/WP-5.2.md` as its body (`gh` cannot reach GitHub from this sandbox: certificate error). Its base for review is `wp/3.4-statechart`; it merges into `main` after WP-3.x and WP-4.2.
+2. Read WP-5.2 decisions 3 (shortcuts) and 6 (no caret under the column: the protocol carries no column). By default part 2 shows the line only.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- WP-5.2 part 2 on `wp/5.2-workspace-laptop`: the route and the page, with saved code in IndexedDB and a memory fallback by default (see the description).
+
 ## Session of 2026-11-24 (from about 13:48), in `night-a`, on `wp/3.4-statechart`
 
 Same task list. `git fetch`: `origin/main` is still 81fdc39 (#10 merged). `wp/3.1-python-worker` and `wp/3.3-grader` are 0 commits behind it; `wp/3.4-statechart` was 9 behind. This file is `wp/3.3-grader`'s copy (the newest, from part 44; git merged it with no conflict) with this section added on top.
