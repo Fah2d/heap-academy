@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2 reviewed
+
+- Another session built a second device store (`src/features/progress/device`) in this checkout and committed both. This session kept `src/features/progress/client` (atomic across tabs, retry with backoff) and removed `device`; its note below about a lost-entry window no longer applies.
+- One review round: the code review's major (stale account list removing a pass) is fixed and tested; security review approved. Description: `docs/reports/pull-requests/WP-6.1-part-2.md`.
+- Verify steps: exit 0, 59 files, 1073 tests. Not run: `pnpm test:db`, a real IndexedDB.
+- Not pushed: last push 23:22, next allowed from 00:22 (`wp/6.1-synced-progress` is 4 commits ahead of `wp/2.3-admin-gate`'s remote).
+- Blocked, WP-6.2 part 2 and WP-6.3 part 2: XP, streak and the profile are screens, and the workspace and catalog screens are not on this stack (WP-5.x), so they would be dead code. Account deletion also needs owner input: a new secret for the privileged client (`SUPABASE_SERVICE_ROLE_KEY`) and an address for the deletion notice in the env schema and in Vercel, and a definition of "recent sign-in" (proposal: the token's issue time within 5 minutes). Nothing built for either.
+- Next, once the owner answers or 5.x merges: wire the sync into the first screen that records a pass; then the profile and deletion.
+
+## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2b on `wp/6.1-synced-progress`
+
+- State found: `origin/main` at 428c437; every branch from 2.2 to 5.1 contains it and is pushed. Nothing to merge.
+- Done: the device store (`src/features/progress/device`): `DeviceStore` with a memory store and an IndexedDB store, `openDeviceStore` (falls back to memory when IndexedDB is missing, fails or throws), and `syncOnce` / `createSyncer` (send what the server has not stored, keep the answer through `applyAccount`, drop refused lessons, keep every unsynced entry on failure, one run at a time). `prettier`, `eslint`, `tsc` clean; vitest on `src/features/progress`: 36 passed.
+- Not verified: the IndexedDB store against a real IndexedDB (the package for a fake is not installed and none can be added; a Chromium test is needed). Not run: the full `pnpm verify`, `pnpm test:db`. There is a short window between the second read and `replaceAll` in `syncOnce` in which a completion stored by another tab could be lost; it is retried only if that tab's entry is still unsynced, which it is not after the replace. Left as a known gap for the browser-test pass.
+- Not done: the triggers (sign-in, load, tab visible, online), the unsynced state in the interface, server-rendered progress for a signed-in learner. WP-5.4 (the workspace and its progress store) is not on this stack, so the store is not yet used by any screen.
+- Not pushed: the last push was at 23:22; the next is allowed from 00:22.
+- Next: wire the triggers and the unsynced notice once a screen uses the store; then WP-6.2 and 6.3 part 2. Blocked: UI parts need a screen that holds the store.
+
+## Session of 2026-11-24 (from about 23:20), in `night-b`, WP-6.1 part 2a on `wp/6.1-synced-progress`
+
+- State found: the top-priority CI fixes for #13 were already pushed (3ce8e49). `origin/main` is at 428c437 and every later branch contains it. Another session was merging the branches forward in this same checkout at the same time (unpushed merges 290cc7e to b58dae6), so this work was built and checked in a separate copy and committed without switching branches.
+- Done (61f5a80, based on the unpushed 290cc7e): the `recordCompletion` and `mergeProgress` server actions, their use cases, and the Supabase completion store. Both insert with do nothing on conflict; a refused lesson in a sync is named in `rejected`. Checked in the copy: `prettier`, `eslint`, `tsc` clean; vitest on `src/features/progress` and `src/infrastructure`: 141 passed. Not run: the full `pnpm verify` (the shared checkout was busy), `pnpm test:db` (no Docker). The upsert with `ignoreDuplicates` against the insert-only grants is reasoned from the Postgres rules, not run.
+- Not pushed: the base 290cc7e is unpushed and belongs to the other session.
+- Next: the device store (IndexedDB with memory fallback), the sync orchestration, and server-rendered progress for a signed-in learner; then WP-6.2 and 6.3 part 2.
+
 ## Session of 2026-11-25 (from about 00:12), in `night-a`, on the new branch `wp/5.4-progress-preview`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the runtime branches and `wp/5.2`, `wp/5.3` are 0 behind it and equal to `origin`. Task 2: nothing new that does not need the owner. This file is `wp/5.3-workspace-phone`'s copy (the newest) with `wp/5.1-catalog`'s `night-b` sections added in time order and this section on top.
