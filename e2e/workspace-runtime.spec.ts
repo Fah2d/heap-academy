@@ -4,6 +4,7 @@ import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
 import { workspaceGallery } from "../src/messages/gallery";
 import { goToLine, learnerErrorHeading, workspace as words } from "../src/messages/workspace";
 import { SOURCE_LIMIT } from "../src/runtime/protocol";
+import { invitation } from "../src/messages/sign-in";
 import { saveScreen } from "./screens";
 
 // WP-5.2: the lesson workspace on a laptop, on the development-only page
@@ -166,6 +167,29 @@ test("[FR-WSP-06] [FR-PRG-01] a pass shows its XP once and is kept after a reloa
   await expect(page.getByText(words.restored)).toBeVisible();
   await checkButton(page).click();
   await expect(completion).toHaveText(words.completeAgain);
+});
+
+test("[FR-AUTH-07] [FR-PRG-01] a guest is invited to save progress after a first pass, and can hide it", async ({
+  page,
+}) => {
+  await ready(page);
+  await write(page, EXAMPLE_LESSON.solution);
+  await checkButton(page).click();
+  await expect(page.locator("[data-completion]")).toHaveText(words.completeFirst(10));
+  const card = page.getByRole("region", { name: invitation.label });
+  await expect(card).toContainText(invitation.body);
+  await expect(card.getByRole("link", { name: invitation.signIn })).toHaveAttribute(
+    "href",
+    `/sign-in?${new URLSearchParams({ returnTo: "/dev/workspace" }).toString()}`,
+  );
+  // Inline, not a dialog: the next action stays available.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(checkButton(page)).toBeEnabled();
+  await noAxeViolations(page);
+  await screens(page, "workspace-invitation", "WP-5.4");
+  await card.getByRole("button", { name: invitation.dismiss }).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.locator("[data-invitation-host]")).toBeFocused();
 });
 
 test("[FR-WSP-08] J-3: a program that asks for input twice", async ({ page }) => {

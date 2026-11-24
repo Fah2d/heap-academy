@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { CheckSummary, TestResult } from "@/grader/grade";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
@@ -34,6 +34,7 @@ export function TestsPanel({
   results,
   summary,
   completion,
+  invitation,
   checking,
   checkEnded,
   strategy,
@@ -44,6 +45,8 @@ export function TestsPanel({
   summary: CheckSummary | undefined;
   /** The completion line once a check passed and the pass is kept (section 6.6). */
   completion?: string | undefined;
+  /** The invitation to save progress, below the completion line (FR-AUTH-07). */
+  invitation?: ReactNode;
   checking: boolean;
   /** The last thing that ended was a check, so its summary is new. */
   checkEnded: boolean;
@@ -87,6 +90,12 @@ export function TestsPanel({
           </span>
           {completion}
         </p>
+      )}
+      {completion !== undefined && invitation != null && (
+        // Focus lands here when the learner hides the invitation.
+        <div tabIndex={-1} data-invitation-host className="outline-none">
+          {invitation}
+        </div>
       )}
       <ol className="flex flex-col gap-1">
         {tests.map((test) => {
