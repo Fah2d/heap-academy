@@ -202,6 +202,7 @@ Sizes below are in px for reading. The tokens are written in rem (16 px = 1rem; 
 
 - Spacing scale on a 4 px base: `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16, `--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64 px.
 - Phone side gutter: 16 px. Touch targets at least 44 by 44 px.
+- Program output box: `--spacing-output` 20rem (about 12 lines of code text), the tallest a box of program output grows before it scrolls. The dashboard's validation output and the workspace console use it. **Approved by the owner on 2026-11-24 (proposed in WP-4.3, decision 19).**
 - Radius by role: `--radius-control` 4 px (buttons, fields), `--radius-panel` 6 px (panels, cards), `--radius-dialog` 8 px. Nothing is pill-shaped. Reason: small radii read as precise and formal; they rise with the size of the element.
 - Depth comes from surface steps and hairline borders. A shadow appears only on elements that float above content (dialogs, menus): `--shadow-float: 0 8px 24px rgb(0 0 0 / 0.5)`.
 - Focus ring: 2 px solid `--color-focus`, offset 2 px, on every focusable element; inset inside overflow containers (section 4.5). Nothing else glows.

@@ -1,6 +1,60 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## CI fixes for #13 (at 9717efb)
+
+The `unit` and `e2e` jobs failed on 9717efb (run 45438429284). Both are fixed on this branch, and `main` at 428c437 (#14, the generated database types) is merged in (f8d21ed, no conflict).
+
+**unit.** `src/domain/auth/return-path.test.ts`, "[FR-AUTH-04] [T-11] never returns a path that leaves the site", checks 177,155 paths and ran past Vitest's 5000 ms default on GitHub's runners. As you instructed, the test now has an explicit `60_000` ms limit. No other test changed.
+
+**e2e, `stack` project.** The three journeys that ask for a code failed at `e2e/sign-in-journey.spec.ts:39`, each in about 6.0 s: about 1 s of navigation plus the 5 s wait for "We sent a six-digit code…". The cause is in the test, not in the stack. The "Send code" button stays enabled while the bot challenge runs, and the test pressed it right after typing the address, before Turnstile had handed back a token. The page then shows "Wait for the check that keeps automated sign-ups out to finish, then try again." and stays on the email step. That is the designed state for a learner who presses too early.
+
+Shown on this branch's production build (`pnpm start` on port 3419, CI's public values, Chromium):
+
+```
+after early click: Error: Wait for the check that keeps automated sign-ups out to finish, then try again. |
+token after ms 2320 value XXXX.DUMMY.TOKEN.XXXX
+```
+
+The fix: `requestCode` in the journey waits until Turnstile has written its token into `input[name="cf-turnstile-response"]` (up to 15 s, the same limit as the code email), then presses "Send code". With that wait, against the same build without the local stack, the press reaches the server action:
+
+```
+action status 200
+notice: Error: Sign-in is not working right now. Try again in a few minutes. |
+```
+
+("Not working" is the right answer there: no auth service was running.) The CI log shows the stack started (the image pulls hit `toomanyrequests: Rate exceeded` and succeeded on retry), and the Next.js server printed no error for these requests.
+
+Not verified: the journeys against the local stack. Docker is not running on this machine, so `supabase start` and `pnpm test:e2e --project=stack` were not run here; CI on this push is the first run. If a journey still fails, the next suspects are the auth service's captcha check and the mail catcher, and the trace has to be read. The `e2e` job does not upload `test-results/`, so its traces are lost; uploading them would need a change to `.github/workflows/ci.yml`, which this fix does not make.
+
+`pnpm verify` on f8d21ed with both fixes, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  927 passed (927)
+```
+
+`next build` with CI's public values: exit 0, the same five routes.
+
+Decisions taken with a safe default:
+
+- K. The fix is in the test only. The page already tells a learner who presses too early what to do, so its behavior did not change. Turning the button off until the token arrives would be an interface change for design review, not a CI fix.
+- L. The new wait for the token has its own 15 s limit, the same as the code email. It is a new wait, not a raised limit on an existing one.
+
 ## Up to date with main
+
+**Base: `main`.** WP-2.1 is merged (#12, 7875ee2), so this pull request now targets `main` and shows only WP-2.2's own work. `main` at 7875ee2 is merged into this branch (4c297fc) with no conflict; #12's merge commit changes no file against `wp/2.1-schema-policies` at 57903a0, which this branch already had.
+
+The approved spec changes are written into `docs/spec` on this branch (see "Your decisions"), including WP-2.1's `afterCode` rename, because #12 is merged and this branch is the next one to reach `main`.
+
+With the merge and the spec changes, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  42 passed (42)
+      Tests  927 passed (927)
+```
+
+`next build` with CI's public values, exit 0, the same five routes. `check-bundle` (21 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
 
 `main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.1-schema-policies`, which has it (57903a0): merge commit 30dbedc. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.1-schema-policies`, which holds every section of this branch's copy. No test failed and no code changed.
 
@@ -98,7 +152,20 @@ After the owner actions below: open the preview, press "Sign in" in the header, 
 4. Branch protection: add `e2e` to the required checks (handbook section 10 already lists it).
 5. After the merge: email code inside the TikTok and Instagram in-app browsers on production (NFR-COMPAT-02, ADR-0029).
 
-## Decisions for the owner
+## Your decisions
+
+Approved by you on 2026-11-24: every recommended default below, and every proposed spec change. The spec changes are written into `docs/spec` on this branch, each marked **"Approved by the owner on 2026-11-24"**:
+
+- Decision 2: `03-experience.md` section 8, one sign-in state "code not accepted".
+- Decision 4: `06-security-privacy.md` section 6, a residual risk row for response timing.
+- Deviation 1: `08-delivery-plan.md` WP-2.2, no browser database client.
+- Deviation 2: `02-architecture.md` section 9.1, the `startGoogleSignIn` action.
+- Deviation 4: `03-experience.md` section 5.4, the "Send code" action.
+- WP-2.1's proposed change: `04-content-system.md` sections 2.1, 2.2, 2.4 and 8 name the follow-up code field `afterCode`.
+
+Decisions 1 and 3 change no spec text: the runbook's current rate limits stay until a staging measurement says otherwise, and the CLI bump and the hosted auth version check in `infra:verify` belong to WP-7.1. Decision A of the merge stands.
+
+The questions as they were put:
 
 1. **Rate limits seen from the server.** Every request reaches Supabase from Vercel, so Supabase may count all learners as one caller (not measured). Recommendation: measure on staging with 31 wrong codes; if it is shared, raise "Token verifications" and record the value. Default: the runbook's current values.
 2. **Wrong and expired codes share one message**, because Supabase reports both as `otp_expired` as far as its documentation says. Recommendation: accept, and change `03-experience.md` section 8 to one state "code not accepted" (spec-change). Default: one message.
@@ -108,10 +175,10 @@ After the owner actions below: open the preview, press "Sign in" in the header, 
 
 ## Deviations from the plan or the spec
 
-1. No browser database client (the plan's "browser database clients"): ADR-0027 outranks the plan. Spec-change proposed.
-2. `startGoogleSignIn` is a server action not listed in `02-architecture.md` section 9.1. Spec-change proposed.
+1. No browser database client (the plan's "browser database clients"): ADR-0027 outranks the plan. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
+2. `startGoogleSignIn` is a server action not listed in `02-architecture.md` section 9.1. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
 3. The Google return path waits in a cookie, not in the callback address, because the provider's allow-list holds the bare `/auth/callback`.
-4. The email button says "Send code", not "Continue" (`03-experience.md` section 5.4), because section 9 asks buttons to name the action. Spec-change proposed.
+4. The email button says "Send code", not "Continue" (`03-experience.md` section 5.4), because section 9 asks buttons to name the action. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
 5. The 1.5 s limit for the auth service is this package's number; no spec gives one.
 
 ## Risks and rollback

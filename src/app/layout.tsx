@@ -2,12 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { AccountControl } from "@/features/auth";
+import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
 import { fontVariables, SiteShell } from "@/features/shell";
 import { documentAttributes, LOCALE } from "@/messages/locale";
 import { shell } from "@/messages/shell";
 import "@/ui/styles.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_ORIGIN),
   title: { default: shell.productName, template: shell.titleTemplate },
   description: shell.description,
 };
@@ -26,7 +28,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
       <body className="flex flex-col">
-        <SiteShell account={<AccountControl />}>{children}</SiteShell>
+        <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>
+          {children}
+        </SiteShell>
       </body>
     </html>
   );

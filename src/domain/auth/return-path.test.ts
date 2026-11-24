@@ -97,5 +97,6 @@ describe("safeReturnPath over every short combination", () => {
       }
     }
     expect(checked).toBe(11 + 11 ** 2 + 11 ** 3 + 11 ** 4 + 11 ** 5);
-  });
+    // 177,155 cases: with coverage on CI runners they take over 5 s.
+  }, 60_000);
 });

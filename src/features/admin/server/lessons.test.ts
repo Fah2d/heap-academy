@@ -5,7 +5,8 @@ vi.mock("server-only", () => ({}));
 
 // The lesson editor's read (FR-ADM-04): the row becomes the editor's lesson,
 // with the solution whichever shape the client returned, the chapters in
-// order, and the version the editor saves with.
+// order, the test cases through the grader's parser, and the version the
+// editor saves with.
 
 const row = {
   id: "00000000-0000-4000-8000-000000000e01",
@@ -18,7 +19,16 @@ const row = {
   instructions_md: "## Ask",
   hints: ["Use input()"],
   starter_code: "",
-  tests: [{ id: "t1" }, { id: "t2" }],
+  tests: [
+    { id: "t1", name: "Greets Ada", stdin: "Ada\n", expected: "Hello, Ada" },
+    {
+      id: "t2",
+      name: "Prints the type",
+      afterCode: "print(type(x))",
+      expected: "int",
+      match: "exact",
+    },
+  ],
   updated_at: "2026-11-22T08:00:00.123456+00:00",
   lesson_solutions: { solution_code: "print(1)", wrong_answers: [{ label: "x", code: "" }] },
   courses: {
@@ -52,7 +62,26 @@ describe("editorLesson [FR-ADM-04]", () => {
         starterCode: "",
         solutionCode: "print(1)",
         wrongAnswers: [{ label: "x", code: "" }],
-        testCount: 2,
+        testCases: [
+          {
+            id: "t1",
+            name: "Greets Ada",
+            stdin: "Ada\n",
+            afterCode: "",
+            expected: "Hello, Ada",
+            match: "normalized",
+            hint: "",
+          },
+          {
+            id: "t2",
+            name: "Prints the type",
+            stdin: "",
+            afterCode: "print(type(x))",
+            expected: "int",
+            match: "exact",
+            hint: "",
+          },
+        ],
         loadedAt: row.updated_at,
       },
     });
@@ -67,8 +96,14 @@ describe("editorLesson [FR-ADM-04]", () => {
     }
   });
 
+  it("[FR-ADM-05] reads a lesson with no test case yet as an empty list", () => {
+    const result = editorLesson({ ...row, tests: [] });
+    expect(result.ok && result.lesson?.testCases).toEqual([]);
+  });
+
   it("answers no row as no lesson, and a malformed row as a failed read", () => {
     expect(editorLesson(null)).toEqual({ ok: true, lesson: null });
+    expect(editorLesson({ ...row, tests: [{ id: "t1" }] })).toEqual({ ok: false });
     expect(editorLesson({ ...row, status: "deleted" })).toEqual({ ok: false });
     expect(editorLesson({ ...row, courses: null })).toEqual({ ok: false });
   });
