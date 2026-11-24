@@ -1,7 +1,7 @@
 # WP-3.3 security review 7
 
 - Reviewer: security-reviewer subagent, fresh context, read-only. This report is saved from its message and condensed.
-- Range: 3ab21e9 on `wp/3.3-grader`. The commit answers "Timers between test cases in the Node runner", left as not checked in security review 6, round 2.
+- Range: 3ab21e9 on `wp/3.3-grader` (round 1); d757f11 and ff9e6eb (round 2). The commit answers "Timers between test cases in the Node runner", left as not checked in security review 6, round 2.
 - Threats in scope: T-22 (same worker only), FR-RUN-04, `CLAUDE.md` rule 4, `.claude/rules/runtimes.md`.
 - Date: 2026-11-24
 - The reviewer ran `pnpm exec vitest run src/grader` (182 tests passed) and four probes of its own as untracked files under `src/grader/node-runner/`, which it deleted afterwards (`git status --short` empty). pnpm's automatic dependency install before each script failed on the sandbox's store lock, so nothing was installed; it then ran `./node_modules/.bin/vitest` directly. It did not run the harness in a browser.
@@ -36,7 +36,26 @@ D next check: [["passed","ok\n"]]
 
 **MINOR 2** `src/grader/harness.ts`, the header: one line was not wrapped.
 
-What was done, in d757f11: both. The comment on `check()` says it; the header is rewrapped. The hash pin moved with the comment, which is inside the Python text; `HARNESS_VERSION` stays "6", as "6" has reached no other branch. No reviewer has seen d757f11.
+What was done, in d757f11: both. The comment on `check()` says it; the header is rewrapped. The hash pin moved with the comment, which is inside the Python text; `HARNESS_VERSION` stays "6", as "6" has reached no other branch.
+
+## Round 2, on d757f11 and ff9e6eb: APPROVE, 2 MINOR
+
+Round 2 also covered ff9e6eb, the answer to security review 6, round 2, which no reviewer had seen. The reviewer ran `./node_modules/.bin/vitest run src/grader` (`Tests 182 passed (182)`) and `pnpm verify` (exit 0, `Tests 1114 passed (1114)`), and probes P1 to P6 in a scratch copy under `$TMPDIR`, which it removed (`git status --short` empty).
+
+What it verified:
+
+- ff9e6eb: `run_case` sets `state = None` before `collect_all()`. The state dict is then held only by the closure cell of `Capture.write`, which is part of the `Capture` class's cycle, so the collections free it and the restore after them puts back what its `__del__` changed. Its test fails on the parent c694902 (`Tests 2 failed | 80 passed (82)`; the second case gave `"INJECTED\nnext"`; the other failure was the hash pin). The header names `sys._getframe` and `f_locals`.
+- d757f11: inside the Python text only `#` comment lines changed; the hash pin moved; `HARNESS_VERSION` stayed "6". `wp/3.4-statechart` had the identical harness and test file.
+- Neither commit removed, skipped or loosened a test.
+- Still reachable, all already named in the header: rebinding a `run_case` local through `f_locals` (probe P2), a program-set `__del__` on the capture (P5), and the eight closure cells `Capture.write` shares with `_heap_make_grader` (P4). Objects stored on the `Capture` class are freed (P3). The control remains `freshWorker`.
+
+**MINOR 1** `src/grader/harness.test.ts`, the ff9e6eb test. Since 3ab21e9 starts each case with the collections, the test passes with `state = None` removed (only the hash pin failed: `Tests 1 failed | 81 passed (82)`). Without the fix the state dict is freed as `run_case` returns, after the last restore, so what its `__del__` changes stays on the interpreter after `check()` returns. Probe P1 (a `__del__` in the state dict sets `builtins.ghosted`): `false` at HEAD, `true` without `state = None`. Fix asked: a test that reads the interpreter after `check()` returns.
+
+**MINOR 2** `src/grader/harness.ts`, the comment on `check()` and the header. They name only a timer as the cause of a failed start collection; a write into a harness frame does the same with no timer (probe P6: the next case, a plain `print("ok")`, is a runtime error with no message; the case after it passes). Fails closed. Fix asked: "what an earlier case left, by a timer or by a write into the harness's frames".
+
+What was done, in be9375c: both. A new test, `what a __del__ in the capture's own state changes is put back before the harness returns`, is probe P1: it reads `builtins` on the interpreter after `check()` returns. With `state = None` removed it fails (`× [FR-RUN-04] what a __del__ in the capture's own state changes is put back before the harness returns`, `Tests 2 failed | 81 passed (83)`, the other failure the hash pin); with the line back, `Tests 83 passed (83)`. The ff9e6eb test is kept. The comment on `check()` and the header name both causes. `HARNESS_VERSION` is "7", as "6" has reached `wp/3.4-statechart` by merge. No reviewer has seen be9375c.
+
+Not checked by the reviewer in round 2: the browser worker in a real browser; a check followed by a run through `src/runtime/worker/run-support.ts` on the same worker, where MINOR 1's gap would show (argued, not reproduced); timers made through asyncio or Pyodide's event loop, and Pyodide's finalization callbacks.
 
 ## Outside this commit
 

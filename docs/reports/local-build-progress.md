@@ -2,6 +2,33 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:26), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `git fetch`: `origin/main` is still 0efe863, and `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (6aafe2b) and `wp/3.4-statechart` (67c8e1e) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Of the open items, no reviewer had seen WP-3.3's ff9e6eb and d757f11; a review needs no owner decision (as for deca401 in part 39), so this run asked for one. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 40 done: WP-3.3 security review 7, round 2, on d757f11 and ff9e6eb, and its fixes
+
+- security-reviewer, fresh context: **APPROVE**, 2 MINOR. Both commits do what the earlier minors asked; no test or check is weakened.
+- MINOR 1: the ff9e6eb test no longer guarded `state = None` once 3ab21e9 started each case with the collections (with the line removed only the hash pin failed). MINOR 2: the comment on `check()` and the header named only a timer as the cause of a failed start collection; a write into a harness frame does the same.
+- be9375c: both fixed. A new test reads `builtins` on the interpreter after `check()` returns (the reviewer's probe P1). Checked by hand, with no commit: with `state = None` removed, `Tests 2 failed | 81 passed (83)` (the new test and the hash pin); with it back, `Tests 83 passed (83)`. The ff9e6eb test is kept. `HARNESS_VERSION` is "7".
+- `pnpm verify` on be9375c: exit 0, 42 files, 1115 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Decision: `HARNESS_VERSION` "7", because "6" had reached `wp/3.4-statechart` by merge (68595de); the header says to change it with any change to the Python text, and the change is a comment inside it.
+- Not run: the browser tests. No reviewer has seen be9375c.
+- Not done: merging this into `wp/3.4-statechart`.
+- Written: Round 2 in `docs/reports/reviews/WP-3.3/security-review-7.md`; the first line, "How it was verified" and Reviews of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with be9375c and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. Ask for a review of be9375c, or accept it on the evidence in the description.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with be9375c) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+- The same as in the section four below.
+
 ## Session of 2026-11-24 (from about 13:22), in `night-a`, on `wp/3.4-statechart`
 
 Same task list. `origin/main` is still 0efe863 and `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (6aafe2b) and `wp/3.4-statechart` (cd1c284) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Of the open items, the only one that needed no owner decision was that no reviewer had seen deca401 on WP-3.4. WP-3.1 security review 8, round 3, was not started: an earlier run left it for the owner because its first session was interrupted, possibly on purpose. This file is `wp/3.1-python-worker`'s copy (the newest; it held every line of this branch's copy) with this section added on top.

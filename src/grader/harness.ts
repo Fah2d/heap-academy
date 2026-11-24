@@ -35,7 +35,8 @@
 // harness raises NotRestored. It also raises when eight collections at the
 // start or the end of a case still find garbage (a chain of __del__ methods,
 // each making a new reference cycle). The collections at the start free what
-// a JavaScript timer's callback left between cases. The check itself runs no
+// an earlier case left, by a JavaScript timer's callback between cases or by
+// a write into the harness's frames. The check itself runs no
 // learner code, and restore() keeps the collector off until the check has
 // passed, so an automatic collection cannot call a __del__ from a reference
 // cycle after a part has passed. A fresh worker is the control for all of
@@ -52,7 +53,7 @@
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "6";
+export const HARNESS_VERSION = "7";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -438,7 +439,8 @@ def _heap_make_grader():
     # worker gives up with runtime_crashed and is replaced, and the Node
     # runner reports the test case as crashed. A failure in the collections
     # at the start of a case is reported against that case, though what
-    # broke them was left by an earlier case's timer.
+    # broke them was left by an earlier case, by a timer or by a write into
+    # the harness's frames.
     def check(source, stdin, after_code):
         try:
             return run_case(source, stdin, after_code)
