@@ -7,7 +7,7 @@ import {
   TIME_LIMIT_MS,
   type WorkerLike,
 } from "./controller.ts";
-import { OUTPUT_LIMIT, type PageMessage } from "./protocol.ts";
+import { OUTPUT_LIMIT, type PageMessage, type RunId, type WorkerOutcome } from "./protocol.ts";
 
 // The controller with a fake worker and a fake clock. The real worker and
 // the real clock are in the browser tests (e2e/runtime.spec.ts).
@@ -351,11 +351,11 @@ describe("runtime controller", () => {
   });
 
   type Setup = ReturnType<typeof setUp>;
-  const runDone = (setup: Setup, runId: string, outcome: object) =>
+  const runDone = (setup: Setup, runId: RunId | undefined, outcome: WorkerOutcome) =>
     setup.latest().send({ type: "run_done", runId, outcome, truncated: false, durationMs: 1 });
 
   // Every way a run or a ready worker ends in a restart.
-  const restarts: [string, boolean, (setup: Setup, runId: string) => void][] = [
+  const restarts: [string, boolean, (setup: Setup, runId: RunId | undefined) => void][] = [
     ["the time limit", true, (setup) => setup.advance(TIME_LIMIT_MS)],
     ["stop", true, (setup) => setup.controller.stop()],
     ["a worker error during a run", true, (setup) => setup.latest().fail()],
@@ -375,16 +375,21 @@ describe("runtime controller", () => {
       (setup, runId) => runDone(setup, runId, { kind: "output_limit", message: "" }),
     ],
     ["a worker error while ready", false, (setup) => setup.latest().fail()],
+    [
+      "a fatal message while ready",
+      false,
+      (setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
   ];
 
   /** Starts a run if asked, ends it with the trigger, and checks the controller stays disposed. */
   function expectDisposed(
     setup: Setup,
     withRun: boolean,
-    trigger: (setup: Setup, runId: string) => void,
+    trigger: (setup: Setup, runId: RunId | undefined) => void,
     lastEvent: ControllerEvent["type"] | undefined,
   ) {
-    let runId = "";
+    let runId: RunId | undefined;
     if (withRun) {
       const request = setup.controller.run("while True: pass");
       if (!request.ok) throw new Error("run refused");
@@ -445,6 +450,29 @@ describe("runtime controller", () => {
     (_name, trigger) => {
       const setup = started({ report: (_report, controller) => controller.dispose() });
       expectDisposed(setup, true, trigger, undefined);
+    },
+  );
+
+  it.each([
+    ["a worker error", (setup: Setup) => setup.latest().fail()],
+    [
+      "a fatal message",
+      (setup: Setup) => setup.latest().send({ type: "fatal", reason: "load_failed" }),
+    ],
+  ])(
+    "[FR-RUN-01] dispose from the report of %s while loading sends no failed and allows no start",
+    (_name, trigger) => {
+      const setup = setUp({ report: (_report, controller) => controller.dispose() });
+      setup.controller.start();
+      trigger(setup);
+      expect(setup.events).toEqual([]);
+      expect(setup.workers).toHaveLength(1);
+      expect(setup.workers[0]?.terminated).toBe(true);
+      expect(setup.controller.status).toBe("disposed");
+      setup.controller.start();
+      setup.makeReady();
+      expect(setup.workers).toHaveLength(1);
+      expect(setup.controller.status).toBe("disposed");
     },
   );
 });
