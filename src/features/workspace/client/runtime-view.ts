@@ -10,8 +10,8 @@ export type RuntimeView = {
   output: { stream: OutputStream; text: string }[];
   result: RunResult | undefined;
   restarts: number;
-  /** How many messages the controller dropped. A count, not a list, so a
-   * late timer that prints for ever cannot grow it without limit. */
+  /** How many messages the controller dropped or acted on. A count, not a
+   * list, so a late timer that prints for ever cannot grow it without limit. */
   dropped: number;
 };
 
