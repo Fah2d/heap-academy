@@ -945,6 +945,30 @@ describe("the harness", () => {
     });
   });
 
+  it("[FR-RUN-04] what a __del__ in the capture's own state changes is put back before the harness returns", async () => {
+    // WP-3.3 security review 7, round 2, MINOR 1: since each case starts with
+    // the collections, the test above passes without the fix. Read on the
+    // interpreter itself, after check has returned: without `state = None`
+    // the state dict is freed as run_case returns, after its last restore.
+    const pyodide = await loadPyodide();
+    pyodide.setStdout({ batched: () => {} });
+    pyodide.setStderr({ batched: () => {} });
+    const check: unknown = pyodide.runPython(HARNESS_SOURCE);
+    if (typeof check !== "function") throw new Error("the harness did not evaluate to a function");
+    const source = [
+      "import builtins, sys",
+      "class Y:",
+      "    def __del__(self, b=builtins):",
+      "        b.ghosted = True",
+      "cells = type(sys.stdout).write.__closure__",
+      "state = [c.cell_contents for c in cells if isinstance(c.cell_contents, dict)][0]",
+      'state["zz"] = Y()',
+    ].join("\n");
+    const result = parseHarnessResult(Reflect.apply(check, undefined, [source, "", ""]) as unknown);
+    expect(result).toMatchObject({ error: undefined });
+    expect(pyodide.runPython('import builtins\nhasattr(builtins, "ghosted")')).toBe(false);
+  }, 60_000);
+
   it("[FR-RUN-04] what a __del__ changes in the harness's last collection is put back before the harness returns", async () => {
     // Read on the interpreter itself, after check has returned: the next
     // case's own restore would hide it.
@@ -1075,6 +1099,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "6", hash: 3438141437 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "7", hash: 1379851480 });
   });
 });
