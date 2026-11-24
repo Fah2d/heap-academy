@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2 reviewed
+
+- Another session built a second device store (`src/features/progress/device`) in this checkout and committed both. This session kept `src/features/progress/client` (atomic across tabs, retry with backoff) and removed `device`; its note below about a lost-entry window no longer applies.
+- One review round: the code review's major (stale account list removing a pass) is fixed and tested; security review approved. Description: `docs/reports/pull-requests/WP-6.1-part-2.md`.
+- Verify steps: exit 0, 59 files, 1073 tests. Not run: `pnpm test:db`, a real IndexedDB.
+- Not pushed: last push 23:22, next allowed from 00:22 (`wp/6.1-synced-progress` is 4 commits ahead of `wp/2.3-admin-gate`'s remote).
+- Blocked, WP-6.2 part 2 and WP-6.3 part 2: XP, streak and the profile are screens, and the workspace and catalog screens are not on this stack (WP-5.x), so they would be dead code. Account deletion also needs owner input: a new secret for the privileged client (`SUPABASE_SERVICE_ROLE_KEY`) and an address for the deletion notice in the env schema and in Vercel, and a definition of "recent sign-in" (proposal: the token's issue time within 5 minutes). Nothing built for either.
+- Next, once the owner answers or 5.x merges: wire the sync into the first screen that records a pass; then the profile and deletion.
+
 ## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2b on `wp/6.1-synced-progress`
 
 - State found: `origin/main` at 428c437; every branch from 2.2 to 5.1 contains it and is pushed. Nothing to merge.

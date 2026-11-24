@@ -49,7 +49,7 @@ describe("[FR-PRG-03] [T-08] [T-10] the completion store", () => {
     expect(seen.upsert).toBeUndefined();
   });
 
-  it.each(["42501", "P0001", "23503"])("maps database refusal %s to refused", async (code) => {
+  it.each(["42501", "P0001"])("maps database refusal %s to refused", async (code) => {
     const { db } = fakeDb({ error: { code } });
     const outcome = await supabaseCompletionStore(db).insert("u1", [
       { lessonId: lesson as never, completedAt: 1, code: "" },

@@ -48,6 +48,14 @@ export function startProgressSync(
   let wait = RETRY_FIRST_MS;
   let stopped = false;
   let state: SyncState = "idle";
+  // A sync and a pass never overlap: a stale account list must not settle over
+  // a pass that was stored while the list was being read.
+  let queue: Promise<unknown> = Promise.resolve();
+  const exclusive = <T>(job: () => Promise<T>): Promise<T> => {
+    const next = queue.then(job, job);
+    queue = next.catch(() => undefined);
+    return next;
+  };
 
   const set = (next: SyncState) => {
     state = next;
@@ -56,6 +64,7 @@ export function startProgressSync(
 
   const retryLater = () => {
     if (stopped) return;
+    if (timer !== undefined) ports.clearTimer(timer);
     set("waiting");
     timer = ports.setTimer(() => {
       timer = undefined;
@@ -94,7 +103,7 @@ export function startProgressSync(
       try {
         do {
           again = false;
-          stored = await attempt();
+          stored = await exclusive(attempt);
         } while (again && stored);
       } catch {
         stored = false;
@@ -115,24 +124,25 @@ export function startProgressSync(
   void sync();
 
   return {
-    async complete(completion) {
-      await store.record(completion);
-      onChange();
-      let outcome: Awaited<ReturnType<SyncPorts["recordCompletion"]>>;
-      try {
-        outcome = await ports.recordCompletion(completion);
-      } catch {
-        retryLater();
-        return;
-      }
-      if (outcome.ok) {
-        await store.markSynced(completion.lessonId);
+    complete: (completion) =>
+      exclusive(async () => {
+        await store.record(completion);
         onChange();
-      } else if (outcome.error === "lesson_unavailable") {
-        await store.drop([completion.lessonId]);
-        onChange();
-      } else retryLater();
-    },
+        let outcome: Awaited<ReturnType<SyncPorts["recordCompletion"]>>;
+        try {
+          outcome = await ports.recordCompletion(completion);
+        } catch {
+          retryLater();
+          return;
+        }
+        if (outcome.ok) {
+          await store.markSynced(completion.lessonId);
+          onChange();
+        } else if (outcome.error === "lesson_unavailable") {
+          await store.drop([completion.lessonId]);
+          onChange();
+        } else retryLater();
+      }),
     sync,
     state: () => state,
     stop() {

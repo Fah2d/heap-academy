@@ -21,7 +21,10 @@ const lessonId = z
 // cannot be written as ISO text is never sent to the database.
 const completedAt = z.number().int().min(0).max(9_999_999_999_999);
 // The column holds at most 20000 characters (docs/spec/02-architecture.md 8.1).
-const code = z.string().max(20_000);
+const code = z
+  .string()
+  .max(20_000)
+  .refine((value) => !value.includes("\u0000"));
 
 const completionInput = z.strictObject({ lessonId, completedAt, code });
 

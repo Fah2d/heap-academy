@@ -81,7 +81,7 @@ describe("[FR-PRG-03] sync on start and when the tab shows", () => {
     expect(sync.state()).toBe("idle");
   });
 
-  it("syncs again when the tab becomes visible, and not when it hides", async () => {
+  it("syncs again when the tab becomes visible", async () => {
     const h = harness();
     const sync = startProgressSync(h.store, h.ports);
     await settle();
@@ -205,6 +205,31 @@ describe("[FR-PRG-06] [NFR-REL-01] a completion that cannot reach the server is 
     const sync = startProgressSync(h.store, h.ports);
     await sync.sync();
     expect(await h.store.list()).toEqual([]);
+  });
+});
+
+describe("[NFR-REL-01] a pass and a sync do not overlap", () => {
+  it("a stale account list does not remove a pass stored during the sync", async () => {
+    let release: () => void = () => {};
+    let calls = 0;
+    const h = harness({
+      merge: async () => {
+        calls += 1;
+        // The server read its list before the pass was stored.
+        if (calls === 2) await new Promise<void>((resolve) => (release = resolve));
+        return { ok: true, value: { completions: [], rejected: [] } };
+      },
+    });
+    const sync = startProgressSync(h.store, h.ports);
+    await settle();
+    const running = sync.sync();
+    await settle();
+    const passing = sync.complete(pass(1));
+    await settle();
+    release();
+    await running;
+    await passing;
+    expect((await h.store.list()).map((c) => c.lessonId)).toEqual([lesson(1)]);
   });
 });
 

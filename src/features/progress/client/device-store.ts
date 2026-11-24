@@ -21,8 +21,13 @@ export type DeviceBackend = {
 
 const entry = z.object({
   lessonId: z.string().transform((value) => parseLessonId(value)),
-  completedAt: z.number().finite(),
-  code: z.string(),
+  // The bounds of the server's input: one entry past them would fail every
+  // sync. NUL is refused by the database's text type.
+  completedAt: z.number().int().min(0).max(9_999_999_999_999),
+  code: z
+    .string()
+    .max(20_000)
+    .refine((value) => !value.includes("\u0000")),
   synced: z.boolean(),
 });
 

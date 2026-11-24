@@ -24,8 +24,8 @@ export type CompletionStore = {
 type Db = Pick<SessionClient, "from">;
 
 // 42501: a row level security refusal. P0001 'lesson_not_found': the
-// completion trigger could not see the lesson. 23503: a foreign key refusal.
-const REFUSED = new Set(["42501", "P0001", "23503"]);
+// completion trigger could not see the lesson.
+const REFUSED = new Set(["42501", "P0001"]);
 
 export function supabaseCompletionStore(db: Db): CompletionStore {
   return {
