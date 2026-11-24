@@ -462,7 +462,7 @@ describe("the harness", () => {
   });
 
   it("[FR-GRD-01] a sys.monitoring callback that keeps moving between tool ids makes the harness raise", async () => {
-    // Eight passes cannot free it, so the harness raises ToolsInUse (it fails
+    // Eight passes cannot free it, so the harness raises NotRestored (it fails
     // closed) and its caller replaces the runtime. Its own interpreter, as in
     // the test above.
     const own = await loadHarness();
@@ -486,10 +486,20 @@ describe("the harness", () => {
     } catch (error) {
       thrown = error;
     }
-    expect(thrown).toMatchObject({ type: expect.stringContaining("ToolsInUse") });
+    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
   }, 60_000);
 
-  it("[FR-RUN-04] the import system's lists come back for the next test case, also when changed in place", () => {
+  it("[FR-RUN-04] the import system's lists come back for the next test case, changed in place or rebound", () => {
+    const check = [
+      "import sys",
+      "import decimal",
+      'print("/nowhere" in sys.path, "/nowhere" in sys.path_importer_cache,',
+      '      [type(f).__name__ for f in sys.meta_path].count("Finder"),',
+      "      len(sys.path), len(sys.meta_path), len(sys.path_hooks), len(sys.path_importer_cache))",
+    ].join("\n");
+    const before = run(check);
+    expect(before.error).toBeUndefined();
+    expect(before.output).toMatch(/^False False 0 /);
     run(
       [
         "import sys",
@@ -503,17 +513,47 @@ describe("the harness", () => {
         'sys.path_importer_cache["/nowhere"] = None',
       ].join("\n"),
     );
-    const check = [
-      "import sys",
-      "import decimal",
-      'print("/nowhere" in sys.path, "/nowhere" in sys.path_importer_cache,',
-      '      [type(f).__name__ for f in sys.meta_path].count("Finder"), len(sys.path_hooks))',
-    ].join("\n");
-    const after = run(check);
-    expect(after.error).toBeUndefined();
-    expect(after.output).toMatch(/^False False 0 \d+\n$/);
-    expect(run(check)).toEqual(after);
+    expect(run(check)).toEqual(before);
+    run(
+      [
+        "import sys",
+        'sys.path = ["/nowhere"]',
+        "sys.meta_path = []",
+        "sys.path_hooks = []",
+        'sys.path_importer_cache = {"/nowhere": None}',
+      ].join("\n"),
+    );
+    expect(run(check)).toEqual(before);
   });
+
+  it("[FR-RUN-04] a __del__ that changes the state again while it is put back makes the harness raise", async () => {
+    // WP-3.3 security review 4, round 2, MINOR 1: clearing the builtins ran
+    // this __del__ after the tools were freed, and the next case's output
+    // began with "INJECTED". Its own interpreter: this one stays unusable.
+    const own = await loadHarness();
+    const source = [
+      "import sys, builtins",
+      "m = sys.monitoring",
+      "def inject(code, offset):",
+      '    if code.co_name == "area":',
+      '        print("INJECTED")',
+      "class Ghost:",
+      "    def __del__(self, m=m, b=builtins.__dict__, inject=inject):",
+      "        if m.get_tool(3) is None:",
+      '            m.use_tool_id(3, "ghost")',
+      "            m.register_callback(3, m.events.PY_START, inject)",
+      "            m.set_events(3, m.events.PY_START)",
+      '        b["ghost"] = self.__class__()',
+      "builtins.ghost = Ghost()",
+    ].join("\n");
+    let thrown: unknown;
+    try {
+      own.check(source, "", "");
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ type: expect.stringContaining("NotRestored") });
+  }, 60_000);
 
   it("[FR-RUN-04] the integer digit limit and the async generator hooks come back for the next test case", () => {
     const settings = "import sys\nprint(sys.get_int_max_str_digits(), sys.get_asyncgen_hooks())";
@@ -542,6 +582,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 863582379 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2251569791 });
   });
 });

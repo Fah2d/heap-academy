@@ -27,8 +27,10 @@
 // on a code object (no call clears them for every code object; a later case
 // that takes the same tool id would receive them). A monitoring callback that
 // moves to another tool id while the tools are freed is freed on a later
-// pass; one that is still moving after the last pass makes the harness
-// raise. A fresh worker is the control for all of these.
+// pass. After each restore the state is checked by identity; if it is not
+// back (a callback still moving after the last pass, or a __del__ that ran
+// while the state was put back and changed it again), the harness raises
+// NotRestored. A fresh worker is the control for all of these.
 //
 // Nor is the harness itself protected: a program can reach its closure and
 // change what later test cases on the same worker report, so a check is
@@ -115,6 +117,14 @@ def _heap_make_grader():
     set_digit_limit = sys.set_int_max_str_digits
     asyncgen_hooks = sys.get_asyncgen_hooks()
     set_asyncgen_hooks = sys.set_asyncgen_hooks
+    get_asyncgen_hooks = sys.get_asyncgen_hooks
+    get_digit_limit = sys.get_int_max_str_digits
+    get_recursion_limit = sys.getrecursionlimit
+    get_trace = sys.gettrace
+    get_profile = sys.getprofile
+    dict_get = dict.get
+    dict_items = dict.items
+    absent = object()
 
     dict_clear = dict.clear
     dict_update = dict.update
@@ -158,9 +168,9 @@ def _heap_make_grader():
     class OutputLimit(base_exception):
         pass
 
-    # Raised when a monitoring tool is still in use after the last pass, so
-    # that the harness fails closed.
-    class ToolsInUse(base_exception):
+    # Raised when the state is not back after a restore, so that the harness
+    # fails closed.
+    class NotRestored(base_exception):
         pass
 
     # Standard output of the program and the follow-up code, and how much
@@ -205,8 +215,6 @@ def _heap_make_grader():
                     free_tool_id(tool)
             if not in_use:
                 break
-        else:
-            raise ToolsInUse()
         list_clear(gc_callbacks)
         list_extend(gc_callbacks, gc_callbacks_snapshot)
         for current, snapshot in import_lists:
@@ -224,6 +232,54 @@ def _heap_make_grader():
             if name not in modules_snapshot:
                 dict_pop(modules, name, None)
         dict_update(modules, modules_snapshot)
+        if not intact():
+            raise NotRestored()
+
+    def same_list(current, snapshot):
+        if length(current) != length(snapshot):
+            return False
+        index = 0
+        for item in current:
+            if item is not snapshot[index]:
+                return False
+            index += 1
+        return True
+
+    def same_dict(current, snapshot):
+        if length(current) != length(snapshot):
+            return False
+        for key, value in dict_items(snapshot):
+            if dict_get(current, key, absent) is not value:
+                return False
+        return True
+
+    # Whether the state is back, checked by identity and with calls that free
+    # no object. Clearing a dict or a list frees the learner's objects in it,
+    # and a __del__ that runs then can change the state again after its part
+    # was put back: set a monitoring tool, add a builtin, put back a finder.
+    def intact():
+        if get_trace() is not None or get_profile() is not None:
+            return False
+        for tool in tool_ids:
+            if get_tool(tool) is not None:
+                return False
+        hooks = get_asyncgen_hooks()
+        if hooks[0] is not asyncgen_hooks[0] or hooks[1] is not asyncgen_hooks[1]:
+            return False
+        if get_recursion_limit() != recursion_limit or get_digit_limit() != digit_limit:
+            return False
+        for name, value in dict_items(sys_snapshot):
+            if dict_get(sys_dict, name, absent) is not value:
+                return False
+        for current, snapshot in import_lists:
+            if not same_list(current, snapshot):
+                return False
+        return (
+            same_list(gc_callbacks, gc_callbacks_snapshot)
+            and same_dict(importer_cache, importer_cache_snapshot)
+            and same_dict(builtins_dict, builtins_snapshot)
+            and same_dict(modules, modules_snapshot)
+        )
 
     def register(name, source):
         line_cache[name] = (length(source), None, split_lines(source, True), name)
@@ -318,8 +374,8 @@ def _heap_make_grader():
     # hook still runs on the call that removes it, and can set a raising trace
     # hook on this frame; code that rewrites the harness's closure can too, and
     # so can a monitoring callback that raises on every call, as no call can
-    # then run to free its tool. A tool still in use after the fallback makes
-    # the harness raise too. Then the harness raises: the worker gives up with
+    # then run to free its tool. A state that is still not back after the
+    # fallback makes the harness raise too. Then the harness raises: the worker gives up with
     # runtime_crashed and is replaced, and the Node runner reports the test
     # case as crashed.
     def check(source, stdin, after_code):
@@ -339,9 +395,8 @@ def _heap_make_grader():
                 restore()
             except base_exception:
                 pass
-            for tool in tool_ids:
-                if get_tool(tool) is not None:
-                    raise ToolsInUse()
+            if not intact():
+                raise NotRestored()
             return result("program", "", False, ("runtime", "", None, None))
 
     def run_case(source, stdin, after_code):
