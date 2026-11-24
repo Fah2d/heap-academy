@@ -60,6 +60,15 @@ Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 
 - Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, a new paragraph at the top of "Up to date with main", and "Open decisions" became "Your decisions".
 - ADR-0033 and ADR-0034 are on this branch through WP-3.1 and WP-3.4, but belong to those branches; their status is not changed here (decision F).
 
+### Task 1g done: wp/5.1-catalog
+
+- Started at 15:26. Merge commit f702a31: `wp/4.1-courses-chapters` (d26f5b9). One conflict: this file (this branch's copy, which has the 13:49 session, plus this session's section from 4.3's copy; no section dropped).
+- Spec changes written, marked approved on 2026-11-24: `01-requirements.md` below FR-CRS-01 (decision 2), `03-experience.md` section 8 (decision 9, the 500 error page) and section 3 (decision 15, `/admin/courses/new`).
+- `pnpm verify`: exit 0, 67 files, 1215 tests. `next build` with CI's public values: exit 0, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, a new paragraph at the top of "Up to date with main", and the decisions section marked approved.
+- Task 1 is complete for `main` at 7875ee2: 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 have it, and 2.1 is merged.
+
 Decisions taken with a safe default:
 
 - B. A merged branch's approved spec changes go on the next branch in the chain to reach `main`, not on a new branch, because no new pull request can be opened from here (`gh` still fails: `x509: OSStatus -26276`).
@@ -70,7 +79,7 @@ Decisions taken with a safe default:
 
 ### Owner: run this
 
-1. Paste each description into its pull request: `WP-2.2.md` (base `main`), `WP-2.3.md`, `WP-4.1.md`, `WP-4.2.md`, `wp/4.3-validate-publish.md`.
+1. Paste each description into its pull request: `WP-2.2.md` (base `main`), `WP-2.3.md`, `WP-4.1.md`, `WP-4.2.md`, `wp/4.3-validate-publish.md`, `wp/5.1-catalog.md`.
 2. WP-4.3 decision 1 (b) needs a migration and a trigger test with `supabase start`; WP-4.3 decision 20 needs its own small work package.
 
 
