@@ -192,7 +192,7 @@ export const workspace = {
   previewKind: "Preview",
   previewBody:
     "This is the last saved version, as learners will see it. Nothing here is recorded: not your code, and not a pass.",
-  previewComplete: "Every test passed. A preview records no completion and no XP.",
+  previewComplete: "Every test passed. Nothing was recorded.",
   // Storage refused (FR-PRG-01): what is kept lasts only while the tab is open.
   memoryTitle: "This browser is not saving your work.",
   memoryBody: "Your code and completed lessons are lost when you reload or leave this page.",
