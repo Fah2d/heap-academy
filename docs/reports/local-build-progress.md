@@ -8,6 +8,16 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - `pnpm verify`: exit 0. Not run: the stack e2e (no Docker here), so the fix is reasoned from the code and CI has to confirm it.
 - Next: merge `origin/main` into the later branches in order if it has moved, then WP-6.1 part 2.
 
+## Session of 2026-11-24 (evening), in `night-b`, on `wp/2.2-sign-in`
+
+### Done: CI fixes for #13 (top priority)
+
+- Unit: the return path sweep has a 60 s limit (commit 9161501).
+- e2e: the code step never showed because a client-side navigation to `/sign-in` kept the previous page's policy, which does not frame the Turnstile challenge, so no token arrived. The header "Sign in" link now loads in full (8949c89), except on the sign-in page itself.
+- Review round 1 (code-reviewer, security-reviewer): applied the e2e test change (it checks the `content-security-policy` header, no Cloudflare call) and shorter comments. Not done: a spec note in `06-security-privacy.md` 5.2 and a lint rule against other links to `/sign-in` (spec change needs the owner; listed as a default in the PR).
+- `pnpm verify`: exit 0, 43 files, 929 tests. Not run: `supabase start` and the stack e2e (no Docker here).
+- Next: merge-forward of later branches onto 2.2, then part 2 of 6.1, 6.2, 6.3. Blocked: nothing.
+
 ## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
 
 Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 81fdc39 (#10: the smoke wait, `public/_runtime` ignored, the CSP e2e fixes), so task 1 starts again: each of the seven branches is 9 commits behind `main`. One branch per task, as the task list says; at most two tasks per session.
