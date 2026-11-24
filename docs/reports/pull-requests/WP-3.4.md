@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in dcac7dc, at 303c495). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in ae40fcc, at 6091856). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,16 +19,21 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at 303c495 is merged in dcac7dc. It adds WP-3.3's review round 3 (both APPROVE) and its fixes in b67f730: the harness's `restore` clears the profile hook before the trace hook, three harness tests pin the fallback's limits, `HARNESS_VERSION` is "2", and a doc comment on the controller's `ready` event (it can arrive while the status is `checking`; this branch's page reads `status`). One conflict, `docs/reports/local-build-progress.md`: WP-3.3's copy taken, as the newer one (it holds every section of this branch's copy). `src/runtime/controller.ts` and `src/runtime/worker/core.ts` merged with no conflict. `main` is still 0efe863, which `wp/3.3-grader` carries.
+`wp/3.3-grader` at 6091856 is merged in ae40fcc. It adds WP-3.1's fix for security review 7, MINOR 3 (547b394, dece44f): the development page's `dropped` field is now a count, not a list with no size limit, and `addReport` no longer takes the report. Two conflicts:
 
-`pnpm verify` on dcac7dc, exit 0:
+- `src/features/workspace/client/runtime-view.ts`: this branch's fields (`interactiveInput`, `tests`, `summary`, `refused`) and functions (`startCheck`, `addRefusal`) kept; WP-3.1's `dropped: number`, its comment and the one-argument `addReport` taken. The import of `ControllerReport` was dropped, as nothing uses it now. `use-runtime.ts` (`setView(addReport)`) and `runtime-console.tsx` merged with no conflict.
+- `docs/reports/local-build-progress.md`: WP-3.3's copy taken, as the newer one (it holds every section of this branch's copy).
+
+`main` is still 0efe863, which `wp/3.3-grader` carries.
+
+`pnpm verify` on ae40fcc, exit 0:
 
 ```
  Test Files  46 passed (46)
-      Tests  1151 passed (1151)
+      Tests  1152 passed (1152)
 ```
 
-`pnpm build` with CI's fake public values on dcac7dc, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`); the built harness has `HARNESS_VERSION = "2"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+`pnpm build` with CI's fake public values on ae40fcc, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`); the built harness has `HARNESS_VERSION = "2"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests. `e2e/runtime.spec.ts:307` and `e2e/live-input-runtime.spec.ts:111` expect the text "0" for the dropped messages, which a count of 0 still renders.
 
 ## How it was verified
 
