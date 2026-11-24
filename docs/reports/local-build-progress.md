@@ -11,10 +11,12 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Pushed, because the branch now carries a new `main`.
 - Checked again at 22:52: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since this branch's 22:51 push. Task 1 has nothing new and task 2 is still blocked for the reasons above. No code changed. Committed, not pushed: nothing new for the owner's chat, so not worth a Vercel build. The run stops here.
 - Checked again at 22:54: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since this branch's 22:51 push. `gh pr list` still fails with the same TLS error, so the CI `db` job could not be read. Task 1 has nothing new and task 2 is still blocked. No code changed. Committed, not pushed. The run stops here.
+- Checked again at 22:55: `origin/main` still 428c437 and already in `wp/7.3-operations`. Other agents' branches moved (`wp/2.2-sign-in` 5eab223, `wp/3.1-python-worker` f013090, `wp/3.3-grader` 68a69d2, `wp/3.4-statechart` 96b8015); none touched. `gh` still fails with the TLS error, but `curl` to `api.github.com` works. It shows that **there is no WP-7.3 pull request**: the open ones are #9 (3.1, draft), #11 (6.3, draft) and #13 (2.2, ready); #12 and #14 are merged. `ci.yml` runs only on `pull_request` and on pushes to `main`, so the CI `db` job has never run on this branch. The only check on 955daff is `Vercel Preview Comments` (success). The `backup_reader` migration and its 18 pgTAP tests stay unproved until the pull request is opened. Task 2 still blocked: WP-2.2 (#13) and WP-3.1 (#9) are not merged. No code changed. Pushed once, so the owner's chat reads this finding.
+- The run stops here.
 
 ### Owner: run this
 
-1. Read the CI `db` job of the WP-7.3 pull request. If it passes, the next run can build the backup workflow.
+1. Open the WP-7.3 pull request (label `spec-change`, body from `docs/reports/pull-requests/WP-7.3-part-{1,2,3,4,5}.md`). CI runs only on pull requests, so this is what starts the `db` job. Then read that job. If it passes, the next run can build the backup workflow.
 2. Decision C: `pnpm add @vercel/analytics @vercel/speed-insights`.
 3. Apply the Deploy patch (decision E), as in the 15:08 section below.
 
