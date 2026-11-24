@@ -2,6 +2,18 @@
 
 ## Up to date with main
 
+`main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/2.3-admin-gate`, which has it (d3a05da): merge commit 6dc9213. No conflict. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings the approved spec changes of WP-2.1, WP-2.2 and WP-2.3.
+
+With the merge and this package's approved spec change, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  62 passed (62)
+      Tests  1112 passed (1112)
+```
+
+`next build` with CI's public values, exit 0. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
 `main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.3-admin-gate`, which has it (d6dfb0c): merge commit 00c025d. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.3-admin-gate`, which holds every section of this branch's copy (this branch's copy differed only in older lines of the same session). No test failed and no code changed.
 
 On 00c025d, `pnpm verify`, exit 0:
@@ -137,7 +149,14 @@ After WP-2.2 and WP-2.3's owner actions: sign in, pass the second step, and pres
 
 1. Everything WP-2.2 and WP-2.3 still wait for; this branch is stacked on them.
 
-## Decisions for the owner
+## Your decisions
+
+Approved by you on 2026-11-24: both recommendations below.
+
+- Decision 1: `01-requirements.md` FR-ADM-03 now says chapters are created, edited, reordered, and deleted when empty, with no status of their own. Marked **"Approved by the owner on 2026-11-24"** below the table.
+- Decision 2: reordering keeps `updated_at`, as built; no spec text changes.
+
+The questions as they were put:
 
 1. **Chapters have no status.** FR-ADM-03 says courses and chapters are published, unpublished and archived; the WP-2.1 schema, `02-architecture.md` section 8 and `03-experience.md` section 7.3 give only courses a status, and a chapter shows when its course is published. Recommendation: a `spec-change` to FR-ADM-03 saying chapters are created, edited, reordered and deleted when empty. Default: as built.
 2. **Reordering a course or chapter keeps its `updated_at`.** So `updated_at` means "the editable text last changed", not "the row last changed". Recommendation: accept. Default: as built.
