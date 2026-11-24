@@ -21,9 +21,18 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Not run: `pnpm test:db` (no Docker), e2e (no browser), `pnpm infra:verify` (no deployment of this branch).
 - Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
 
+### Task 1g done: wp/5.1-catalog
+
+- Started at 13:52, after task 1f took about 3 minutes.
+- Merge commit 9ee88bc: `wp/4.1-courses-chapters` (with 2.3 and `main` at 81fdc39). One conflict: this file (resolved to the newest copy, from 4.3 at 608ff07; this branch's copy had no line the newest lacks).
+- No test failed. `pnpm verify`: exit 0, 67 files, 1209 tests. `next build` with CI's public values: exit 0, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+- Task 1 is complete for `main` at 81fdc39: all seven branches have it.
+
 ### Next
 
-- Task 1g: `wp/5.1-catalog`, merging `wp/4.1-courses-chapters` (5.1 is stacked on 4.1, as in the 23:25 session). Then task 2, WP-5.1.
+- Task 2: finish WP-5.1 (its open items are in the 5.1 description and the sections below).
 
 ## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
 
