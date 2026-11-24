@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.4-statechart`, with `origin/wp/4.2-lesson-editor` merged in (48ee7b3). `wp/3.4-statechart` at a3957a7, which carries `main` at 7875ee2 (#12), is merged in 49546a8. Merges after WP-3.1, WP-3.2, WP-3.3, WP-3.4 and WP-4.2 (and so after WP-2.1, WP-2.2 and WP-2.3, which WP-4.2 carries).** Until those merge, this pull request also shows their commits. It is a **draft**, built in parts. Part 1 added the data and the rules the workspace needs, with tests. Part 2 (b386309) adds the lesson page and every region of the workspace. Part 3 so far (bd36501): code review 1 and security review 1 on part 2, their fixes, component tests, and the journeys J-2, J-3 and J-4 passing in Chromium on a development page with screens at 1280, 768 and 375 px. Still to do: the design review, the Delivery Gate report, the throttled-runtime check, and the journeys on the real route with the local stack.
+**Base: `wp/3.4-statechart`, with `origin/wp/4.2-lesson-editor` merged in (48ee7b3). `wp/3.4-statechart` at 053f322, which carries `main` at 428c437 (#14), is merged in 03033a6 (before that, at a3957a7 in 49546a8). Merges after WP-3.1, WP-3.2, WP-3.3, WP-3.4 and WP-4.2 (and so after WP-2.1, WP-2.2 and WP-2.3, which WP-4.2 carries).** Until those merge, this pull request also shows their commits. It is a **draft**, built in parts. Part 1 added the data and the rules the workspace needs, with tests. Part 2 (b386309) adds the lesson page and every region of the workspace. Part 3 so far: code review 1 and security review 1 on part 2, their fixes, component tests, and the journeys J-2, J-3 and J-4 passing in Chromium on a development page (bd36501); then seven more journeys (d8c7888) and a fix to the sizes of the editor, the output and the console that those screens showed (ae88d7c), 14 of 14 passing in Chromium, with screens of 12 states at 1280, 768 and 375 px. Still to do: round 2 of the reviews, the design review, the Delivery Gate report, the throttled-runtime check, and the journeys on the real route with the local stack.
 
 ## What and why
 
@@ -31,6 +31,10 @@ Six conflicts, all two sides adding beside each other:
 - `src/infrastructure/http/security-headers.test.ts`, `src/proxy.test.ts`: both sides' imports and test blocks kept, unchanged.
 - `docs/reports/local-build-progress.md`: this branch's copy kept (the `night-a` copy). The `night-b` copy on WP-4.2 is unchanged on its own branch.
 
+### The merge of `wp/3.4-statechart` with `main` at 428c437 (03033a6)
+
+`main` moved to 428c437 (#14, `wp/db-types`: one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses). `wp/3.4-statechart` at 053f322 brought it, with WP-3.3's notes on WP-3.1 security review 8. One conflict, `docs/reports/local-build-progress.md`: `wp/3.4-statechart`'s copy (the newest) was taken. Checked together with part 3's second half, below.
+
 ### The merge of `wp/3.4-statechart` with `main` at 7875ee2 (49546a8)
 
 `main` moved to 7875ee2 (#12, WP-2.1), which this branch already held through WP-4.2 apart from the merge commit itself. `wp/3.4-statechart` brought it with the approved spec changes of WP-3.3 and WP-3.4 (2026-11-24). One conflict, `docs/reports/local-build-progress.md`: `wp/3.4-statechart`'s copy held every line of this branch's, so it was taken.
@@ -46,6 +50,15 @@ Six conflicts, all two sides adding beside each other:
 - Time box, and time taken: 4 hours. Part 1: about 10 minutes, including the merge. Part 2: an interrupted run's work in progress (about 1,240 lines, kept in a stash), then about 10 minutes here to make it pass the gate and to move the server part. Part 3 so far: about 20 minutes, with the two reviews running beside it.
 
 ## How it was verified
+
+Part 3, second half, on ae88d7c:
+
+- `pnpm verify`: exit 0, `Test Files  104 passed (104)`, `Tests  1942 passed (1942)`. On d8c7888 alone (after the merge, before the size fix): exit 0, 1940 tests.
+- `pnpm build` with CI's fake public values and the Turnstile test key: exit 0. `check-bundle` and `check-static`: exit 0.
+- `e2e/workspace-runtime.spec.ts` in Chromium, 14 of 14 passed, the same way as part 3's first half (port 3264, one test per process; the development server now also needs `RESEND_API_KEY`, given the fake value Playwright's config uses). New since bd36501: Python held while loading (the lesson reads, the editor takes typing, axe); a failed load and Retry (axe); a syntax error names line 2 and Go to line focuses the editor (axe); reset asks, then Undo brings the code back (axe); saved code comes back after a reload, read from IndexedDB first; a browser with no `Worker` sees why and no Run button (axe); a 60-line program stays reachable by keyboard (axe); and the refusal now runs axe and takes screens.
+- Found by the screens and fixed in ae88d7c: `min-h-64`, `min-h-72`, `min-h-40` and `w-48` made no CSS at all, because the theme declares spacing steps 0 to 8 and named sizes only (checked in Chromium: computed `min-height` `0px` and `auto`). Below 768 px the editor and the output had no floor, at every width a syntax-error card squeezed the console to one clipped line, and the admin's code fields had no minimum height. They are tokens now (decision 15). After the fix, at 375 px: editor 256 px, output 288 px, console 96 px. A new test in `src/ui/tokens/token-use.test.ts` fails on any numeric step the theme does not declare; it failed on the old `workspace.tsx` (`min-h-64`, `min-h-72`) and passes on ae88d7c.
+- The interrupted run's work in progress had deleted `expect(await page.title()).not.toBe("owned")` from the T-07 test. It is back, and the test passes with it.
+- Not run: Firefox and WebKit, `pnpm test:e2e` with its own servers, `pnpm test:db`, the throttled-runtime check, and the real route. No reviewer has seen d8c7888 or ae88d7c.
 
 Part 3, on bd36501:
 
@@ -73,7 +86,7 @@ Part 1:
 
 ## Screens
 
-In `docs/reports/screens/WP-5.2/`, each at 1280, 768 and 375 px, from the development page `/dev/workspace` in Chromium: `workspace-ready`, `workspace-check-failed`, `workspace-passed`, `workspace-input`, `workspace-stopped`. Below 768 px the regions follow one another (WP-5.3 builds the phone layout). Still to take: Python loading and failed, restarting, the unsupported browser, a syntax error with Go to line, saved code restored, reset with Undo, and the refusal.
+In `docs/reports/screens/WP-5.2/`, each at 1280, 768 and 375 px, from the development page `/dev/workspace` in Chromium: `workspace-ready`, `workspace-check-failed`, `workspace-passed`, `workspace-input`, `workspace-stopped`, `workspace-loading`, `workspace-load-failed`, `workspace-syntax-error`, `workspace-reset`, `workspace-restored`, `workspace-unsupported`, `workspace-refused`. All retaken on ae88d7c. Below 768 px the regions follow one another (WP-5.3 builds the phone layout). Still to take: Python restarting after a crash.
 
 antislop Delivery Gate report: due with part 3.
 
@@ -110,12 +123,15 @@ None for part 1.
 12. **The input line takes focus back after an answer** as well as when focus is in the workspace (section 6.3), because the line goes away between two prompts and the focus that was in it falls to the body.
 13. **Saved code is not capped** (security review 1). Refusing to save would lose the learner's typing; a program over the limit is refused when it is run, with the reason.
 14. **The development page uses a fenced code block** where `04-content-system.md` section 7's example has an indented one. Section 5's allowed list has fenced blocks only, and the renderer shows the indented block as a paragraph. Proposed spec change: write section 7's example with a fenced `python` block.
+15. **Sizes off the theme's spacing scale are component tokens** (ae88d7c): `--workspace-editor-min` (16 rem) and `--workspace-output-min` (18 rem), the values the dead classes meant; `--workspace-console-min` (6 rem, four lines), so an error card makes the panel scroll instead of hiding the output; `--code-editor-min` (10 rem) for the admin's code fields; `--python-progress-width` (12 rem). The editor's wrapper is a grid, so the editor fills its floor. The admin's fields come from WP-4.2's code and are fixed here because the component is shared.
+16. **The editor's text area carries `tabindex="0"`** (d8c7888). It is in the tab order already as an editable element; saying so lets axe's `scrollable-region-focusable` see that a long program's scrolling box can be reached by keyboard.
+17. **The tests' wait before axe and screenshots ignores endless animations**, such as the editor's blinking cursor, and still waits for every finite one, such as the 160 ms colour change.
 9. **The lesson page is not in the sitemap yet** (part 2). The sitemap is WP-5.1's and is not on this branch; its description says lesson pages join it when they are built, which is for whichever of the two merges second.
 
 ## Left for part 2 and part 3
 
 - Part 2: done in b386309 (saved code on the device was done in 3d6d2d1).
-- Part 3, still to do: round 2 of the code and security reviews on bd36501; the design review and the Delivery Gate report; screens of the states listed under Screens; the throttled-runtime check; J-2 to J-4 on the real route with the local stack; Firefox and WebKit.
+- Part 3, still to do: round 2 of the code and security reviews on ae88d7c; the design review and the Delivery Gate report; a screen of Python restarting; the throttled-runtime check; J-2 to J-4 on the real route with the local stack; Firefox and WebKit.
 - For WP-5.4 (security review 1): a switch to turn saving off for the admin preview, an `onversionchange` handler before the database moves to version 2, and the visible notice when storage falls back to memory (FR-PRG-01). The completion line and XP of J-2 (FR-WSP-06).
 - Not changed (code review 1 NITs): the announced line count includes echoed input lines; typing in the first milliseconds, before IndexedDB answers, replaces the saved code from the last visit without saying so.
 - Part 3: J-2, J-3 and J-4 on Chromium, the keyboard and throttled-runtime checks, screenshots of every state at 375, 768 and 1280 px, axe, the Delivery Gate report, and the three reviews.
@@ -136,7 +152,7 @@ None for part 1.
 - [ ] Every "Done when" line is met, with evidence above. (Part 1 only.)
 - [ ] Every cited Must requirement has a passing test that names its ID. (Part 1's do.)
 - [x] `pnpm verify` and every required check pass.
-- [ ] Every state of every changed view exists. (Built in part 2; not yet seen in a browser.)
+- [ ] Every state of every changed view exists. (Twelve seen in Chromium; Python restarting not yet.)
 - [x] No stub, dead control, placeholder, commented-out code, or invented number.
 - [x] New tables have policies and policy tests. New server actions use the wrapper. (None added.)
 - [x] Every reviewer blocker is fixed (code review 1, both in bd36501). Round 2 has not run.
