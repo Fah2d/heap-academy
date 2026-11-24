@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 03:00), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every branch was level with `origin/main` (0efe863), so this run did the first item under "Next" in the section below. This file came to `wp/3.4-statechart` with the merge (the newest copy, from `wp/3.3-grader`) and this section was added on top.
+
+### Task 3, part 12 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 9730a70: `wp/3.3-grader` at c39ddc7 merged (WP-3.1's worker header rule fix e340e4f, its test, security review 6, the docs). No conflict.
+- `scripts/next-config.test.ts` lists the same eleven compiled worker files as `scripts/build-runtime.test.ts` on this branch; the build writes exactly those eleven to `public/_runtime/worker`.
+- `pnpm verify` on 9730a70: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 9730a70 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
 ## Session of 2026-11-24 (from about 02:50), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
 
 Same task list. Tasks 1 and 2 and task 3 parts 1 to 9 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 10 took about 8 minutes, so the run went on with part 11, which carries this copy to `wp/3.3-grader`. The copy on `wp/3.4-statechart` is now older than this one.
