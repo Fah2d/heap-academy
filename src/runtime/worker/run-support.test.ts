@@ -345,7 +345,9 @@ describe("run support (CPython)", () => {
       encoding: "utf8",
     });
     expect(text).toBe("refused");
-    expect(RUN_SUPPORT_SOURCE.trimEnd().endsWith("_heap_make_runner(True)")).toBe(true);
+    expect(
+      RUN_SUPPORT_SOURCE.trimEnd().endsWith("_heap_make_runner(True, fresh_streams=True)"),
+    ).toBe(true);
   });
 
   it("[FR-RUN-01] reports reading past the end of input as input_ended", () => {
@@ -419,33 +421,44 @@ _heap_take
   };
 }
 
+type WorkerRun = (
+  source: string,
+  stdin?: string[],
+) => { stdout: string; stderr: string; report: ReturnType<typeof parseRunReport> };
+
 /**
  * The runner as the worker makes it: RUN_SUPPORT_SOURCE over Pyodide's own
- * streams, whose bytes reach JavaScript as they are written.
+ * streams. Before each run it sets the stream handlers and the input lines,
+ * as core.ts does, which reopens file descriptors 0, 1 and 2.
  */
-async function workerRunner(): Promise<
-  (source: string) => { stdout: string; stderr: string; report: ReturnType<typeof parseRunReport> }
-> {
+async function workerRunner(): Promise<WorkerRun> {
   const pyodide: PyodideAPI = await loadPyodide();
   const decoder = new TextDecoder();
   const written = { stdout: "", stderr: "" };
-  pyodide.setStdout({
-    write: (bytes: Uint8Array) => {
-      written.stdout += decoder.decode(bytes);
-      return bytes.length;
-    },
-  });
-  pyodide.setStderr({
-    write: (bytes: Uint8Array) => {
-      written.stderr += decoder.decode(bytes);
-      return bytes.length;
-    },
-  });
   const runner: unknown = pyodide.runPython(RUN_SUPPORT_SOURCE);
   if (typeof runner !== "function") throw new Error("the run support did not make a runner");
-  return (source) => {
+  return (source, stdin = []) => {
     written.stdout = "";
     written.stderr = "";
+    const lines = [...stdin];
+    pyodide.setStdout({
+      write: (bytes: Uint8Array) => {
+        written.stdout += decoder.decode(bytes);
+        return bytes.length;
+      },
+    });
+    pyodide.setStderr({
+      write: (bytes: Uint8Array) => {
+        written.stderr += decoder.decode(bytes);
+        return bytes.length;
+      },
+    });
+    pyodide.setStdin({
+      stdin: () => {
+        const line = lines.shift();
+        return line === undefined ? undefined : `${line}\n`;
+      },
+    });
     const report = Reflect.apply(runner, undefined, [source]) as unknown;
     return {
       stdout: written.stdout,
@@ -638,20 +651,9 @@ describe("run support (Pyodide)", () => {
     expect(failed.stderr).toContain("raise Sneaky()");
   }, 60_000);
 
-  it("[FR-RUN-04] a __del__ that replaces a stream method after its restore makes the run raise", async () => {
-    const own = await pyodideRunner();
-    const source = [
-      "import builtins, sys",
-      "class Ghost:",
-      "    def __del__(self, sys=sys):",
-      "        sys.stdout.write = lambda s: 0",
-      "builtins.ghost = Ghost()",
-    ].join("\n");
-    expect(raised(() => own(source))).toMatchObject({
-      type: expect.stringContaining("NotRestored"),
-    });
-  }, 60_000);
-
+  // WP-3.1 security review 8, round 2, MAJOR 1 and MINOR 2 and 3: what a
+  // program does to its streams, their buffers and their raw files, or input
+  // it leaves unread, does not reach the next run, which gets new streams.
   const streamChanges: [string, string][] = [
     ["closes standard output", "import sys\nsys.stdout.close()"],
     ["closes standard input", "import sys\nsys.stdin.close()"],
@@ -660,15 +662,115 @@ describe("run support (Pyodide)", () => {
       "import sys\nsys.stdout.reconfigure(line_buffering=False, write_through=False)",
     ],
     ["changes the encoding", 'import sys\nsys.stdout.reconfigure(encoding="ascii")'],
+    ["changes the line ending", 'import sys\nsys.stdout.reconfigure(newline="\\r\\n")'],
+    [
+      "replaces the buffer's write",
+      [
+        "import sys",
+        "b = sys.stdout.buffer",
+        'b.write = lambda d, w=type(b).write, b=b: w(b, d.replace(b"caf", b"HIJACKED"))',
+      ].join("\n"),
+    ],
+    [
+      "replaces the raw file's write",
+      [
+        "import sys",
+        "r = sys.stdout.buffer.raw",
+        'r.write = lambda d, w=type(r).write, r=r: w(r, b"HIJACKED")',
+      ].join("\n"),
+    ],
+    [
+      "calls the wrapper's __init__ again",
+      [
+        "import io, sys",
+        "class Buf(io.BytesIO):",
+        "    pass",
+        'io.TextIOWrapper.__init__(sys.stdout, Buf(), encoding="utf-8", line_buffering=True, write_through=True)',
+      ].join("\n"),
+    ],
   ];
   for (const [change, source] of streamChanges) {
-    it(`[FR-RUN-04] a program that ${change} makes the run raise, so the worker is replaced`, async () => {
+    it(`[FR-RUN-04] [FR-RUN-01] a program that ${change} does not change the next run's output`, async () => {
       const own = await workerRunner();
-      expect(raised(() => own(source))).toMatchObject({
-        type: expect.stringContaining("NotRestored"),
+      own(source);
+      // os.write goes straight to the file: a printed line is already there
+      // (FR-RUN-01), a line without its newline still waits.
+      expect(
+        own('import os\nprint("café")\nos.write(1, b"|")\nprint("x", end="")\nos.write(1, b"|")'),
+      ).toEqual({
+        stdout: "café\n||x",
+        stderr: "",
+        report: ok,
       });
     }, 60_000);
   }
+
+  it("[FR-RUN-04] input a program replaced or left unread does not reach the next run", async () => {
+    const own = await workerRunner();
+    expect(
+      own(
+        'import sys\nprint(sys.stdin.read(1))\nsys.stdin.buffer.read1 = lambda *a: b"forged\\n"',
+        ["ab", "cd"],
+      ),
+    ).toMatchObject({ stdout: "a\n", report: ok });
+    expect(own("print(input())", ["real"])).toMatchObject({ stdout: "real\n", report: ok });
+  }, 60_000);
+
+  it("[FR-RUN-04] a finite chain of __del__ methods ends inside its own run", async () => {
+    // Round 2, MINOR 4: five links, the last replaces print; the run's
+    // collections free every link, and the restore puts print back.
+    const own = await pyodideRunner();
+    const source = [
+      "import builtins",
+      "class Link:",
+      "    def __init__(self, left):",
+      "        self.left = left",
+      "        self.me = self",
+      "    def __del__(self, b=builtins):",
+      "        if self.left > 0:",
+      "            type(self)(self.left - 1)",
+      "        else:",
+      "            b.print = lambda *a, **k: None",
+      "Link(5)",
+      'print("made chain")',
+    ].join("\n");
+    expect(own(source)).toEqual({ stdout: "made chain\n", report: ok });
+    expect(own('print("next run sees print")')).toEqual({
+      stdout: "next run sees print\n",
+      report: ok,
+    });
+  }, 60_000);
+
+  it("[FR-RUN-04] a sys.monitoring callback that takes a freed tool id while the tools are freed is freed too", async () => {
+    // As the harness's test (WP-3.3 security review 4, MINOR 1).
+    const own = await pyodideRunner();
+    const source = [
+      "import sys",
+      "m = sys.monitoring",
+      "moved = []",
+      "def inject(code, offset):",
+      '    if code.co_name == "area":',
+      '        print("INJECTED")',
+      "def hop(code, offset, called, arg0):",
+      "    if called is m.set_events and not moved:",
+      "        moved.append(1)",
+      '        m.use_tool_id(0, "hop")',
+      "        m.register_callback(0, m.events.PY_START, inject)",
+      "        m.set_events(0, m.events.PY_START)",
+      'm.use_tool_id(4, "probe")',
+      "m.register_callback(4, m.events.CALL, hop)",
+      "m.set_events(4, m.events.CALL)",
+    ].join("\n");
+    expect(own(source).report).toEqual(ok);
+    expect(own("def area(w, h):\n    return w * h\nprint(area(3, 4))")).toEqual({
+      stdout: "12\n",
+      report: ok,
+    });
+    expect(own("import sys\nprint([sys.monitoring.get_tool(t) for t in range(6)])")).toEqual({
+      stdout: "[None, None, None, None, None, None]\n",
+      report: ok,
+    });
+  }, 60_000);
 
   it("[FR-RUN-04] puts back the garbage collector callbacks that were there when the runner was made", async () => {
     const own = await pyodideRunner("import gc\ngc.callbacks.append(lambda phase, info: None)");

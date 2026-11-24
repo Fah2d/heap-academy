@@ -26,7 +26,8 @@ export const SUMMARY_LIMIT = MESSAGE_LIMIT;
 
 /** The routine that makes the runner, for the unit tests to call with their own streams. */
 export const RUN_SUPPORT_DEFINITION = String.raw`
-def _heap_make_runner(require_streaming):
+def _heap_make_runner(require_streaming, fresh_streams=False):
+    import _io
     import builtins
     import gc
     import linecache
@@ -129,7 +130,6 @@ def _heap_make_runner(require_streaming):
     dict_update = dict.update
     dict_keys = dict.keys
     dict_pop = dict.pop
-    attribute = getattr
     to_text = str
     length = len
     kind_of = type
@@ -166,25 +166,47 @@ def _heap_make_runner(require_streaming):
         for name in ("stdout", "stderr"):
             streams[name].reconfigure(line_buffering=True, write_through=True)
 
-    # The three stream objects stay for the worker's whole life, so what a
-    # program sets on them would reach the next run. An attribute in a
-    # stream's own __dict__, such as a replaced write, is removed again; a
-    # stream that was closed or reconfigured fails the check, and the worker
-    # is replaced. The runner writes through the methods of the stream's
-    # type, which a program cannot replace (WP-3.1 security review 8, MAJOR 2).
-    setting_names = ("closed", "encoding", "errors", "line_buffering", "write_through")
+    # In the worker, each run gets three new text streams over file
+    # descriptors 0, 1 and 2 (WP-3.1 security review 8, round 1 MAJOR 2 and
+    # round 2 MAJOR 1). A program can change a stream it is given, its buffer
+    # and its raw file in ways no check can see, such as calling the wrapper's
+    # __init__ again; with new streams, nothing it does to them outlives the
+    # run, and no input it left unread reaches the next run. The originals
+    # are put back by name between runs; the runner never reads them. Each
+    # run's streams use the encoding and errors the originals had, newline
+    # "\n" as CPython's own, and stream each line (FR-RUN-01). The unit
+    # tests pass their own in-memory streams, which are used as they are.
+    file_io = _io.FileIO
+    buffered_reader = _io.BufferedReader
+    buffered_writer = _io.BufferedWriter
+    text_wrapper = _io.TextIOWrapper
+    stream_settings = {
+        name: (streams[name].encoding, streams[name].errors)
+        for name in ("stdin", "stdout", "stderr")
+    }
 
-    def settings(stream):
-        return tuple(attribute(stream, name, None) for name in setting_names)
+    def make_streams():
+        if not fresh_streams:
+            return streams
+        encoding, errors = stream_settings["stdin"]
+        made = {
+            "stdin": text_wrapper(
+                buffered_reader(file_io(0, "r", closefd=False)),
+                encoding=encoding, errors=errors, newline="\n",
+            ),
+        }
+        for name, fd in (("stdout", 1), ("stderr", 2)):
+            encoding, errors = stream_settings[name]
+            made[name] = text_wrapper(
+                buffered_writer(file_io(fd, "w", closefd=False)),
+                encoding=encoding, errors=errors, newline="\n",
+                line_buffering=True, write_through=True,
+            )
+        return made
 
-    stream_state = []
-    for name in ("stdin", "stdout", "stderr"):
-        stream = streams[name]
-        own = attribute(stream, "__dict__", None)
-        own_snapshot = None if own is None else dict(own)
-        stream_state.append((stream, own, own_snapshot, settings(stream)))
-    stderr_write = kind_of(streams["stderr"]).write
-    flushes = [(streams[name], kind_of(streams[name]).flush) for name in ("stdout", "stderr")]
+    # The streams of the run in progress, for the runner's own writes, made
+    # through the stream type's methods, which a program cannot replace.
+    current = {"streams": streams}
 
     # Raised when the state is not back after a restore. It reaches core.ts,
     # which gives up with runtime_crashed, so the worker is replaced.
@@ -218,10 +240,6 @@ def _heap_make_runner(require_streaming):
         for current, snapshot in sys_lists:
             list_clear(current)
             list_extend(current, snapshot)
-        for stream, own, own_snapshot, stream_settings in stream_state:
-            if own is not None:
-                dict_clear(own)
-                dict_update(own, own_snapshot)
         dict_clear(importer_cache)
         dict_update(importer_cache, importer_cache_snapshot)
         if has_digit_limit:
@@ -299,13 +317,6 @@ def _heap_make_runner(require_streaming):
         for current, snapshot in sys_lists:
             if not same_list(current, snapshot):
                 return False
-        for stream, own, own_snapshot, stream_settings in stream_state:
-            if attribute(stream, "__dict__", None) is not own:
-                return False
-            if own is not None and not same_dict(own, own_snapshot):
-                return False
-            if settings(stream) != stream_settings:
-                return False
         return (
             same_list(gc_callbacks, gc_callbacks_snapshot)
             and same_list(gc_garbage, gc_garbage_snapshot)
@@ -335,15 +346,17 @@ def _heap_make_runner(require_streaming):
     def report(error, tb):
         try:
             text = "".join(format_full(kind_of(error), error, tb))
-            stderr_write(streams["stderr"], text)
+            stderr = current["streams"]["stderr"]
+            kind_of(stderr).write(stderr, text)
             flush()
         except base_exception:
             pass
 
     def flush():
-        for stream, flush_stream in flushes:
+        for name in ("stdout", "stderr"):
+            stream = current["streams"][name]
             try:
-                flush_stream(stream)
+                kind_of(stream).flush(stream)
             except base_exception:
                 pass
 
@@ -393,6 +406,9 @@ def _heap_make_runner(require_streaming):
 
     def run(source):
         restore()
+        current["streams"] = made = make_streams()
+        dict_update(sys_dict, made)
+        made = None
         register(source)
         namespace = {"__name__": "__main__", "__builtins__": builtins}
         failure = None
@@ -424,6 +440,9 @@ def _heap_make_runner(require_streaming):
         dict_clear(namespace)
         namespace = None
         failure = None
+        # The run's streams go now, so that whatever the program left on them
+        # is freed before the collections and restores below.
+        current["streams"] = streams
         # A __del__ that runs in a collection can make a new reference cycle,
         # which that collection does not free; the next run's own collection
         # would then run it in the middle of that program. So the runner
@@ -443,7 +462,7 @@ def _heap_make_runner(require_streaming):
 
 /** What the worker evaluates: its value is the runner. */
 export const RUN_SUPPORT_SOURCE = `${RUN_SUPPORT_DEFINITION}
-_heap_make_runner(True)
+_heap_make_runner(True, fresh_streams=True)
 `;
 
 export type RunReport = {
