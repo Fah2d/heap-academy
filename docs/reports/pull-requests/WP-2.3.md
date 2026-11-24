@@ -2,6 +2,19 @@
 
 ## Up to date with main
 
+`main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.2-sign-in`, which has it (30dbedc): merge commit d6dfb0c. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.2-sign-in`, which holds every section of this branch's copy (this branch's copy differed only in older lines of the same session). No test failed and no code changed.
+
+On d6dfb0c, `pnpm verify`, exit 0:
+
+```
+ Test Files  53 passed (53)
+      Tests  1019 passed (1019)
+```
+
+`next build` on d6dfb0c with CI's public values, exit 0, the same eight routes. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
+The earlier merge of `main` at 0efe863 follows.
+
 `main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/2.2-sign-in`, which already has it (2f45f1d, with 6bf689e): merge commit a9d23f1. No rebase, no force push.
 
 - One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/2.2-sign-in` was taken; it holds this branch's sections word for word and the newer ones. `playwright.config.ts` merged on its own, with `main`'s `phone` projects (decision A of WP-2.2 applies here too).

@@ -23,10 +23,20 @@ Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 8
 - Description: `docs/reports/pull-requests/WP-2.2.md`, a new paragraph at the top of "Up to date with main"; decision A unchanged.
 - `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`), so neither pull request text on GitHub is updated. Owner: paste the "Up to date with main" sections of `WP-2.1.md` and `WP-2.2.md`.
 
+## Session of 2026-11-24 (from about 13:45), in `night-b`, task 1c
+
+### Task 1c done: wp/2.3-admin-gate
+
+- Merge commit d6dfb0c: `wp/2.2-sign-in` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.2's copy; this branch's copy differed only in older lines of the 23:25 session).
+- No test failed. `pnpm verify`: exit 0, 53 files, 1019 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main". `gh` was not tried again; owner: paste that section into the pull request.
+- `pnpm verify` printed `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` for its install-before-run step (the sandbox blocks the store lock); `node_modules` was already in place and every check ran.
+
 ### Next
 
-- Task 1c: `wp/2.3-admin-gate`, merging `wp/2.2-sign-in` (with the new `main`).
-- Then 4.1, 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- Task 1d: `wp/4.1-courses-chapters`, merging `wp/2.3-admin-gate` (with the new `main`).
+- Then 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
 - Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
 
 ## Session of 2026-11-23 (from about 23:25), in `night-b`, merging `main` into the open branches
