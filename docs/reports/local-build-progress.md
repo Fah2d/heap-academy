@@ -2,6 +2,30 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:57, after WP-2.1 merged), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` moved to 7875ee2: WP-2.1 (pull request #12) is merged. That unblocked task 1 again.
+
+### Task 1 done: wp/7.3-operations up to date with main, and part 3 built
+
+- Merge commit 7e3cd88: `origin/main` (7875ee2) into `wp/7.3-operations`. One conflict, this file: kept every section of both copies; the new `night-b` section from `main` (from about 13:40) is placed above the other `night-b` sections, and the 2026-11-23 23:25 `night-b` section takes `main`'s newer, shortened copy. `pnpm verify`: exit 0, 32 files, 739 tests.
+- WP-7.3 part 3: the `backup_reader` role of ADR-0030 (`supabase/migrations/20261124120000_backup_reader.sql`) and 18 pgTAP tests that pin it (`supabase/tests/database/06_backup_reader.test.sql`). ADR-0030 says the role must be proved before the backup workflow is built, so the workflow is not in this part.
+- **Not run: `pnpm test:db`** (no Docker, no `psql` here). The migration and the tests have not run anywhere yet; the CI `db` job is their first run.
+- Two `security-reviewer` rounds: round 5 CHANGES REQUIRED (2 majors, 4 minors, fixed), round 6 APPROVE. One line added after round 6 (the `maintain` check) is unreviewed. Reports: `docs/reports/reviews/WP-7.3/security-review-5.md` and `-6.md`.
+- `pnpm verify` after part 3: exit 0, 32 files, 739 tests.
+- Description: `docs/reports/pull-requests/WP-7.3-part-3.md`, with default decisions F (role created without login), G (new `auth` tables need a new grant, caught by the test) and H (`maintain` checked from Postgres 17 only).
+- The task took about 11 minutes (13:57 to 14:08), so this run goes on to task 2 after the push.
+
+### Task 2
+
+See the next section once it is written.
+
+### Owner: run this
+
+1. Open or update the WP-7.3 pull request with all three parts (command at the end of `WP-7.3-part-3.md`), so the CI `db` job runs the new migration and tests.
+2. If the `db` job fails at `supabase start` on `create role ... bypassrls` or on the `auth` grants, the role cannot be made as ADR-0030 says; decide before the backup is built.
+3. Do not turn on login for `backup_reader` yet.
+
 ## Session of 2026-11-24 (run after the owner noted pull request #10 in `main`), in `night-c`, on `wp/7.3-operations`
 
 Task 1 done as far as it can go: `wp/7.3-operations` now contains `origin/main` at 81fdc39. Task 2 is still blocked.
