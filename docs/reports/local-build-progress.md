@@ -29,11 +29,11 @@ Decisions taken with a safe default:
 - I. The lint fix reuses bce0f08's text rather than a new rule, so one version of the check reaches every branch (security review 1's advice).
 - J. Design review was not run again for the one-sentence copy change, which is the wording the design reviewer proposed. WP-1.4's `/dev/error` screens were not taken again.
 
-### Checked again at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51 and 19:52, nothing to do
+### Checked again at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51, 19:52 and 19:54, nothing to do
 
-- `git fetch` at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51 and 19:52: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3, 5.1 and `wp/fix-lint-template-import` contain it, and every local head matches its remote. Task 1 has nothing to do.
+- `git fetch` at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51, 19:52 and 19:54: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3, 5.1 and `wp/fix-lint-template-import` contain it, and every local head matches its remote except `wp/5.1-catalog` (progress commits only). The chain holds: 2.2 is in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, and 4.1 in 5.1 (5.1 is built on 4.1, not 4.3, as the 15:14 session merged it). Task 1 has nothing to do.
 - Task 2 (WP-5.1): every item this sandbox can do is done. The approved spec changes (decisions 2, 9 and 15) are already in `docs/spec` on this branch. Docker is still not running, so the stack journey, its screens and design review 4 stay with the owner.
-- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped. At 19:52 Docker was still down, and `wp/5.1-catalog` was nine progress commits ahead of its remote, counting this one (owner action 6 itself is pushed, f2ab9b3).
+- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped. At 19:54 Docker was still down, and `wp/5.1-catalog` was ten progress commits ahead of its remote, counting this one (owner action 6 itself is pushed, f2ab9b3).
 
 ### Owner: run this
 
