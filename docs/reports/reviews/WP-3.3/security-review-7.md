@@ -57,6 +57,23 @@ What was done, in be9375c: both. A new test, `what a __del__ in the capture's ow
 
 Not checked by the reviewer in round 2: the browser worker in a real browser; a check followed by a run through `src/runtime/worker/run-support.ts` on the same worker, where MINOR 1's gap would show (argued, not reproduced); timers made through asyncio or Pyodide's event loop, and Pyodide's finalization callbacks.
 
+## Round 3, on be9375c: APPROVE, no findings
+
+Fresh context, 2026-11-24. The reviewer ran these:
+
+- In a scratch copy of the tree at be9375c, under `$TMPDIR` (removed afterwards), it replaced `state = None` in `run_case` with `pass`. Two tests then failed: the new test (`AssertionError: expected true to be false`, so `builtins.ghosted` was still set) and the hash pin. The run showed `Tests  2 failed | 81 passed (83)`. With the tree unchanged: `Tests  83 passed (83)`.
+- `./node_modules/.bin/vitest run src/grader` at d7633c7: `Tests  183 passed (183)`.
+- `pnpm verify`: exit 0, `Test Files  42 passed (42)`, `Tests  1115 passed (1115)`, and the attribution checks passed.
+
+What it verified:
+
+- The new test is not fragile. `Capture.write` closes over eight cells, and the state dict is the only dict among them. If no dict were found, the program would raise, and `toMatchObject({ error: undefined })` would fail the test. The test loads its own Pyodide, so `ghosted` cannot leak into other tests.
+- With every `#` line stripped, the Python text is identical before and after be9375c (both hash to `509603946472d28a8365be3bd4df49d477498eb5`). The rest of the diff is the `//` header, `HARNESS_VERSION` "6" to "7", and the hash pin, now `{ version: "7", hash: 1379851480 }`. Nothing in `src` or `docs/spec` pins "6".
+- No test was removed, skipped or loosened. The only line removed from `harness.test.ts` is the old hash pin. The new test's `60_000` limit is the one the 11 other fresh-Pyodide tests use, and the ff9e6eb test is kept.
+- The Python that runs is unchanged, so isolation is as before.
+
+Not checked by the reviewer in round 3: the browser worker in a real browser; a check followed by a run through `src/runtime/worker/run-support.ts` on the same worker (the item below); timers made through asyncio or Pyodide's event loop, and Pyodide's finalization callbacks.
+
 ## Outside this commit
 
 On this branch, `src/runtime/worker/run-support.ts` still starts a run with a bare `restore()` and ends with a single `collect()`, so in the browser a timer a check set can still write into the next run's output. On `wp/3.1-python-worker` the run support collects until nothing is left (16711f5, a7c3ba7) but still starts a run with a bare `restore()`; that is WP-3.1 security review 7, MINOR 1 ("A late callback's output reaches the next run"), an owner decision.

@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:37), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. `git fetch`: `origin/main` is still 0efe863. `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (d7633c7) and `wp/3.4-statechart` (1987e99) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). `wp/3.3-grader` is 9 commits behind `wp/3.1-python-worker`. Those 9 are the run fixes that wait on WP-3.1 security review 8, round 3, so this run did not merge them. The only open item that needed no owner decision was that no reviewer had seen WP-3.3's be9375c. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 42 done: WP-3.3 security review 7, round 3, on be9375c
+
+- security-reviewer, fresh context: **APPROVE**, no findings.
+- In a scratch copy, the reviewer replaced `state = None` with `pass`. The new test then failed, and so did the hash pin: `Tests  2 failed | 81 passed (83)`. With the tree unchanged: `Tests  83 passed (83)`.
+- Inside the Python text only `#` lines changed. No test was removed, skipped or loosened.
+- The reviewer's `pnpm verify` at d7633c7: exit 0, 42 files, 1115 tests. No code changed in this run, so it was not run again.
+- Not run: the browser tests.
+- Written: Round 3 in `docs/reports/reviews/WP-3.3/security-review-7.md`; the first line and Reviews of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with the docs commit. Then that commit was merged into `wp/3.4-statechart`, and the first line of `WP-3.4.md` was updated. This line is pushed with those commits. `wp/3.4-statechart`'s copy of this file is the newest.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, and the same with `WP-3.4.md` on `wp/3.4-statechart`, if those pull requests are open.
+2. The owner actions of the sections below are still due. Asking for a review of be9375c is no longer one of them.
+
+### Next
+
+- The same as in the section six below (after security review 8, round 3, on WP-3.1's a24111c and a7c3ba7; after `wp/fix-smoke-and-runtime` merges).
+
 ## Session of 2026-11-24 (from about 13:26, continued), in `night-a`, on `wp/3.4-statechart`
 
 Part 40 took about 8 minutes, so the run went on with the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (the newest, from part 40; it held every line of this branch's copy) with this section added on top.
