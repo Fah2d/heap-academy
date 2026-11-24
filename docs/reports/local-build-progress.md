@@ -2,6 +2,32 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 00:12), in `night-a`, on the new branch `wp/5.4-progress-preview`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the runtime branches and `wp/5.2`, `wp/5.3` are 0 behind it and equal to `origin`. Task 2: nothing new that does not need the owner. This file is `wp/5.3-workspace-phone`'s copy (the newest) with `wp/5.1-catalog`'s `night-b` sections added in time order and this section on top.
+
+### Task 3, parts 58 and 59 done: WP-5.4 parts 1 and 2, on `wp/5.4-progress-preview`
+
+- Base: `wp/5.2-workspace-laptop` at 3f5f1bb; afbd72d merges `origin/wp/5.1-catalog` at 392fa44 (it carries `wp/4.3-validate-publish`, which WP-5.4 depends on). 7 conflicts resolved; two WP-5.1 checks updated for WP-5.2's lesson page (the indexing table row, an exact two-file exception in the catalog boundary test). cf9d200 then merges `wp/5.3-workspace-phone` at 2653c90 (one conflict, `e2e/screens.ts`), so later workspace changes do not conflict with the phone layout.
+- Part 1, f78c583: the progress store on the device (`src/features/progress`), one IndexedDB opener at version 2 shared with saved code. Code review 1: CHANGES REQUIRED, 1 BLOCKER (the saved-code journey opened version 1), 2 MAJOR, 4 MINOR; fixed in 8368967 apart from one minor accepted as decision 6.
+- Part 2, 8474a95: the completion moment and the storage notice. Code review 2: CHANGES REQUIRED, 4 MAJOR, 3 MINOR; all fixed in 5359d9c. Reports in `docs/reports/reviews/WP-5.4/`.
+- `pnpm verify` on 5359d9c: exit 0, `Test Files  123 passed (123)`, `Tests  2259 passed (2259)`. `pnpm build` with the fake public values: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser on 5359d9c, Chromium, one test per process: 16 desktop and 4 phone journeys, 20 of 20. Found: the development server must be reached as `localhost`; for `127.0.0.1` Next.js blocks its development files and Python never starts (the old configs in `$TMPDIR` used `127.0.0.1`).
+- Two development servers are still running and the sandbox cannot stop them: port 3264 (an older run's, now broken, its `.next` was rebuilt) and port 3265. Owner: `lsof -ti tcp:3264,3265 | xargs kill` from a terminal outside the sandbox.
+- No security review (no sign-in, database or runtime change; the runtime hook only reports the checked source). No design review (speed mode).
+- Description: `docs/reports/pull-requests/WP-5.4.md` (47 lines).
+- Push: `wp/5.4-progress-preview`, once 60 minutes had passed since the last push (00:10).
+
+### Owner: run this (parts 58 and 59)
+
+1. Open a draft pull request from `wp/5.4-progress-preview` with `docs/reports/pull-requests/WP-5.4.md` as its body.
+2. Read decision 7: the invitation to save progress needs to know whether the learner is signed in, which the lesson page may not read. The next part will propose a way.
+
+### Next
+
+- WP-5.4 part 3: completion marks and action labels on the course list and course page, and the invitation.
+- WP-5.4 part 4: the admin preview route (records nothing, not-found to a learner), J-8, the network-cut journey.
+
 ## Session of 2026-11-24 (from about 23:10), in `night-a`, on `wp/5.2-workspace-laptop`, then `wp/5.3-workspace-phone`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the three runtime branches are 0 behind it. Task 2: nothing new that does not need the owner. Speed mode allows one review round, already done on WP-5.2, and no design review, so this run finished WP-5.2 instead of a second round. This file is `wp/5.3-workspace-phone`'s copy (the newest) with this section added on top.
