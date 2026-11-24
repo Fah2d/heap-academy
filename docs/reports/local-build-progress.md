@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:48), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `git fetch`: `origin/main` is still 81fdc39 (#10 merged). `wp/3.1-python-worker` and `wp/3.3-grader` are 0 commits behind it; `wp/3.4-statechart` was 9 behind. This file is `wp/3.3-grader`'s copy (the newest, from part 44; git merged it with no conflict) with this section added on top.
+
+### Task 1, part 45 done: `wp/3.3-grader` (with `main` at 81fdc39) merged into `wp/3.4-statechart`
+
+- 89eede2: `wp/3.3-grader` at 6ce4a4d merged. No conflicts.
+- Decision: as in part 44, WP-3.1's run fixes (4d6608f to a7c3ba7) are not merged here; they wait on WP-3.1 security review 8, round 3.
+- `pnpm verify` on 89eede2: exit 0, 46 files, 1239 tests. `pnpm build` with CI's fake public values: exit 0 (`runtime: worker compiled`); the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Seen, not a problem: `pnpm`'s install step before scripts could not take its store lock (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed.
+- Not run: the browser tests. No reviewer has seen 89eede2 (a clean merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with 89eede2 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- All three runtime branches are up to date with `main`. Task 2 (open review findings that need no owner) and then task 3 (the next work package that needs the 3.x runtime).
+
 ## Session of 2026-11-24 (from about 13:42, continued), in `night-a`, on `wp/3.3-grader`
 
 Part 43 took about 3 minutes, so the run went on with task 2's next branch. This file is `wp/3.1-python-worker`'s copy (the newest, from part 43; it held every line of this branch's copy, apart from one line in an older wording) with this section added on top.

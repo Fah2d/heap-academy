@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 0efe863, is merged (last in 7d4cff4, at dd6ebeb). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 81fdc39, is merged (last in 89eede2, at 6ce4a4d). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -19,7 +19,7 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
-`wp/3.3-grader` at dd6ebeb is merged in 7d4cff4. It adds only WP-3.3's record of security review 7, round 3 (APPROVE, no findings, on be9375c); no code changed. The one conflict, `docs/reports/local-build-progress.md`, was resolved by taking `wp/3.3-grader`'s copy.
+`wp/3.3-grader` at 6ce4a4d is merged in 89eede2. It brings `main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`), which `wp/3.3-grader` merged in 0f8a64c. The merge had no conflicts. WP-3.1's run fixes that wait on its security review 8, round 3, are not on `wp/3.3-grader`, so they are not here either.
 
 Before that, `wp/3.3-grader` at d7633c7 was merged in a8a2e94. Since the last merge (68595de, at 6aafe2b) it adds WP-3.3 security review 7, round 2, and its fix be9375c: a harness test that reads the interpreter after `check()` returns, so it fails without `state = None`, and two comments inside the Python text. `HARNESS_VERSION` is now "7". One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. `src/grader/harness.ts` and its tests merged with no conflict.
 
