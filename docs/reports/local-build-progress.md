@@ -14,7 +14,7 @@ Same task list. `git fetch`: `origin/main` is still 0efe863. `wp/fix-smoke-and-r
 - The reviewer's `pnpm verify` at d7633c7: exit 0, 42 files, 1115 tests. No code changed in this run, so it was not run again.
 - Not run: the browser tests.
 - Written: Round 3 in `docs/reports/reviews/WP-3.3/security-review-7.md`; the first line and Reviews of `docs/reports/pull-requests/WP-3.3.md`.
-- Push: `wp/3.3-grader` with the docs commit. Then that commit was merged into `wp/3.4-statechart`, and the first line of `WP-3.4.md` was updated. This line is pushed with those commits. `wp/3.4-statechart`'s copy of this file is the newest.
+- Push: `wp/3.3-grader` with the docs commit. Then that commit was merged into `wp/3.4-statechart`, in 7d4cff4 (one conflict, this file; `wp/3.3-grader`'s copy taken), and the first line and "Up to date with main" of `WP-3.4.md` were updated. This line is pushed with those commits. `wp/3.4-statechart`'s copy of this file is the newest.
 
 ### Owner: run this
 
