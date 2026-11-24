@@ -21,12 +21,15 @@ export function DisplayName({
   // Set on leaving the form, so focus returns to the button that opened it.
   const [closed, setClosed] = useState(false);
   const [draft, setDraft] = useState(name);
+  // The name just saved, shown while the page renders again with it.
+  const [saved, setSaved] = useState<string | null>(null);
+  const shown = saved ?? name;
   const [problem, setProblem] = useState<DisplayNameProblem | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function open() {
-    setDraft(name);
+    setDraft(shown);
     setProblem(null);
     setFailure(null);
     setEditing(true);
@@ -57,6 +60,7 @@ export function DisplayName({
         setFailure(answer.error === "not_signed_in" ? words.signedOut : words.saveFailed);
         return;
       }
+      setSaved(parsed.value);
       router.refresh();
       close();
     });
@@ -65,7 +69,7 @@ export function DisplayName({
   if (!editing) {
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-base break-words text-text-muted">{name}</p>
+        <p className="text-base break-words text-text-muted">{shown}</p>
         <Button variant="secondary" onPress={open} autoFocus={closed}>
           {words.changeName}
         </Button>

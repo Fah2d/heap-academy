@@ -133,6 +133,7 @@ describe("[FR-PRF-02] changing the display name", () => {
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce());
     const open = await screen.findByRole("button", { name: words.changeName });
     expect(document.activeElement).toBe(open);
+    expect(screen.getByText("Alex")).toBeTruthy();
   });
 
   it("says why an empty name is wrong and sends nothing", async () => {
@@ -164,5 +165,21 @@ describe("[FR-PRF-02] changing the display name", () => {
     await user.click(screen.getByRole("button", { name: words.cancel }));
     expect(screen.getByText("Sam")).toBeTruthy();
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe("[T-07] a display name holding markup", () => {
+  const payload = '<img src=x onerror="alert(1)">';
+
+  it("is shown and edited as text, never as markup", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <ProfileView summary={{ ...summary, displayName: payload }} updateProfile={vi.fn()} />,
+    );
+    expect(screen.getByText(payload)).toBeTruthy();
+    expect(container.querySelector("img, script")).toBeNull();
+    await user.click(screen.getByRole("button", { name: words.changeName }));
+    expect(screen.getByRole("textbox", { name: words.nameLabel })).toHaveProperty("value", payload);
+    expect(container.querySelector("img, script")).toBeNull();
   });
 });
