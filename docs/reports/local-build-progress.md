@@ -2,9 +2,9 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 18:06, checked again at 18:08 and 18:09), in `night-b`, nothing to do
+## Session of 2026-11-24 (from about 18:06, checked again at 18:08, 18:09 and 18:11), in `night-b`, nothing to do
 
-- `git fetch` at 18:06, 18:08 and 18:09: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is eight progress commits ahead (the 18:09 check makes nine; each check updates this section instead of adding another identical one). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- `git fetch` at 18:06, 18:08, 18:09 and 18:11: `origin/main` is still at 7875ee2, and it already contains #10 (`origin/wp/fix-smoke-and-runtime` at 27ce416 is an ancestor). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which was nine progress commits ahead before this check (the 18:11 check makes ten; each check updates this section instead of adding another identical one). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
 - Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running; owner actions 5 and 6 are still undecided; `gh` still fails with `x509: OSStatus -26276`.
 - Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped.
 
