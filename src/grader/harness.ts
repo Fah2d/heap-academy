@@ -27,7 +27,7 @@
 // with Node's own type stripping.
 
 /** Included in every result (section 3.1). Change it with any change to the Python below. */
-export const HARNESS_VERSION = "1";
+export const HARNESS_VERSION = "2";
 
 /** The file name the learner's program has in tracebacks. */
 export const HARNESS_PROGRAM_FILENAME = "main.py";
@@ -140,9 +140,11 @@ def _heap_make_grader():
 
         return Capture(), state
 
+    # The profile hook goes first: it runs on the call that removes the trace
+    # hook, and could put that hook back.
     def restore():
-        set_trace(None)
         set_profile(None)
+        set_trace(None)
         set_recursion_limit(recursion_limit)
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
@@ -241,9 +243,11 @@ def _heap_make_grader():
     # errors (section 3.1). Learner code can still reach the harness's own
     # steps, through a hook or an object the harness touches; then the test
     # case is a runtime error of the program, with no message and no output,
-    # whichever stage it came from. The hooks are cleared first, before any
-    # call that could run them. Code that rewrites the harness's closure can
-    # still make it raise; the worker then gives up and is replaced.
+    # whichever stage it came from. The hooks are cleared first. A profile
+    # hook still runs on the call that removes it, and can set a raising trace
+    # hook on this frame; code that rewrites the harness's closure can too.
+    # Then the harness raises: the worker gives up with runtime_crashed and is
+    # replaced, and the Node runner reports the test case as crashed.
     def check(source, stdin, after_code):
         try:
             return run_case(source, stdin, after_code)

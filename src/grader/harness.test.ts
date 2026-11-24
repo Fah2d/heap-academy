@@ -245,6 +245,54 @@ describe("the harness", () => {
     expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
   });
 
+  it("[FR-GRD-01] never raises: a raising trace hook that puts back the profile hook gives a result, and the next test case runs", () => {
+    // Pins both calls in the fallback and their order: profile hook, then trace hook.
+    const source = [
+      "import sys",
+      "def tracer(frame, event, arg):",
+      "    sys.setprofile(prof)",
+      "    raise ValueError('t')",
+      "def prof(frame, event, arg):",
+      "    sys.settrace(tracer)",
+      "sys.setprofile(prof)",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ stage: "program", error: { kind: "runtime" } });
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] two hooks that put each other back and never raise leave a clean program's result as it is", () => {
+    // restore() clears the profile hook first; the other order lets it put the tracer back.
+    const source = [
+      "import sys",
+      "def tracer(frame, event, arg):",
+      "    sys.setprofile(prof)",
+      "def prof(frame, event, arg):",
+      "    sys.settrace(tracer)",
+      "sys.setprofile(prof)",
+      "print('mine')",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ stage: "program", output: "mine\n", error: undefined });
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
+  it("[FR-GRD-01] a profile hook that sets a raising trace hook on the harness's frames makes the harness raise, and the next test case runs", () => {
+    // The documented limit of the fallback (harness.ts, check): the worker
+    // replaces itself with runtime_crashed, and the Node runner reports crashed.
+    const source = [
+      "import sys",
+      "def T(frame, event, arg):",
+      "    raise ValueError('T')",
+      "def P(frame, event, arg):",
+      `    if frame.f_code.co_filename != "${HARNESS_PROGRAM_FILENAME}":`,
+      "        sys.settrace(T)",
+      "        frame.f_trace = T",
+      "        frame.f_trace_lines = True",
+      "sys.setprofile(P)",
+    ].join("\n");
+    expect(() => host.check(source, "", "")).toThrow();
+    expect(run('print("next")')).toMatchObject({ output: "next\n", error: undefined });
+  });
+
   it("[FR-RUN-04] a profile hook that never raises is removed before the next test case", () => {
     run("import sys\nsys.setprofile(lambda *args: None)");
     expect(run("import sys\nprint(sys.getprofile())")).toMatchObject({
@@ -317,6 +365,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "1", hash: 3388004850 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "2", hash: 2318042681 });
   });
 });

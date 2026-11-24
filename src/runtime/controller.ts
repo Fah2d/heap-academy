@@ -58,6 +58,10 @@ export type RestartReason =
 
 export type ControllerEvent =
   | { type: "progress"; loadedBytes: number; totalBytes: number }
+  /**
+   * A worker finished loading. After an isolation restart the controller may
+   * already be `checking` when this arrives: read `status`, not this event.
+   */
   | { type: "ready"; runtimeVersion: string; interactiveInput: boolean }
   | { type: "output"; runId: RunId; stream: OutputStream; text: string }
   /** The program is waiting for a line (interactive runs only). */
