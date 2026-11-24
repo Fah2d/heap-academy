@@ -13,6 +13,15 @@ function lessons(count: number): string {
 export const catalogCommon = {
   coursesLink: "Courses",
   lessonCount: lessons,
+  /** "0 of 1 lesson completed", "3 of 12 lessons completed" (FR-CAT-02). */
+  progress: (completed: number, total: number) =>
+    `${String(completed)} of ${lessons(total)} completed`,
+  /** The course's one action, by where the learner stands (FR-CAT-02). */
+  action: {
+    begin: "Begin the course",
+    continue: "Continue the course",
+    review: "Review the course",
+  },
 } as const;
 
 export const home = {
@@ -45,4 +54,7 @@ export const coursePage = {
   chapterNumber: (chapter: number) => `Chapter ${String(chapter)}`,
   lessonNumber: (chapter: number, lesson: number) => `${String(chapter)}.${String(lesson)}`,
   chapterLessonsLabel: (title: string) => `Lessons in ${title}`,
+  lessonXp: (xp: number) => `${String(xp)} XP`,
+  /** A lesson row's state, in words beside its icon (FR-CRS-02). */
+  lessonState: { completed: "Completed", next: "Next up", open: "Not started" },
 } as const;

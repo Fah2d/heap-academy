@@ -1,7 +1,8 @@
 import type { PublishedCourseSummary } from "@/content";
-import { catalogCommon, courseList } from "@/messages/catalog";
+import { courseList } from "@/messages/catalog";
 import { Link } from "@/ui";
 import { coursePath } from "../paths";
+import { CourseRowProgress } from "./course-progress";
 
 export type CourseRowsProps = {
   courses: PublishedCourseSummary[];
@@ -13,7 +14,9 @@ export type CourseRowsProps = {
 
 /**
  * The published courses as wide rows: title linking into the course, summary,
- * and the real count of published lessons (FR-LND-02, FR-CAT-01). The home
+ * the real count of published lessons, then the learner's progress and one
+ * action that begins, continues or reviews the course (FR-LND-02, FR-CAT-01,
+ * FR-CAT-02). The home
  * page and the course list share it, so both show the same thing. With no
  * course, one sentence says so (FR-CAT-04). Each title is one size step below
  * the heading that names the list.
@@ -36,9 +39,7 @@ export function CourseRows({ courses, labelledBy, titleLevel }: CourseRowsProps)
             </Link>
           </Title>
           <p className="max-inline-prose text-base text-text">{course.summary}</p>
-          <p className="text-xs text-text-muted tabular-nums">
-            {catalogCommon.lessonCount(course.lessonCount)}
-          </p>
+          <CourseRowProgress course={course.slug} lessons={course.lessons} />
         </li>
       ))}
     </ul>

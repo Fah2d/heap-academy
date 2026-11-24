@@ -138,15 +138,23 @@ describe("the catalog reads only through src/content", () => {
     ],
   };
 
+  // The course list and the course page show the learner's progress from the
+  // device (WP-5.4; 02-architecture.md section 10): one client file may take
+  // the progress feature's client-safe index, which reads only IndexedDB.
+  const PROGRESS_READERS: Record<string, string[]> = {
+    "src/features/catalog/components/course-progress.tsx": ["@/features/progress"],
+  };
+  const allowed = { ...WORKSPACE_HOSTS, ...PROGRESS_READERS };
+
   it.each(files.map((path) => [relative(ROOT, path), path]))(
     "%s imports no database client, identity, request headers or other feature",
     (name, path) => {
-      expect(forbiddenImports(path, imports(path))).toEqual(WORKSPACE_HOSTS[name] ?? []);
+      expect(forbiddenImports(path, imports(path))).toEqual(allowed[name] ?? []);
     },
   );
 
-  it("finds every file that hosts the workspace", () => {
-    for (const name of Object.keys(WORKSPACE_HOSTS)) {
+  it("finds every file that hosts the workspace or reads progress", () => {
+    for (const name of Object.keys(allowed)) {
       expect(files.map((path) => relative(ROOT, path))).toContain(name);
     }
   });

@@ -25,7 +25,12 @@ const courseRow = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
-  lessons: z.array(z.object({ slug: z.string() })),
+  chapters: z.array(
+    z.object({
+      position: z.number().int(),
+      lessons: z.array(z.object({ id: z.uuid(), slug: z.string(), position: z.number().int() })),
+    }),
+  ),
 });
 
 export type PublishedCourseSummary = {
@@ -33,6 +38,8 @@ export type PublishedCourseSummary = {
   title: string;
   summary: string;
   lessonCount: number;
+  /** Every published lesson in course order, for the learner's progress (FR-CAT-02). */
+  lessons: { id: string; slug: string }[];
 };
 
 const courseDetail = z.object({
@@ -47,7 +54,13 @@ const courseDetail = z.object({
       summary: z.string(),
       position: z.number().int(),
       lessons: z.array(
-        z.object({ slug: z.string(), title: z.string(), position: z.number().int() }),
+        z.object({
+          id: z.uuid(),
+          slug: z.string(),
+          title: z.string(),
+          xp: z.number().int(),
+          position: z.number().int(),
+        }),
       ),
     }),
   ),
@@ -62,7 +75,7 @@ export type PublishedCourse = {
     id: string;
     title: string;
     summary: string;
-    lessons: { slug: string; title: string }[];
+    lessons: { id: string; slug: string; title: string; xp: number }[];
   }[];
 };
 
@@ -109,19 +122,27 @@ const byPosition = (a: { position: number }, b: { position: number }) => a.posit
 export async function readPublishedCourses(db: PublicClient): Promise<PublishedCourseSummary[]> {
   const { data, error } = await db
     .from("courses")
-    .select("slug, title, summary, lessons(slug)")
+    .select("slug, title, summary, chapters(position, lessons(id, slug, position))")
     .order("position")
     .order("title");
   if (error !== null) throw new Error(`published courses: ${error.code}`);
   return z
     .array(courseRow)
     .parse(data)
-    .filter((row) => row.lessons.length > 0)
     .map((row) => ({
+      row,
+      lessons: [...row.chapters]
+        .sort(byPosition)
+        .flatMap((chapter) => [...chapter.lessons].sort(byPosition))
+        .map(({ id, slug }) => ({ id, slug })),
+    }))
+    .filter(({ lessons }) => lessons.length > 0)
+    .map(({ row, lessons }) => ({
       slug: row.slug,
       title: row.title,
       summary: row.summary,
-      lessonCount: row.lessons.length,
+      lessonCount: lessons.length,
+      lessons,
     }));
 }
 
@@ -137,7 +158,7 @@ export async function readPublishedCourse(
   const { data, error } = await db
     .from("courses")
     .select(
-      "slug, title, summary, outcomes, chapters(id, title, summary, position, lessons(slug, title, position))",
+      "slug, title, summary, outcomes, chapters(id, title, summary, position, lessons(id, slug, title, xp, position))",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -151,9 +172,11 @@ export async function readPublishedCourse(
       id: chapter.id,
       title: chapter.title,
       summary: chapter.summary,
-      lessons: [...chapter.lessons].sort(byPosition).map(({ slug: lesson, title }) => ({
+      lessons: [...chapter.lessons].sort(byPosition).map(({ id, slug: lesson, title, xp }) => ({
+        id,
         slug: lesson,
         title,
+        xp,
       })),
     }));
   if (chapters.length === 0) return null;

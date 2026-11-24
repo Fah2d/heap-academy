@@ -32,8 +32,23 @@ const content = await import("./index");
 
 /** The course list's answer naming `slug`, read before a course page. */
 function listed(slug: string) {
-  return { data: [{ slug, title: "Listed", summary: "S", lessons: [{ slug: "a" }] }] };
+  return { data: [{ slug, title: "Listed", summary: "S", chapters: [chapter(0, ["a"])] }] };
 }
+
+/** A lesson's ID in these tests, from its one-letter slug. */
+function lessonId(slug: string): string {
+  return `00000000-0000-4000-8000-0000000001${slug.charCodeAt(0).toString(16)}`;
+}
+
+/** A chapter as the course list reads it, its lessons at positions 0, 1, ... */
+function chapter(position: number, slugs: string[]) {
+  return {
+    position,
+    lessons: slugs.map((slug, index) => ({ id: lessonId(slug), slug, position: index })),
+  };
+}
+
+const ids = (...slugs: string[]) => slugs.map((slug) => ({ id: lessonId(slug), slug }));
 
 beforeEach(() => {
   state.db = fakeDb();
@@ -53,22 +68,39 @@ describe("published content [FR-ADM-11]", () => {
   it("lists published courses in order with their published lesson counts", async () => {
     state.db.answer({
       data: [
-        { slug: "one", title: "One", summary: "S1", lessons: [{ slug: "a" }, { slug: "b" }] },
-        { slug: "three", title: "Three", summary: "S3", lessons: [{ slug: "c" }] },
+        { slug: "one", title: "One", summary: "S1", chapters: [chapter(0, ["a", "b"])] },
+        { slug: "three", title: "Three", summary: "S3", chapters: [chapter(0, ["c"])] },
       ],
     });
     expect(await content.publishedCourses()).toEqual({
       ok: true,
       value: [
-        { slug: "one", title: "One", summary: "S1", lessonCount: 2 },
-        { slug: "three", title: "Three", summary: "S3", lessonCount: 1 },
+        { slug: "one", title: "One", summary: "S1", lessonCount: 2, lessons: ids("a", "b") },
+        { slug: "three", title: "Three", summary: "S3", lessonCount: 1, lessons: ids("c") },
       ],
     });
     expect(state.db.calls[0]?.chain).toEqual([
-      ["select", ["slug, title, summary, lessons(slug)"]],
+      ["select", ["slug, title, summary, chapters(position, lessons(id, slug, position))"]],
       ["order", ["position"]],
       ["order", ["title"]],
     ]);
+  });
+
+  it("[FR-CAT-02] lists a course's lessons in course order, across chapters", async () => {
+    const second = chapter(1, ["c"]);
+    const first = chapter(0, ["a", "b"]);
+    state.db.answer({
+      data: [
+        {
+          slug: "one",
+          title: "One",
+          summary: "S1",
+          chapters: [second, { ...first, lessons: [...first.lessons].reverse() }],
+        },
+      ],
+    });
+    const result = await content.publishedCourses();
+    expect(result.ok && result.value[0]?.lessons).toEqual(ids("a", "b", "c"));
   });
 
   it("puts a course's chapters and lessons in their positions", async () => {
@@ -84,7 +116,7 @@ describe("published content [FR-ADM-11]", () => {
             title: "Second",
             summary: "",
             position: 1,
-            lessons: [{ slug: "c", title: "C", position: 0 }],
+            lessons: [{ id: lessonId("c"), slug: "c", title: "C", xp: 10, position: 0 }],
           },
           {
             id: "00000000-0000-4000-8000-000000000d01",
@@ -92,8 +124,8 @@ describe("published content [FR-ADM-11]", () => {
             summary: "",
             position: 0,
             lessons: [
-              { slug: "b", title: "B", position: 1 },
-              { slug: "a", title: "A", position: 0 },
+              { id: lessonId("b"), slug: "b", title: "B", xp: 20, position: 1 },
+              { id: lessonId("a"), slug: "a", title: "A", xp: 10, position: 0 },
             ],
           },
         ],
@@ -105,8 +137,8 @@ describe("published content [FR-ADM-11]", () => {
       "Second",
     ]);
     expect(result.ok && result.value?.chapters[0]?.lessons).toEqual([
-      { slug: "a", title: "A" },
-      { slug: "b", title: "B" },
+      { id: lessonId("a"), slug: "a", title: "A", xp: 10 },
+      { id: lessonId("b"), slug: "b", title: "B", xp: 20 },
     ]);
     expect(state.db.calls[1]?.chain).toContainEqual(["eq", ["slug", "one"]]);
   });
@@ -114,13 +146,14 @@ describe("published content [FR-ADM-11]", () => {
   it("[FR-CAT-04] leaves out a course with no published lesson", async () => {
     state.db.answer({
       data: [
-        { slug: "empty", title: "Empty", summary: "S0", lessons: [] },
-        { slug: "one", title: "One", summary: "S1", lessons: [{ slug: "a" }] },
+        { slug: "empty", title: "Empty", summary: "S0", chapters: [chapter(0, [])] },
+        { slug: "none", title: "None", summary: "S2", chapters: [] },
+        { slug: "one", title: "One", summary: "S1", chapters: [chapter(0, ["a"])] },
       ],
     });
     expect(await content.publishedCourses()).toEqual({
       ok: true,
-      value: [{ slug: "one", title: "One", summary: "S1", lessonCount: 1 }],
+      value: [{ slug: "one", title: "One", summary: "S1", lessonCount: 1, lessons: ids("a") }],
     });
   });
 
@@ -165,7 +198,7 @@ describe("published content [FR-ADM-11]", () => {
             title: "Ready",
             summary: "",
             position: 1,
-            lessons: [{ slug: "a", title: "A", position: 0 }],
+            lessons: [{ id: lessonId("a"), slug: "a", title: "A", xp: 10, position: 0 }],
           },
         ],
       },

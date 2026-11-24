@@ -15,9 +15,31 @@ import { HomeView } from "./home-page";
 // Each state has its own address and is drawn alone, exactly as its page
 // draws it, so a screen or an axe check sees the real page and nothing else.
 
+// Fixed lesson IDs, so a journey can put completions for them on the device.
+const HELLO = "5eed0000-0000-4000-8000-000000000601";
+const NAMES = "5eed0000-0000-4000-8000-000000000602";
+const SUMS = "5eed0000-0000-4000-8000-000000000603";
+const FILES = "5eed0000-0000-4000-8000-000000000604";
+
 const ROWS: PublishedCourseSummary[] = [
-  { slug: "python-basics", title: m.sampleCourse, summary: m.sampleSummary, lessonCount: 3 },
-  { slug: "text-files", title: m.longCourse, summary: m.longSummary, lessonCount: 1 },
+  {
+    slug: "python-basics",
+    title: m.sampleCourse,
+    summary: m.sampleSummary,
+    lessonCount: 3,
+    lessons: [
+      { id: HELLO, slug: "hello" },
+      { id: NAMES, slug: "names" },
+      { id: SUMS, slug: "sums" },
+    ],
+  },
+  {
+    slug: "text-files",
+    title: m.longCourse,
+    summary: m.longSummary,
+    lessonCount: 1,
+    lessons: [{ id: FILES, slug: "read-lines" }],
+  },
 ];
 
 const COURSE: PublishedCourse = {
@@ -31,15 +53,15 @@ const COURSE: PublishedCourse = {
       title: m.firstChapter,
       summary: m.firstChapterSummary,
       lessons: [
-        { slug: "hello", title: m.lessonHello },
-        { slug: "names", title: m.lessonNames },
+        { id: HELLO, slug: "hello", title: m.lessonHello, xp: 10 },
+        { id: NAMES, slug: "names", title: m.lessonNames, xp: 10 },
       ],
     },
     {
       id: "5eed0000-0000-4000-8000-000000000502",
       title: m.secondChapter,
       summary: "",
-      lessons: [{ slug: "sums", title: m.lessonSums }],
+      lessons: [{ id: SUMS, slug: "sums", title: m.lessonSums, xp: 20 }],
     },
   ],
 };

@@ -7,3 +7,8 @@ export const COURSES_PATH = "/courses";
 export function coursePath(slug: string): string {
   return `${COURSES_PATH}/${slug}`;
 }
+
+/** A lesson's workspace; the workspace's own `learnPath` is its twin (a test keeps them equal). */
+export function lessonPath(course: string, lesson: string): string {
+  return `/learn/${course}/${lesson}`;
+}
