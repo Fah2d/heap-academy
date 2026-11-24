@@ -2,6 +2,23 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:21), in `night-a`, on `wp/3.1-python-worker`
+
+Same task list. Stopped with no code change: nothing left needs no owner decision.
+
+- Task 1: done in an earlier run (`wp/fix-smoke-and-runtime` at 27ce416, 0 commits behind `main`); its pull request is not merged yet.
+- Task 2: `origin/main` is still 0efe863 (`git fetch`, then `git rev-list --count`). `wp/3.1-python-worker` (44aacfd), `wp/3.3-grader` (6aafe2b) and `wp/3.4-statechart` (cd1c284) are each 0 commits behind it, so no merge was needed.
+- Task 3: every review item still open in `docs/reports/pull-requests/WP-3.1.md`, `WP-3.3.md` and `WP-3.4.md` is marked for the owner or for a later package: WP-3.1 security review 7, MINOR 1 (late callback output), review 8, MINOR 3 (the file system between runs) and MINOR 6 (the "crashed" message), review 6, MINOR 1 (declined in that round), the three proposed spec changes and ADR-0033; WP-3.3 code review 3, MINOR 3 (`threadUrl`), security review 2, MINOR 4 (the lint rule, an enforcement control) and MINOR 6 (`exit()` in the follow-up code), and the `HARNESS_VERSION` numbering; WP-3.4's ADR-0034 and the `scripts/repository.test.ts` timing fix, which the description leaves to the owner. Both items under "Next" below also wait on the owner.
+- Blocked: the next step on each branch needs an owner decision, a review round (security review 8, round 3, on WP-3.1's a24111c and a7c3ba7), or the merge of `wp/fix-smoke-and-runtime`.
+
+### Owner: run this
+
+1. The owner actions of the sections below are still due.
+
+### Next
+
+- The same as in the section two below.
+
 ## Session of 2026-11-24 (from about 13:13, continued), in `night-a`, on `wp/3.1-python-worker`
 
 Part 37 took about 5 minutes, so the run went on. The WP-3.1 description said the browser tests had not run on any code commit after f7dfb52. Running them needs no owner decision. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
