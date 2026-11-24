@@ -1075,6 +1075,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "6", hash: 1179334493 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "6", hash: 3438141437 });
   });
 });
