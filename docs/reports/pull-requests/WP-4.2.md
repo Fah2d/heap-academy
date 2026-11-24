@@ -2,6 +2,19 @@
 
 ## Up to date with main
 
+`main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/4.1-courses-chapters`, its base, which has it through `wp/2.3-admin-gate` (00c025d): merge commit 9808fb4. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/4.1-courses-chapters`, which holds every section of this branch's copy (this branch's copy differed only in older status lines of the 23:25 session). No test failed and no code changed.
+
+On 9808fb4, `pnpm verify`, exit 0:
+
+```
+ Test Files  73 passed (73)
+      Tests  1329 passed (1329)
+```
+
+`next build` on 9808fb4 with CI's public values, exit 0, routes `/_not-found`, `/admin`, `/admin/courses/[id]`, `/admin/courses/new`, `/admin/lessons/[id]`, `/admin/setup`, `/admin/verify`, `/api/csp-report`, `/api/health`, `/auth/callback`, `/sign-in`. `check-bundle` (22 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
+The earlier merge of `main` at 0efe863 follows.
+
 `main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/4.1-courses-chapters`, its base, which already has it through `wp/2.3-admin-gate` (1696ef1, with 9dfb2bd): merge commit c7ecb24. No rebase, no force push.
 
 - One file conflicted: `docs/reports/local-build-progress.md`. The copy from `wp/4.1-courses-chapters` was taken, the newer one; in this branch's sections it differs only in a later status line for WP-3.4 and WP-4.2.
