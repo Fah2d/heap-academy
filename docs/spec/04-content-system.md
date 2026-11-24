@@ -203,20 +203,22 @@ This section is for the owner. The dashboard shows the short form of these rules
 
 **Title**: Say hello by name. **XP**: 10.
 
-**Instructions**
+**Instructions** (the code block is fenced, because section 5 allows fenced blocks only; approved by the owner on 2026-11-24)
 
-```markdown
+````markdown
 ## Ask, then answer
 
 `input()` waits for the person to type something, and gives you what they typed.
 
-    name = input("What is your name? ")
-    print("Hello, " + name + "!")
+```python
+name = input("What is your name? ")
+print("Hello, " + name + "!")
+```
 
 ## Your task
 
 Ask for a name. Then print a greeting that uses it.
-```
+````
 
 **Starter**
 

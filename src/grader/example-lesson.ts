@@ -27,8 +27,6 @@ const EXAMPLE_TEST_CASES: readonly TestCase[] = [
 
 export const EXAMPLE_LESSON = {
   title: "Say hello by name",
-  // Section 7 writes the code as an indented block, which section 5 does
-  // not allow; a fenced Python block is what the renderer shows as code.
   instructions:
     '## Ask, then answer\n\n`input()` waits for the person to type something, and gives you what they typed.\n\n```python\nname = input("What is your name? ")\nprint("Hello, " + name + "!")\n```\n\n## Your task\n\nAsk for a name. Then print a greeting that uses it.\n',
   hints: ["`input()` gives you what the person typed. Keep it in a variable."],

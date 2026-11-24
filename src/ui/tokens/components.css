@@ -60,6 +60,9 @@
   --workspace-editor-min: 16rem;
   --workspace-output-min: 18rem;
   --workspace-console-min: 6rem;
+  /* Below 768 px the page scrolls, so the console scrolls inside a ceiling
+     (24 rem) and an error card under it stays near the output. */
+  --workspace-console-max: 24rem;
   /* A code editor that does not fill its box, as in the admin's lesson editor. */
   --code-editor-min: 10rem;
   /* The loading bar beside Python's status. */

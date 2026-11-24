@@ -165,6 +165,47 @@ test("[FR-WSP-07] J-4: Stop ends a runaway loop, Python comes back, and the next
   await expect(consoleOutput(page)).toHaveText("again\n");
 });
 
+test("[FR-WSP-07] [FR-WSP-17] output over the limit replaces Python, which says it is restarting", async ({
+  page,
+}) => {
+  await ready(page);
+  // The new worker's files are held, so the restarting state stays on screen.
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.context().route("**/_runtime/pyodide/**", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await write(page, 'while True:\n    print("x" * 1000)\n');
+  await runButton(page).click();
+  await expect(
+    page.getByRole("heading", {
+      name: learnerErrorHeading("output_limit", {
+        line: undefined,
+        timeLimitSeconds: 0,
+        outputLimit: 0,
+      }),
+    }),
+  ).toBeVisible();
+  await expect(python(page)).toHaveAttribute("data-python", "restarting");
+  await expect(page.getByText(words.restarting).first()).toBeVisible();
+  await expect(editor(page)).toContainText('print("x" * 1000)');
+  await noAxeViolations(page);
+  // Below 768 px the console scrolls inside its 24 rem ceiling, so the error
+  // card stays near the output instead of below thousands of lines.
+  await page.setViewportSize({ width: 375, height: 900 });
+  const consoleBox = await page.getByRole("region", { name: words.consoleLabel }).boundingBox();
+  expect(consoleBox?.height).toBeLessThanOrEqual(384);
+  await screens(page, "workspace-restarting");
+  release();
+  await ready(page);
+  await write(page, 'print("back")\n');
+  await runButton(page).click();
+  await expect(consoleOutput(page)).toHaveText("back\n");
+});
+
 test("[FR-WSP-03] [FR-WSP-12] [NFR-A11Y-03] the keyboard runs code, and Escape then Tab leaves the editor", async ({
   page,
 }) => {

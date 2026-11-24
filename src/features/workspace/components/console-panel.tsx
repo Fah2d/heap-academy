@@ -67,7 +67,7 @@ export function ConsolePanel({
         tabIndex={0}
         role="region"
         aria-label={words.consoleLabel}
-        className="min-h-(--workspace-console-min) flex-1 overflow-auto rounded-panel border border-border bg-surface p-3 focus-visible:-outline-offset-2"
+        className="min-h-(--workspace-console-min) max-md:max-h-(--workspace-console-max) flex-1 overflow-auto rounded-panel border border-border bg-surface p-3 focus-visible:-outline-offset-2"
       >
         {empty ? (
           <p className="text-base text-text-muted">{words.consoleEmpty}</p>
