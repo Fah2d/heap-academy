@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which no reviewer has seen (see Reviews).
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which no reviewer has seen (see Reviews). Security review 7 (each test case starts with the harness's collections, 3ab21e9): **APPROVE**; its two minors are answered in d757f11, which no reviewer has seen.
 
 ## What and why
 
@@ -57,6 +57,15 @@ Code review 4 on df1c7bb: CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157 (see R
 Not run on the merge: the browser tests.
 
 ## How it was verified
+
+**Security review 7 fix (3ab21e9, d757f11), 2026-11-24.** `run_case` starts with `collect_all()` instead of a bare `restore()`. In the Node runner's thread a JavaScript timer one test case set fires before the next case's message; before, its callback could make a reference cycle whose `__del__` wrote into the next case's output. `HARNESS_VERSION` is "6". `pnpm verify` on d757f11, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1114 passed (1114)
+```
+
+`pnpm build` with CI's fake public values on d757f11: exit 0; `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0; the built `public/_runtime/worker/grader/harness.js` has `HARNESS_VERSION = "6"`. The new test, `what a timer callback does between test cases is undone and collected before the next one` in `src/grader/node-runner/runner.test.ts`, failed on the parent with the second case's output `True True\nINJECTED ok\n`; that run is also the mutant of the fix (start with `restore()` again). The reviewer reproduced the same on the reverted harness and ran the fixed one on 25 fresh threads, all passing. Not run: the browser tests.
 
 **Security review 6 fixes (65af875 to ff9e6eb), 2026-11-24.** At the end of each test case the harness now restores, then collects and restores until a collection finds nothing, and raises `Uncollected` (a `NotRestored` that the fallback re-raises) after eight passes. The fallback in `check()` runs after the except block and collects the same way; any failure there makes the harness raise. `run_case` drops the capture's state before collecting. `HARNESS_VERSION` is "5". Before, a chain of `__del__` methods, each making a new reference cycle, ran its next link in the next test case's own collection and wrote into that case's output. `pnpm verify` on ff9e6eb, exit 0:
 
@@ -351,6 +360,14 @@ Security review 6, on 65af875 to c694902 (found during WP-3.1 security review 8:
 
 Decisions: `HARNESS_VERSION` is "5", because "4" had left this branch by merge into `wp/3.4-statechart` (4fe1874); it stays "5" through the three commits, which were pushed together. `Uncollected` is a subclass of `NotRestored`, so callers that read the type see the same family. Locals rebound through `sys._getframe(...).f_locals` can still keep an object alive past the last collection; clearing locals cannot close that from inside Python, and `freshWorker` is the control (listed below).
 
+Security review 7, on 3ab21e9 (the timers between test cases that security review 6, round 2, left not checked). Report: `docs/reports/reviews/WP-3.3/security-review-7.md`. One round:
+
+| Round, on | Verdict | What was done |
+|---|---|---|
+| 1, 3ab21e9 | **APPROVE**, 2 MINOR | d757f11: the comment on `check()` says that a failure in the collections at the start of a case is reported against that case, though an earlier case's timer caused it (fails closed, as a bare `restore()` did before); the header rewrapped. No reviewer has seen d757f11. |
+
+Decisions: `HARNESS_VERSION` is "6", because "5" had left this branch by merge into `wp/3.4-statechart` (4c612bc); it stays "6" through d757f11, which changed only a comment inside the Python text, and the hash pin moved with it.
+
 ## Try it
 
 There is no learner-facing change to try. From the repository root, the grader's own tests run the harness in real Pyodide:
@@ -390,8 +407,8 @@ pnpm vitest run src/grader
 - **Run gets the restore on `wp/3.1-python-worker`, not yet here.** WP-3.1's run support (`src/runtime/worker/run-support.ts`) has its own copy of the routine. Since 4d6608f to a24111c (WP-3.1 security review 8, rounds 1 and 2) it restores and checks the same state and raises `NotRestored`; round 3 on a24111c has not run. Those commits are not merged into this branch yet; the merge waits for that round. Until then a `sys.monitoring` callback or a line-cache key set in one run reaches the learner's next run on this branch: the same learner's own output, with no verdict, and the next check's first restore clears it.
 - **Objects frozen with `gc.freeze()`** stay in the collector's permanent generation for the later test cases (security review 5, MINOR 1). They change memory, not output, and `gc.unfreeze()` would also move objects the runtime froze. A fresh worker is the control. The collector's thresholds, enabled state, debug flags and saved garbage are restored since 853f0c1 and 04fcffa.
 - **Objects kept alive through the harness's frames** (security review 6, round 2, MINOR 2). A program can rebind a local of `run_case` or `check` through `sys._getframe(...).f_locals`, so an object outlives the last collection and its cycle runs in the next test case on the same worker. The header names this; a fresh worker is the control.
-- **Run has the same first-pass gap** (security review 6, round 1, argued, not reproduced). WP-3.1's run support (16711f5, `run-support.ts`) collects before its first restore, as this harness did in 65af875; the fix is the same leading restore. It is WP-3.1 code, so it is not changed here.
-- **Timers between test cases in the Node runner** (security review 6, round 2, not checked). The Node runner's thread runs one test case per message, so a learner timer could fire between cases there, in tests and scripts only; in the browser all test cases run in one synchronous loop.
+- **Run's first-pass gap** (security review 6, round 1, argued). Done on `wp/3.1-python-worker` in a7c3ba7 (the same leading restore), where it could not be reproduced; it reaches this branch with the merge of WP-3.1.
+- **A timer between runs** (security review 7, outside its commit). Each test case now starts with the collections (3ab21e9), so a timer between test cases, or between checks, is covered. Run still starts with a bare `restore()`, so a timer a check or a run set can still write into the next run's output in the browser. That is WP-3.1 security review 7, MINOR 1, an owner decision in WP-3.1.
 - **The lint rule's remaining bypasses** (security review 2, MINOR 4), for you.
 - **FR-GRD-07** (naming a near miss) is a Should requirement for a later package.
 
