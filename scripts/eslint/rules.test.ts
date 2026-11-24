@@ -185,6 +185,54 @@ describe("module boundaries", () => {
     expect(await ruleIds(path, code)).not.toContain(boundary);
   });
 
+  it("[NFR-MAINT-05] exempts only the grader's Node runner from purity (ADR-0032)", async () => {
+    const io =
+      'import { Worker } from "node:worker_threads";\nsetTimeout(() => new Worker("x"), 1);';
+    expect(await ruleIds("src/grader/node-runner/runner.ts", io)).toEqual([]);
+    const elsewhere = await ruleIds("src/grader/harness.ts", io);
+    expect(elsewhere).toContain(boundary);
+    expect(elsewhere).toContain("no-restricted-globals");
+  });
+
+  it("[NFR-MAINT-05] lets only tests and the runner itself import the grader's Node runner (ADR-0032)", async () => {
+    const code = 'import { createNodeRunner } from "@/grader/node-runner/runner";';
+    expect(await ruleIds("src/grader/parity.test.ts", code)).not.toContain(boundary);
+    expect(
+      await ruleIds("src/grader/node-runner/thread.ts", 'import { x } from "./host";'),
+    ).not.toContain(boundary);
+    expect(await ruleIds("src/grader/grade.ts", code)).toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.ts", code)).toContain(boundary);
+    expect(
+      await ruleIds("src/features/admin/server/validate.ts", `import "server-only";\n${code}`),
+    ).toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] lets only a test import a test file, so the Node runner cannot be passed on (ADR-0032)", async () => {
+    const code = 'export { x } from "./launder.test";';
+    expect(await ruleIds("src/runtime/controller.ts", code)).toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.test.ts", code)).not.toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] refuses an import whose source is computed", async () => {
+    const name = 'const name = "runner";\n';
+    for (const code of [
+      "void import(`@/grader/node-runner/${name}`);",
+      "void import(name);",
+      "require(name);",
+    ]) {
+      expect(await ruleIds("src/runtime/controller.ts", name + code)).toContain(boundary);
+    }
+    expect(
+      await ruleIds("src/runtime/controller.ts", "void import(`@/grader/node-runner/runner`);"),
+    ).toContain(boundary);
+    expect(
+      await ruleIds("src/runtime/worker/python-worker.ts", "void import(String(1));"),
+    ).not.toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.ts", "void import(`./protocol`);")).not.toContain(
+      boundary,
+    );
+  });
+
   it.each([
     ["Date.now()", "const t = Date.now();"],
     ["new Date()", "const t = new Date();"],

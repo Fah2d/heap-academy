@@ -1,6 +1,7 @@
 import NextLink from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "../class-names";
+import { Launch } from "../icons";
 
 /**
  * - `inline`: a link in running text, always underlined, because amber on the
@@ -21,6 +22,12 @@ export type LinkProps = {
   variant: LinkVariant;
   /** For `nav`: this link is the current page. */
   current?: boolean;
+  /**
+   * The browser loads a new document instead of navigating on the client, so
+   * the page arrives with its own response headers. The sign-in page needs
+   * this: only its policy may frame the bot challenge.
+   */
+  fullLoad?: boolean;
   children: ReactNode;
 };
 
@@ -46,15 +53,34 @@ const classes: Record<LinkVariant, string> = {
 const navCurrent = "border-action font-semibold text-text";
 const navRest = "border-transparent text-text-muted hover:text-text";
 
-export function Link({ href, variant, current = false, children }: LinkProps) {
+export function Link({ href, variant, current = false, fullLoad = false, children }: LinkProps) {
   const isCurrent = variant === "nav" && current;
+  const shared = {
+    href,
+    "aria-current": isCurrent ? ("page" as const) : undefined,
+    className: cx(classes[variant], variant === "nav" && (isCurrent ? navCurrent : navRest)),
+  };
+  return fullLoad ? <a {...shared}>{children}</a> : <NextLink {...shared}>{children}</NextLink>;
+}
+
+export type ExternalLinkProps = {
+  href: string;
+  /** Read after the link's text, such as "(opens in a new tab)". */
+  newTabLabel: string;
+  children: ReactNode;
+};
+
+/**
+ * A link that leaves the site, in running text: it opens in a new tab with no
+ * opener and no referrer (docs/spec/04-content-system.md section 5), and says
+ * so to every reader, by the icon and by words for screen readers.
+ */
+export function ExternalLink({ href, newTabLabel, children }: ExternalLinkProps) {
   return (
-    <NextLink
-      href={href}
-      aria-current={isCurrent ? "page" : undefined}
-      className={cx(classes[variant], variant === "nav" && (isCurrent ? navCurrent : navRest))}
-    >
+    <a href={href} target="_blank" rel="noopener noreferrer" className={underlined}>
       {children}
-    </NextLink>
+      <span className="sr-only"> {newTabLabel}</span>
+      <Launch aria-hidden="true" size={16} className="ms-1 inline-block align-text-bottom" />
+    </a>
   );
 }

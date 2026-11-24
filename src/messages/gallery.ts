@@ -112,6 +112,91 @@ export const adminGallery = {
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",
+  lessonEditor:
+    "Lesson editor of a draft whose saves and status changes succeed and whose preview renders",
+  lessonRefusing:
+    "Lesson editor whose save is refused (changed somewhere else), whose status change is refused and whose preview fails",
+  lessonPublished: "Lesson editor of a published lesson whose save and status change never answer",
+  lessonArchived: "Lesson editor of an archived lesson, with Move back to draft",
+  lessonEmpty:
+    "Lesson editor of a new lesson with no instructions, code, wrong answers or test cases",
+  lessonTestCasesFull:
+    "Lesson editor with 12 test cases, so Add a test case and Duplicate are gone",
+  lessonTestCaseProblem:
+    "Lesson editor with a test case that has no name and an expected output over the limit",
+  lessonPythonLoading:
+    "Lesson editor while Python loads: Validate waits for it until Stop is pressed",
+  lessonPythonFailed: "Lesson editor whose Python could not start, with Try again",
+  lessonValidating: "Lesson editor whose validation never ends, to show Validating and Stop",
+  lessonPythonCannotRun:
+    "Lesson editor whose Python started but could not run the programs, so Validate checked nothing",
+  lessonValidationFailed:
+    "Lesson editor whose second test case expects the greeting without the prompt, so the solution fails it and Fill from solution is offered",
+  lessonSaveValidating:
+    "Lesson editor of a published lesson whose validation never ends: Save validates first, and Stop saves nothing",
+  lessonSavePythonFailed:
+    "Lesson editor of a published lesson whose Python could not start, so Save saves nothing",
+  lessonSavePythonCannotRun:
+    "Lesson editor of a published lesson whose Python started but could not run the programs, so Save saves nothing",
+  lessonSaveRuleFailed:
+    "Lesson editor of a published lesson whose solution fails the second test case, so Save saves nothing",
+  lessonOddResults:
+    "Lesson editor whose solution prints color codes, stops with an error on line 2, and prints past the output limit, and whose starter reaches the time limit",
+  oddTestName3: "Greets Sara many times",
+  oddColoredOutput: "\u001b[31mWhat is your name? Hello, Sara!\u001b[0m\n",
+  oddErrorMessage: "NameError: name 'nme' is not defined",
+  oddRepeatedLine: "Hello, Sara!\n",
+  samplePromptOnly: "What is your name? \n",
+  wrongExpected: "Hello, Omar!",
+  extraTestName: (n: number) => `Works for name ${String(n)}`,
+  extraTestInput: (n: number) => `Name ${String(n)}\n`,
+  extraTestExpected: (n: number) => `What is your name? Hello, Name ${String(n)}!`,
+  lessonFull:
+    "Lesson editor with three wrong answers, so Add a wrong answer is gone, whose save fails",
+  lessonTaken: "Lesson editor whose address is taken by another lesson",
+  lessonTooLong: "Lesson editor whose starter is over the limit",
+  lessonContent:
+    "A lesson's instructions as learners and the preview show them: a Python block with Copy code, a table, a quote and a link",
+  secondLesson: "Second lesson",
+  sampleWrongLabel2: "Prints the prompt again",
+  sampleWrongCode2: 'name = input("What is your name? ")\nprint("What is your name?")\n',
+  sampleWrongLabel3: "Forgets the exclamation mark",
+  sampleWrongCode3: 'name = input("What is your name? ")\nprint(f"Hello, {name}")\n',
+  contentHeading: "Read a name",
+  contentText: "The program waits until the learner presses Enter.",
+  contentCodeName: "name",
+  contentCodeAssign: " = ",
+  contentCodeInput: "input",
+  contentCodeOpen: "(",
+  contentCodePrompt: '"What is your name? "',
+  contentCodeClose: ")",
+  contentCodeComment: "  # waits for Enter",
+  tableFunction: "Function",
+  tableReturns: "Returns",
+  tableInput: "input()",
+  tableInputReturns: "The typed text, as a string",
+  tableLen: "len()",
+  tableLenReturns: "How many items there are",
+  contentQuote: "input() always returns a string, even when the learner types a number.",
+  contentLinkBefore: "More in the ",
+  contentLink: "Python documentation for input()",
+  sampleInstructions:
+    "## Ask, then answer\n\nAsk for a name with `input()`, then greet that person.",
+  sampleHint: "input() returns what the learner typed.",
+  sampleStarter: "# Ask for a name, then greet that person.\n",
+  sampleSolution: 'name = input("What is your name? ")\nprint(f"Hello, {name}!")\n',
+  sampleWrongLabel: "Greets without the name",
+  sampleWrongCode: 'input("What is your name? ")\nprint("Hello!")\n',
+  sampleTestName: "Greets Sara by name",
+  sampleTestInput: "Sara\n",
+  sampleTestExpected: "What is your name? Hello, Sara!",
+  sampleTestName2: "Works for a different name",
+  sampleTestInput2: "Omar\n",
+  sampleTestExpected2: "What is your name? Hello, Omar!",
+  previewHeading: "Ask, then answer",
+  previewText: "Ask for a name with ",
+  previewCode: "input()",
+  previewTail: ", then greet that person.",
 } as const;
 
 // The development-only page that shows the catalog's states that the local

@@ -2,6 +2,22 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 23:10), in `night-b`, CI fixes for #13 (`wp/2.2-sign-in`)
+
+- Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
+- `pnpm verify`: exit 0. Not run: the stack e2e (no Docker here), so the fix is reasoned from the code and CI has to confirm it.
+- Next: merge `origin/main` into the later branches in order if it has moved, then WP-6.1 part 2.
+
+## Session of 2026-11-24 (evening), in `night-b`, on `wp/2.2-sign-in`
+
+### Done: CI fixes for #13 (top priority)
+
+- Unit: the return path sweep has a 60 s limit (commit 9161501).
+- e2e: the code step never showed because a client-side navigation to `/sign-in` kept the previous page's policy, which does not frame the Turnstile challenge, so no token arrived. The header "Sign in" link now loads in full (8949c89), except on the sign-in page itself.
+- Review round 1 (code-reviewer, security-reviewer): applied the e2e test change (it checks the `content-security-policy` header, no Cloudflare call) and shorter comments. Not done: a spec note in `06-security-privacy.md` 5.2 and a lint rule against other links to `/sign-in` (spec change needs the owner; listed as a default in the PR).
+- `pnpm verify`: exit 0, 43 files, 929 tests. Not run: `supabase start` and the stack e2e (no Docker here).
+- Next: merge-forward of later branches onto 2.2, then part 2 of 6.1, 6.2, 6.3. Blocked: nothing.
+
 ## Session of 2026-11-24 (from about 22:50), in `night-b`, PR #13's CI and `main` at 428c437
 
 Top priority from the owner: CI on PR #13 (`wp/2.2-sign-in`, 9717efb) failed in `unit` and in the `e2e` job's `stack` project. `git fetch` at 22:50: `origin/main` moved from 7875ee2 to 428c437 (#14, `wp/db-types`: `src/infrastructure/db/database.types.ts`).

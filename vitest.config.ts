@@ -10,6 +10,14 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.ts"],
     environment: "node",
+    // Interactive input runs real Pyodide with WebAssembly stack switching
+    // (src/runtime/worker/interactive.test.ts). Node 25 and later have it;
+    // Node 24, which CI uses, has it behind this flag. Newer Node refuses the
+    // flag, so it is passed only where the capability is missing.
+    execArgv:
+      typeof Reflect.get(WebAssembly, "Suspending") === "function"
+        ? []
+        : ["--experimental-wasm-jspi"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}", "scripts/**/*.mjs"],

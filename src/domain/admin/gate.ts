@@ -50,6 +50,11 @@ export const ADMIN_PATHS = {
 /** Where the owner creates a course (docs/spec/03-experience.md section 7.2). */
 export const ADMIN_NEW_COURSE_PATH = "/admin/courses/new";
 
+/** The editor of one lesson (docs/spec/03-experience.md section 7.4). */
+export function adminLessonPath(lessonId: string): string {
+  return `/admin/lessons/${encodeURIComponent(lessonId)}`;
+}
+
 /** The editor of one course (docs/spec/03-experience.md section 7.3). */
 export function adminCoursePath(courseId: string): string {
   return `/admin/courses/${encodeURIComponent(courseId)}`;

@@ -1,7 +1,21 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { adminArea, courseEditor, dashboard, secondStep, structure } from "../src/messages/admin";
+import { HARNESS_OUTPUT_LIMIT } from "../src/grader/harness";
+import { CHECK_TEST_LIMIT } from "../src/grader/test-case";
+import {
+  adminArea,
+  courseEditor,
+  dashboard,
+  lessonEditor,
+  lessonStatus,
+  secondStep,
+  structure,
+  testCaseList,
+  validation,
+} from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
+import { lessonContent } from "../src/messages/lesson";
+import { TIME_LIMIT_MS } from "../src/runtime/controller";
 import { saveScreen } from "./screens";
 
 // The admin states the J-12 journey cannot reach (WP-2.3 design review 1),
@@ -161,3 +175,428 @@ for (const width of [375, 800]) {
     await saveScreen(page, "admin-narrow", width, { workPackage: "WP-2.3" });
   });
 }
+
+test("[FR-ADM-04] [FR-ADM-10] the lesson editor's states, at 1280 px", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
+
+  // Saves that succeed, and a preview that renders as the learner sees it.
+  const editing = page.getByRole("region", { name: adminGallery.lessonEditor });
+  await expect(editing.getByTestId("instructions-preview").getByRole("heading")).toHaveText(
+    adminGallery.previewHeading,
+  );
+  await editing.getByLabel(lessonEditor.titleLabel).fill("Renamed");
+  await expect(editing.getByText(lessonEditor.unsaved)).toBeVisible();
+  await editing.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(editing.getByRole("status").filter({ hasText: lessonEditor.saved })).toBeVisible();
+  await expect(editing.getByText(lessonEditor.allSaved)).toBeVisible();
+  await shot("admin-lesson-editor-saved");
+
+  // A refused save and a preview that fails keep what was typed.
+  const refusing = page.getByRole("region", { name: adminGallery.lessonRefusing });
+  await refusing.getByLabel(lessonEditor.instructionsLabel).fill("## Changed");
+  await expect(refusing.getByText(lessonEditor.previewFailed)).toBeVisible();
+  await refusing.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(refusing.getByRole("alert").first()).toContainText(lessonEditor.failure.stale);
+  await expect(refusing.getByLabel(lessonEditor.instructionsLabel)).toHaveValue("## Changed");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-refused");
+
+  // A published lesson says how its code changes are saved; a save that never answers stays pending.
+  const published = page.getByRole("region", { name: adminGallery.lessonPublished });
+  await expect(published.getByText(lessonEditor.publishedCodeNote)).toBeVisible();
+  await published.getByLabel(lessonEditor.titleLabel).fill("Pending");
+  await published.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(published.getByRole("button", { name: lessonEditor.saving })).toBeVisible();
+  await shot("admin-lesson-editor-pending");
+
+  // An empty lesson: the empty preview and no wrong answers; invalid fields are named.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await expect(empty.getByText(lessonEditor.previewEmpty)).toBeVisible();
+  await expect(empty.getByText(lessonEditor.wrongAnswersEmpty)).toBeVisible();
+  await empty.getByLabel(lessonEditor.titleLabel).fill("");
+  await empty.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(empty.getByText(lessonEditor.fieldInvalid.title)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-empty");
+});
+
+test("[FR-ADM-04] [FR-ADM-10] the lesson editor's failures, limits and learner content, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
+
+  // Three wrong answers: no Add; a save that fails says so and keeps the text.
+  const full = page.getByRole("region", { name: adminGallery.lessonFull });
+  await expect(full.getByRole("button", { name: lessonEditor.addWrongAnswer })).toHaveCount(0);
+  await full.getByLabel(lessonEditor.titleLabel).fill("Kept");
+  await full.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(full.getByRole("alert").first()).toContainText(lessonEditor.failure.unavailable);
+  await expect(full.getByLabel(lessonEditor.titleLabel)).toHaveValue("Kept");
+  await shot("admin-lesson-editor-save-failed");
+
+  // A taken address is said once, under its field.
+  const taken = page.getByRole("region", { name: adminGallery.lessonTaken });
+  await taken.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(taken.getByText(lessonEditor.failure.slug_taken)).toHaveCount(1);
+  await expect(taken.getByLabel(lessonEditor.slugLabel)).toHaveAttribute("aria-invalid", "true");
+  await shot("admin-lesson-editor-slug-taken");
+
+  // A starter over the limit: the editor itself is invalid, focused and described.
+  const tooLong = page.getByRole("region", { name: adminGallery.lessonTooLong });
+  await tooLong.getByRole("button", { name: lessonEditor.save }).click();
+  const starter = tooLong.getByRole("textbox", { name: lessonEditor.starterLabel });
+  await expect(starter).toHaveAttribute("aria-invalid", "true");
+  await expect(starter).toBeFocused();
+  await expect(tooLong.getByText(lessonEditor.fieldInvalid.starterCode)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-code-invalid");
+
+  // The editor's chrome is the design's, not CodeMirror's light theme
+  // (DESIGN.md section 4.4): a focused editor has the 2 px focus ring, the
+  // gutter sits on the editor surface, and the text is in the mono face.
+  const editor = starter.locator("xpath=ancestor::*[contains(@class, 'cm-editor')][1]");
+  const chrome = await editor.evaluate((element) => {
+    const surface = getComputedStyle(element).backgroundColor;
+    const gutters = element.querySelector(".cm-gutters");
+    const scroller = element.querySelector(".cm-scroller");
+    const style = getComputedStyle(element);
+    return {
+      surface,
+      gutter: gutters === null ? "" : getComputedStyle(gutters).backgroundColor,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+      font: scroller === null ? "" : getComputedStyle(scroller).fontFamily,
+      dark: element.classList.contains("cm-light") === false,
+    };
+  });
+  expect(chrome.gutter).toBe(chrome.surface);
+  expect(chrome.outlineStyle).toBe("solid");
+  expect(chrome.outlineWidth).toBe("2px");
+  expect(chrome.font).not.toBe("monospace");
+  expect(chrome.dark).toBe(true);
+
+  // A lesson's instructions as learners see them.
+  const content = page.getByRole("region", { name: adminGallery.lessonContent });
+  await expect(
+    content.getByRole("group", { name: lessonContent.codeBlock("Python") }),
+  ).toBeVisible();
+  await expect(content.getByRole("region", { name: lessonContent.table })).toBeVisible();
+  await expect(content.getByRole("button", { name: lessonContent.copyCode })).toBeVisible();
+  await expect(content.getByRole("link")).toContainText(lessonContent.opensInNewTab);
+  await shot("admin-lesson-content");
+});
+
+test("[FR-ADM-05] the test case list: empty, full, and a test case with problems, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+
+  // No test case yet: the empty sentence, and Add opens a new one with its name focused.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await expect(empty.getByText(testCaseList.empty)).toBeVisible();
+  await shot("admin-test-cases-empty");
+  await empty.getByRole("button", { name: testCaseList.add }).click();
+  const added = empty.getByRole("group", { name: testCaseList.group(1) });
+  await expect(added.getByRole("textbox", { name: testCaseList.nameLabel })).toBeFocused();
+  await expect(empty.getByText(lessonEditor.unsaved)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-open");
+
+  // Twelve: no Add and no Duplicate, and the sentence that says why.
+  const full = page.getByRole("region", { name: adminGallery.lessonTestCasesFull });
+  await expect(full.getByText(testCaseList.full(CHECK_TEST_LIMIT))).toBeVisible();
+  await expect(full.getByRole("button", { name: testCaseList.add })).toHaveCount(0);
+  await full
+    .getByRole("button", { name: testCaseList.title(1, adminGallery.sampleTestName) })
+    .click();
+  await expect(full.getByRole("button", { name: /^Duplicate: / })).toHaveCount(0);
+  await shot("admin-test-cases-full");
+
+  // Save opens the test case with problems, focuses its name, and names each field.
+  const problem = page.getByRole("region", { name: adminGallery.lessonTestCaseProblem });
+  await problem.getByRole("button", { name: lessonEditor.save }).click();
+  const second = problem.getByRole("group", { name: testCaseList.group(2) });
+  await expect(second.getByRole("textbox", { name: testCaseList.nameLabel })).toBeFocused();
+  await expect(second.getByText(testCaseList.problem.nameMissing)).toBeVisible();
+  await expect(second.getByText(testCaseList.problem.tooLong.expected(5_000))).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-problems");
+});
+
+test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a failed rule with Fill from solution, and a pass, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const validate = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: validation.validate }).click();
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading });
+
+  // Python loading: Validate waits for it, and Stop ends the wait.
+  const loading = page.getByRole("region", { name: adminGallery.lessonPythonLoading });
+  await expect(loading.getByText(validation.python.loading)).toBeVisible();
+  await validate(loading);
+  await expect(loading.getByRole("button", { name: validation.stop })).toBeVisible();
+  await publishHeading(loading).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validate-python-loading");
+  await loading.getByRole("button", { name: validation.stop }).click();
+  await expect(loading.getByText(validation.status.stopped)).toBeVisible();
+  await publishHeading(loading).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-stopped");
+
+  // Python could not start: Try again, and Validate says nothing was checked.
+  const failed = page.getByRole("region", { name: adminGallery.lessonPythonFailed });
+  await expect(failed.getByRole("button", { name: validation.retry })).toBeVisible();
+  await validate(failed);
+  await expect(failed.getByText(validation.unavailableStart)).toBeVisible();
+  await publishHeading(failed).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validate-python-failed");
+
+  // Validating: the pending Validate and Stop.
+  const running = page.getByRole("region", { name: adminGallery.lessonValidating });
+  await validate(running);
+  await expect(running.getByText(validation.status.running)).toBeVisible();
+  await publishHeading(running).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validating");
+
+  // Python started but could not run the programs: nothing was checked.
+  const cannotRun = page.getByRole("region", { name: adminGallery.lessonPythonCannotRun });
+  await validate(cannotRun);
+  await expect(cannotRun.getByText(validation.unavailable)).toBeVisible();
+  await publishHeading(cannotRun).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-python-cannot-run");
+
+  // A failed rule names the test case; its verdict shows what the solution printed.
+  const wrong = page.getByRole("region", { name: adminGallery.lessonValidationFailed });
+  await validate(wrong);
+  await expect(wrong.getByText(validation.status.failed(1))).toBeVisible();
+  await publishHeading(wrong).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-failed");
+  // Open, under the failed rule, opens the test case and focuses its title.
+  await wrong
+    .getByRole("button", {
+      name: validation.openTestCase(validation.testCaseRef(2, adminGallery.sampleTestName2)),
+    })
+    .click();
+  const second = wrong.getByRole("group", { name: testCaseList.group(2) });
+  const secondTitle = wrong.getByRole("button", {
+    name: testCaseList.title(2, adminGallery.sampleTestName2),
+  });
+  await expect(secondTitle).toBeFocused();
+  await expect(secondTitle).toHaveAttribute("aria-expanded", "true");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-opened");
+  await expect(second.getByText(validation.reason.mismatch)).toBeVisible();
+  await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-test-case-verdict");
+  await second
+    .getByRole("button", { name: validation.fillLabel(adminGallery.sampleTestName2) })
+    .click();
+  await expect(second.getByRole("textbox", { name: testCaseList.expectedLabel })).toBeFocused();
+  await expect(second.getByText(validation.verdictOutdated)).toBeVisible();
+  await expect(wrong.getByText(validation.outdated)).toBeVisible();
+  await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-outdated");
+  await publishHeading(wrong).scrollIntoViewIfNeeded();
+  await shot("admin-validation-outdated");
+
+  // Validate again: every rule passes.
+  await validate(wrong);
+  await expect(wrong.getByText(validation.status.passed)).toBeVisible();
+  await publishHeading(wrong).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-passed");
+
+  // An empty lesson: rule 1 names what is missing, and nothing runs.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await validate(empty);
+  await expect(
+    empty.getByText(validation.missing([validation.part.instructions, validation.part.test_cases])),
+  ).toBeVisible();
+  await publishHeading(empty).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-missing");
+});
+
+test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line, cut and cleaned output, and Save on a published lesson validating first, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading });
+  const save = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: lessonEditor.save }).click();
+
+  // The starter reaches the time limit; the solution fails three ways.
+  const odd = page.getByRole("region", { name: adminGallery.lessonOddResults });
+  await odd.getByRole("button", { name: validation.validate }).click();
+  await expect(
+    odd.getByText(validation.timedOut(TIME_LIMIT_MS / 1000, [validation.program.starter])),
+  ).toBeVisible();
+  await publishHeading(odd).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-validation-time-limit");
+
+  // Output with escape sequences is shown without them, and Fill is not offered.
+  await odd
+    .getByRole("button", { name: testCaseList.title(1, adminGallery.sampleTestName) })
+    .click();
+  const first = odd.getByRole("group", { name: testCaseList.group(1) });
+  await expect(first.getByText(validation.cleaned)).toBeVisible();
+  await expect(first.getByTestId("solution-output")).toHaveText(adminGallery.sampleTestExpected);
+  await expect(
+    first.getByRole("button", { name: validation.fillLabel(adminGallery.sampleTestName) }),
+  ).toHaveCount(0);
+  await first.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-cleaned");
+
+  // An error names its line.
+  await odd
+    .getByRole("button", { name: testCaseList.title(2, adminGallery.sampleTestName2) })
+    .click();
+  const second = odd.getByRole("group", { name: testCaseList.group(2) });
+  await expect(second.getByText(validation.reason.program_error)).toBeVisible();
+  await expect(second.getByText(validation.error(adminGallery.oddErrorMessage, 2))).toBeVisible();
+  await second.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-error-line");
+
+  // Output past the limit is cut, said so, and not fillable.
+  await odd.getByRole("button", { name: testCaseList.title(3, adminGallery.oddTestName3) }).click();
+  const third = odd.getByRole("group", { name: testCaseList.group(3) });
+  await expect(third.getByText(validation.reason.output_limit(HARNESS_OUTPUT_LIMIT))).toBeVisible();
+  await expect(third.getByText(validation.truncated(HARNESS_OUTPUT_LIMIT))).toBeVisible();
+  await expect(
+    third.getByRole("button", { name: validation.fillLabel(adminGallery.oddTestName3) }),
+  ).toHaveCount(0);
+  // The whole cut output scrolls inside a box of a fixed height.
+  const cut = await third
+    .getByTestId("solution-output")
+    .evaluate((box) => ({ shown: box.clientHeight, whole: box.scrollHeight }));
+  expect(cut.whole).toBeGreaterThan(cut.shown);
+  expect(cut.shown).toBeLessThan(400);
+  await third.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-verdict-truncated");
+
+  // Save on a published lesson validates first; Stop saves nothing.
+  const validating = page.getByRole("region", { name: adminGallery.lessonSaveValidating });
+  await save(validating);
+  await expect(validating.getByText(validation.status.running)).toBeVisible();
+  await expect(validating.getByRole("button", { name: validation.stop })).toBeVisible();
+  await publishHeading(validating).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-validating");
+  await validating.getByRole("button", { name: validation.stop }).click();
+  await expect(validating.getByText(lessonEditor.validateFirst.stopped)).toBeVisible();
+  await validating.getByText(lessonEditor.validateFirst.stopped).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-stopped");
+
+  // Python could not start: nothing is saved, and the way out is named.
+  const noPython = page.getByRole("region", { name: adminGallery.lessonSavePythonFailed });
+  await save(noPython);
+  await expect(noPython.getByText(lessonEditor.validateFirst.unavailableStart)).toBeVisible();
+  await noPython.getByText(lessonEditor.validateFirst.unavailableStart).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-python");
+
+  // Python started but could not run the programs: nothing is saved.
+  const cannotRun = page.getByRole("region", { name: adminGallery.lessonSavePythonCannotRun });
+  await save(cannotRun);
+  await expect(cannotRun.getByText(lessonEditor.validateFirst.unavailable)).toBeVisible();
+  await expect(cannotRun.getByText(validation.unavailable)).toBeVisible();
+  await cannotRun.getByText(lessonEditor.validateFirst.unavailable).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-cannot-run");
+
+  // A rule failed: nothing is saved, and the checklist says what to fix.
+  const ruleFailed = page.getByRole("region", { name: adminGallery.lessonSaveRuleFailed });
+  await save(ruleFailed);
+  await expect(ruleFailed.getByText(lessonEditor.validateFirst.failed)).toBeVisible();
+  await expect(ruleFailed.getByText(validation.status.failed(1))).toBeVisible();
+  await ruleFailed.getByText(lessonEditor.validateFirst.failed).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-save-refused-rule");
+});
+
+test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, published, archived, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const statusGroup = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("group", { name: lessonStatus.heading });
+  const publish = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: lessonStatus.action.published });
+
+  // A draft: Publish waits for a pass, then saves and publishes.
+  const draft = page.getByRole("region", { name: adminGallery.lessonEditor });
+  await expect(draft.getByText(lessonStatus.publishWaits)).toBeVisible();
+  await expect(publish(draft)).toHaveCount(0);
+  await draft.getByRole("button", { name: validation.validate }).click();
+  await expect(draft.getByText(validation.status.passed)).toBeVisible();
+  await statusGroup(draft).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-publish-ready");
+  await publish(draft).click();
+  // Read out by the live region; the focused status line shows it.
+  await expect(draft.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeAttached();
+  await expect(
+    draft.getByText(lessonStatus.now(lessonStatus.name.published), { exact: false }),
+  ).toBeFocused();
+  await shot("admin-lesson-published-now");
+
+  // The status change is refused: the reason, in the Publish section.
+  const refusing = page.getByRole("region", { name: adminGallery.lessonRefusing });
+  await refusing.getByRole("button", { name: lessonStatus.action.archived }).click();
+  const confirm = page.getByRole("dialog", { name: lessonStatus.confirmTitle.archived });
+  await expect(confirm.getByText(lessonStatus.confirmBody.archived)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-archive-confirm");
+  await confirm.getByRole("button", { name: lessonStatus.action.archived }).click();
+  await expect(refusing.getByText(lessonStatus.failure.status_not_allowed)).toBeVisible();
+  await statusGroup(refusing).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-status-refused");
+
+  // A published lesson: Move back to draft asks and says what learners will see.
+  const published = page.getByRole("region", { name: adminGallery.lessonPublished });
+  await published.getByRole("button", { name: lessonStatus.action.draft }).click();
+  const unpublish = page.getByRole("dialog", { name: lessonStatus.confirmTitle.draft });
+  await expect(unpublish.getByText(lessonStatus.confirmBody.draft)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-unpublish-confirm");
+  await unpublish.getByRole("button", { name: lessonStatus.cancel }).click();
+  await statusGroup(published).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-published");
+
+  // An archived lesson: only Move back to draft, which asks nothing.
+  const archived = page.getByRole("region", { name: adminGallery.lessonArchived });
+  await expect(archived.getByRole("button", { name: lessonStatus.action.draft })).toBeVisible();
+  await expect(publish(archived)).toHaveCount(0);
+  await statusGroup(archived).scrollIntoViewIfNeeded();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-archived");
+});
