@@ -2,9 +2,17 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
-## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
+## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list, with the owner decisions of 2026-11-24: every recommended default in every pull request description is approved (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, device progress cleared at sign-out, the stored row wins, every proposed spec change accepted), to be written into `docs/spec` on the branch each belongs to and marked approved on 2026-11-24. `git fetch`: `origin/main` moved to 7875ee2, the merge of #12 (WP-2.1). `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart` were each 20 commits behind it; `wp/5.2-workspace-laptop` 1. This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 46), with `main`'s two `night-b` sections added in time order and this section on top.
+
+### Task 1, part 49 done: `wp/3.3-grader` (with `main` at 7875ee2) merged into `wp/3.4-statechart`, and WP-3.4's approved decisions written
+
+- 014adf3: `wp/3.3-grader` at f3c806d merged. One conflict, this file (`wp/3.3-grader`'s copy taken; it held every line of this branch's).
+- Owner decisions written in the docs commit: ADR-0034 accepted (its status and its row in `02-architecture.md` section 15); `02-architecture.md` section 6: `CRASH` also covers a worker replaced after a memory error or the output cap, with a `reason`. Decision: of the two options the description proposed, the one that changes neither the diagram nor the code.
+- `pnpm verify` on 014adf3 and again with the spec edits (the chart's test reads section 6's diagram): exit 0, 47 files, 1247 tests. `pnpm build` with CI's fake public values: exit 0; `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen 014adf3.
+- Push: `wp/3.4-statechart` with 014adf3 and the docs commit. `wp/3.3-grader`'s f3c806d reaches `origin` inside this push's history, not on its own branch, until that branch's next push.
 
 ### Task 1, part 48 done: `main` at 7875ee2 merged into `wp/3.3-grader`, and WP-3.3's approved decisions written
 
@@ -26,12 +34,12 @@ Same task list, with the owner decisions of 2026-11-24: every recommended defaul
 
 ### Owner: run this
 
-1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader` if that pull request is open.
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader` if that pull request is open, and the same for `docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`.
 2. Still yours on WP-3.1: the browser tests in Firefox and WebKit, security review 8 round 3, and the three "Not fixed" items that have no recommended default (the worker's file system, the "crashed" message, a late callback's output).
 
 ### Next
 
-- Merge `wp/3.3-grader` (with `main`) into `wp/3.4-statechart`, writing its approved decisions (ADR-0034 among them).
+- Task 1 is done for `main` at 7875ee2. Next: `main` into `wp/5.2-workspace-laptop` (1 commit behind) through `wp/3.4-statechart`, and task 2.
 
 ## Session of 2026-11-24 (from about 13:48, continued), in `night-a`, on `wp/5.2-workspace-laptop`
 

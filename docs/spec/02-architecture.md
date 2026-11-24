@@ -230,7 +230,9 @@ stateDiagram-v2
   restarting --> failed: RUNTIME_FAILED
 ```
 
-`CRASH` covers every way the worker can die without being asked to: an uncaught error, a `fatal` message, or the browser ending it under memory pressure, including while it sits idle in `ready`.
+`CRASH` covers every way the worker can die without being asked to: an uncaught error, a `fatal` message, or the browser ending it under memory pressure, including while it sits idle in `ready`. It also covers a worker the controller replaces on purpose after a memory error or the output cap; that `CRASH` carries a `reason` (`memory` or `output_limit`) so the learner's explanation stays true.
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-3.4):** a replaced worker reaches the chart as `CRASH` with a `reason`, the edge the diagram already draws. Of the two options proposed (name the edge `CRASH or REPLACED`, or add a `REPLACED` event), this text takes the one that needs no change to the diagram or the code: the chart's test parses the diagram and compares it to the table.
 
 - `loading` and `restarting` carry at most one pending intent (Run or Check) that fires on `RUNTIME_READY`.
 - A lesson region tracks `untouched`, `inProgress`, `passed`. `passed` is entered by `CHECK_DONE` with every test case passing and triggers a completion.
@@ -483,4 +485,4 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | 0031 | Identity without a brand kit | Accepted |
 | 0032 | Module table additions and a test-only grader runner | Accepted |
 | 0033 | The Python worker is compiled by the TypeScript compiler, outside the bundler | Proposed |
-| 0034 | A program that yields once can compute while the page waits for its input; the risk is accepted with Stop as the control | Proposed |
+| 0034 | A program that yields once can compute while the page waits for its input; the risk is accepted with Stop as the control | Accepted |
