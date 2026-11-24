@@ -2,6 +2,50 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:13), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Both items under "Next" below wait on the owner. Of the open review items, WP-3.1 security review 6, MINOR 1 (name the worker's seven files in the header rule) was declined on purpose in that round (the list would live in two places), and the others are owner decisions, so this run took WP-3.4 code review 3's optional MINOR. This file is `wp/3.1-python-worker`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 37 done: the Send, Check and Stop buttons matched by their exact names (WP-3.4 code review 3, MINOR)
+
+- deca401: `exact: true` on the Send, Check and Stop selectors in `e2e/runtime.spec.ts`, `e2e/live-input-runtime.spec.ts` and `e2e/statechart-runtime.spec.ts`. Each button's accessible name is exactly its message in `runtime-console.tsx` (text only, no hint or `aria-label`). No product code changed.
+- Browser: Chromium with `--no-sandbox --single-process`, one test per Playwright process, through a temporary config outside the repository, against `next dev --webpack` (with `WATCHPACK_POLLING=true`) on port 3262 after `node scripts/build-runtime.mjs`. Stopped by this run.
+- On deca401: `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4 passed.
+- `pnpm verify` on deca401: exit 0, 46 files, 1229 tests. `pnpm build` not run (only test files changed).
+- Not run: Firefox and WebKit. No reviewer has seen deca401.
+- Description: the first line, "How it was verified" and Reviews (round 3) of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with deca401 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- The same as in the section below.
+
+## Session of 2026-11-24 (from about 13:05, continued), in `night-a`, on `wp/3.1-python-worker`
+
+Part 35 took about 5 minutes, so the run went on with an open WP-3.1 item that needed no owner decision: "The multi-pass monitoring loop is not tested in the run support" (security review 8, round 1, MINOR 5), listed under "Not fixed" in `docs/reports/pull-requests/WP-3.1.md`. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 36 done: the "Not fixed" line on the monitoring loop's test was out of date
+
+- Found: the test exists. a24111c added "a sys.monitoring callback that takes a freed tool id while the tools are freed is freed too" to `src/runtime/worker/run-support.test.ts` (round 2, MINOR 4 lists it), but the description still listed round 1's MINOR 5 as not fixed.
+- Checked that the test guards the loop, by hand, with no commit: with only the monitoring loop in `restore()` cut to one pass (`for index in passes[:1]:`), the test fails (`1 failed`); with the file put back, it passes (`1 passed`). Cutting the shared `passes` list to one entry also fails it, but that changes the collection loop too, so it proves less.
+- No code change. The line is removed from "Not fixed" in `docs/reports/pull-requests/WP-3.1.md`. The review report is left as written: it records round 1 as the reviewer saw it.
+- Push: `wp/3.1-python-worker` with the docs commit. This line is pushed with that commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- The same as in the section below.
+
 ## Session of 2026-11-24 (from about 13:05), in `night-a`, on `wp/3.4-statechart`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (it held every line of this branch's copy) with this section added on top.
