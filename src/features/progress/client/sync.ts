@@ -58,7 +58,7 @@ function firstBatch(pending: readonly Completion[]): Completion[] {
 export function startProgressSync(
   store: ProgressStore,
   ports: SyncPorts,
-  onChange: () => void = () => {},
+  onChange: (state: SyncState) => void = () => {},
 ): ProgressSync {
   let running: Promise<boolean> | undefined;
   let again = false;
@@ -77,7 +77,7 @@ export function startProgressSync(
 
   const set = (next: SyncState) => {
     state = next;
-    onChange();
+    onChange(state);
   };
 
   const retryLater = () => {
@@ -160,10 +160,10 @@ export function startProgressSync(
         }
         if (outcome.ok) {
           await store.markSynced(completion.lessonId, since);
-          onChange();
+          onChange(state);
         } else if (outcome.error === "lesson_unavailable") {
           await store.drop([completion.lessonId], since);
-          onChange();
+          onChange(state);
         } else retryLater();
       });
     },

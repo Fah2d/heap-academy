@@ -48,7 +48,24 @@ const progress = vi.hoisted(() => ({
   hold: undefined as undefined | ((answer: () => void) => void),
   record: vi.fn<(completion: { lessonId: string; completedAt: number; code: string }) => void>(),
 }));
+// What the sync says is still waiting, as the test sets it.
+const sync = vi.hoisted(() => {
+  let unsynced = false;
+  let listener = () => {};
+  return {
+    unsynced: () => unsynced,
+    set: (next: boolean) => {
+      unsynced = next;
+      listener();
+    },
+    subscribe: (changed: () => void) => {
+      listener = changed;
+      return () => {};
+    },
+  };
+});
 vi.mock("@/features/progress", () => ({
+  syncStatus: sync,
   deviceProgress: () => ({
     record: (completion: { lessonId: string; completedAt: number; code: string }) => {
       progress.record(completion);
@@ -540,6 +557,15 @@ describe("[FR-WSP-06] [FR-PRG-01] [NFR-REL-01] the completion moment", () => {
     show();
     expect(await screen.findByText(words.memoryTitle)).toBeTruthy();
     expect(screen.getByText(words.memoryBody)).toBeTruthy();
+  });
+
+  it("[FR-PRG-06] says while a completed lesson is not saved to the account", async () => {
+    show();
+    expect(screen.queryByText(words.unsyncedTitle)).toBeNull();
+    act(() => sync.set(true));
+    expect(await screen.findByText(words.unsyncedTitle)).toBeTruthy();
+    act(() => sync.set(false));
+    expect(screen.queryByText(words.unsyncedTitle)).toBeNull();
   });
 
   it("shows no storage notice when the device keeps progress", async () => {

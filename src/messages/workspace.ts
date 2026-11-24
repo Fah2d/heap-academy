@@ -191,6 +191,9 @@ export const workspace = {
   // Storage refused (FR-PRG-01): what is kept lasts only while the tab is open.
   memoryTitle: "This browser is not saving your work.",
   memoryBody: "Your code and completed lessons are lost when you reload or leave this page.",
+  // A pass the account does not have yet (FR-PRG-06).
+  unsyncedTitle: "A completed lesson is not saved to your account yet.",
+  unsyncedBody: "We will try again.",
   passed: "Passed",
   failedTest: "Failed",
   notRun: "Not run",

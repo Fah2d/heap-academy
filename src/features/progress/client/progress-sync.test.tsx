@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseLessonId, type LessonId } from "@/domain/ids";
 import { deviceProgress } from "./device-progress";
 import { ProgressSync } from "./progress-sync";
+import { syncStatus } from "./sync-status";
 
 afterEach(cleanup);
 
@@ -31,5 +32,45 @@ describe("[FR-PRG-02] the sync mounted for a signed-in learner", () => {
     await deviceProgress().clear();
     await deviceProgress().record(pass);
     expect(recordCompletion).toHaveBeenCalledOnce();
+  });
+});
+
+describe("[FR-PRG-06] the unsynced state", () => {
+  it("is on while a pass cannot reach the account, and off once it is stored", async () => {
+    await deviceProgress().clear();
+    let online = false;
+    const mergeProgress = vi.fn(async () => {
+      if (!online) throw new Error("offline");
+      return {
+        ok: true as const,
+        value: { completions: [pass], rejected: [] },
+      };
+    });
+    const recordCompletion = vi.fn(async () => ({ ok: true as const, value: null }));
+    await deviceProgress().record(pass);
+    const view = render(
+      <ProgressSync mergeProgress={mergeProgress} recordCompletion={recordCompletion} />,
+    );
+    await waitFor(() => expect(syncStatus.unsynced()).toBe(true));
+    online = true;
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(syncStatus.unsynced()).toBe(false));
+    view.unmount();
+  });
+
+  it("stays off when a sync fails and nothing is waiting, and goes off at sign-out", async () => {
+    await deviceProgress().clear();
+    const mergeProgress = vi.fn(async () => ({ ok: false as const, error: "unavailable" }));
+    const recordCompletion = vi.fn(async () => ({ ok: false as const, error: "unavailable" }));
+    const view = render(
+      <ProgressSync mergeProgress={mergeProgress} recordCompletion={recordCompletion} />,
+    );
+    await waitFor(() => expect(mergeProgress).toHaveBeenCalled());
+    await deviceProgress().pending();
+    expect(syncStatus.unsynced()).toBe(false);
+    await deviceProgress().record(pass);
+    await waitFor(() => expect(syncStatus.unsynced()).toBe(true));
+    view.unmount();
+    expect(syncStatus.unsynced()).toBe(false);
   });
 });
