@@ -180,6 +180,8 @@ test.describe("Python runtime", () => {
     // The loaders answer with promises, which settle after the run; the
     // second run reads what they settled with. The worker clears a run's
     // globals when it ends, so the callbacks take what they use as defaults.
+    // Under the lock-down both settle before the second run starts. If one
+    // ever settles later, the count below is short and the test fails.
     await outputOf(
       page,
       [
