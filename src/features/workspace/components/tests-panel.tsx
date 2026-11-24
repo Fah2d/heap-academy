@@ -92,8 +92,16 @@ export function TestsPanel({
         </p>
       )}
       {completion !== undefined && invitation != null && (
-        // Focus lands here when the learner hides the invitation.
-        <div tabIndex={-1} data-invitation-host className="outline-none">
+        // Focus lands here when the learner hides the invitation, and goes on
+        // to the summary, which is seen and read out.
+        <div
+          tabIndex={-1}
+          data-invitation-host
+          className="outline-none"
+          onFocus={(event) => {
+            if (event.target === event.currentTarget) summaryRef.current?.focus();
+          }}
+        >
           {invitation}
         </div>
       )}

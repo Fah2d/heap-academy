@@ -10,14 +10,19 @@ import { useSignInHref } from "./account-buttons";
 // only, and the workspace shows it below a new completion. It never blocks
 // the next action, and once hidden it does not return in this browser
 // session. Where the browser refuses session storage, hiding lasts as long
-// as the page.
+// as the page, even when the card is drawn again (a tab shown again).
 //
 // The host gives the card a parent that can take focus (tabIndex -1): focus
-// moves there when the card is hidden, so it is not lost to the page.
+// moves there when the card is hidden, and the host passes it on to a place
+// a learner can see and hear.
 
 const DISMISSED = "heap-academy.invitation-hidden";
 
+/** Hidden in this page, for a browser that refuses session storage. */
+let hiddenThisPage = false;
+
 function readHidden(): boolean {
+  if (hiddenThisPage) return true;
   try {
     return window.sessionStorage.getItem(DISMISSED) === "1";
   } catch {
@@ -27,10 +32,11 @@ function readHidden(): boolean {
 }
 
 function writeHidden(): void {
+  hiddenThisPage = true;
   try {
     window.sessionStorage.setItem(DISMISSED, "1");
   } catch {
-    // Session storage refused: the state below still hides the card.
+    // Session storage refused: `hiddenThisPage` still hides the card.
   }
 }
 
@@ -52,7 +58,6 @@ export function SaveProgressInvitation() {
     <section
       ref={card}
       aria-label={words.label}
-      data-invitation
       className="flex flex-col items-start gap-3 rounded-panel border border-border bg-surface p-4"
     >
       <p className="max-inline-prose text-base text-text">{words.body}</p>

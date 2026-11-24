@@ -189,7 +189,8 @@ test("[FR-AUTH-07] [FR-PRG-01] a guest is invited to save progress after a first
   await screens(page, "workspace-invitation", "WP-5.4");
   await card.getByRole("button", { name: invitation.dismiss }).click();
   await expect(card).toHaveCount(0);
-  await expect(page.locator("[data-invitation-host]")).toBeFocused();
+  // Focus goes on to the tests' summary, which is seen and read out.
+  await expect(page.locator("[data-summary]")).toBeFocused();
 });
 
 test("[FR-WSP-08] J-3: a program that asks for input twice", async ({ page }) => {
@@ -272,7 +273,10 @@ test("[FR-WSP-07] [FR-WSP-17] output over the limit replaces Python, which says 
   // Below 768 px the console scrolls inside its 24 rem ceiling, so the error
   // card stays near the output instead of below thousands of lines.
   await page.setViewportSize({ width: 375, height: 900 });
-  const consoleBox = await page.getByRole("region", { name: words.consoleLabel }).boundingBox();
+  // The phone layout draws the console a moment after the resize; wait for it.
+  const consoleRegion = page.getByRole("region", { name: words.consoleLabel });
+  await expect(consoleRegion).toBeVisible();
+  const consoleBox = await consoleRegion.boundingBox();
   expect(consoleBox?.height).toBeLessThanOrEqual(384);
   await screens(page, "workspace-restarting");
   release();

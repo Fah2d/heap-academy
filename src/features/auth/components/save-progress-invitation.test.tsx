@@ -3,7 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invitation as words } from "@/messages/sign-in";
-import { SaveProgressInvitation } from "./save-progress-invitation";
+import type { SaveProgressInvitation as Invitation } from "./save-progress-invitation";
 
 // The invitation to save progress (FR-AUTH-07; 03-experience.md section 6.6):
 // inline, dismissible, and once hidden it stays hidden for the session.
@@ -15,6 +15,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 const KEY = "heap-academy.invitation-hidden";
+
+// A fresh module each test: hiding is also kept in the module, for the page.
+let SaveProgressInvitation: typeof Invitation;
 
 /** The card inside a host that can take focus, as the workspace places it. */
 function show() {
@@ -28,8 +31,10 @@ function show() {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   window.sessionStorage.clear();
+  vi.resetModules();
+  ({ SaveProgressInvitation } = await import("./save-progress-invitation"));
 });
 
 afterEach(() => {
@@ -70,6 +75,10 @@ describe("SaveProgressInvitation", () => {
     show();
     expect(screen.getByRole("region", { name: words.label })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: words.dismiss }));
+    expect(screen.queryByRole("region", { name: words.label })).toBeNull();
+    // Drawn again, as when the learner comes back to the tests tab.
+    cleanup();
+    show();
     expect(screen.queryByRole("region", { name: words.label })).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
-import { AccountControl, isSignedIn, SaveProgressInvitation } from "@/features/auth";
+import { AccountControl, guestInvitation } from "@/features/auth";
 import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
 import { GuestInvitationProvider } from "@/features/progress";
 import { fontVariables, SiteShell } from "@/features/shell";
@@ -30,7 +30,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   await connection();
   const { lang, dir } = documentAttributes(LOCALE);
-  const invitation = (await isSignedIn()) ? null : <SaveProgressInvitation />;
+  const invitation = await guestInvitation();
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
       <body className="flex flex-col">
