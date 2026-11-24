@@ -7,6 +7,7 @@ import { workspace as words } from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
 import { SOURCE_LIMIT } from "@/runtime/protocol";
 import type { WorkspaceEvent, WorkspaceState } from "@/runtime/workspace-chart";
+import { NARROW_QUERY } from "../client/phone-layout";
 import { INITIAL_VIEW, type RuntimeView } from "../client/runtime-view";
 import { runAnnouncement } from "../client/workspace-view";
 
@@ -82,7 +83,15 @@ function show() {
 const editor = () => screen.getByRole("textbox", { name: words.work });
 const button = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name}`) });
 
+// jsdom has no media queries; each test says how wide the screen is.
+let narrow = false;
 beforeEach(() => {
+  narrow = false;
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === NARROW_QUERY && narrow,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
   runtime.view = { ...INITIAL_VIEW, status: "ready" };
   runtime.chart = { runtime: { name: "ready" }, lesson: "untouched" };
   runtime.dispatch.mockReset();
@@ -90,6 +99,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 describe("[FR-WSP-12] shortcuts", () => {
@@ -187,5 +197,109 @@ describe("[FR-WSP-08] the batch field", () => {
     });
     expect(runtime.program(false).stdin).toEqual(["3", "4"]);
     expect(runtime.program(true).stdin).toBeUndefined();
+  });
+});
+
+describe("[FR-WSP-13] below 768 px", () => {
+  const tab = (name: string) => screen.getByRole("tab", { name });
+  const panelOf = (name: string) => {
+    const id = tab(name).getAttribute("aria-controls") ?? "";
+    const panel = document.getElementById(id);
+    if (panel === null) throw new Error(`no panel for ${name}`);
+    return panel;
+  };
+
+  it("shows one of three views, the Lesson first, with the others hidden", () => {
+    narrow = true;
+    show();
+    const views = within(screen.getByRole("tablist", { name: words.views }));
+    expect(views.getAllByRole("tab").map((element) => element.textContent)).toEqual([
+      words.viewLesson + words.viewLesson,
+      words.viewCode + words.viewCode,
+      words.viewOutput + words.viewOutput,
+    ]);
+    expect(tab(words.viewLesson).getAttribute("aria-selected")).toBe("true");
+    expect(panelOf(words.viewLesson).hidden).toBe(false);
+    expect(panelOf(words.viewCode).hidden).toBe(true);
+    expect(panelOf(words.viewOutput).hidden).toBe(true);
+    expect(panelOf(words.viewCode).getAttribute("role")).toBe("tabpanel");
+    expect(panelOf(words.viewCode).getAttribute("aria-labelledby")).toBe(tab(words.viewCode).id);
+  });
+
+  it("ends the Lesson view with one action that shows the Code view and focuses its tab", async () => {
+    narrow = true;
+    show();
+    await userEvent.click(screen.getByRole("button", { name: words.toCode }));
+    expect(panelOf(words.viewCode).hidden).toBe(false);
+    expect(panelOf(words.viewLesson).hidden).toBe(true);
+    expect(document.activeElement).toBe(tab(words.viewCode));
+  });
+
+  it("moves between views with the arrows, and keeps one tab in the tab order", () => {
+    narrow = true;
+    show();
+    fireEvent.keyDown(tab(words.viewLesson), { key: "ArrowRight" });
+    expect(tab(words.viewCode).getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tab(words.viewCode));
+    fireEvent.keyDown(tab(words.viewCode), { key: "End" });
+    expect(panelOf(words.viewOutput).hidden).toBe(false);
+    const views = within(screen.getByRole("tablist", { name: words.views }));
+    expect(views.getAllByRole("tab").map((element) => element.getAttribute("tabindex"))).toEqual([
+      "-1",
+      "-1",
+      "0",
+    ]);
+  });
+
+  it("Run shows the Output view with the console, Check the Output view with the tests", async () => {
+    narrow = true;
+    show();
+    await userEvent.click(button(words.run));
+    expect(panelOf(words.viewOutput).hidden).toBe(false);
+    expect(screen.getByRole("tab", { name: words.console }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    await userEvent.click(tab(words.viewLesson));
+    await userEvent.click(button(words.check));
+    expect(panelOf(words.viewOutput).hidden).toBe(false);
+    expect(screen.getByRole("tab", { name: words.tests }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    expect(runtime.dispatch.mock.calls.map(([event]) => event.type)).toEqual(["RUN", "CHECK"]);
+  });
+
+  it("keeps Run, Check and Stop in the bar in every view, without the keyboard's keys", async () => {
+    narrow = true;
+    show();
+    for (const view of [words.viewLesson, words.viewCode, words.viewOutput]) {
+      await userEvent.click(tab(view));
+      expect(button(words.run)).toBeTruthy();
+      expect(button(words.check)).toBeTruthy();
+      expect(screen.getByRole("button", { name: words.stop })).toBeTruthy();
+    }
+    expect(within(button(words.run)).queryByText(words.shortcut(false, false))).toBeNull();
+  });
+
+  it("says a run's outcome from any view", () => {
+    narrow = true;
+    const { rerender } = show();
+    const result = {
+      runId: "run-1" as RunId,
+      outcome: { kind: "ok" } as const,
+      truncated: false,
+      durationMs: 3,
+    };
+    runtime.view = { ...runtime.view, output: [], result, ended: "run" };
+    rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" />);
+    const region = screen
+      .getAllByRole("status")
+      .find((element) => element.textContent === runAnnouncement(result, 0));
+    expect(region?.closest("[hidden]")).toBeNull();
+  });
+
+  it("is not built at 768 px and wider", () => {
+    show();
+    expect(screen.queryByRole("tablist", { name: words.views })).toBeNull();
+    expect(screen.queryByRole("button", { name: words.toCode })).toBeNull();
   });
 });

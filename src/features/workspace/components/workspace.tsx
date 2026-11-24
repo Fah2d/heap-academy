@@ -16,8 +16,10 @@ import { workspace as words } from "@/messages/workspace";
 import { SOURCE_LIMIT, STDIN_LINE_LENGTH_LIMIT, STDIN_LINE_LIMIT } from "@/runtime/protocol";
 import { canStart, canStop, isRemembered } from "@/runtime/workspace-chart";
 import { Button, Link, Notice, Play, Tabs } from "@/ui";
+import { cx } from "@/ui/class-names";
 import { Checkmark, StopFilledAlt } from "@/ui/icons";
 import { supportsPython } from "../client/browser-support";
+import { keyboardInset, narrowScreen, type PhoneView } from "../client/phone-layout";
 import { createCodeStore, type CodeStore, savedCodeKey } from "../client/saved-code";
 import { type Program, useRuntime } from "../client/use-runtime";
 import { runAnnouncement, type TooLarge, tooLarge, transcript } from "../client/workspace-view";
@@ -26,6 +28,7 @@ import { CodeEditor } from "./code-editor";
 import { ConsolePanel } from "./console-panel";
 import { Hints } from "./hints";
 import { LessonNav } from "./lesson-nav";
+import { phoneViewIds, PhoneViews } from "./phone-views";
 import { PythonStatus } from "./python-status";
 import { ResetCode } from "./reset-code";
 import { TestsPanel } from "./tests-panel";
@@ -59,12 +62,29 @@ let support: boolean | undefined;
 const isSupported = () => (support ??= supportsPython(window));
 const isApple = () => /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
+// The screen's width and the on-screen keyboard change while the page is open.
+const subscribeToNarrow = (onChange: () => void) => narrowScreen(window).subscribe(onChange);
+const isNarrow = () => narrowScreen(window).snapshot();
+const subscribeToViewport = (onChange: () => void) => {
+  const viewport = window.visualViewport;
+  viewport?.addEventListener("resize", onChange);
+  viewport?.addEventListener("scroll", onChange);
+  return () => {
+    viewport?.removeEventListener("resize", onChange);
+    viewport?.removeEventListener("scroll", onChange);
+  };
+};
+const currentKeyboardInset = () => keyboardInset(window.innerHeight, window.visualViewport);
+
 /**
- * The lesson workspace at 768 px and wider (docs/spec/03-experience.md
+ * The lesson workspace. At 768 px and wider (docs/spec/03-experience.md
  * section 6.1; FR-WSP-01): the instructions beside the work, the editor above
- * the actions and the output, previous and next below. The page does not
- * scroll; each pane does. Below 768 px the regions follow one another in
- * reading order until WP-5.3 builds the phone layout.
+ * the actions and the output, previous and next below; the page does not
+ * scroll, each pane does. Below 768 px (section 6.8; FR-WSP-13): a tab list
+ * shows one of three views, Lesson, Code and Output, and Run, Check and Stop
+ * sit in a bar fixed above the on-screen keyboard. The server renders the
+ * wide layout, whose regions follow one another below 768 px, until the
+ * browser knows the screen's width.
  */
 export function Workspace({
   lesson,
@@ -84,6 +104,11 @@ export function Workspace({
   // server renders as if neither were known yet.
   const supported = useSyncExternalStore(subscribeToNothing, isSupported, () => undefined);
   const apple = useSyncExternalStore(subscribeToNothing, isApple, () => false);
+  const narrow = useSyncExternalStore(subscribeToNarrow, isNarrow, () => false);
+  const inset = useSyncExternalStore(subscribeToViewport, currentKeyboardInset, () => 0);
+  const [phoneView, setPhoneView] = useState<PhoneView>("lesson");
+  const viewBase = useId();
+  const actionBar = useRef<HTMLDivElement>(null);
   const [code, setCode] = useState(lesson.starterCode);
   const [restored, setRestored] = useState(false);
   const [beforeReset, setBeforeReset] = useState<string | undefined>(undefined);
@@ -132,6 +157,29 @@ export function Workspace({
     };
   }, [saveNow]);
 
+  // Below 768 px the action bar sits on the on-screen keyboard, and the page
+  // keeps room for the bar at its end. Both are set on the element, not
+  // rendered, because they change as the keyboard and the bar move.
+  useEffect(() => {
+    root.current?.style.setProperty("--keyboard-inset", `${inset}px`);
+  }, [inset]);
+  useEffect(() => {
+    const bar = actionBar.current;
+    const element = root.current;
+    if (!narrow || bar === null || element === null || typeof ResizeObserver === "undefined")
+      return;
+    const observer = new ResizeObserver(() => {
+      element.style.setProperty(
+        "--action-bar-size",
+        `${Math.ceil(bar.getBoundingClientRect().height)}px`,
+      );
+    });
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+    };
+  }, [narrow, supported]);
+
   const program = useCallback(
     (interactive: boolean): Program => ({
       source: code,
@@ -174,6 +222,8 @@ export function Workspace({
       action === "run" && !view.interactiveInput ? inputLines(batchInput) : undefined,
     );
     setRefusal(over);
+    // Below 768 px, Run and Check show the Output view: the console or the tests.
+    setPhoneView("output");
     if (over !== undefined) return;
     setTab(action === "run" ? "console" : "tests");
     dispatch({ type });
@@ -190,6 +240,7 @@ export function Workspace({
         : "";
 
   const moveTo = (line: number) => {
+    setPhoneView("code");
     setGoToLine((previous) => ({ line, request: (previous?.request ?? 0) + 1 }));
   };
 
@@ -198,11 +249,32 @@ export function Workspace({
   const runLabel = pending === "run" ? words.runPending : words.run;
   const checkLabel = pending === "check" ? words.checkPending : words.check;
 
+  // The three views exist only when the workspace can run Python.
+  const phone = narrow && supported !== false;
+  const panel = (view: PhoneView) => {
+    if (!phone) return {};
+    const ids = phoneViewIds(viewBase, view);
+    return {
+      id: ids.panel,
+      role: "tabpanel",
+      "aria-labelledby": ids.tab,
+      hidden: view !== phoneView,
+    };
+  };
+  const showView = (view: PhoneView) => {
+    setPhoneView(view);
+    document.getElementById(phoneViewIds(viewBase, view).tab)?.focus();
+  };
+
   return (
     <div
       ref={root}
       data-workspace
-      className="flex flex-col md:grid md:h-full md:grid-cols-(--workspace-columns) md:grid-rows-(--workspace-rows)"
+      data-phone={phone ? phoneView : undefined}
+      className={cx(
+        "flex flex-col md:grid md:h-full md:grid-cols-(--workspace-columns) md:grid-rows-(--workspace-rows)",
+        phone && "pbe-(--action-bar-size)",
+      )}
       onKeyDownCapture={(event) => {
         // React passes events up through portals, so a key pressed in the
         // reset dialog arrives here too; only keys pressed in the page count.
@@ -236,20 +308,38 @@ export function Workspace({
         <h1 className="text-xl font-semibold text-text">{lesson.title}</h1>
       </div>
 
+      {phone && <PhoneViews base={viewBase} selected={phoneView} onSelect={setPhoneView} />}
+
       <section
         aria-labelledby="workspace-instructions"
         className="flex min-h-0 flex-col gap-6 overflow-auto border-be border-border px-gutter py-5 md:border-be-0 md:border-e"
+        {...panel("lesson")}
       >
         <h2 id="workspace-instructions" className="sr-only">
           {words.instructions}
         </h2>
         {instructions}
         <Hints hints={lesson.hints} />
+        {phone && (
+          <Button
+            variant="secondary"
+            block
+            onPress={() => {
+              showView("code");
+            }}
+          >
+            {words.toCode}
+          </Button>
+        )}
       </section>
 
       <section
         aria-labelledby={editorLabel}
-        className="flex min-h-0 flex-col gap-3 overflow-auto px-gutter py-4"
+        className={cx(
+          "flex min-h-0 flex-col gap-3 overflow-auto px-gutter",
+          // Below 768 px the views carry the space, so a hidden view leaves none.
+          !phone && "py-4",
+        )}
       >
         {supported === false ? (
           <>
@@ -263,53 +353,68 @@ export function Workspace({
           </>
         ) : (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 id={editorLabel} className="text-lg font-semibold text-text">
-                {words.work}
-              </h2>
-              <ResetCode
-                disabled={code === lesson.starterCode}
-                onReset={() => {
-                  setBeforeReset(latestCode.current);
-                  setRestored(false);
-                  replaceCode(lesson.starterCode);
-                }}
-              />
-            </div>
-            {restored && <p className="text-sm text-text-muted">{words.restored}</p>}
-            {/* Always present, so the words are announced when they appear. */}
             <div
-              role="status"
-              className={beforeReset === undefined ? "sr-only" : "text-base text-text"}
+              className={cx(
+                "flex min-h-0 flex-col gap-3 md:flex-(--workspace-editor-share)",
+                phone && "py-4",
+              )}
+              {...panel("code")}
             >
-              {beforeReset === undefined ? "" : words.resetDone}
-            </div>
-            {beforeReset !== undefined && (
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="secondary"
-                  onPress={() => {
-                    const previous = beforeReset;
-                    setBeforeReset(undefined);
-                    replaceCode(previous);
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id={editorLabel} className="text-lg font-semibold text-text">
+                  {words.work}
+                </h2>
+                <ResetCode
+                  disabled={code === lesson.starterCode}
+                  onReset={() => {
+                    setBeforeReset(latestCode.current);
+                    setRestored(false);
+                    replaceCode(lesson.starterCode);
                   }}
-                >
-                  {words.undo}
-                </Button>
+                />
               </div>
-            )}
-            <div className="grid min-h-(--workspace-editor-min) md:min-h-0 md:flex-(--workspace-editor-share)">
-              <CodeEditor
-                labelledBy={editorLabel}
-                value={code}
-                onChange={edit}
-                nonce={nonce}
-                fill
-                goToLine={goToLine}
-              />
+              {restored && <p className="text-sm text-text-muted">{words.restored}</p>}
+              {/* Always present, so the words are announced when they appear. */}
+              <div
+                role="status"
+                className={beforeReset === undefined ? "sr-only" : "text-base text-text"}
+              >
+                {beforeReset === undefined ? "" : words.resetDone}
+              </div>
+              {beforeReset !== undefined && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    variant="secondary"
+                    onPress={() => {
+                      const previous = beforeReset;
+                      setBeforeReset(undefined);
+                      replaceCode(previous);
+                    }}
+                  >
+                    {words.undo}
+                  </Button>
+                </div>
+              )}
+              <div className="grid min-h-(--workspace-editor-min) md:min-h-0 md:flex-1">
+                <CodeEditor
+                  labelledBy={editorLabel}
+                  value={code}
+                  onChange={edit}
+                  nonce={nonce}
+                  fill
+                  goToLine={goToLine}
+                />
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div
+              ref={actionBar}
+              className={cx(
+                "flex flex-wrap items-center gap-3",
+                phone &&
+                  "fixed inset-x-0 inset-be-(--keyboard-inset) z-10 border-bs border-border bg-bg px-gutter py-3",
+              )}
+            >
               <Button
                 variant="secondary"
                 icon={<Play size={16} />}
@@ -320,9 +425,11 @@ export function Workspace({
                 }}
               >
                 {runLabel}
-                <kbd aria-hidden="true" className="font-mono text-xs text-text-muted">
-                  {words.shortcut(apple, false)}
-                </kbd>
+                {!phone && (
+                  <kbd aria-hidden="true" className="font-mono text-xs text-text-muted">
+                    {words.shortcut(apple, false)}
+                  </kbd>
+                )}
               </Button>
               <Button
                 variant={passed ? "secondary" : "primary"}
@@ -334,9 +441,11 @@ export function Workspace({
                 }}
               >
                 {checkLabel}
-                <kbd aria-hidden="true" className="font-mono text-xs opacity-80">
-                  {words.shortcut(apple, true)}
-                </kbd>
+                {!phone && (
+                  <kbd aria-hidden="true" className="font-mono text-xs opacity-80">
+                    {words.shortcut(apple, true)}
+                  </kbd>
+                )}
               </Button>
               <Button
                 variant="secondary"
@@ -357,20 +466,26 @@ export function Workspace({
               />
             </div>
 
-            {refusal !== undefined && (
-              <Notice kind="error" kindLabel={words.errorKind} announce="assertive">
-                {words.tooLarge(
-                  refusal,
-                  refusal === "source"
-                    ? SOURCE_LIMIT
-                    : refusal === "input_lines"
-                      ? STDIN_LINE_LIMIT
-                      : STDIN_LINE_LENGTH_LIMIT,
-                )}
-              </Notice>
-            )}
+            <div
+              className={cx(
+                "flex min-h-(--workspace-output-min) flex-col gap-3 md:min-h-0 md:flex-(--workspace-output-share)",
+                phone && "py-4",
+              )}
+              {...panel("output")}
+            >
+              {refusal !== undefined && (
+                <Notice kind="error" kindLabel={words.errorKind} announce="assertive">
+                  {words.tooLarge(
+                    refusal,
+                    refusal === "source"
+                      ? SOURCE_LIMIT
+                      : refusal === "input_lines"
+                        ? STDIN_LINE_LIMIT
+                        : STDIN_LINE_LENGTH_LIMIT,
+                  )}
+                </Notice>
+              )}
 
-            <div className="flex min-h-(--workspace-output-min) flex-col md:min-h-0 md:flex-(--workspace-output-share)">
               <h2 className="sr-only">{words.output}</h2>
               <Tabs
                 label={words.output}
@@ -416,15 +531,17 @@ export function Workspace({
                   },
                 ]}
               />
-              <div role="status" className="sr-only">
-                {announcement}
-              </div>
+            </div>
+            {/* Outside the views, so it is said whichever view is showing. */}
+            <div role="status" className="sr-only">
+              {announcement}
             </div>
           </>
         )}
       </section>
 
-      <div className="md:col-span-2">
+      {/* Below 768 px, previous and next end the Lesson and Output views. */}
+      <div className="md:col-span-2" hidden={phone && phoneView === "code"}>
         <LessonNav course={lesson.course.slug} neighbours={lesson.neighbours} passed={passed} />
       </div>
     </div>

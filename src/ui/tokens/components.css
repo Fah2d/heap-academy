@@ -63,6 +63,11 @@
   /* Below 768 px the page scrolls, so the console scrolls inside a ceiling
      (24 rem) and an error card under it stays near the output. */
   --workspace-console-max: 24rem;
+  /* Below 768 px: how far the on-screen keyboard reaches up, and the fixed
+     action bar's height. 0 until the workspace measures them in the browser
+     and sets them on its own element (FR-WSP-13). */
+  --keyboard-inset: 0px;
+  --action-bar-size: 0px;
   /* A code editor that does not fill its box, as in the admin's lesson editor. */
   --code-editor-min: 10rem;
   /* The loading bar beside Python's status. */

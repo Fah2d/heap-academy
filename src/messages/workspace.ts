@@ -109,6 +109,13 @@ export const workspace = {
   instructions: "Instructions",
   work: "Your code",
   output: "Output",
+  /** The tab list of the three views below 768 px (section 6.8), and its tabs. */
+  views: "View",
+  viewLesson: "Lesson",
+  viewCode: "Code",
+  viewOutput: "Output",
+  /** The last action of the Lesson view below 768 px. */
+  toCode: "Write your code",
   lessons: "Lessons",
   previous: "Previous lesson",
   next: "Next lesson",
