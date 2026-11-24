@@ -88,7 +88,7 @@ A Hobby project cannot connect to a repository owned by a GitHub organization (E
 6. [ ] Automatic production deploys are turned off by `vercel.json` in the repository (`git.deploymentEnabled.main: false`), so a merge to `main` only goes live through the deploy workflow. Check after the first merge: no deployment appears under **Deployments** from the merge commit itself, only the one the workflow makes.
 7. [ ] **Account Settings → Tokens → Create**: name `heap-academy-deploy`, scope your Hobby account, expiration 90 days (put a renewal reminder in your calendar). **Secret** `Vercel token`.
 8. [ ] On your own machine, in the repository: `pnpm dlx vercel@65.16.0 link`, choose the project, then read `.vercel/project.json`. Note `orgId` and `projectId`. Neither is secret. `.vercel/` is ignored by Git.
-9. [ ] **Settings → Notifications** (or account **Settings → Notifications**): turn on usage notifications (NFR-COST-02).
+9. [ ] **Settings → Notifications** (or account **Settings → Notifications**): check that usage notifications are on (NFR-COST-02). Vercel turns them on for every plan and does not let Hobby change them (E-27).
 10. [ ] Whether a Hobby project can share one protected preview by link: Vercel's documentation says Shareable Links are on all plans, and a Hobby account can create one in total. WP-3.4 needs it. Try it once on any preview (**Share** on the deployment page) and record what you saw in the pull request of WP-1.3.
 
 ## 6. Point the domain at Vercel

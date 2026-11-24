@@ -1,0 +1,50 @@
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index f3a1126..668ae8b 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -14,9 +14,15 @@
+ # a credential-free build job that hands its output on is the stronger form.
+ name: Deploy
+ 
++# A push to main, or the owner's manual run from main when production needs a
++# new deployment of the same code, such as after a secret rotation (the
++# runbook docs/runbooks/rotate-a-secret.md section 1). The environments'
++# deployment branch policies refuse a run from any other branch, and the
++# production job still waits for the owner's approval.
+ on:
+   push:
+     branches: [main]
++  workflow_dispatch:
+ 
+ permissions: {}
+ 
+diff --git a/docs/runbooks/rotate-a-secret.md b/docs/runbooks/rotate-a-secret.md
+index 08b53f2..732fa64 100644
+--- a/docs/runbooks/rotate-a-secret.md
++++ b/docs/runbooks/rotate-a-secret.md
+@@ -42,7 +42,7 @@ Vercel variables reach only deployments made after the change (Vercel: changes "
+    - It failed anywhere else, or you rejected its `production` approval: stop. Re-running it would ship a commit that was declined or broken.
+    - Otherwise production was rolled back by hand (`deploy-and-rollback.md`), and a re-run would promote the release you took down. Stop, and deal with the rollback first.
+ 3. [ ] That run → **Re-run all jobs**. The staging migrations job skips migrations already applied. Approve the `production` job when it asks. It builds the commit again, deploys it, promotes it, and smoke-tests it.
+-4. [ ] GitHub allows a re-run only up to 30 days after the run started, and at most 50 times. If the latest run is older, there is nothing to re-run: open a pull request that changes only a document (the incident report, or the day report's line for this rotation), and merge it when its checks pass. Its Deploy run deploys the same code. Never merge a pull request that changes code only to cause a deploy, and never deploy from your machine (`vercel deploy`): the token lives only in GitHub (`deploy-and-rollback.md`, CLAUDE.md rule 10). A manual trigger for the Deploy workflow is proposed in the pull request of this runbook (decision E).
++4. [ ] GitHub allows a re-run only up to 30 days after the run started, and at most 50 times. If the latest run is older, there is nothing to re-run. When step 1's commit is the head of `main`: GitHub → **Actions → Deploy → Run workflow**, branch `main`, **Run workflow**, and approve the `production` job when it asks. It deploys the head of `main`, so do not use it while `main` holds a commit that production does not serve yet. Never deploy from your machine (`vercel deploy`): the token lives only in GitHub (`deploy-and-rollback.md`, CLAUDE.md rule 10).
+ 
+ For a **staging** value (the Preview variables of Vercel), push a commit to an open pull request's branch, or use **Redeploy** on that branch's preview in Vercel; there is no staging deploy in the Deploy workflow.
+ 
+diff --git a/scripts/workflows.test.ts b/scripts/workflows.test.ts
+index 99ce3a7..1189eb7 100644
+--- a/scripts/workflows.test.ts
++++ b/scripts/workflows.test.ts
+@@ -207,6 +207,12 @@ describe("workflows", () => {
+     expect(job(text, "production")).not.toContain("seed");
+   });
+ 
++  it("[T-18] the deploy runs on a push to main or a manual run, and on nothing else", () => {
++    const text = read("deploy.yml");
++    const triggers = text.slice(text.indexOf("\non:\n") + 1, text.indexOf("\npermissions:"));
++    expect(triggers).toBe("on:\n  push:\n    branches: [main]\n  workflow_dispatch:\n");
++  });
++
+   it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, and production waits for it", () => {
+     const text = read("deploy.yml");
+     expect(job(text, "staging-migrations")).toMatch(/^ {4}if: vars\.DEPLOY_ENABLED == 'true'$/m);

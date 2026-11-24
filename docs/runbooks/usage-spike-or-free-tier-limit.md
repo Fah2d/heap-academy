@@ -24,19 +24,19 @@ Vendor screens change. The menu names and figures below were checked against eac
 | Vendor | Figure | Free amount | Trigger | What stops when it is reached |
 |---|---|---|---|---|
 | Vercel Hobby | Fast data transfer | 100 GB a month | 50 GB (ADR-0029) | The site, for up to 30 days |
-| Vercel Hobby | Fast origin transfer | 10 GB a month | 5 GB (ADR-0029 wording, see below) | Every page: each renders per request (ADR-0028) and its response counts here, so this may be the first Hobby limit reached |
+| Vercel Hobby | Fast origin transfer | 10 GB a month | 5 GB (ADR-0029) | Every page: each renders per request (ADR-0028) and its response counts here, so this may be the first Hobby limit reached |
 | Vercel Hobby | Function invocations | 1,000,000 a month | 500,000 (ADR-0029) | Every page |
 | Vercel Hobby | Active CPU | 4 hours a month | 2 hours (ADR-0029) | Every page |
-| Vercel Hobby | Provisioned memory | 360 GB-hours a month | 180 GB-hours (ADR-0029 wording, see below) | Every page |
-| Vercel Hobby | CDN requests | 1,000,000 a month | 500,000 (ADR-0029 wording, see below) | Not stated by Vercel; treat it like transfer |
+| Vercel Hobby | Provisioned memory | 360 GB-hours a month | 180 GB-hours (ADR-0029) | Every page |
+| Vercel Hobby | CDN requests | 1,000,000 a month | 500,000 (ADR-0029) | Not stated by Vercel; treat it like transfer |
 | Supabase Free | Database size | 500 MB | 400 MB (ADR-0029) | Restrictions after a warning: read-only, or 402 on every API request |
 | Supabase Free | Egress | 5 GB | 2.5 GB (ADR-0029) | Same as above |
-| Supabase Free | Monthly active users | 50,000 | 40,000 (`07-operations.md` section 9.2 only) | Same as above |
+| Supabase Free | Monthly active users | 50,000 | 40,000 (ADR-0029) | Same as above |
 | Supabase Free | Inactivity | Paused after 1 week | Any pause of production (ADR-0029) | The whole database: lessons that are not cached, sign-in, progress, the dashboard |
-| Resend Free | Emails | 100 a day, 3,000 a month | 80 a day (ADR-0029); none for the month | Email sign-in codes until 00:00 UTC (or the month's end); Google sign-in still works |
-| GitHub Free | Artifact storage | 500 MB | None in ADR-0029; ADR-0030 is revisited when a dump passes 50 MB | Backups (later parts of WP-7.3, ADR-0030) |
+| Resend Free | Emails | 100 a day, 3,000 a month | 80 a day, 1,500 a month (ADR-0029) | Email sign-in codes until 00:00 UTC (or the month's end); Google sign-in still works |
+| GitHub Free | Artifact storage | 500 MB | 250 MB (ADR-0029); ADR-0030 is also revisited when a dump passes 50 MB | Backups (later parts of WP-7.3, ADR-0030) |
 
-ADR-0029's Vercel trigger reads "Any Vercel Hobby monthly figure passes 50 percent" and then names only transfer, invocations, and active CPU. Read literally it covers every Vercel figure, so act at half of each; the three rows marked "ADR-0029 wording" are that reading. Whether it does, and the triggers still missing for Resend's month and GitHub's storage (NFR-COST-02 wants one for every free-tier limit), is a change to ADR-0029, decided by you.
+Every trigger is in ADR-0029, amended on 2026-11-24 with the owner's approval (WP-7.3 decision D): half of each free amount where no other figure was set.
 
 ## 2. Vercel: a spike in transfer, invocations, or CPU
 
@@ -65,7 +65,7 @@ The figure that grows fastest after a video is likely transfer: once WP-3.1 ship
 
 ### 2.4 Attack Mode
 
-Vercel's emergency challenge. ADR-0029 and T-25 call it Attack Challenge Mode; Vercel now calls it **Attack Mode**. It is free on every plan. Every visitor sees a Vercel Security Checkpoint and passes it once an hour; known crawlers such as Googlebot are let through; requests it blocks do not count toward usage. Services Vercel does not recognise may be blocked, which likely includes the uptime monitor, `pnpm infra:verify`, and the Deploy workflow's smoke step, which runs from a GitHub runner. Learners in an in-app browser have not been tested against the checkpoint.
+Vercel's emergency challenge, formerly called Attack Challenge Mode (E-27). It is free on every plan. Every visitor sees a Vercel Security Checkpoint and passes it once an hour; known crawlers such as Googlebot are let through; requests it blocks do not count toward usage. Services Vercel does not recognise may be blocked, which likely includes the uptime monitor, `pnpm infra:verify`, and the Deploy workflow's smoke step, which runs from a GitHub runner. Learners in an in-app browser have not been tested against the checkpoint.
 
 1. [ ] **Firewall** → the **⋯** menu at the top right of the overview → **Enable Attack Mode** → **Enable for 1 Hour** (6 and 24 hours are in the menu beside it). It turns itself off at the end.
 2. [ ] While it is on, merge nothing and re-run no Deploy: the smoke step would likely fail and the job would roll production back.
@@ -140,4 +140,4 @@ Only once the backup workflow exists (later parts of WP-7.3, ADR-0030). Each bac
 - Resend: [account quotas and limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits).
 - GitHub: [billing for Actions](https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions).
 
-Not found in the documentation read: the thresholds at which Vercel sends usage notifications on Hobby (they are on by default and cannot be changed on Hobby), whether Hobby can pause a project, what Vercel stops when CDN requests or provisioned memory run out, what GitHub does on Free at 500 MB of artifacts, how long Supabase keeps a paused Free project restorable, and whether Resend sends usage warnings. These figures are not yet in `09-evidence.md`; the pull request proposes adding them.
+Not found in the documentation read: the thresholds at which Vercel sends usage notifications on Hobby (they are on by default and cannot be changed on Hobby), whether Hobby can pause a project, what Vercel stops when CDN requests or provisioned memory run out, what GitHub does on Free at 500 MB of artifacts, how long Supabase keeps a paused Free project restorable, and whether Resend sends usage warnings. The figures this runbook relies on are in `09-evidence.md` E-27.
