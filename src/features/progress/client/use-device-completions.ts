@@ -8,7 +8,7 @@ import type { ProgressStore } from "./progress-store";
  * The IDs of the lessons completed on this device, or undefined until the
  * device has answered (docs/spec/02-architecture.md section 10: a guest's
  * progress is filled in on the client). Read again after each new completion
- * in this page, and when the tab is shown again, so a lesson passed in
+ * in this page, after a sync rewrites the list, and when the tab is shown again, so a lesson passed in
  * another tab appears on return.
  */
 export function useDeviceCompletions(
@@ -28,11 +28,13 @@ export function useDeviceCompletions(
     };
     read();
     const unsubscribe = progress.subscribe(read);
+    const unsubscribeRewrites = progress.subscribeRewrites(read);
     document.addEventListener("visibilitychange", shown);
     window.addEventListener("pageshow", read);
     return () => {
       live = false;
       unsubscribe();
+      unsubscribeRewrites();
       document.removeEventListener("visibilitychange", shown);
       window.removeEventListener("pageshow", read);
     };

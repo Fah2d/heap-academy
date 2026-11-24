@@ -3,7 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Completion, DeviceCompletion } from "@/domain/progress";
 import type { LessonId } from "@/domain/ids";
-import type { ProgressStore } from "./progress-store";
+import { createProgressStore, type ProgressStore } from "./progress-store";
 import { useDeviceCompletions } from "./use-device-completions";
 
 // The course list and the course page fill in a guest's progress from the
@@ -32,6 +32,7 @@ function fakeStore(initial: LessonId[]) {
     applySync: () => Promise.resolve(),
     drop: () => Promise.resolve(),
     clear: () => Promise.resolve(),
+    subscribeRewrites: () => () => undefined,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -82,6 +83,21 @@ describe("useDeviceCompletions", () => {
     });
     await waitFor(() => {
       expect(result.current).toEqual(new Set([A, B]));
+    });
+  });
+
+  it("[FR-PRG-02] [FR-CRS-02] shows the account's lessons once a sync has stored them", async () => {
+    const store = createProgressStore(undefined);
+    const get = () => store;
+    const { result } = renderHook(() => useDeviceCompletions(get));
+    await waitFor(() => {
+      expect(result.current).toEqual(new Set());
+    });
+    await act(async () => {
+      await store.applySync([{ lessonId: A, completedAt: 1, code: "" }], [], await store.epoch());
+    });
+    await waitFor(() => {
+      expect(result.current).toEqual(new Set([A]));
     });
   });
 
