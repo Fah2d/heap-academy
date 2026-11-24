@@ -25,13 +25,13 @@ export const savedCodeKey = (course: string, lesson: string) => `${course}/${les
  */
 export function createCodeStore(factory: IDBFactory | undefined): CodeStore {
   const memory = new Map<string, string>();
-  const open = lazyDeviceDatabase(factory);
+  const database = lazyDeviceDatabase(factory);
 
   return {
     load: async (key) => {
       const remembered = memory.get(key);
       if (remembered !== undefined) return remembered;
-      const opened = await open();
+      const opened = await database.open();
       if (opened === undefined) return undefined;
       try {
         const value: unknown = await settle(
@@ -39,19 +39,22 @@ export function createCodeStore(factory: IDBFactory | undefined): CodeStore {
         );
         return typeof value === "string" ? value : undefined;
       } catch {
+        // The connection may have closed: the next request opens it again.
+        database.reset();
         return undefined;
       }
     },
     save: async (key, code) => {
       memory.set(key, code);
-      const opened = await open();
+      const opened = await database.open();
       if (opened === undefined) return;
       try {
         await settle(
           opened.transaction(CODE_STORE, "readwrite").objectStore(CODE_STORE).put(code, key),
         );
       } catch {
-        // The memory copy stays; the next save tries the database again.
+        // The memory copy stays; the next save opens the database again.
+        database.reset();
       }
     },
   };

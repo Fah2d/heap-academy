@@ -26,11 +26,14 @@ export function settle<T>(request: IDBRequest<T>): Promise<T> {
 
 /**
  * The database, with every store created. An open tab that holds an older
- * version closes its connection when this one asks to upgrade, so the
- * upgrade is not blocked; that tab's next request then fails, and its
- * stores fall back to memory.
+ * version closes its connection when another tab asks to upgrade, so the
+ * upgrade is not blocked; `onClosed` then lets the caller open again, and
+ * the older version's open fails, so its stores fall back to memory.
  */
-export function openDeviceDatabase(factory: IDBFactory): Promise<IDBDatabase> {
+export function openDeviceDatabase(
+  factory: IDBFactory,
+  onClosed: () => void = () => undefined,
+): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(DEVICE_DATABASE, DEVICE_DATABASE_VERSION);
     request.onupgradeneeded = () => {
@@ -43,7 +46,10 @@ export function openDeviceDatabase(factory: IDBFactory): Promise<IDBDatabase> {
       const database = request.result;
       database.onversionchange = () => {
         database.close();
+        onClosed();
       };
+      // The browser closes it too, when the site's data is cleared.
+      database.onclose = onClosed;
       resolve(database);
     };
     request.onerror = () => {
@@ -55,16 +61,33 @@ export function openDeviceDatabase(factory: IDBFactory): Promise<IDBDatabase> {
   });
 }
 
-/** The database once per caller, or undefined when there is none or it refuses. */
-export function lazyDeviceDatabase(
-  factory: IDBFactory | undefined,
-): () => Promise<IDBDatabase | undefined> {
+export type DeviceDatabase = {
+  /** The open database, or undefined when there is none or it refuses. */
+  open: () => Promise<IDBDatabase | undefined>;
+  /** Forgets the connection, so the next `open` asks again: after a request failed. */
+  reset: () => void;
+};
+
+/** The database opened once and kept, until it closes or a request on it fails. */
+export function lazyDeviceDatabase(factory: IDBFactory | undefined): DeviceDatabase {
   let database: Promise<IDBDatabase | undefined> | undefined;
-  return () => {
-    database ??=
-      factory === undefined
-        ? Promise.resolve(undefined)
-        : openDeviceDatabase(factory).catch(() => undefined);
-    return database;
+  const reset = () => {
+    database = undefined;
+  };
+  return {
+    open: () => {
+      database ??=
+        factory === undefined
+          ? Promise.resolve(undefined)
+          : openDeviceDatabase(factory, reset).catch(() => undefined);
+      return database;
+    },
+    reset,
   };
 }
+
+/** Whether a request failed because its key is already stored. */
+export const isTaken = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { name?: unknown }).name === "ConstraintError";

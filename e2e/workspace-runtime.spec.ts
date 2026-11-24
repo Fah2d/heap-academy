@@ -315,12 +315,23 @@ test("[FR-PRG-01] saved code comes back on the next visit", async ({ page }) => 
     .poll(() =>
       page.evaluate(
         (key) =>
-          new Promise<unknown>((resolve) => {
-            const open = indexedDB.open("heap-academy", 1);
+          new Promise<unknown>((resolve, reject) => {
+            // No version: whatever version the workspace opened. Closed after
+            // the read, so it never holds up the workspace's own upgrade.
+            const open = indexedDB.open("heap-academy");
+            open.onerror = () => {
+              reject(open.error ?? new Error("IndexedDB open failed"));
+            };
             open.onsuccess = () => {
-              const read = open.result.transaction("code").objectStore("code").get(key);
+              const database = open.result;
+              const read = database.transaction("code").objectStore("code").get(key);
               read.onsuccess = () => {
+                database.close();
                 resolve(read.result);
+              };
+              read.onerror = () => {
+                database.close();
+                reject(read.error ?? new Error("IndexedDB read failed"));
               };
             };
           }),

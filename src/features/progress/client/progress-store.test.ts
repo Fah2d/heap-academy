@@ -10,11 +10,20 @@ import { createProgressStore } from "./progress-store";
 
 // Completions are kept on the device and come back after a reload
 // (FR-PRG-01), a second pass keeps the first (FR-WSP-06), and a pass is
-// never lost once seen (NFR-REL-01). The browser tests check the real
-// IndexedDB; these use a stand-in that answers the way IndexedDB does, a
-// turn later, and whose data outlives one store, as a reload's would.
+// never lost once seen (NFR-REL-01). These use a stand-in that answers the
+// way IndexedDB does, a turn later, and whose data outlives one store, as a
+// reload's would; WP-5.4's browser journeys check the real IndexedDB.
 
-type Behaviour = { failOpen?: boolean; blockOpen?: boolean; failWrites?: boolean };
+type Behaviour = {
+  failOpen?: boolean;
+  blockOpen?: boolean;
+  failWrites?: boolean;
+  /** Every request on an open connection throws, as on a closed one. */
+  closed?: boolean;
+  opens?: number;
+  /** The connection the last open gave, to play another tab's upgrade on it. */
+  connection?: { onversionchange: (() => void) | null; close: () => void };
+};
 
 type Disk = { version: number; stores: Map<string, Map<string, unknown>> };
 
@@ -22,7 +31,8 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
   const later = (callback: () => void) => {
     setTimeout(callback, 0);
   };
-  const request = <T>(answer: () => T, fails = false) => {
+  /** A request whose answer is worked out a turn later; an answer that throws is its error. */
+  const request = <T>(answer: () => T) => {
     const pending: {
       result?: T;
       error: Error | null;
@@ -30,12 +40,13 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
       onerror: (() => void) | null;
     } = { error: null, onsuccess: null, onerror: null };
     later(() => {
-      if (fails) {
-        pending.error = new Error("refused");
+      try {
+        pending.result = answer();
+      } catch (error) {
+        pending.error = error as Error;
         pending.onerror?.();
         return;
       }
-      pending.result = answer();
       pending.onsuccess?.();
     });
     return pending;
@@ -46,25 +57,32 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
       disk.stores.set(name, new Map());
     },
     onversionchange: null as (() => void) | null,
+    onclose: null as (() => void) | null,
     close: vi.fn(),
     transaction: (name: string) => {
+      if (behaviour.closed === true) throw new Error("InvalidStateError");
       const rows = disk.stores.get(name);
       if (rows === undefined) throw new Error("NotFoundError");
       return {
         objectStore: () => ({
-          get: (key: string) => request(() => rows.get(key)),
           getAll: () => request(() => [...rows.values()]),
-          put: (value: unknown, key: string) =>
+          add: (value: unknown, key: string) =>
             request(() => {
+              if (behaviour.failWrites === true) throw new Error("refused");
+              if (rows.has(key)) {
+                throw Object.assign(new Error("taken"), { name: "ConstraintError" });
+              }
               rows.set(key, value);
               return key;
-            }, behaviour.failWrites === true),
+            }),
         }),
       };
     },
   };
   return {
     open: (_name: string, version: number) => {
+      behaviour.opens = (behaviour.opens ?? 0) + 1;
+      behaviour.connection = database;
       const opening: Record<string, unknown> = { result: database, error: null };
       later(() => {
         if (behaviour.blockOpen === true) {
@@ -213,5 +231,81 @@ describe("the progress store [FR-PRG-01] [FR-WSP-06] [NFR-REL-01]", () => {
     expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([
       { ...pass(HELLO), synced: false },
     ]);
+  });
+
+  it("lets only the first of two tabs that pass one lesson at once count, and keeps its row", async () => {
+    const disk = newDisk();
+    const first = createProgressStore(fakeIndexedDb(disk));
+    const second = createProgressStore(fakeIndexedDb(disk));
+    const answers = await Promise.all([
+      first.record(pass(HELLO, 1_000, "first")),
+      second.record(pass(HELLO, 2_000, "second")),
+    ]);
+    expect(answers).toEqual([true, false]);
+    const kept = [{ ...pass(HELLO, 1_000, "first"), synced: false }];
+    expect(await second.completions()).toEqual(kept);
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual(kept);
+  });
+
+  it("keeps what it last read when a later read fails, and still knows a repeat", async () => {
+    const disk = newDisk();
+    await createProgressStore(fakeIndexedDb(disk)).record(pass(HELLO));
+    const behaviour: Behaviour = {};
+    const store = createProgressStore(fakeIndexedDb(disk, behaviour));
+    expect(await store.completions()).toHaveLength(1);
+    behaviour.closed = true;
+    expect(await store.completions()).toEqual([{ ...pass(HELLO), synced: false }]);
+    expect(await store.record(pass(HELLO, 5_000))).toBe(false);
+    expect(await store.durability()).toBe("device");
+  });
+
+  it("opens the database again after a request on a closed connection failed", async () => {
+    const behaviour: Behaviour = { closed: true };
+    const store = createProgressStore(fakeIndexedDb(newDisk(), behaviour));
+    expect(await store.record(pass(HELLO))).toBe(true);
+    expect(await store.durability()).toBe("memory");
+    const opens = behaviour.opens;
+    behaviour.closed = false;
+    expect(await store.durability()).toBe("device");
+    expect(behaviour.opens).toBeGreaterThan(opens ?? 0);
+  });
+
+  it("opens the database again after another tab's upgrade closed it", async () => {
+    const behaviour: Behaviour = {};
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk, behaviour));
+    await store.record(pass(HELLO));
+    const opens = behaviour.opens ?? 0;
+    behaviour.connection?.onversionchange?.();
+    expect(behaviour.connection?.close).toHaveBeenCalledOnce();
+    await store.record(pass(SUMS));
+    expect(behaviour.opens).toBe(opens + 1);
+    expect((await store.completions()).map((row) => row.lessonId)).toEqual([HELLO, SUMS]);
+  });
+
+  it("answers a pass as kept even when a listener throws", async () => {
+    const store = createProgressStore(fakeIndexedDb(newDisk()));
+    const failing = vi.fn(() => {
+      throw new Error("listener");
+    });
+    store.subscribe(failing);
+    const errors: unknown[] = [];
+    const original = globalThis.queueMicrotask;
+    globalThis.queueMicrotask = (task) => {
+      original(() => {
+        try {
+          task();
+        } catch (error) {
+          errors.push(error);
+        }
+      });
+    };
+    try {
+      expect(await store.record(pass(HELLO))).toBe(true);
+    } finally {
+      globalThis.queueMicrotask = original;
+    }
+    expect(failing).toHaveBeenCalledOnce();
+    expect(errors).toHaveLength(1);
   });
 });

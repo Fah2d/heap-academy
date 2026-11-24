@@ -210,6 +210,7 @@ export const workspaceGallery = {
   previous: { slug: "print-a-line", title: "Print a line" },
   next: { slug: "add-two-numbers", title: "Add two numbers" },
 };
+
 // The development-only page that shows the catalog's states that the local
 // stack cannot show on demand: no course, and sample content (WP-5.1).
 export const catalogGallery = {

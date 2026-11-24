@@ -120,6 +120,30 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
     expect(state.db.calls).toHaveLength(4);
   });
 
+  it("keeps a lesson of two databases apart", async () => {
+    const lesson = (title: string) => ({
+      data: {
+        id: "00000000-0000-4000-8000-00000000a001",
+        slug: "a",
+        title,
+        xp: 10,
+        instructions_md: "",
+        hints: [],
+        starter_code: "",
+        tests: [],
+        courses: { slug: "one", title: "One" },
+      },
+    });
+    state.db.answer(lesson("A"), lesson("Other"));
+    const first = await content.publishedLesson("one", "a");
+    expect(await content.publishedLesson("one", "a")).toEqual(first);
+    state.database = "http://127.0.0.1:1";
+    const second = await content.publishedLesson("one", "a");
+    expect(first.ok && first.value?.title).toBe("A");
+    expect(second.ok && second.value?.title).toBe("Other");
+    expect(state.db.calls).toHaveLength(2);
+  });
+
   // The address in the key and the address the client reads are one value,
   // read once per call (security review 3 of WP-5.1, MINOR 1). Each read of
   // the address here gives a new one, so reading it twice would show.
@@ -155,6 +179,9 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
     );
     expect(() => cachedReader("published-courses", () => Promise.resolve(null))).toThrow(
       "content cache: key part published-courses is taken",
+    );
+    expect(() => cachedReader("published-lesson", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-lesson is taken",
     );
   });
 });
