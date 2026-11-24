@@ -2,6 +2,20 @@
 
 ## Up to date with main
 
+**Base: `main`.** WP-2.1 is merged (#12, 7875ee2), so this pull request now targets `main` and shows only WP-2.2's own work. `main` at 7875ee2 is merged into this branch (4c297fc) with no conflict; #12's merge commit changes no file against `wp/2.1-schema-policies` at 57903a0, which this branch already had.
+
+The approved spec changes are written into `docs/spec` on this branch (see "Your decisions"), including WP-2.1's `afterCode` rename, because #12 is merged and this branch is the next one to reach `main`.
+
+With the merge and the spec changes, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  42 passed (42)
+      Tests  927 passed (927)
+```
+
+`next build` with CI's public values, exit 0, the same five routes. `check-bundle` (21 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
 `main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.1-schema-policies`, which has it (57903a0): merge commit 30dbedc. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.1-schema-policies`, which holds every section of this branch's copy. No test failed and no code changed.
 
 On 30dbedc, `pnpm verify`, exit 0:
@@ -98,7 +112,20 @@ After the owner actions below: open the preview, press "Sign in" in the header, 
 4. Branch protection: add `e2e` to the required checks (handbook section 10 already lists it).
 5. After the merge: email code inside the TikTok and Instagram in-app browsers on production (NFR-COMPAT-02, ADR-0029).
 
-## Decisions for the owner
+## Your decisions
+
+Approved by you on 2026-11-24: every recommended default below, and every proposed spec change. The spec changes are written into `docs/spec` on this branch, each marked **"Approved by the owner on 2026-11-24"**:
+
+- Decision 2: `03-experience.md` section 8, one sign-in state "code not accepted".
+- Decision 4: `06-security-privacy.md` section 6, a residual risk row for response timing.
+- Deviation 1: `08-delivery-plan.md` WP-2.2, no browser database client.
+- Deviation 2: `02-architecture.md` section 9.1, the `startGoogleSignIn` action.
+- Deviation 4: `03-experience.md` section 5.4, the "Send code" action.
+- WP-2.1's proposed change: `04-content-system.md` sections 2.1, 2.2, 2.4 and 8 name the follow-up code field `afterCode`.
+
+Decisions 1 and 3 change no spec text: the runbook's current rate limits stay until a staging measurement says otherwise, and the CLI bump and the hosted auth version check in `infra:verify` belong to WP-7.1. Decision A of the merge stands.
+
+The questions as they were put:
 
 1. **Rate limits seen from the server.** Every request reaches Supabase from Vercel, so Supabase may count all learners as one caller (not measured). Recommendation: measure on staging with 31 wrong codes; if it is shared, raise "Token verifications" and record the value. Default: the runbook's current values.
 2. **Wrong and expired codes share one message**, because Supabase reports both as `otp_expired` as far as its documentation says. Recommendation: accept, and change `03-experience.md` section 8 to one state "code not accepted" (spec-change). Default: one message.
@@ -108,10 +135,10 @@ After the owner actions below: open the preview, press "Sign in" in the header, 
 
 ## Deviations from the plan or the spec
 
-1. No browser database client (the plan's "browser database clients"): ADR-0027 outranks the plan. Spec-change proposed.
-2. `startGoogleSignIn` is a server action not listed in `02-architecture.md` section 9.1. Spec-change proposed.
+1. No browser database client (the plan's "browser database clients"): ADR-0027 outranks the plan. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
+2. `startGoogleSignIn` is a server action not listed in `02-architecture.md` section 9.1. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
 3. The Google return path waits in a cookie, not in the callback address, because the provider's allow-list holds the bare `/auth/callback`.
-4. The email button says "Send code", not "Continue" (`03-experience.md` section 5.4), because section 9 asks buttons to name the action. Spec-change proposed.
+4. The email button says "Send code", not "Continue" (`03-experience.md` section 5.4), because section 9 asks buttons to name the action. Spec-change proposed; approved by you on 2026-11-24 and written into the spec.
 5. The 1.5 s limit for the auth service is this package's number; no spec gives one.
 
 ## Risks and rollback
