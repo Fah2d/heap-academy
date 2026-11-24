@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 18:00), in `night-b`, nothing to do
+
+- `git fetch`: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it; every local head matches its remote except `wp/5.1-catalog`, which is two progress commits ahead (this section makes three). `wp/2.1-schema-policies` is merged (#12). Task 1 has nothing to do.
+- Task 2 (WP-5.1): still blocked on the owner, for the same reasons as the 17:56 session. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control) and 6 (the error page's wording) have no recommendation in the description, so the 2026-11-24 approval does not decide them. `gh` still fails (`x509: OSStatus -26276`).
+- Decision H applies again: committed on `wp/5.1-catalog`, not pushed, because nothing in the code changed and a push only costs a Vercel build.
+- Stopped here. Nothing in either task can move until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+
 ## Session of 2026-11-24 (from about 17:56), in `night-b`, nothing to do
 
 - `git fetch`: `origin/main` is still at 7875ee2 (#12, WP-2.1, merged; #10 was already in it at 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, local and remote heads match. Task 1 has nothing to do.
