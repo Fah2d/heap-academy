@@ -673,7 +673,26 @@ describe("[FR-ADM-08] the admin's preview", () => {
     expect(screen.queryByText("Save your progress here")).toBeNull();
   });
 
+  it("turns Check off for a draft with no test case yet, and the tests panel says why", async () => {
+    render(
+      <Workspace
+        lesson={{ ...lesson, tests: [] }}
+        instructions={null}
+        nonce="nonce"
+        preview={preview}
+      />,
+    );
+    expect(button(words.check).hasAttribute("disabled")).toBe(true);
+    fireEvent.keyDown(editor(), { key: "Enter", ctrlKey: true, shiftKey: true });
+    expect(runtime.dispatch).not.toHaveBeenCalledWith({ type: "CHECK" });
+    await userEvent.click(screen.getByRole("tab", { name: words.tests }));
+    expect(screen.getByText(words.noTests)).toBeTruthy();
+    expect(button(words.run).hasAttribute("disabled")).toBe(false);
+  });
+
   it("keeps code in memory only, so a learner's saved code is never read or replaced", () => {
+    // A browser with IndexedDB, which jsdom does not have.
+    vi.stubGlobal("indexedDB", { open: () => undefined });
     showPreview();
     expect(progress.codeFactories).toEqual([undefined]);
   });

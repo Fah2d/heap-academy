@@ -183,6 +183,7 @@ export const workspace = {
   runEnded: (heading: string, printed: number) => `${heading}. ${lines(printed)} of output.`,
 
   testsBefore: "Check runs these tests on your code.",
+  noTests: "This lesson has no test case yet, so Check has nothing to run.",
   checking: "Checking your code",
   summary: (passed: number, total: number) => `${passed} of ${total} tests passed`,
   // The completion moment (section 6.6; FR-WSP-06). A lesson's XP counts once.
@@ -191,7 +192,7 @@ export const workspace = {
   // The admin's preview (section 7.7; FR-ADM-08): it records nothing.
   previewKind: "Preview",
   previewBody:
-    "This is the last saved version, as learners will see it. Nothing here is recorded: not your code, and not a pass.",
+    "This is the lesson's last saved version in the learners' workspace. Nothing here is recorded: not your code, and not a pass.",
   previewComplete: "Every test passed. Nothing was recorded.",
   // Storage refused (FR-PRG-01): what is kept lasts only while the tab is open.
   memoryTitle: "This browser is not saving your work.",

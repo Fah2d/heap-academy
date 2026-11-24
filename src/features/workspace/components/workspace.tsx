@@ -282,9 +282,12 @@ export function Workspace({
   const runtime = chart.runtime;
   const pending = "pending" in runtime ? runtime.pending : null;
   const canPress = (type: "RUN" | "CHECK") => canStart(chart) || isRemembered(runtime.name, type);
+  // Only a draft in the admin's preview can have no test case: the worker
+  // refuses a check of none, so Check is off and the tests panel says why.
+  const noTests = lesson.tests.length === 0;
   const press = (action: "run" | "check") => {
     const type = action === "run" ? "RUN" : "CHECK";
-    if (!canPress(type)) return;
+    if (!canPress(type) || (action === "check" && noTests)) return;
     // The worker would refuse it and nothing would happen, so say why instead.
     // Check sends no typed-in input.
     const over = tooLarge(
@@ -511,6 +514,7 @@ export function Workspace({
         variant={passed ? "secondary" : "primary"}
         {...(!phone && { icon: <Checkmark size={16} /> })}
         isPending={!canPress("CHECK")}
+        isDisabled={noTests}
         keyShortcuts={ariaKeyShortcuts("check", apple)}
         onPress={() => {
           press("check");

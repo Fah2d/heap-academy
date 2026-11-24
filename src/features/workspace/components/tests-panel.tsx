@@ -71,7 +71,9 @@ export function TestsPanel({
   return (
     <div className="flex flex-col gap-3">
       {summary === undefined ? (
-        <p className="text-base text-text-muted">{checking ? words.checking : words.testsBefore}</p>
+        <p className="text-base text-text-muted">
+          {checking ? words.checking : tests.length === 0 ? words.noTests : words.testsBefore}
+        </p>
       ) : (
         <h3
           ref={summaryRef}

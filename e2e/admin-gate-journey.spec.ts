@@ -17,7 +17,14 @@ import { signInWithCode } from "./sign-in-helpers";
 
 test.describe.configure({ mode: "serial" });
 
-const ADMIN_ADDRESSES = ["/admin", "/admin/setup", "/admin/verify", "/admin/courses/anything"];
+const ADMIN_ADDRESSES = [
+  "/admin",
+  "/admin/setup",
+  "/admin/verify",
+  "/admin/courses/anything",
+  "/admin/lessons/00000000-0000-4000-8000-000000000000",
+  "/admin/lessons/00000000-0000-4000-8000-000000000000/preview",
+];
 
 /** A direct write through the database interface with this page's session. */
 async function directWrites(page: Page) {
