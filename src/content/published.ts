@@ -136,21 +136,32 @@ export async function readPublishedCourse(
   };
 }
 
-// The database's address is the first argument, so it is part of every cache
-// key. The cache is kept on disk (.next/cache) and shared by every server of
-// one build, and an answer read from one database must never answer for
-// another. The client itself reads the same address from the environment.
-const cachedCourses = unstable_cache(
-  (_database: string) => readPublishedCourses(createPublicClient()),
-  ["published-courses"],
-  { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
-);
+// Every cached reader is made here. The database's address is read once per
+// call, put first in the cache arguments, so it is part of every cache key,
+// and the same value builds the client. The cache is kept on disk
+// (.next/cache) and shared by every server of one build, and an answer read
+// from one database must never answer for another. Every reader shares the
+// one callback below, whose source is part of the framework's key, so its key
+// part alone keeps it apart from the others and may be used only once.
+const readerKeyParts = new Set<string>();
 
-const cachedCourse = unstable_cache(
-  (_database: string, slug: string) => readPublishedCourse(createPublicClient(), slug),
-  ["published-course"],
-  { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
-);
+export function cachedReader<Args extends unknown[], Value>(
+  keyPart: string,
+  read: (db: PublicClient, ...args: Args) => Promise<Value>,
+): (...args: Args) => Promise<Value> {
+  if (readerKeyParts.has(keyPart)) throw new Error(`content cache: key part ${keyPart} is taken`);
+  readerKeyParts.add(keyPart);
+  const cached = unstable_cache(
+    (database: string, ...args: Args) => read(createPublicClient(database), ...args),
+    [keyPart],
+    { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
+  );
+  return (...args: Args) => cached(publicDatabaseAddress(), ...args);
+}
+
+const cachedCourses = cachedReader("published-courses", readPublishedCourses);
+
+const cachedCourse = cachedReader("published-course", readPublishedCourse);
 
 // A failed read throws inside the cache, so it is never kept; the page gets
 // a failure it can show honestly, and the server logs it (02-architecture.md
@@ -176,7 +187,7 @@ async function settle<Value>(
 const MAX_SLUG = 60;
 
 export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary[]>> {
-  return settle("published-courses", () => cachedCourses(publicDatabaseAddress()));
+  return settle("published-courses", () => cachedCourses());
 }
 
 /**
@@ -192,5 +203,5 @@ export async function publishedCourse(
   const listed = await publishedCourses();
   if (!listed.ok) return listed;
   if (!listed.value.some((course) => course.slug === slug)) return { ok: true, value: null };
-  return settle("published-course", () => cachedCourse(publicDatabaseAddress(), slug));
+  return settle("published-course", () => cachedCourse(slug));
 }

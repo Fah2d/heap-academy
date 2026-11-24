@@ -28,26 +28,52 @@ describe("createPublicClient", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
     vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
     const sent: Headers[] = [];
+    const urls: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
         sent.push(new Headers(input instanceof Request ? input.headers : init?.headers));
+        urls.push(input instanceof Request ? input.url : String(input));
         return Promise.resolve(
           new Response("[]", { status: 200, headers: { "content-type": "application/json" } }),
         );
       }),
     );
 
-    const { error } = await createPublicClient().from("courses").select("slug");
+    const { error } = await createPublicClient("https://project.supabase.test")
+      .from("courses")
+      .select("slug");
 
     expect(error).toBeNull();
     expect(sent).toHaveLength(1);
+    expect(urls[0]?.startsWith("https://project.supabase.test/rest/v1/courses")).toBe(true);
     const [headers] = sent as [Headers];
     expect(headers.get("apikey")).toBe("sb_publishable_test");
     expect(headers.get("cookie")).toBeNull();
     // No user token: the only bearer, if any, is the publishable key itself.
     const authorization = headers.get("authorization");
     expect(authorization === null || authorization === "Bearer sb_publishable_test").toBe(true);
+  });
+
+  it("reads the database at the address it is given", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://project.supabase.test");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
+    const urls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        urls.push(input instanceof Request ? input.url : String(input));
+        return Promise.resolve(
+          new Response("[]", { status: 200, headers: { "content-type": "application/json" } }),
+        );
+      }),
+    );
+
+    await createPublicClient("http://127.0.0.1:1").from("courses").select("slug");
+
+    expect(urls).toHaveLength(1);
+    expect(urls[0]?.startsWith("http://127.0.0.1:1/rest/v1/courses")).toBe(true);
   });
 });
 

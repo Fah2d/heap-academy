@@ -12,6 +12,8 @@ const state = vi.hoisted(() => ({
   db: null as unknown as FakeDb,
   store: new Map<string, unknown>(),
   database: "http://127.0.0.1:54321",
+  clients: [] as string[],
+  keys: [] as string[],
 }));
 
 vi.mock("next/cache", () => ({
@@ -19,6 +21,7 @@ vi.mock("next/cache", () => ({
     (read: (...args: unknown[]) => Promise<unknown>, keyParts: string[]) =>
     async (...args: unknown[]) => {
       const key = JSON.stringify([keyParts, args]);
+      state.keys.push(key);
       if (state.store.has(key)) return state.store.get(key);
       const value = await read(...args);
       state.store.set(key, value);
@@ -27,12 +30,16 @@ vi.mock("next/cache", () => ({
   updateTag: () => undefined,
 }));
 vi.mock("@/infrastructure/db/public-client", () => ({
-  createPublicClient: () => state.db,
+  createPublicClient: (address: string) => {
+    state.clients.push(address);
+    return state.db;
+  },
   publicDatabaseAddress: () => state.database,
 }));
 vi.mock("@/infrastructure/logging/logger", () => ({ log: () => undefined }));
 
 const content = await import("./index");
+const { cachedReader } = await import("./published");
 
 const course = {
   slug: "one",
@@ -56,6 +63,8 @@ beforeEach(() => {
   state.db = fakeDb();
   state.store.clear();
   state.database = "http://127.0.0.1:54321";
+  state.clients = [];
+  state.keys = [];
 });
 
 describe("published content with a warm cache [FR-ADM-11]", () => {
@@ -109,5 +118,43 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
     expect(first.ok && first.value?.title).toBe("One");
     expect(second.ok && second.value?.title).toBe("Other");
     expect(state.db.calls).toHaveLength(4);
+  });
+
+  // The address in the key and the address the client reads are one value,
+  // read once per call (security review 3 of WP-5.1, MINOR 1). Each read of
+  // the address here gives a new one, so reading it twice would show.
+  it("builds the client with the address that formed the cache key", async () => {
+    let reads = 0;
+    Object.defineProperty(state, "database", {
+      configurable: true,
+      get: () => `http://127.0.0.1:${String(54321 + reads++)}`,
+    });
+    try {
+      state.db.answer(list, { data: course });
+      const read = await content.publishedCourse("one");
+      expect(read.ok && read.value?.slug).toBe("one");
+      expect(state.clients).toEqual(["http://127.0.0.1:54321", "http://127.0.0.1:54322"]);
+      expect(state.keys).toHaveLength(2);
+      state.keys.forEach((key, index) => {
+        expect(JSON.parse(key)[1][0]).toBe(state.clients[index]);
+      });
+    } finally {
+      Object.defineProperty(state, "database", {
+        configurable: true,
+        writable: true,
+        value: "http://127.0.0.1:54321",
+      });
+    }
+  });
+
+  // Two readers with one key part would share cache entries, so a lesson
+  // could answer for a course (security review of WP-5.1 owner action 7).
+  it("refuses a second reader with a key part already in use", () => {
+    expect(() => cachedReader("published-course", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-course is taken",
+    );
+    expect(() => cachedReader("published-courses", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-courses is taken",
+    );
   });
 });
