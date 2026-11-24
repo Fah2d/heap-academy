@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { deviceProgress } from "./device-progress";
 import type { ProgressStore } from "./progress-store";

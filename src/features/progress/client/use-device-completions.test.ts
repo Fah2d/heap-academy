@@ -55,7 +55,7 @@ afterEach(() => {
 });
 
 describe("useDeviceCompletions", () => {
-  it("is undefined until the device answers, then the completed lesson IDs", async () => {
+  it("[FR-CAT-02] [FR-CRS-02] is undefined until the device answers, then the completed lesson IDs", async () => {
     const fake = fakeStore([A]);
     const { result } = renderHook(() => useDeviceCompletions(fake.get));
     expect(result.current).toBeUndefined();
@@ -64,7 +64,7 @@ describe("useDeviceCompletions", () => {
     });
   });
 
-  it("reads again after a new completion in this page", async () => {
+  it("[FR-CAT-02] [FR-CRS-02] reads again after a new completion in this page", async () => {
     const fake = fakeStore([]);
     const { result } = renderHook(() => useDeviceCompletions(fake.get));
     await waitFor(() => {
@@ -79,7 +79,7 @@ describe("useDeviceCompletions", () => {
     });
   });
 
-  it("reads again when the tab is shown, and not when it is hidden", async () => {
+  it("[FR-CAT-02] [FR-CRS-02] reads again when the tab is shown, and not when it is hidden", async () => {
     const fake = fakeStore([]);
     const { result } = renderHook(() => useDeviceCompletions(fake.get));
     await waitFor(() => {
@@ -96,7 +96,7 @@ describe("useDeviceCompletions", () => {
     });
   });
 
-  it("reads again when the page comes back from the browser's history", async () => {
+  it("[FR-CAT-02] [FR-CRS-02] reads again when the page comes back from the browser's history", async () => {
     const fake = fakeStore([]);
     const { result } = renderHook(() => useDeviceCompletions(fake.get));
     await waitFor(() => {
@@ -109,7 +109,7 @@ describe("useDeviceCompletions", () => {
     });
   });
 
-  it("stops listening when it unmounts", async () => {
+  it("[FR-CAT-02] [FR-CRS-02] stops listening when it unmounts", async () => {
     const fake = fakeStore([]);
     const { unmount } = renderHook(() => useDeviceCompletions(fake.get));
     await waitFor(() => {

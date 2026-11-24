@@ -11,12 +11,14 @@ vi.mock("server-only", () => ({}));
 const state = vi.hoisted(() => ({
   db: null as unknown as FakeDb,
   cacheOptions: [] as unknown[],
+  cacheKeys: [] as unknown[],
   updated: [] as string[],
 }));
 
 vi.mock("next/cache", () => ({
-  unstable_cache: (read: (...args: unknown[]) => unknown, _keys: unknown, options: unknown) => {
+  unstable_cache: (read: (...args: unknown[]) => unknown, keys: unknown, options: unknown) => {
     state.cacheOptions.push(options);
+    state.cacheKeys.push(keys);
     return read;
   },
   updateTag: (tag: string) => state.updated.push(tag),
@@ -62,6 +64,16 @@ describe("published content [FR-ADM-11]", () => {
       { tags: ["content"], revalidate: 60 },
       { tags: ["content"], revalidate: 60 },
       { tags: ["content"], revalidate: 60 },
+    ]);
+  });
+
+  // An answer cached by an earlier build, in the old shape, must not be read
+  // as the new one: the course readers' key parts carry the shape's version.
+  it("[FR-CAT-02] keys the course answers by the version of their shape", () => {
+    expect(state.cacheKeys).toEqual([
+      ["published-courses-2"],
+      ["published-course-2"],
+      ["published-lesson"],
     ]);
   });
 

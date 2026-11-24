@@ -182,11 +182,11 @@ describe("published content with a warm cache [FR-ADM-11]", () => {
   // Two readers with one key part would share cache entries, so a lesson
   // could answer for a course (security review of WP-5.1 owner action 7).
   it("refuses a second reader with a key part already in use", () => {
-    expect(() => cachedReader("published-course", () => Promise.resolve(null))).toThrow(
-      "content cache: key part published-course is taken",
+    expect(() => cachedReader("published-course-2", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-course-2 is taken",
     );
-    expect(() => cachedReader("published-courses", () => Promise.resolve(null))).toThrow(
-      "content cache: key part published-courses is taken",
+    expect(() => cachedReader("published-courses-2", () => Promise.resolve(null))).toThrow(
+      "content cache: key part published-courses-2 is taken",
     );
     expect(() => cachedReader("published-lesson", () => Promise.resolve(null))).toThrow(
       "content cache: key part published-lesson is taken",

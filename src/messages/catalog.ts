@@ -22,6 +22,11 @@ export const catalogCommon = {
     continue: "Continue the course",
     review: "Review the course",
   },
+  /**
+   * Read after the action by a screen reader on the course list, where every
+   * row has one, so each link names its course: "Begin the course: Loops".
+   */
+  actionCourse: (title: string) => `: ${title}`,
 } as const;
 
 export const home = {

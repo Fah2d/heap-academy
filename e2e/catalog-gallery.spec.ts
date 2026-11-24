@@ -41,7 +41,9 @@ const STATES: { state: string; tags: string; check: (page: Page) => Promise<void
     state: "list-rows",
     tags: "[FR-CAT-01] [FR-CAT-02]",
     check: async (page) => {
-      await expect(page.getByRole("link", { name: catalogGallery.longCourse })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: catalogGallery.longCourse, exact: true }),
+      ).toBeVisible();
       // A new browser has completed nothing on this device (WP-5.4).
       await expect(page.getByText(catalogCommon.progress(0, 3))).toBeVisible();
       // A one-line title takes the height of its line, not of its 44 px
@@ -108,7 +110,7 @@ for (const { state, tags, check } of STATES) {
 const FOCUS_TARGETS = [
   {
     name: "course-title",
-    link: (page: Page) => page.getByRole("link", { name: catalogGallery.longCourse }),
+    link: (page: Page) => page.getByRole("link", { name: catalogGallery.longCourse, exact: true }),
   },
   {
     name: "courses",
@@ -155,8 +157,10 @@ const SUMS = "5eed0000-0000-4000-8000-000000000603";
 const FILES = "5eed0000-0000-4000-8000-000000000604";
 
 async function complete(page: Page, lessonIds: string[]) {
-  // The page opens the database first, so it exists at the app's version with its stores.
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // Wait until the page's own code has read the device: it opened the
+  // database at the app's version, with its stores, so this open (no version)
+  // cannot create an empty version 1 first.
+  await expect(page.getByText(/ completed$/).first()).toBeVisible();
   await page.evaluate(async (ids) => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       const open = indexedDB.open("heap-academy");
@@ -190,6 +194,9 @@ for (const width of [375, 1280]) {
     await expect(action).toHaveAttribute("href", "/learn/python-basics/hello");
     // Nothing completed on this device: the first lesson is next up.
     await expect(page.getByText(catalogCommon.progress(0, 3))).toBeVisible();
+    const chapters = page.getByRole("list", { name: coursePage.chaptersHeading });
+    await expect(chapters.getByText(coursePage.lessonState.next)).toHaveCount(1);
+    await expect(chapters.getByText(coursePage.lessonState.open)).toHaveCount(2);
     await complete(page, [HELLO, SUMS]);
     await expect(page.getByText(catalogCommon.progress(2, 3))).toBeVisible();
     const lessons = page.getByRole("list", { name: coursePage.chaptersHeading });

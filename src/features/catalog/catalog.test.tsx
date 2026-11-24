@@ -183,7 +183,14 @@ describe("the course list", () => {
     return rows.map((row) => {
       const links = within(row).getAllByRole("link");
       expect(links).toHaveLength(2);
-      return [links[1]!.textContent, links[1]!.getAttribute("href")];
+      // The visible label, then the course's title for a screen reader.
+      const title = links[0]!.textContent ?? "";
+      const name = links[1]!.textContent ?? "";
+      expect(name.endsWith(catalogCommon.actionCourse(title))).toBe(true);
+      return [
+        name.slice(0, -catalogCommon.actionCourse(title).length),
+        links[1]!.getAttribute("href"),
+      ];
     });
   }
 
@@ -195,6 +202,8 @@ describe("the course list", () => {
       [catalogCommon.action.begin, "/learn/loops/for"],
     ]);
     expect(screen.queryByText(/completed$/)).toBeNull();
+    expect(screen.getByText(catalogCommon.lessonCount(12))).toBeTruthy();
+    expect(screen.getByText(catalogCommon.lessonCount(1))).toBeTruthy();
   });
 
   it("[FR-CAT-02] labels each course's action by progress: 0 percent, partial and 100 percent", async () => {

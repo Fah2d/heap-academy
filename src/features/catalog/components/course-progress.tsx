@@ -49,15 +49,19 @@ function ActionLink({
   course,
   standing,
   variant,
+  title,
 }: {
   course: string;
   standing: CourseStanding<Lesson>;
   variant: LinkVariant;
+  /** The course's title, for a screen reader, where several courses each have an action. */
+  title?: string;
 }) {
   if (standing.target === undefined) return null;
   return (
     <Link href={lessonPath(course, standing.target.slug)} variant={variant}>
       {catalogCommon.action[standing.action]}
+      {title !== undefined && <span className="sr-only">{catalogCommon.actionCourse(title)}</span>}
     </Link>
   );
 }
@@ -95,9 +99,11 @@ export function LessonMark({ index }: { index: number }) {
 /** A course row's count and its one action, for the course list and the home page. */
 export function CourseRowProgress({
   course,
+  title,
   lessons,
 }: {
   course: string;
+  title: string;
   lessons: readonly Lesson[];
 }) {
   const { standing, known } = useStanding(lessons);
@@ -108,7 +114,7 @@ export function CourseRowProgress({
           ? catalogCommon.progress(standing.completed, standing.total)
           : catalogCommon.lessonCount(standing.total)}
       </p>
-      <ActionLink course={course} standing={standing} variant="standalone" />
+      <ActionLink course={course} standing={standing} variant="standalone" title={title} />
     </div>
   );
 }

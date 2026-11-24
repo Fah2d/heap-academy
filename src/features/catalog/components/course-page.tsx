@@ -12,8 +12,7 @@ import { CourseAction, CourseCount, CourseProgress, LessonMark } from "./course-
  * the course's summary, its outcomes when the owner wrote them, the action
  * that begins, continues or reviews it (FR-CAT-02), and every chapter in
  * order with its lessons, each with its XP and state (FR-CRS-02). A course
- * that is not published, or has
- * no published lesson, is not found (FR-CAT-04).
+ * that is not published, or has no published lesson, is not found (FR-CAT-04).
  */
 export async function CoursePage({ params }: { params: Promise<{ course: string }> }) {
   const { course: slug } = await params;

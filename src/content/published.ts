@@ -242,9 +242,13 @@ export function cachedReader<Args extends unknown[], Value>(
   return (...args: Args) => cached(publicDatabaseAddress(), ...args);
 }
 
-const cachedCourses = cachedReader("published-courses", readPublishedCourses);
+// A key part names the shape of its answer as well as the query: when an
+// answer's shape changes, its key part takes the next number, so an answer
+// cached by an earlier build is never read as the new shape. Version 2: lesson
+// IDs on a course summary, and each lesson's ID and XP on a course (WP-5.4).
+const cachedCourses = cachedReader("published-courses-2", readPublishedCourses);
 
-const cachedCourse = cachedReader("published-course", readPublishedCourse);
+const cachedCourse = cachedReader("published-course-2", readPublishedCourse);
 
 const cachedLesson = cachedReader("published-lesson", readPublishedLesson);
 

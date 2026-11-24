@@ -16,10 +16,9 @@ export type CourseRowsProps = {
  * The published courses as wide rows: title linking into the course, summary,
  * the real count of published lessons, then the learner's progress and one
  * action that begins, continues or reviews the course (FR-LND-02, FR-CAT-01,
- * FR-CAT-02). The home
- * page and the course list share it, so both show the same thing. With no
- * course, one sentence says so (FR-CAT-04). Each title is one size step below
- * the heading that names the list.
+ * FR-CAT-02). The home page and the course list share it, so both show the
+ * same thing. With no course, one sentence says so (FR-CAT-04). Each title is
+ * one size step below the heading that names the list.
  */
 export function CourseRows({ courses, labelledBy, titleLevel }: CourseRowsProps) {
   if (courses.length === 0) {
@@ -39,7 +38,7 @@ export function CourseRows({ courses, labelledBy, titleLevel }: CourseRowsProps)
             </Link>
           </Title>
           <p className="max-inline-prose text-base text-text">{course.summary}</p>
-          <CourseRowProgress course={course.slug} lessons={course.lessons} />
+          <CourseRowProgress course={course.slug} title={course.title} lessons={course.lessons} />
         </li>
       ))}
     </ul>
