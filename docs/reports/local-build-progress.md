@@ -33,10 +33,20 @@ Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 8
 - Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main". `gh` was not tried again; owner: paste that section into the pull request.
 - `pnpm verify` printed `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` for its install-before-run step (the sandbox blocks the store lock); `node_modules` was already in place and every check ran.
 
+### Task 1d done: wp/4.1-courses-chapters
+
+- Started at 13:47, after task 1c took about 2 minutes.
+- Merge commit 00c025d: `wp/2.3-admin-gate` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.3's copy; this branch's copy differed only in older lines of the 23:25 session).
+- No test failed. `pnpm verify`: exit 0, 62 files, 1112 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.1.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+- The first `git push` of task 1c was refused by the remote with only `(failed)`; the second, unchanged, went through.
+
 ### Next
 
-- Task 1d: `wp/4.1-courses-chapters`, merging `wp/2.3-admin-gate` (with the new `main`).
-- Then 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- Task 1e: `wp/4.2-lesson-editor`, merging `wp/4.1-courses-chapters` (with the new `main`).
+- Then 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- This session did two tasks and stops here.
 - Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
 
 ## Session of 2026-11-23 (from about 23:25), in `night-b`, merging `main` into the open branches
