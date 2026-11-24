@@ -11,6 +11,7 @@ import {
 import { courseEditor as words, structure } from "@/messages/admin";
 import { Button, Notice, TextField } from "@/ui";
 import type { AdminAction } from "../types";
+import { useFocusAfterCommit } from "./focus-after-commit";
 import { useLeaveWarning } from "./leave-warning";
 import { settle, structureFailureText } from "./structure-controls";
 
@@ -46,6 +47,9 @@ export function outcomeLines(outcomes: readonly string[]): string[] {
   return Array.from({ length: MAX_OUTCOMES }, (_, index) => outcomes[index] ?? "");
 }
 
+/** The first field marked invalid, which takes focus so its message is read. */
+const FIRST_INVALID = "input[aria-invalid='true']";
+
 const sameFields = (a: CourseFields, b: CourseFields) =>
   a.title === b.title &&
   a.slug === b.slug &&
@@ -78,6 +82,7 @@ export function CourseDetailsForm({
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
   const form = useRef<HTMLFormElement>(null);
+  const focusAfterCommit = useFocusAfterCommit(form);
   const outcomesHintId = useId();
 
   const unsaved = !sameFields(fields, savedFields);
@@ -103,10 +108,7 @@ export function CourseDetailsForm({
     const checked = checkCourseFields(fields);
     if (!checked.ok) {
       setInvalid(checked.invalid);
-      // The first field marked invalid takes focus, so its message is read.
-      requestAnimationFrame(() =>
-        form.current?.querySelector<HTMLInputElement>("input[aria-invalid='true']")?.focus(),
-      );
+      focusAfterCommit(FIRST_INVALID);
       return;
     }
     setInvalid([]);
@@ -119,9 +121,7 @@ export function CourseDetailsForm({
         if (outcome.error === "slug_taken") {
           // The Address field's own error, where the owner fixes it.
           setSlugTaken(true);
-          requestAnimationFrame(() =>
-            form.current?.querySelector<HTMLInputElement>("input[aria-invalid='true']")?.focus(),
-          );
+          focusAfterCommit(FIRST_INVALID);
           return;
         }
         setStale(outcome.error === "stale");
