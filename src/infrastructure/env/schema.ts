@@ -1,4 +1,7 @@
 import { z } from "zod";
+// Relative: next.config.ts loads this file, and its loader does not resolve
+// the `@/` alias.
+import { RELEASE_LOCAL, RELEASE_PATTERN } from "../../domain/release";
 
 // One schema for every environment variable (docs/spec/02-architecture.md
 // section 13). Public variables are inlined into browser bundles by Next.js,
@@ -35,11 +38,8 @@ export const publicEnvironmentSchema = z.object({
 // the deploy workflow sets when it builds. Unset everywhere else, where the
 // release is "local". next.config.ts inlines it at build, because a prebuilt
 // deployment does not see the build's environment at run time.
-export const RELEASE_LOCAL = "local";
-const release = z
-  .string()
-  .regex(/^(?:[0-9a-f]{40}|local)$/, "must be a full commit SHA or local")
-  .optional();
+export { RELEASE_LOCAL };
+const release = z.string().regex(RELEASE_PATTERN, "must be a full commit SHA or local").optional();
 
 export const serverEnvironmentSchema = z.object({
   RESEND_API_KEY: required,

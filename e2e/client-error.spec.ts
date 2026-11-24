@@ -13,7 +13,7 @@ test("[NFR-OBS-01] [NFR-OBS-02] stores a report and answers with its request ID"
   request,
 }) => {
   const response = await request.post(PATH, {
-    data: { code: "worker-crashed", route: "/courses/python" },
+    data: { code: "worker-crashed", route: "/courses/python", release: "local" },
   });
   expect(response.status()).toBe(204);
   expect(response.headers()["x-request-id"]).toMatch(REQUEST_ID);
@@ -21,14 +21,19 @@ test("[NFR-OBS-01] [NFR-OBS-02] stores a report and answers with its request ID"
 
 test("[NFR-PRIV-03] [T-16] refuses a report that carries a message", async ({ request }) => {
   const response = await request.post(PATH, {
-    data: { code: "worker-crashed", route: "/", message: "name 'x' is not defined" },
+    data: {
+      code: "worker-crashed",
+      route: "/",
+      release: "local",
+      message: "name 'x' is not defined",
+    },
   });
   expect(response.status()).toBe(400);
 });
 
 test("[T-14] refuses a body over 8 kB", async ({ request }) => {
   const response = await request.post(PATH, {
-    data: { code: "worker-crashed", route: `/${"a".repeat(9000)}` },
+    data: { code: "worker-crashed", route: `/${"a".repeat(9000)}`, release: "local" },
   });
   expect(response.status()).toBe(413);
 });
@@ -45,7 +50,11 @@ test("[NFR-OBS-01] a page can send a report under its content security policy", 
     const response = await fetch(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ code: "unexpected-exception", route: location.pathname }),
+      body: JSON.stringify({
+        code: "unexpected-exception",
+        route: location.pathname,
+        release: "local",
+      }),
       credentials: "omit",
       keepalive: true,
     });

@@ -7,6 +7,7 @@ vi.mock("server-only", () => ({}));
 
 const REQUEST_ID = "req_7f3a9c2e41b8";
 const RELEASE = "0123456789abcdef0123456789abcdef01234567";
+const OLDER_RELEASE = "fedcba9876543210fedcba9876543210fedcba98";
 
 function post(
   body: BodyInit,
@@ -23,7 +24,12 @@ function post(
 }
 
 const report = (fields: Record<string, unknown> = {}) =>
-  JSON.stringify({ code: "worker-crashed", route: "/courses/python/lessons/loops", ...fields });
+  JSON.stringify({
+    code: "worker-crashed",
+    route: "/courses/python/lessons/loops",
+    release: OLDER_RELEASE,
+    ...fields,
+  });
 
 const collect = () => {
   const entries: LogEntry[] = [];
@@ -31,7 +37,7 @@ const collect = () => {
 };
 
 describe("client error reports", () => {
-  it("[NFR-OBS-01] [NFR-OBS-02] logs the code under the request ID and the page's route pattern", async () => {
+  it("[NFR-OBS-01] [NFR-OBS-02] logs the code under the request ID, the page's route pattern and the bundle's release", async () => {
     const { entries, log } = collect();
     const response = await handleClientError(post(report()), log);
     expect(response.status).toBe(204);
@@ -41,8 +47,30 @@ describe("client error reports", () => {
         requestId: REQUEST_ID,
         route: "GET /:param/:param/:param/:param",
         outcome: "client-error:worker-crashed",
+        clientRelease: OLDER_RELEASE,
       },
     ]);
+  });
+
+  it("[NFR-OBS-02] accepts local as the bundle's release", async () => {
+    const { entries, log } = collect();
+    expect((await handleClientError(post(report({ release: "local" })), log)).status).toBe(204);
+    expect(entries[0]?.clientRelease).toBe("local");
+  });
+
+  it("[NFR-OBS-02] [T-16] refuses a report with no release, or a release that is not a commit SHA or local", async () => {
+    const { entries, log } = collect();
+    const bodies = [
+      JSON.stringify({ code: "worker-crashed", route: "/courses" }),
+      report({ release: "0123456789abcdef" }),
+      report({ release: "ada@example.com" }),
+      report({ release: `${RELEASE}\nforged` }),
+      report({ release: 40 }),
+    ];
+    for (const body of bodies) {
+      expect((await handleClientError(post(body), log)).status, body).toBe(400);
+    }
+    expect(entries).toEqual([]);
   });
 
   it("[NFR-OBS-02] accepts each of the three codes and no other", async () => {
@@ -87,6 +115,7 @@ describe("client error reports", () => {
       requestId: REQUEST_ID,
       route: "GET /:param/api",
       outcome: "client-error:worker-crashed",
+      clientRelease: OLDER_RELEASE,
     });
     expect(lines[0]).not.toMatch(/ada|example|token|secret|print/);
   });

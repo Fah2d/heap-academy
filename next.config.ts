@@ -15,6 +15,9 @@ parsePublicEnvironment(process.env);
 
 // Inlined into server code, because a prebuilt deployment does not see the
 // build's environment at run time. Parsed by the one schema like any variable.
+// The browser gets the same value as NEXT_PUBLIC_HEAP_RELEASE and sends it
+// with an error report (docs/spec/07-operations.md section 4.2). It is not
+// secret: /api/health returns it.
 const release =
   serverEnvironmentSchema.shape.HEAP_RELEASE.parse(process.env.HEAP_RELEASE) ?? RELEASE_LOCAL;
 
@@ -37,7 +40,7 @@ export default function config(phase: string): NextConfig {
     // instructions live in CLAUDE.md, which the owner keeps.
     agentRules: false,
     reactStrictMode: true,
-    env: { HEAP_RELEASE: release },
+    env: { HEAP_RELEASE: release, NEXT_PUBLIC_HEAP_RELEASE: release },
     // Development-only pages end in `.dev.tsx`. Only the development server
     // treats that as a page extension, so `next build` leaves them out
     // entirely: no route, no bundle (WP-1.4).

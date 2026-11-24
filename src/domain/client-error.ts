@@ -1,7 +1,8 @@
 // What a browser may say about an error (docs/spec/07-operations.md section
 // 4.2): a short code and the path of the page, nothing else. No message text
 // is sent, because a message can hold a learner's code or their own words
-// (NFR-PRIV-03, T-16). The server adds the release and the request ID.
+// (NFR-PRIV-03, T-16). The reporter adds the release of the bundle that sent
+// the report; the server adds its own release and the request ID.
 
 export const CLIENT_ERROR_CODES = [
   "runtime-load-failed",

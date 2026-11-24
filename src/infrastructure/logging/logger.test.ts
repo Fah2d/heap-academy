@@ -98,6 +98,28 @@ describe("logger", () => {
     }
   });
 
+  it("[NFR-OBS-02] writes a browser bundle's release only when it is a commit SHA or local", () => {
+    const base = {
+      level: "error",
+      requestId: "none",
+      route: logRoute("GET", "/"),
+      outcome: "client-error:worker-crashed",
+    } as const;
+    for (const [clientRelease, expected] of [
+      ["fedcba9876543210fedcba9876543210fedcba98", "fedcba9876543210fedcba9876543210fedcba98"],
+      ["local", "local"],
+      ["ada@example.com", REJECTED],
+      ["0123456789abcdef", REJECTED],
+    ] as const) {
+      const { log, entry } = capture();
+      log({ ...base, clientRelease });
+      expect(entry()["clientRelease"], clientRelease).toBe(expected);
+    }
+    const { log, entry } = capture();
+    log(base);
+    expect(Object.keys(entry())).not.toContain("clientRelease");
+  });
+
   it("[NFR-OBS-01] writes an unknown level as error rather than dropping the line", () => {
     const { log, entry } = capture();
     log({
