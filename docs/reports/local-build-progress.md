@@ -9,6 +9,7 @@ Same task list. Still blocked: no new work package can start. No code was change
 - `git fetch`: `origin/main` moved from 0efe863 to 81fdc39 (pull request #10, `wp/fix-smoke-and-runtime`). That change touches the CSP end-to-end test, `scripts/infra-verify.mjs`, build ignores and reports. It merges no WP-2.x, 3.x, 4.x or 5.x package, so it unblocks nothing in Days 6 and 7.
 - Checked with `git merge-base --is-ancestor`: `wp/2.1-schema-policies`, `wp/2.2-sign-in`, `wp/4.3-validate-publish`, `wp/3.1-python-worker`, `wp/6.3-legal-pages-footer` and `wp/7.3-operations` are all still not in `origin/main`.
 - `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- Checked again in a later run on 2026-11-24: `origin/main` still 81fdc39; only `origin/wp/2.1-schema-policies` moved (9077917 to 57903a0, another agent's branch, not merged, not touched). Still blocked, no code changed.
 - `main` now carries its own copy of this file (811 added lines from other agents' sessions). The copies on `wp/6.3-legal-pages-footer` and `wp/7.3-operations` will conflict with it in this file only. Not merged here: the owner decides how to combine the reports.
 
 ### Owner: run this
