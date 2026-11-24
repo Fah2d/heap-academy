@@ -80,7 +80,7 @@ Mutants run after the review fixes: dropping the refusal event in `dispatchEvent
 - 64bb6c3: the Run button and the Answer field are matched with `exact: true` in `e2e/runtime.spec.ts`, `e2e/live-input-runtime.spec.ts` and `e2e/statechart-runtime.spec.ts`. No product code changed.
 - On 64bb6c3: `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4 passed. `e2e/shell.spec.ts` 16 of 16 passed, twice, including `/dev/runtime` answering 404 in the production build.
 - `pnpm verify` on 64bb6c3: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0.
-- deca401 (code review 3, MINOR): the Send, Check and Stop buttons are matched with `exact: true` as well, in the same three specs. Each button's accessible name is exactly its message (`runtime-console.tsx` renders the text with no hint or `aria-label`). On deca401, the same way (`next dev --webpack` on port 3262): `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4 passed. `pnpm verify` on deca401: exit 0, 46 files, 1229 tests. No product code changed; no reviewer has seen deca401.
+- deca401 (code review 3, MINOR): the Send, Check and Stop buttons are matched with `exact: true` as well, in the same three specs. Each button's accessible name is exactly its message (`runtime-console.tsx` renders the text with no hint or `aria-label`). On deca401, the same way (`next dev --webpack` on port 3262): `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4 passed. `pnpm verify` on deca401: exit 0, 46 files, 1229 tests. No product code changed. Code review 4 approved deca401 (see Reviews).
 
 **Not run, owner to run:** Firefox and WebKit (not installed here), and Chromium through `pnpm test:e2e` with its own servers:
 
@@ -106,7 +106,11 @@ Round 2 of a884853, condensed in the same folder:
 
 Round 3 of 64bb6c3 (the browser test selector fix), `docs/reports/reviews/WP-3.4/code-review-3.md`:
 
-- code-reviewer: APPROVE. The fix is correct and complete and weakens no check. One optional MINOR: the Send, Check and Stop buttons were still matched by substring (unique on the page today). Fixed in deca401 with `exact: true`; not reviewed.
+- code-reviewer: APPROVE. The fix is correct and complete and weakens no check. One optional MINOR: the Send, Check and Stop buttons were still matched by substring (unique on the page today). Fixed in deca401 with `exact: true`; reviewed in round 4.
+
+Round 4 of deca401 (the Send, Check and Stop selectors), `docs/reports/reviews/WP-3.4/code-review-4.md`:
+
+- code-reviewer: APPROVE. Each button's accessible name is exactly its message in every state the tests click it in, and no check is weakened. One optional MINOR: the end-input button, the two sample buttons and the Program and Input fields are still matched by substring (each unique today). Not changed: nothing fails today, and the reviewer marked it optional.
 
 Open MAJOR findings for the owner to waive: none open; ADR-0034 needs the owner's decision.
 
