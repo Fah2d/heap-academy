@@ -2,6 +2,100 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 13:37), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. `git fetch`: `origin/main` is still 0efe863. `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (d7633c7) and `wp/3.4-statechart` (1987e99) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). `wp/3.3-grader` is 9 commits behind `wp/3.1-python-worker`. Those 9 are the run fixes that wait on WP-3.1 security review 8, round 3, so this run did not merge them. The only open item that needed no owner decision was that no reviewer had seen WP-3.3's be9375c. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 42 done: WP-3.3 security review 7, round 3, on be9375c
+
+- security-reviewer, fresh context: **APPROVE**, no findings.
+- In a scratch copy, the reviewer replaced `state = None` with `pass`. The new test then failed, and so did the hash pin: `Tests  2 failed | 81 passed (83)`. With the tree unchanged: `Tests  83 passed (83)`.
+- Inside the Python text only `#` lines changed. No test was removed, skipped or loosened.
+- The reviewer's `pnpm verify` at d7633c7: exit 0, 42 files, 1115 tests. No code changed in this run, so it was not run again.
+- Not run: the browser tests.
+- Written: Round 3 in `docs/reports/reviews/WP-3.3/security-review-7.md`; the first line and Reviews of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with the docs commit. Then that commit was merged into `wp/3.4-statechart`, in 7d4cff4 (one conflict, this file; `wp/3.3-grader`'s copy taken), and the first line and "Up to date with main" of `WP-3.4.md` were updated. This line is pushed with those commits. `wp/3.4-statechart`'s copy of this file is the newest.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, and the same with `WP-3.4.md` on `wp/3.4-statechart`, if those pull requests are open.
+2. The owner actions of the sections below are still due. Asking for a review of be9375c is no longer one of them.
+
+### Next
+
+- The same as in the section six below (after security review 8, round 3, on WP-3.1's a24111c and a7c3ba7; after `wp/fix-smoke-and-runtime` merges).
+
+## Session of 2026-11-24 (from about 13:26, continued), in `night-a`, on `wp/3.4-statechart`
+
+Part 40 took about 8 minutes, so the run went on with the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (the newest, from part 40; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 41 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- a8a2e94: `wp/3.3-grader` at d7633c7 merged (WP-3.3 security review 7, round 2: be9375c and the docs). One conflict, this file; `wp/3.3-grader`'s copy taken. The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "6"`.
+- `pnpm verify` on a8a2e94: exit 0, 46 files, 1230 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen a8a2e94 (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with a8a2e94 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: two tasks done in this run.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, and the same with `WP-3.3.md` on `wp/3.3-grader`, if those pull requests are open.
+2. The owner actions of the sections below are still due (a review of WP-3.3's be9375c among them).
+
+### Next
+
+- The same as in the section five below (after security review 8, round 3, on WP-3.1's a24111c and a7c3ba7; after `wp/fix-smoke-and-runtime` merges).
+
+## Session of 2026-11-24 (from about 13:26), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `git fetch`: `origin/main` is still 0efe863, and `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (6aafe2b) and `wp/3.4-statechart` (67c8e1e) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Of the open items, no reviewer had seen WP-3.3's ff9e6eb and d757f11; a review needs no owner decision (as for deca401 in part 39), so this run asked for one. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 40 done: WP-3.3 security review 7, round 2, on d757f11 and ff9e6eb, and its fixes
+
+- security-reviewer, fresh context: **APPROVE**, 2 MINOR. Both commits do what the earlier minors asked; no test or check is weakened.
+- MINOR 1: the ff9e6eb test no longer guarded `state = None` once 3ab21e9 started each case with the collections (with the line removed only the hash pin failed). MINOR 2: the comment on `check()` and the header named only a timer as the cause of a failed start collection; a write into a harness frame does the same.
+- be9375c: both fixed. A new test reads `builtins` on the interpreter after `check()` returns (the reviewer's probe P1). Checked by hand, with no commit: with `state = None` removed, `Tests 2 failed | 81 passed (83)` (the new test and the hash pin); with it back, `Tests 83 passed (83)`. The ff9e6eb test is kept. `HARNESS_VERSION` is "7".
+- `pnpm verify` on be9375c: exit 0, 42 files, 1115 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "7"`. `check-bundle` and `check-static`: exit 0.
+- Decision: `HARNESS_VERSION` "7", because "6" had reached `wp/3.4-statechart` by merge (68595de); the header says to change it with any change to the Python text, and the change is a comment inside it.
+- Not run: the browser tests. No reviewer has seen be9375c.
+- Not done: merging this into `wp/3.4-statechart`.
+- Written: Round 2 in `docs/reports/reviews/WP-3.3/security-review-7.md`; the first line, "How it was verified" and Reviews of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with be9375c and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. Ask for a review of be9375c, or accept it on the evidence in the description.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with be9375c) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+- The same as in the section four below.
+
+## Session of 2026-11-24 (from about 13:22), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and `wp/fix-smoke-and-runtime` (27ce416), `wp/3.1-python-worker` (76f6fd3), `wp/3.3-grader` (6aafe2b) and `wp/3.4-statechart` (cd1c284) are each 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Of the open items, the only one that needed no owner decision was that no reviewer had seen deca401 on WP-3.4. WP-3.1 security review 8, round 3, was not started: an earlier run left it for the owner because its first session was interrupted, possibly on purpose. This file is `wp/3.1-python-worker`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 39 done: WP-3.4 code review 4, on deca401
+
+- code-reviewer, fresh context: APPROVE. Each of the Send, Check and Stop buttons has exactly its message as its accessible name, in every state the tests click it in, and no check is weakened.
+- One optional MINOR: the end-input button, the two sample buttons and the Program and Input fields are still matched by substring (each unique today). Not changed: nothing fails today, and the reviewer marked it optional.
+- The reviewer ran `prettier --check` and `eslint` on the three specs (both exit 0). It did not run Playwright or `pnpm verify`. No code changed in this run, so neither was run again.
+- Written: `docs/reports/reviews/WP-3.4/code-review-4.md`; the first section and Reviews (round 4) of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with the docs commit. This line is pushed with that commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- The same as in the section three below.
+
 ## Session of 2026-11-24 (from about 13:21), in `night-a`, on `wp/3.1-python-worker`
 
 Same task list. Stopped with no code change: nothing left needs no owner decision.

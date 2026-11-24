@@ -11,6 +11,7 @@ import { RUNTIME_ASSET_BASE_URL, runtimeAssetBase, WORKER_URL } from "../src/run
 import {
   DISABLED_FEATURES,
   parsePolicy,
+  RELEASE_WAIT_MS,
   policyProblems,
   scriptsWithoutNonce,
   securityHeaderChecks,
@@ -347,8 +348,109 @@ describe("verifyDeployment", () => {
     const checks = await verifyDeployment({
       url: await serve(application("old-release")),
       release: RELEASE,
+      releaseWaitMs: 300,
+      releasePollMs: 50,
     });
     expect(failed(checks)).toEqual(["the address serves the expected release"]);
+  });
+
+  it("[NFR-REL-04] waits up to 60 s for a promoted release to go live", () => {
+    expect(RELEASE_WAIT_MS).toBe(60_000);
+  });
+
+  it("[NFR-REL-04] asks again until the address serves the new release, then checks it", async () => {
+    let healthRequests = 0;
+    const live = application();
+    const old = application("old-release");
+    const promoting: Handler = (request, response) => {
+      if (request.url === "/api/health") healthRequests += 1;
+      // The first three answers come from the previous deployment.
+      (request.url === "/api/health" && healthRequests <= 3 ? old : live)(request, response);
+    };
+    const checks = await verifyDeployment({
+      url: await serve(promoting),
+      release: RELEASE,
+      releaseWaitMs: 5_000,
+      releasePollMs: 20,
+    });
+    expect(failed(checks)).toEqual([]);
+    expect(healthRequests).toBe(4);
+    expect(
+      checks.find((item) => item.name === "the address serves the expected release")?.detail,
+    ).toMatch(/after 4 requests/);
+  });
+
+  it("[NFR-REL-04] asks again after a refused or failed health request inside the wait", async () => {
+    let healthRequests = 0;
+    const live = application();
+    const flaky: Handler = (request, response) => {
+      if (request.url === "/api/health") {
+        healthRequests += 1;
+        if (healthRequests === 1) {
+          request.socket.destroy();
+          return;
+        }
+      }
+      live(request, response);
+    };
+    const checks = await verifyDeployment({
+      url: await serve(flaky),
+      release: RELEASE,
+      releaseWaitMs: 5_000,
+      releasePollMs: 20,
+    });
+    expect(failed(checks)).toEqual([]);
+    expect(healthRequests).toBe(2);
+  });
+
+  it("[NFR-REL-04] keeps asking until the wait is over, then fails", async () => {
+    let healthRequests = 0;
+    const old = application("old-release");
+    const counting: Handler = (request, response) => {
+      if (request.url === "/api/health") healthRequests += 1;
+      old(request, response);
+    };
+    const started = Date.now();
+    const checks = await verifyDeployment({
+      url: await serve(counting),
+      release: RELEASE,
+      releaseWaitMs: 400,
+      releasePollMs: 50,
+    });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(400);
+    expect(healthRequests).toBeGreaterThan(2);
+    expect(failed(checks)).toEqual(["the address serves the expected release"]);
+  });
+
+  it("[NFR-REL-04] gives up when every health request fails until the wait is over", async () => {
+    let healthRequests = 0;
+    const refusing: Handler = (request) => {
+      if (request.url === "/api/health") healthRequests += 1;
+      request.socket.destroy();
+    };
+    const started = Date.now();
+    await expect(
+      verifyDeployment({
+        url: await serve(refusing),
+        release: RELEASE,
+        releaseWaitMs: 300,
+        releasePollMs: 50,
+      }),
+    ).rejects.toThrow(/fetch failed/);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+    expect(healthRequests).toBeGreaterThan(2);
+  });
+
+  it("[NFR-REL-04] asks the health endpoint once when no release is given", async () => {
+    let healthRequests = 0;
+    const old = application("old-release");
+    const counting: Handler = (request, response) => {
+      if (request.url === "/api/health") healthRequests += 1;
+      old(request, response);
+    };
+    const checks = await verifyDeployment({ url: await serve(counting), releasePollMs: 20 });
+    expect(failed(checks)).toEqual([]);
+    expect(healthRequests).toBe(1);
   });
 
   it("[NFR-OBS-01] fails a deployment that echoes the client's request ID", async () => {
