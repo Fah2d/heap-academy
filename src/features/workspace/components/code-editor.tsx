@@ -131,7 +131,7 @@ export function CodeEditor({
       <span id={hintId} className="sr-only">
         {words.leaveHint}
       </span>
-      <div ref={host} className={fill ? "min-h-0 flex-1" : "min-h-40"} />
+      <div ref={host} className={fill ? "min-h-0 flex-1" : "min-h-(--code-editor-min)"} />
     </div>
   );
 }

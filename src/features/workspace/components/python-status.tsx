@@ -39,7 +39,7 @@ export function PythonStatus({
             {words.starting}
           </span>
         ) : (
-          <div className="w-48">
+          <div className="w-(--python-progress-width)">
             <Progress
               label={words.starting}
               value={progress.loadedBytes}

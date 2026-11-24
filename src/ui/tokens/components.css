@@ -54,6 +54,16 @@
   --workspace-rows: auto minmax(0, 1fr) auto;
   --workspace-editor-share: 3;
   --workspace-output-share: 2;
+  /* Below 768 px the editor and the output stack, each with a floor so neither
+     collapses (16 rem and 18 rem). At every width the console keeps four lines
+     (6 rem) above an error card; the panel around it scrolls instead. */
+  --workspace-editor-min: 16rem;
+  --workspace-output-min: 18rem;
+  --workspace-console-min: 6rem;
+  /* A code editor that does not fill its box, as in the admin's lesson editor. */
+  --code-editor-min: 10rem;
+  /* The loading bar beside Python's status. */
+  --python-progress-width: 12rem;
 }
 
 @media (width >= 48rem) {

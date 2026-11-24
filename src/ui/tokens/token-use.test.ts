@@ -64,3 +64,34 @@ describe("tokens named by utilities", () => {
     expect([...used].filter((name) => !declared.has(name))).toEqual([]);
   });
 });
+
+// The theme replaces Tailwind's spacing scale with named steps (`--spacing-1`
+// to `--spacing-8` and a few named sizes), so a step outside it, such as
+// `min-h-64`, makes no CSS at all and the element has no floor (WP-5.2).
+const SIZED =
+  /(?<![\w-])(?:[a-z]+:)*-?(?:min-|max-)?(?:[hw]|size|inset(?:-[xy])?|top|bottom|left|right|start|end|basis|gap(?:-[xy])?|space-[xy]|scroll-[mp][xytblrse]?|[mp][xytblrse]?|[mp][bi][se])-(\d+(?:\.\d+)?)(?![\w.-])/g;
+
+function offScale(text: string, declared: Set<string>): string[] {
+  return [...text.matchAll(SIZED)]
+    .filter((match) => !declared.has(`--spacing-${match[1] ?? ""}`))
+    .map((match) => match[0]);
+}
+
+describe("numeric spacing and size utilities", () => {
+  it("finds a step the theme does not declare", () => {
+    const declared = new Set(["--spacing-2", "--spacing-4"]);
+    expect(offScale('className="p-4 md:min-h-64 w-48 gap-2 -mbs-9 h-full"', declared)).toEqual([
+      "md:min-h-64",
+      "w-48",
+      "-mbs-9",
+    ]);
+  });
+
+  it("each name a step of the theme's spacing scale", () => {
+    const declared = declaredInRules(css);
+    const found = sources(src).flatMap((file) =>
+      offScale(readFileSync(file, "utf8"), declared).map((utility) => `${file}: ${utility}`),
+    );
+    expect(found).toEqual([]);
+  });
+});

@@ -298,7 +298,7 @@ export function Workspace({
                 </Button>
               </div>
             )}
-            <div className="min-h-64 md:min-h-0 md:flex-(--workspace-editor-share)">
+            <div className="grid min-h-(--workspace-editor-min) md:min-h-0 md:flex-(--workspace-editor-share)">
               <CodeEditor
                 labelledBy={editorLabel}
                 value={code}
@@ -370,7 +370,7 @@ export function Workspace({
               </Notice>
             )}
 
-            <div className="flex min-h-72 flex-col md:min-h-0 md:flex-(--workspace-output-share)">
+            <div className="flex min-h-(--workspace-output-min) flex-col md:min-h-0 md:flex-(--workspace-output-share)">
               <h2 className="sr-only">{words.output}</h2>
               <Tabs
                 label={words.output}
