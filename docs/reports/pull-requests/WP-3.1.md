@@ -1,4 +1,4 @@
-**Base: `main`.** `main` at 81fdc39 (#3 to #8 and #10) is merged into this branch (e3c9043). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f). The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3). Run now gets the same state restore between runs as WP-3.3's harness, and each run gets new streams (4d6608f, 16711f5, a24111c, from security review 8); no reviewer has seen a24111c. Run also restores before its first collection now, as WP-3.3's harness does (a7c3ba7); no reviewer has seen it. On 7a6c233, which holds all of these, the 15 runtime tests pass in Chromium again; the header and proxy-path tests were not run again, as no header or proxy file changed after f7dfb52. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
+**Base: `main`.** `main` at 7875ee2 (#3 to #8, #10 and #12) is merged into this branch (dc5f653). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f). The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3). Run now gets the same state restore between runs as WP-3.3's harness, and each run gets new streams (4d6608f, 16711f5, a24111c, from security review 8); no reviewer has seen a24111c. Run also restores before its first collection now, as WP-3.3's harness does (a7c3ba7); no reviewer has seen it. On 7a6c233, which holds all of these, the 15 runtime tests pass in Chromium again; the header and proxy-path tests were not run again, as no header or proxy file changed after f7dfb52. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
 
 ## What and why
 
@@ -13,7 +13,7 @@ The Python worker of architecture section 5: learner code runs in a module worke
 7. **The worker's own response policy**, and immutable caching for the runtime files.
 8. **A development-only page** that drives the worker.
 
-**Found while building it:** Turbopack builds every worker as a classic worker, and Pyodide 314 loads only in a module worker. So the worker is compiled by the TypeScript compiler, outside the bundler. **ADR-0033 is proposed for your decision.**
+**Found while building it:** Turbopack builds every worker as a classic worker, and Pyodide 314 loads only in a module worker. So the worker is compiled by the TypeScript compiler, outside the bundler. **ADR-0033 was accepted by the owner on 2026-11-24.**
 
 ## Work package
 
@@ -41,7 +41,20 @@ The Python worker of architecture section 5: learner code runs in a module worke
 
 ## Up to date with main
 
-`main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`, since the last merge) is merged in e3c9043. Two files conflicted:
+`main` at 7875ee2 (#12, `wp/2.1-schema-policies`, since the last merge) is merged in dc5f653. One file conflicted: `docs/reports/local-build-progress.md`, where `wp/5.2-workspace-laptop`'s copy (the newest) was taken and `main`'s two `night-b` sections were added in time order. `package.json` merged with no conflict: it keeps this branch's runtime build step and `pyodide`, and gains `main`'s `test:db` script. WP-2.1's migrations, policy tests and seed came in with no conflict.
+
+`pnpm verify` on dc5f653, exit 0:
+
+```
+ Test Files  38 passed (38)
+      Tests  937 passed (937)
+```
+
+`pnpm build` with CI's fake public values on dc5f653, exit 0. The runtime step printed `runtime: worker compiled`; the routes are `/_not-found`, `/api/csp-report` and `/api/health`, all dynamic. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0.
+
+Not run on this merge: the browser tests and `pnpm test:db` (the local Supabase stack does not start in this sandbox). No reviewer has seen dc5f653.
+
+The merge before, of `main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`), is in e3c9043. Two files conflicted:
 
 - `scripts/infra-verify.mjs`: both sides added a function at the same place, this branch `runtimeChecks()` and `main` `releaseOf()`, `parseJson()` and `healthFor()` (the 60 s wait for the promoted release). Both are kept, unchanged. `verifyDeployment()` merged with no conflict: it waits for the release first, then runs every check, the runtime checks among them.
 - `docs/reports/local-build-progress.md`: `wp/3.4-statechart`'s copy taken, the newest one, with a section added for this merge.
@@ -461,6 +474,16 @@ On the development server (`pnpm dev`):
 2. Run the sample with `Ada` in the input. The output is `Hello, Ada`.
 3. Run `while True: pass`. After 5 seconds the outcome is "Time limit reached", the restarts count is 1, and Run works again.
 
+## Owner decisions of 2026-11-24
+
+Every recommended default in this description was approved. Written into this branch:
+
+- `docs/adr/0033-python-worker-compiled-outside-the-bundler.md`: status Accepted; its row in `02-architecture.md` section 15 too.
+- `02-architecture.md` section 5.1: the base path is the constant `RUNTIME_ASSET_BASE_URL` in `src/runtime/assets.ts`; `07-operations.md` section 9.2 says "one line" instead of "no code change".
+- `02-architecture.md` section 5.2: output is sent at once up to 8 times per 50 ms window, then batched; the page drops and reports a malformed message, and the worker ends itself with `fatal malformed_message`.
+
+Each change carries the note "approved by the owner on 2026-11-24". The items under "Not fixed" that give options with no recommendation (the worker's file system, the "crashed" message, a late callback's output) are still for you to decide. A fresh worker for each Validate case, the fix this description names under "Validate isolation", is approved; it belongs to WP-3.3's check protocol and WP-4.3.
+
 ## Owner actions now due
 
 1. Done: the dependency (be2c7c0), `pnpm why ws`, `pnpm audit --prod`, and the size lines (above).
@@ -475,23 +498,22 @@ On the development server (`pnpm dev`):
    Stop any server already on port 3100 first: locally Playwright reuses it, so the tests would run against whatever build it serves. The last command runs only the new proxy test (c03a7d0). The two older tests in `e2e/csp.spec.ts` fail locally on `main` too; `wp/fix-smoke-and-runtime` fixes them.
 
 3. Ask for security review 8, round 3, on a24111c and a7c3ba7 (round 3 was interrupted on 2026-11-24 and not started again), and decide the two review-8 items under "Not fixed" (the file system, the "crashed" message).
-4. Decide ADR-0033.
-5. Decide the deviations below.
+4. Done: ADR-0033 and the three proposed spec changes below were approved on 2026-11-24 and are written into the spec (see "Owner decisions of 2026-11-24").
 
 ## Deviations from the plan or the spec
 
-- **The worker is not bundled** (ADR-0033, proposed). Its protocol parser is hand-written, because the worker cannot import a package. The page uses the same parser.
+- **The worker is not bundled** (ADR-0033, accepted on 2026-11-24). Its protocol parser is hand-written, because the worker cannot import a package. The page uses the same parser.
 - **The base path is a constant**, `RUNTIME_ASSET_BASE_URL` in `src/runtime/assets.ts`, not an environment variable. `07-operations.md` section 9 says moving the files needs "no code change". Here it needs that one line, and the worker policy follows it.
   - An environment variable would have to carry the `NEXT_PUBLIC_` prefix: the browser reads it, and `.env.example`'s rule makes any other name a server secret, which `scripts/check-bundle.mjs` would then flag in the bundle.
-  - **Proposed spec change, pending owner decision:** section 5.1 names the value `RUNTIME_ASSET_BASE_URL` "in `src/runtime/assets.ts`", and 07 section 9 says "one line".
+  - **Spec change, approved by the owner on 2026-11-24 and written into the spec:** section 5.1 names the value `RUNTIME_ASSET_BASE_URL` "in `src/runtime/assets.ts`", and 07 section 9 says "one line".
 - **Every run gets section 5.5's isolation**, not only each test case of a Check (WP-3.3). `.claude/rules/runtimes.md` says "Isolation per run is exactly section 5.5".
 - **Output is sent at once up to 8 times in each 50 ms window, then batched.** Section 5.2 says "Batched at most every 50 ms".
   - Inside a running program the worker has no turn for a timer. Under that rule, the second of two quick lines would wait until the program printed again or ended, so "output streams while the program runs" would fail for a program that prints and then computes.
   - The 8 is a choice, not a measurement. It bounds a slow flood at 160 messages a second, and a fast flood sends 8 messages and then one batch per window.
-  - **Proposed spec change, pending owner decision:** in section 5.2, "Sent at once up to 8 times per 50 ms window, then batched until the next window or the end of the run".
+  - **Spec change, approved by the owner on 2026-11-24 and written into the spec:** in section 5.2, "Sent at once up to 8 times per 50 ms window, then batched until the next window or the end of the run".
   - Python's streams are line-buffered, so a partial line (`print("working", end="")`) waits for its newline or the end of the run.
 - **A memory error, and the output cap, also start a new worker.** The program's outcome is still `memory` or `output_limit`. A worker whose WebAssembly memory grew cannot give it back. After the cap, Python's stream buffers may still hold the program's text, which the next run would print. A new worker is ready in about 1.7 s (E-04).
-- **The worker gives up on a malformed message, and ignores `input` and `input_end`, without reporting either.** Section 5.2 says "dropped and reported". The page parses every message before it sends it, so a malformed one means the page is broken, and the worker cannot trust what follows. `input` and `input_end` belong to WP-3.2. **Proposed spec change, pending owner decision:** in section 5.2, "the page drops and reports; the worker ends itself with `fatal malformed_message`".
+- **The worker gives up on a malformed message, and ignores `input` and `input_end`, without reporting either.** Section 5.2 says "dropped and reported". The page parses every message before it sends it, so a malformed one means the page is broken, and the worker cannot trust what follows. `input` and `input_end` belong to WP-3.2. **Spec change, approved by the owner on 2026-11-24 and written into the spec:** in section 5.2, "the page drops and reports; the worker ends itself with `fatal malformed_message`".
 - **`postMessage` is removed from the worker's scope**, beyond T-01's list, so a program cannot post messages the page would read as the worker's. The page parses them anyway; this closes forged `run_done` messages before WP-3.3's results depend on them.
 - **The development page waits for #3.** It uses #3's root layout and `.dev.tsx` page mechanism rather than copying them, which would conflict with #3. Its `page.dev.tsx` default-export exemption is the same line #3 adds to `eslint.config.mjs`.
 - **Test budgets.** `e2e/runtime.spec.ts` sets a 120 s budget for its own tests, not the default 30 s. Loading Pyodide takes seconds, and several tests wait for the 5 s limit and then a new worker. `scripts/build-runtime.test.ts` gives its worker compile test 60 s, because it runs `tsc`. Both are new tests; no existing limit was raised.

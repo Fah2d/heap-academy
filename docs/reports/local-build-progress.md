@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 14:00), in `night-a`, on `wp/3.1-python-worker`
+
+Same task list, with the owner decisions of 2026-11-24: every recommended default in every pull request description is approved (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, device progress cleared at sign-out, the stored row wins, every proposed spec change accepted), to be written into `docs/spec` on the branch each belongs to and marked approved on 2026-11-24. `git fetch`: `origin/main` moved to 7875ee2, the merge of #12 (WP-2.1). `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart` were each 20 commits behind it; `wp/5.2-workspace-laptop` 1. This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 46), with `main`'s two `night-b` sections added in time order and this section on top.
+
+### Task 1, part 47 done: `main` at 7875ee2 merged into `wp/3.1-python-worker`, and WP-3.1's approved decisions written
+
+- dc5f653: `main` merged. One conflict, this file. `package.json` merged with no conflict (this branch's runtime build step and `pyodide`, plus `main`'s `test:db`).
+- Owner decisions written in the docs commit: ADR-0033 accepted (its status and its row in `02-architecture.md` section 15); `02-architecture.md` section 5.1 (the base path is the constant in `src/runtime/assets.ts`) with `07-operations.md` section 9.2 ("one line"); section 5.2 (output sent at once up to 8 times per 50 ms window, then batched; the worker ends itself on a malformed message). Each is marked approved by the owner on 2026-11-24.
+- `pnpm verify` on dc5f653: exit 0, 38 files, 937 tests. `pnpm build` with CI's fake public values: exit 0 (`runtime: worker compiled`). `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen dc5f653.
+- Description: the first line, "Up to date with main", "Owner decisions of 2026-11-24" and the deviations of `docs/reports/pull-requests/WP-3.1.md`.
+- Push: `wp/3.1-python-worker` with dc5f653 and the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. Still yours on WP-3.1: the browser tests in Firefox and WebKit, security review 8 round 3, and the three "Not fixed" items that have no recommended default (the worker's file system, the "crashed" message, a late callback's output).
+
+### Next
+
+- Merge `main` into `wp/3.3-grader`, then `wp/3.4-statechart`, writing each branch's approved decisions.
+
 ## Session of 2026-11-24 (from about 13:48, continued), in `night-a`, on `wp/5.2-workspace-laptop`
 
 Part 45 took about 2 minutes, so the run went on. Task 2: no open review item in the WP-3.1, WP-3.3 or WP-3.4 descriptions needs no owner decision; nothing changed since part 39's list (the run fixes and security review 8, round 3, of WP-3.1 stay with the owner). Task 3: WP-4.3 is the first package in plan order that needs the 3.x runtime, but it is already under way on `wp/4.3-validate-publish` (night-b's line), so this run started WP-5.2. This file is `wp/3.4-statechart`'s copy (the newest, from part 45) with this section added on top.
