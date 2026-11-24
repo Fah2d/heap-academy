@@ -1,4 +1,4 @@
-**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f); the browser tests have not run on that fix The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3); the browser tests have not run on that either. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
+**Base: `main`.** `main` at 0efe863 (#3 to #8) is merged into this branch (5f72072). This is a **draft** until the browser tests run in Firefox and WebKit. In Chromium they have now run (f7dfb52): all 15 runtime tests, the 4 header tests and the proxy-path test pass, after a fix to two tests that the first run found (0849b56). Security review 7's MINOR 3 is fixed since (547b394, dece44f); the browser tests have not run on that fix The controller now stays disposed when a listener disposes it during a restart, a run's end or an error report (c1114d4, 1266681, d2e7ff8, from a note in WP-3.3's security review 3); the browser tests have not run on that either. Run now gets the same state restore between runs as WP-3.3's harness, and each run gets new streams (4d6608f, 16711f5, a24111c, from security review 8); no reviewer has seen a24111c, and the browser tests have not run on it. `pyodide@314.0.7` is installed and `pnpm build` passes. See "Owner actions now due".
 
 ## What and why
 
@@ -59,6 +59,15 @@ The earlier merge of `main` at 037c4ad (#3 and #4) is in f617391; it resolved `n
 Not run on the merge: the browser tests (no browser can start in the sandbox). The commit hook's dependency check could not take pnpm's store lock in the sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed, and `node_modules` already held `pyodide@314.0.7`.
 
 ## How it was verified
+
+**Run's restore between runs (4d6608f, 16711f5, a24111c), 2026-11-24.** `pnpm verify` on a24111c, exit 0:
+
+```
+ Test Files  37 passed (37)
+      Tests  919 passed (919)
+```
+
+`pnpm build` with CI's fake public values on a24111c, exit 0; `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`, exit 0. The mutants, each failing at least one test in `src/runtime/worker/run-support.test.ts`, are listed in `docs/reports/reviews/WP-3.1/security-review-8.md`. Not run: the browser tests on a24111c.
 
 **Dispose during a restart (c1114d4, 1266681, d2e7ff8), 2026-11-24.** `pnpm verify` on d2e7ff8, exit 0:
 
@@ -409,6 +418,11 @@ Open MAJOR findings for you to waive:
   - **code-reviewer, round 6** (`code-review-6.md`, on c1114d4): CHANGES REQUIRED, 1 MAJOR, 4 MINOR, all fixed in 1266681. MAJOR 1: disposing from the `run_done` of a run that ended normally left the status `ready`. MINOR 2: disposing from the `report` of a worker error or a fatal message led to `failed`, so a later `start()` started a worker. MINOR 3 to 5: why `isDisposed()` is a function (TypeScript's narrowing), tests over every restart trigger, the comment.
   - **code-reviewer, round 7** (`code-review-7.md`, on 1266681): **APPROVE**, 2 MINOR, both fixed in d2e7ff8: a fatal message while ready and a report while loading are now tested, and the test helpers take `WorkerOutcome` and `RunId`. Its probe disposed at 65 points over 13 scenarios and found no path that leaves a disposed controller in another status or with a live worker. No reviewer has seen d2e7ff8 (tests and test types only).
   - Left, outside the range: a `run_done` listener that calls `stop()` on the time-limit path nests one restart inside another (no leak; the same before c1114d4), and a `run_done` listener cannot call `run()`, because the status is still `running`. WP-3.4's statechart should not call the controller from inside `run_done`.
+- **Fixed later, 4d6608f, 16711f5, a24111c (2026-11-24): WP-3.3's "Run does not get the new restore".** `run-support.ts` now carries the harness's `restore()` and `intact()` (hooks, monitoring tools, the collector, the import lists, the line cache and the other parts listed in WP-3.3), and raises `NotRestored` when the state is not back, so the worker is replaced.
+  - **security-reviewer, review 8, round 1** (`security-review-8.md`, on 4d6608f): CHANGES REQUIRED, 2 MAJOR, 4 MINOR. MAJOR 1: a chain of `__del__` methods outlived the one `collect()`; fixed in 16711f5 by collecting until nothing is left (at most eight passes, then `NotRestored`). MAJOR 2: the three stream objects carried a program's changes to later runs. MINOR 4 (`sys.tracebacklimit`, `sys.argv`), 5 (tests) and 6 (a comment in `core.ts`) fixed in 16711f5.
+  - **security-reviewer, review 8, round 2** (on 16711f5): CHANGES REQUIRED, 1 MAJOR, 3 MINOR. MAJOR 1: the streams could still be changed through their buffers and raw files, and the settings check ran the program's code. Fixed in a24111c: each run gets three new text streams over file descriptors 0, 1 and 2, and the runner never reads the originals. MINOR 2 to 4 (`reconfigure(newline=...)`, unread input, the chain test) fixed in a24111c.
+  - **Round 3, on a24111c: not done.** The reviewer's session was interrupted before it reported, and it was not started again. No reviewer has seen a24111c.
+  - Decision: new streams for each run, the option the reviewer preferred in both rounds, instead of saving and checking the old streams' state.
 
 ## Try it
 
@@ -431,8 +445,9 @@ On the development server (`pnpm dev`):
 
    Stop any server already on port 3100 first: locally Playwright reuses it, so the tests would run against whatever build it serves. The last command runs only the new proxy test (c03a7d0). The two older tests in `e2e/csp.spec.ts` fail locally on `main` too; `wp/fix-smoke-and-runtime` fixes them.
 
-3. Decide ADR-0033.
-4. Decide the deviations below.
+3. Ask for security review 8, round 3, on a24111c (interrupted in this run), and decide the two review-8 items under "Not fixed" (the file system, the "crashed" message).
+4. Decide ADR-0033.
+5. Decide the deviations below.
 
 ## Deviations from the plan or the spec
 
@@ -462,6 +477,11 @@ On the development server (`pnpm dev`):
 - **A miss under `/_runtime/pyodide/`** gets `immutable` too, so a cache in between could keep a 404 for a year. A deployment's pages only ever ask for their own release's files, so this needs a request for a file the release does not have.
 - **The runtime base path is a constant** (see Deviations).
 - **A miss under `/_runtime/worker/` that ends in `.js`** (in any case, because the server matches without case) still gets the worker policy, which has no `sandbox` (security review 6, MINOR 1). Every other miss there gets the static policy since e340e4f. That not-found page reflects no input, and its inline scripts are blocked by the worker policy. The fix that closes it is a rule naming the seven files.
+- **The worker's file system carries over between runs** (security review 8, round 1, MINOR 3). `sys.path[0]` is `''` and the working directory is `/home/pyodide`, so a run that writes `statistics.py` there changes what the next run's `import statistics` loads. For you to decide: a new empty working directory for each run, or a residual risk recorded in ADR-0004 and spec 06.
+- **A program that breaks the restore gets the "crashed" message** (security review 8, round 1, MINOR 6). The worker is replaced, which is safe; whether the learner should see another message is for you to decide.
+- **The harness has the same single `collect()`** that review 8 found in Run (round 1, MAJOR 1), at the end of `run_case` in `src/grader/harness.ts` on `wp/3.3-grader`. Inferred from the code, not run. For WP-3.3.
+- **The multi-pass monitoring loop is not tested in the run support** (round 1, MINOR 5). The reviewer checked it by hand, and the harness tests it.
+- **`warnings.simplefilter("error")` and other `sys` names outside the snapshot carry over**, as ADR-0004 accepts for learners. `asyncio.run` fails in Pyodide under Node, on aec6c83 as well.
 
 ## Risks and rollback
 
