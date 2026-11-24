@@ -34,7 +34,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
         </p>
       </header>
       {outcomes.length > 0 && (
-        <section aria-labelledby="course-outcomes" className="flex max-inline-prose flex-col gap-3">
+        <section aria-labelledby="course-outcomes" className="flex max-inline-prose flex-col gap-4">
           <h2 id="course-outcomes" className="text-lg font-semibold text-text">
             {words.outcomesHeading}
           </h2>
@@ -77,7 +77,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
                   {chapter.lessons.map((lesson, lessonIndex) => (
                     <li
                       key={lesson.slug}
-                      className="flex items-baseline gap-3 border-bs border-border py-2 text-base text-text"
+                      className="flex items-baseline gap-3 border-bs border-border py-2 text-base text-text last:pbe-0"
                     >
                       <span className="shrink-0 font-mono text-sm text-text-muted tabular-nums">
                         {words.lessonNumber(chapterIndex + 1, lessonIndex + 1)}

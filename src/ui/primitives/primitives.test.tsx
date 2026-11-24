@@ -113,6 +113,19 @@ describe("Link", () => {
     );
     expect(classes).not.toContain("font-medium");
   });
+
+  it("[ADR-0014] lays a heading link out at the height of its text, with the 44 px target around it", () => {
+    render(
+      <h2>
+        <Link href="/courses/python-basics" variant="heading">
+          Python basics
+        </Link>
+      </h2>,
+    );
+    const classes = screen.getByRole("link", { name: "Python basics" }).className.split(/\s+/);
+    // The padding that makes the target and the negative margin that takes it back.
+    expect(classes).toEqual(expect.arrayContaining(["py-2", "-my-2"]));
+  });
 });
 
 describe("TextField", () => {

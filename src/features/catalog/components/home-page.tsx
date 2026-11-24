@@ -26,7 +26,7 @@ export function HomeView({ courses }: { courses: PublishedCourseSummary[] }) {
         </h2>
         <CourseRows courses={courses} labelledBy="home-courses" titleLevel={3} />
       </section>
-      <section aria-labelledby="home-how" className="flex max-inline-prose flex-col gap-3">
+      <section aria-labelledby="home-how" className="flex max-inline-prose flex-col gap-4">
         <h2 id="home-how" className="text-lg font-semibold text-text">
           {home.howHeading}
         </h2>
