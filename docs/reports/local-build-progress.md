@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 23:20), in `night-b`, WP-6.1 part 2a on `wp/6.1-synced-progress`
+
+- State found: the top-priority CI fixes for #13 were already pushed (3ce8e49). `origin/main` is at 428c437 and every later branch contains it. Another session was merging the branches forward in this same checkout at the same time (unpushed merges 290cc7e to b58dae6), so this work was built and checked in a separate copy and committed without switching branches.
+- Done (61f5a80, based on the unpushed 290cc7e): the `recordCompletion` and `mergeProgress` server actions, their use cases, and the Supabase completion store. Both insert with do nothing on conflict; a refused lesson in a sync is named in `rejected`. Checked in the copy: `prettier`, `eslint`, `tsc` clean; vitest on `src/features/progress` and `src/infrastructure`: 141 passed. Not run: the full `pnpm verify` (the shared checkout was busy), `pnpm test:db` (no Docker). The upsert with `ignoreDuplicates` against the insert-only grants is reasoned from the Postgres rules, not run.
+- Not pushed: the base 290cc7e is unpushed and belongs to the other session.
+- Next: the device store (IndexedDB with memory fallback), the sync orchestration, and server-rendered progress for a signed-in learner; then WP-6.2 and 6.3 part 2.
+
 ## Session of 2026-11-24 (from about 23:10), in `night-b`, CI fixes for #13 (`wp/2.2-sign-in`)
 
 - Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
