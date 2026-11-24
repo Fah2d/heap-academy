@@ -7,15 +7,17 @@ import { adminArea } from "@/messages/admin";
  * what to do, so the page still has its one `h1`.
  */
 export function AdminFrame({ children }: { children: ReactNode }) {
+  // The preview's workspace fills the window and scrolls by pane (FR-WSP-01),
+  // so around it the frame takes the main region's full height.
   return (
-    <div className="mx-auto max-w-page px-gutter py-6">
+    <div className="mx-auto max-w-page px-gutter py-6 has-[[data-workspace]]:h-full">
       <section aria-labelledby="admin-narrow" className="flex max-w-prose flex-col gap-3 lg:hidden">
         <h1 id="admin-narrow" className="text-xl font-semibold text-text">
           {adminArea.narrowHeading}
         </h1>
         <p className="text-base text-text">{adminArea.narrowScreen}</p>
       </section>
-      <div className="hidden lg:block">{children}</div>
+      <div className="hidden lg:block lg:has-[[data-workspace]]:h-full">{children}</div>
     </div>
   );
 }

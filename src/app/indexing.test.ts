@@ -83,6 +83,7 @@ const NOT_INDEXED = new Set([
   "/admin/courses/new",
   "/admin/courses/[id]",
   "/admin/lessons/[id]",
+  "/admin/lessons/[id]/preview",
   "/admin/setup",
   "/admin/verify",
 ]);
@@ -130,6 +131,7 @@ const LOADERS: Record<string, () => Promise<unknown>> = {
   "/admin/courses/new": () => import("./admin/courses/new/page"),
   "/admin/courses/[id]": () => import("./admin/courses/[id]/page"),
   "/admin/lessons/[id]": () => import("./admin/lessons/[id]/page"),
+  "/admin/lessons/[id]/preview": () => import("./admin/lessons/[id]/preview/page"),
   "/admin/setup": () => import("./admin/setup/page"),
   "/admin/verify": () => import("./admin/verify/page"),
 };

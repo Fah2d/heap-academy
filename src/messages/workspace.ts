@@ -188,6 +188,11 @@ export const workspace = {
   // The completion moment (section 6.6; FR-WSP-06). A lesson's XP counts once.
   completeFirst: (xp: number) => `Lesson complete. You earned ${xp} XP.`,
   completeAgain: "Lesson complete. Its XP counted the first time you passed it.",
+  // The admin's preview (section 7.7; FR-ADM-08): it records nothing.
+  previewKind: "Preview",
+  previewBody:
+    "This is the last saved version, as learners will see it. Nothing here is recorded: not your code, and not a pass.",
+  previewComplete: "Every test passed. A preview records no completion and no XP.",
   // Storage refused (FR-PRG-01): what is kept lasts only while the tab is open.
   memoryTitle: "This browser is not saving your work.",
   memoryBody: "Your code and completed lessons are lost when you reload or leave this page.",
