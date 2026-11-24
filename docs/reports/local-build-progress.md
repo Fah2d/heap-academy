@@ -51,16 +51,27 @@ Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 
 - The two new tests failed without the fix (`AssertionError: expected <button …(8)></button> to be <input tabindex="0" …(9)></input>`), and pass with it.
 - `pnpm verify`: exit 0, 62 files, 1114 tests. `next build`: exit 0. `check-bundle` and `check-static`: exit 0. Pushed with 4.2 and 4.3 at the end of task 1f.
 
+### Task 1f done: wp/4.3-validate-publish
+
+- Started at 15:22. Merge commits c600746 (`wp/4.2-lesson-editor` at 6ca712e) and 028a7d3 (with the focus fix through 4.1), no conflict.
+- Spec and design changes written, marked approved on 2026-11-24: `02-architecture.md` section 8.3 (decision 1: the guard refuses unpublishing or archiving a published course's last published lesson; not built yet, it needs a migration and a trigger test, and `pnpm test:db` cannot run here); `04-content-system.md` section 4.4 (decision 9: Save on a published lesson always validates first); `DESIGN.md` section 6 (decision 19: `--spacing-output`). Decision 17 done on 4.1 (above). Decision 20 left for its own work package, as recommended.
+- `pnpm verify`: exit 0, 102 files, 1901 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser), `pnpm infra:verify`.
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, a new paragraph at the top of "Up to date with main", and "Open decisions" became "Your decisions".
+- ADR-0033 and ADR-0034 are on this branch through WP-3.1 and WP-3.4, but belong to those branches; their status is not changed here (decision F).
+
 Decisions taken with a safe default:
 
 - B. A merged branch's approved spec changes go on the next branch in the chain to reach `main`, not on a new branch, because no new pull request can be opened from here (`gh` still fails: `x509: OSStatus -26276`).
 - C. Only items a description called a spec change, or a deviation from the spec, are written into `docs/spec`. Approved defaults that change no spec text (for example WP-2.2's decisions 1 and 3, WP-2.3's decision 1) are recorded as approved in the description only.
 - D. Each spec change is written into the rule text where that is one line, with a quoted note "Approved by the owner on 2026-11-24 (proposed in WP-x.y)" beside it, as the WP-1.3 approvals were marked.
 - E. An approved change to a `.claude/rules/` file is written there, because the owner approved it and those files are instructions, not enforcement. Hooks, guard scripts, deny rules and `.claude/settings.json` stay untouched.
+- F. ADR-0033 (WP-3.1) and ADR-0034 (WP-3.4) are marked accepted on their own branches, not on the later branches that carry copies of them. `wp/3.1-python-worker` and `wp/3.4-statechart` are not in this session's task list; `origin/wp/3.1-python-worker` already has approval notes of 2026-11-24 from another session.
 
 ### Owner: run this
 
-1. Paste `WP-2.2.md` into the WP-2.2 pull request (base `main`), `WP-2.3.md` into WP-2.3's `WP-4.1.md` into WP-4.1's and `WP-4.2.md` into WP-4.2's.
+1. Paste each description into its pull request: `WP-2.2.md` (base `main`), `WP-2.3.md`, `WP-4.1.md`, `WP-4.2.md`, `wp/4.3-validate-publish.md`.
+2. WP-4.3 decision 1 (b) needs a migration and a trigger test with `supabase start`; WP-4.3 decision 20 needs its own small work package.
 
 
 ## Session of 2026-11-24 (from about 13:49), in `night-b`, task 1e
