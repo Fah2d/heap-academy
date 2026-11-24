@@ -86,7 +86,7 @@ If you also lost access to your email account and to Google, recover those first
 
 ## 4. Someone may be guessing codes
 
-The provider limits code checks per network address only (Supabase "Rate limits", read 2026-11-21). A person who has one of your sessions, from a phished email code for example, can call the provider directly from many addresses and keep guessing. This is a residual risk the owner decides on (decision 2 in the WP-2.3 description).
+The provider limits code checks per network address only (Supabase "Rate limits", read 2026-11-21). A person who has one of your sessions, from a phished email code for example, can call the provider directly from many addresses and keep guessing. This is a residual risk the owner accepted on 2026-11-24 (decision 2 in the WP-2.3 description), recorded in `docs/spec/06-security-privacy.md` section 6.
 
 1. [ ] Weekly, and whenever you get a sign-in email you did not ask for: Supabase production → **Logs**, the **Auth** source, search `mfa_verification_failed`. A handful from your own typing is normal. Many in a day, or any when you were not signing in, means someone is guessing.
 2. [ ] Then sign out every session of your user (section 2 step 1), change the password of your email account, and check its own second step. Removing and adding the authenticator again (section 2) gives a new key.
