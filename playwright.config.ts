@@ -4,6 +4,11 @@ import { defineConfig, devices } from "@playwright/test";
 // screen (docs/spec/05-engineering-handbook.md section 8). Chromium runs on
 // every pull request; Firefox and WebKit on main and before launch.
 const port = 3100;
+// The same production build, served with a database address where nothing
+// listens (port 1), so every content read fails: e2e/catalog-outage.spec.ts
+// sees the catalog's "Could not load" state there, even when the local stack
+// is running.
+const outagePort = 3102;
 // The primitive gallery and the error page exist only on the development
 // server, so e2e/gallery.spec.ts runs against one beside the production build.
 const developmentPort = 3101;
@@ -57,8 +62,8 @@ export default defineConfig({
       },
     })),
   ],
-  // In order: the production build must finish before the development server
-  // starts writing beside it.
+  // In order: the production build must finish before the outage server
+  // serves it and before the development server starts writing beside it.
   webServer: [
     {
       command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`,
@@ -66,6 +71,12 @@ export default defineConfig({
       // Playwright does not count a 404 there as ready.
       port,
       env: environment,
+      reuseExistingServer: !process.env["CI"],
+    },
+    {
+      command: `pnpm start --hostname 127.0.0.1 --port ${outagePort}`,
+      port: outagePort,
+      env: { ...environment, NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:1" },
       reuseExistingServer: !process.env["CI"],
     },
     {

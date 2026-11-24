@@ -91,3 +91,48 @@ for (const { state, tags, check } of STATES) {
     });
   }
 }
+
+// Focus on the catalog's links, seen (R-32): the course title and Courses in
+// the header, reached with Tab alone, each with a visible ring and a target
+// at least 44 px tall. Saved at the size of the viewport, where focus is.
+const FOCUS_TARGETS = [
+  {
+    name: "course-title",
+    link: (page: Page) => page.getByRole("link", { name: catalogGallery.longCourse }),
+  },
+  {
+    name: "courses",
+    link: (page: Page) => page.getByRole("link", { name: catalogCommon.coursesLink }),
+  },
+];
+
+for (const { name, link } of FOCUS_TARGETS) {
+  for (const width of [375, 1280]) {
+    test(`[NFR-A11Y-03] [NFR-A11Y-06] the ${name} link shows focus at ${String(width)} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/dev/catalog?state=list-rows");
+      const target = link(page);
+      let reached = false;
+      for (let presses = 0; presses < 20 && !reached; presses += 1) {
+        await page.keyboard.press("Tab");
+        reached = await target.evaluate((element) => element === document.activeElement);
+      }
+      expect(reached).toBe(true);
+      await expect(target).toBeFocused();
+      const outline = await target.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) };
+      });
+      expect(outline.style).not.toBe("none");
+      expect(outline.width).toBeGreaterThan(0);
+      const box = await target.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await saveScreen(page, `catalog-focus-${name}`, width, {
+        fullPage: false,
+        workPackage: "WP-5.1",
+      });
+    });
+  }
+}
