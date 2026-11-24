@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 19:40), in `night-c`, on `wp/7.3-operations`
+
+- `git fetch` at 19:40: `origin/main` is still 7875ee2 and already in `wp/7.3-operations`. Task 1 has nothing new. The only branch that moved is another agent's `origin/wp/5.1-catalog` (now f2ab9b3), which this run does not touch.
+- Task 2 is still blocked: the dependencies in `docs/spec/08-delivery-plan.md` are unchanged, and WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches. No branch was started.
+- Committed locally, not pushed: this note adds nothing the pushed 19:39 note does not already say, so it is not worth a Vercel build. The next push of this branch carries it.
+- The run stops here.
+
 ## Session of 2026-11-24 (from about 19:39), in `night-c`, on `wp/7.3-operations`
 
 - `origin/main` is still 7875ee2 and already in `wp/7.3-operations` (`git merge-base --is-ancestor`). Task 1 has nothing new.
