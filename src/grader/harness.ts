@@ -232,8 +232,9 @@ def _heap_make_grader():
         dict_clear(builtins_dict)
         dict_update(builtins_dict, builtins_snapshot)
         dict_update(sys_dict, sys_snapshot)
-        # Cleared rather than emptied name by name: a lookup would hash the
-        # program's keys and could call their __eq__.
+        # Cleared rather than emptied name by name, so the program's keys are
+        # not hashed while the table is cleared. A key a __del__ adds during
+        # the clear is still compared by the update; intact() then fails.
         dict_clear(modules)
         dict_update(modules, modules_snapshot)
         dict_clear(line_cache)

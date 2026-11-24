@@ -712,21 +712,48 @@ describe("the harness", () => {
   it("[FR-RUN-04] a line cache key the program leaves does not run its __eq__ in the next test case", () => {
     // WP-3.3 security review 4, round 4, MINOR 1: the harness writes the
     // program's file name into linecache.cache before each case. The key's
-    // __eq__ also runs in its own case, when the program adds it.
+    // __eq__ is armed only after the program has added it, and raises, so a
+    // call in the next case shows as a runtime error there. The program
+    // removes its own entry, so the next write of that name meets the key.
     const source = [
       "import linecache",
       `H = hash("${HARNESS_PROGRAM_FILENAME}")`,
+      "armed = []",
       "class Key:",
       "    def __hash__(self, H=H):",
       "        return H",
-      "    def __eq__(self, other, say=print):",
-      '        say("INJECTED")',
+      "    def __eq__(self, other, armed=armed):",
+      "        if armed:",
+      '            raise ValueError("INJECTED")',
       "        return False",
+      `linecache.cache.pop("${HARNESS_PROGRAM_FILENAME}")`,
       'linecache.cache[Key()] = (0, None, [], "key")',
+      "armed.append(1)",
       'print("first")',
     ].join("\n");
-    expect(run(source)).toMatchObject({ output: "INJECTED\nfirst\n", error: undefined });
+    expect(run(source)).toMatchObject({ output: "first\n", error: undefined });
     expect(run('print("honest")')).toMatchObject({ output: "honest\n", error: undefined });
+  });
+
+  it("[FR-RUN-04] the module table is cleared without hashing the program's keys", () => {
+    // WP-3.3 security review 4, round 5, MINOR: emptying the table name by
+    // name hashed this key, and its __hash__ ran inside the restore. The log
+    // is parked in sys.__dict__, which keeps names the snapshot does not list.
+    const source = [
+      "import sys",
+      "sys.heap_log = []",
+      "class Key:",
+      "    def __hash__(self, log=sys.heap_log):",
+      '        log.append("hashed")',
+      "        return 7",
+      "sys.modules[Key()] = 0",
+      "sys.heap_log.clear()",
+    ].join("\n");
+    expect(run(source)).toMatchObject({ output: "", error: undefined });
+    expect(run("import sys\nprint(sys.heap_log)")).toMatchObject({
+      output: "[]\n",
+      error: undefined,
+    });
   });
 
   it("[FR-GRD-01] a sys name key that is not a plain str makes the harness raise", async () => {
@@ -784,6 +811,6 @@ describe("the harness", () => {
     for (let index = 0; index < HARNESS_DEFINITION.length; index += 1) {
       hash = Math.imul(hash ^ HARNESS_DEFINITION.charCodeAt(index), 0x01000193) >>> 0;
     }
-    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2479067531 });
+    expect({ version: HARNESS_VERSION, hash }).toEqual({ version: "3", hash: 2294114720 });
   });
 });
