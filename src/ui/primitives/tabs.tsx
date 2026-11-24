@@ -14,18 +14,30 @@ export type TabsProps = {
   label: string;
   items: ReadonlyArray<TabItem>;
   defaultSelectedKey?: string;
+  /** The selected tab, when the screen decides it (the workspace's Run and Check). */
+  selectedKey?: string;
   onSelectionChange?: (key: Key) => void;
+  /** Fill the height of the box it is in; each panel scrolls on its own. */
+  fill?: boolean;
 };
 
 const tab =
   "-mbe-(--hairline) inline-flex min-h-target items-center border-be-(length:--marker-width) border-transparent px-4 text-base text-text-muted transition-colors data-hovered:text-text data-selected:border-action data-selected:font-semibold data-selected:text-text";
 
 /** Selected: text color, weight 600, and the 2 px amber bar on the block-end edge. */
-export function Tabs({ label, items, defaultSelectedKey, onSelectionChange }: TabsProps) {
+export function Tabs({
+  label,
+  items,
+  defaultSelectedKey,
+  selectedKey,
+  onSelectionChange,
+  fill = false,
+}: TabsProps) {
   return (
     <AriaTabs
-      className="flex flex-col"
+      className={fill ? "flex min-h-0 flex-1 flex-col" : "flex flex-col"}
       {...(defaultSelectedKey !== undefined && { defaultSelectedKey })}
+      {...(selectedKey !== undefined && { selectedKey })}
       {...(onSelectionChange !== undefined && { onSelectionChange })}
     >
       <TabList aria-label={label} className="flex gap-1 border-be border-border">
@@ -43,7 +55,15 @@ export function Tabs({ label, items, defaultSelectedKey, onSelectionChange }: Ta
         ))}
       </TabList>
       {items.map((item) => (
-        <TabPanel key={item.id} id={item.id} className="pbs-4">
+        <TabPanel
+          key={item.id}
+          id={item.id}
+          className={
+            fill
+              ? "flex min-h-0 flex-1 flex-col overflow-auto pbs-3 focus-visible:-outline-offset-2"
+              : "pbs-4"
+          }
+        >
           {item.content}
         </TabPanel>
       ))}

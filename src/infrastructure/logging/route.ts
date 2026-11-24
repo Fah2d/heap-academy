@@ -32,6 +32,7 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "setup",
   "verify",
   "courses",
+  "learn",
   "new",
   "lessons",
   "csp-report",

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from "react-aria-components";
 import { cx } from "../class-names";
 
@@ -16,6 +16,11 @@ export type ButtonProps = Omit<AriaButtonProps, "className" | "style" | "childre
   icon?: ReactNode;
   /** Full width, as a view's main action is on a phone (03-experience.md section 6.8). */
   block?: boolean;
+  /**
+   * The keys that press it, as `aria-keyshortcuts` reads them ("Control+Enter").
+   * React Aria passes no such attribute on, so it is set on the element.
+   */
+  keyShortcuts?: string;
   children: ReactNode;
 };
 
@@ -57,11 +62,20 @@ export function Button({
   surface = "base",
   icon,
   block = false,
+  keyShortcuts,
   children,
   ...props
 }: ButtonProps) {
+  const element = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const button = element.current;
+    if (button === null) return;
+    if (keyShortcuts === undefined) button.removeAttribute("aria-keyshortcuts");
+    else button.setAttribute("aria-keyshortcuts", keyShortcuts);
+  }, [keyShortcuts]);
   return (
     <AriaButton
+      ref={element}
       {...props}
       className={cx(shared, variantClasses(variant, surface), block && "w-full")}
     >

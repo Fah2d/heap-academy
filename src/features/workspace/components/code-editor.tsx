@@ -1,6 +1,6 @@
 "use client";
 
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useId, useRef } from "react";
 import { codeEditor as words } from "@/messages/lesson";
@@ -38,6 +38,13 @@ export type CodeEditorProps = {
   invalid?: boolean;
   /** This request's nonce, read on the server (`requestNonce`): used only when the document's own is not found. */
   nonce: string;
+  /** Fill the height of the box it is in and scroll inside, as in the workspace. */
+  fill?: boolean;
+  /**
+   * Move the cursor to the start of this line, scroll to it and focus the
+   * editor. A new `request` number repeats the move to the same line.
+   */
+  goToLine?: { line: number; request: number } | undefined;
 };
 
 export function CodeEditor({
@@ -47,6 +54,8 @@ export function CodeEditor({
   value,
   onChange,
   nonce,
+  fill = false,
+  goToLine,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -103,14 +112,26 @@ export function CodeEditor({
     }
   }, [value]);
 
+  useEffect(() => {
+    const editor = view.current;
+    if (editor === null || goToLine === undefined) return;
+    const { doc } = editor.state;
+    const line = doc.line(Math.min(Math.max(goToLine.line, 1), doc.lines));
+    editor.dispatch({
+      selection: EditorSelection.cursor(line.from),
+      effects: EditorView.scrollIntoView(line.from, { y: "center" }),
+    });
+    editor.focus();
+  }, [goToLine]);
+
   return (
     <div
-      className={`code-surface overflow-hidden rounded-panel border ${invalid ? "border-fail" : "border-border-control"}`}
+      className={`code-surface overflow-hidden rounded-panel border ${invalid ? "border-fail" : "border-border-control"} ${fill ? "code-fill flex h-full min-h-0 flex-col" : ""}`}
     >
       <span id={hintId} className="sr-only">
         {words.leaveHint}
       </span>
-      <div ref={host} className="min-h-40" />
+      <div ref={host} className={fill ? "min-h-0 flex-1" : "min-h-40"} />
     </div>
   );
 }

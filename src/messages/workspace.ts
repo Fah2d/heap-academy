@@ -93,6 +93,12 @@ export type FailureReasonWord =
   | "stopped"
   | "crashed";
 
+const megabytes = (bytes: number) =>
+  (bytes / 1_000_000).toLocaleString(LOCALE, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+
 const lines = (value: number) => (value === 1 ? "1 line" : `${count(value)} lines`);
 
 /** Words of the lesson workspace's page, panes and controls (section 6). */
@@ -122,8 +128,8 @@ export const workspace = {
     `${apple ? "⌘" : "Ctrl"}${shift ? " Shift" : ""} Enter`,
 
   starting: "Starting Python",
-  progress: (loaded: number, total: number) =>
-    `${Math.round((loaded / Math.max(total, 1)) * 100)}%`,
+  /** Bytes of Python downloaded, in megabytes: "2.7 of 5.5 MB". */
+  progress: (loaded: number, total: number) => `${megabytes(loaded)} of ${megabytes(total)} MB`,
   restarting: "Restarting Python",
   failed: "Python could not start. Your code is safe here.",
   retry: "Retry",
@@ -156,6 +162,7 @@ export const workspace = {
   endInput: "End input",
   answerRefused: (limit: number) => `An answer can be up to ${count(limit)} characters.`,
   truncated: (limit: number) => `Output stopped after ${count(limit)} characters.`,
+  truncatedShort: "Your output was cut at the limit, so only its start is shown.",
 
   /** Said once a run ends (section 6.3): its outcome and how many lines it printed. */
   runFinished: (printed: number) => `Run finished. ${lines(printed)} of output.`,

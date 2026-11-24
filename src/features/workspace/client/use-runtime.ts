@@ -32,7 +32,18 @@ const NOT_READY: RunRequest = { ok: false, error: "not_ready" };
  * closes. The workspace statechart decides what each control does; this hook
  * carries out its effects on the controller (architecture section 6).
  */
-export function useRuntime(program: (interactiveInput: boolean) => Program): {
+export function useRuntime(
+  program: (interactiveInput: boolean) => Program,
+  {
+    enabled = true,
+    onComplete,
+  }: {
+    /** False in a browser below the support floor: no worker is started (FR-SYS-02). */
+    enabled?: boolean;
+    /** The first passing check of the lesson (the chart's `completeLesson`). */
+    onComplete?: () => void;
+  } = {},
+): {
   view: RuntimeView;
   chart: WorkspaceState;
   dispatch: (event: WorkspaceEvent) => void;
@@ -44,10 +55,15 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
   const chartRef = useRef<WorkspaceState>(INITIAL_STATE);
   const controller = useRef<RuntimeController | undefined>(undefined);
   const programRef = useRef(program);
+  const completeRef = useRef(onComplete);
 
   useEffect(() => {
     programRef.current = program;
   }, [program]);
+
+  useEffect(() => {
+    completeRef.current = onComplete;
+  }, [onComplete]);
 
   const dispatch = useCallback((event: WorkspaceEvent) => {
     const refused = dispatchEvent(
@@ -76,14 +92,15 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
           if (request.ok) setView((previous) => startCheck(previous, current.status));
           return request;
         },
-        // The development page has no lesson to record; the chart shows `passed`.
-        complete: () => undefined,
+        // The development page passes no callback: it has no lesson to record.
+        complete: () => completeRef.current?.(),
       },
     );
     if (refused.length > 0) setView((previous) => addRefusal(previous, refused.length));
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     const created = createRuntimeController({
       createWorker: createPythonWorker,
       assetBase: runtimeAssetBase,
@@ -112,7 +129,7 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
       controller.current = undefined;
       chartRef.current = INITIAL_STATE;
     };
-  }, [dispatch]);
+  }, [dispatch, enabled]);
 
   const sendInput = useCallback(
     (line: string): InputRequest =>
