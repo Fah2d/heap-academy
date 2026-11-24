@@ -1,7 +1,13 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { logRoute, MAX_ROUTE_SEGMENTS, ROUTE_SEGMENTS } from "./route";
+import {
+  actionLogRoute,
+  contentLogRoute,
+  logRoute,
+  MAX_ROUTE_SEGMENTS,
+  ROUTE_SEGMENTS,
+} from "./route";
 
 describe("log route", () => {
   it("[NFR-OBS-01] keeps the app's own route segments", () => {
@@ -48,5 +54,19 @@ describe("log route", () => {
     walk(join(process.cwd(), "src/app"));
     expect(literal.length).toBeGreaterThan(0);
     expect(literal.filter((segment) => !ROUTE_SEGMENTS.has(segment))).toEqual([]);
+  });
+});
+
+describe("contentLogRoute", () => {
+  it("[NFR-PRIV-03] names the content query, never a visitor's address", () => {
+    expect(contentLogRoute("published-course")).toBe("GET /content/published-course");
+    expect(contentLogRoute("published-courses")).toBe("GET /content/published-courses");
+  });
+});
+
+describe("actionLogRoute", () => {
+  it("[NFR-PRIV-03] names a server action by the name in the code", () => {
+    expect(actionLogRoute("request-email-code")).toBe("POST /actions/request-email-code");
+    expect(actionLogRoute("ada@example.com")).toBe("POST /actions/:param");
   });
 });

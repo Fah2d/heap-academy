@@ -13,7 +13,22 @@ export type PolicyOptions = {
   development: boolean;
   /** Over plain HTTP (the local production server) there is nothing to upgrade to. */
   secure: boolean;
+  /** The sign-in page also frames the bot challenge (section 5.2, FR-AUTH-06). */
+  signInPage?: boolean;
 };
+
+/** Where the bot challenge, Cloudflare Turnstile, serves its frame. */
+export const BOT_CHALLENGE_ORIGIN = "https://challenges.cloudflare.com";
+export const SIGN_IN_PATH = "/sign-in";
+
+/**
+ * Whether a path is in the admin area. Its pages carry admin data and, at
+ * setup, the second step's key, so no cache may keep them (FR-ADM-02,
+ * docs/spec/06-security-privacy.md section 5.1).
+ */
+export function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
 
 /** A nonce of 128 random bits, base64 encoded. */
 export function createNonce(): string {
@@ -21,7 +36,19 @@ export function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function contentSecurityPolicy({ nonce, development, secure }: PolicyOptions): string {
+const NONCE_SOURCE = /'nonce-([A-Za-z0-9+/]+={0,2})'/;
+
+/** The nonce in a policy this proxy wrote, or undefined when there is none. */
+export function nonceFromPolicy(policy: string | null | undefined): string | undefined {
+  return typeof policy === "string" ? NONCE_SOURCE.exec(policy)?.[1] : undefined;
+}
+
+export function contentSecurityPolicy({
+  nonce,
+  development,
+  secure,
+  signInPage = false,
+}: PolicyOptions): string {
   const directives: string[][] = [
     ["default-src", "'self'"],
     [
@@ -39,6 +66,8 @@ export function contentSecurityPolicy({ nonce, development, secure }: PolicyOpti
     ["font-src", "'self'"],
     ["connect-src", "'self'"],
     ["worker-src", "'self'"],
+    // Its script loads by this request's nonce, like every other script.
+    ...(signInPage ? [["frame-src", BOT_CHALLENGE_ORIGIN]] : []),
     ["object-src", "'none'"],
     ["base-uri", "'none'"],
     ["form-action", "'self'"],

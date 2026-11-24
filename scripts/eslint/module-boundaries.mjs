@@ -49,6 +49,16 @@ const NODE_RUNNER = /^grader\/node-runner(?:\/|$)/;
 // The account deletion use case is the only caller (CLAUDE.md rule 8).
 const PRIVILEGED_CALLER = "features/profile/server/delete-account";
 
+// Public content is read with no session (CLAUDE.md rule 9,
+// docs/spec/02-architecture.md section 7.3). Its answers are cached and
+// shared by every visitor, so a session read there would serve one visitor's
+// view, such as the admin's drafts, to all. From `infrastructure`, `content`
+// may import only the session-less client, the environment schema and the
+// logger, and it may not read the request's cookies or headers.
+const CONTENT_INFRASTRUCTURE =
+  /^infrastructure\/(?:db\/public-client|env\/[^/]+|logging\/(?:logger|route))$/;
+const REQUEST_STATE = /^next\/headers(?:\/.*)?$/;
+
 // Folders whose modules run in the browser, and folders whose modules must
 // declare themselves server-only (docs/spec/02-architecture.md sections 4.1, 4.2).
 const CLIENT_FOLDER = /^features\/[^/]+\/client\//;
@@ -115,6 +125,8 @@ export const moduleBoundaries = {
         "The privileged database client may be imported only by the account deletion use case (CLAUDE.md rule 8).",
       impure:
         "`{{from}}` must stay pure: it may not import `{{source}}` (docs/spec/02-architecture.md section 4.1).",
+      contentSession:
+        "`content` reads with no session: it may import from `infrastructure` only `db/public-client`, `env` and `logging`, and never `next/headers` (CLAUDE.md rule 9).",
       nodeRunner:
         "The grader's Node runner is a test tool: only tests and scripts may import it (ADR-0032).",
       testImport:
@@ -151,6 +163,9 @@ export const moduleBoundaries = {
         if (isPure && (FRAMEWORK_PACKAGES.test(source) || NODE_BUILTINS.has(source))) {
           context.report({ node, messageId: "impure", data: { from: importer.module, source } });
         }
+        if (importer.module === "content" && REQUEST_STATE.test(source)) {
+          context.report({ node, messageId: "contentSession" });
+        }
         if (isClient && source === "server-only") {
           context.report({ node, messageId: "clientImport", data: { source } });
         }
@@ -183,6 +198,14 @@ export const moduleBoundaries = {
         (target.module === "infrastructure" || /(?:^|\/)server(?:\/|$)/.test(target.path))
       ) {
         context.report({ node, messageId: "clientImport", data: { source } });
+        return;
+      }
+      if (
+        importer.module === "content" &&
+        target.module === "infrastructure" &&
+        !CONTENT_INFRASTRUCTURE.test(target.path)
+      ) {
+        context.report({ node, messageId: "contentSession" });
         return;
       }
       if (target.module === importer.module && target.module !== "features") return;

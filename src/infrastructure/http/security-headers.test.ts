@@ -4,6 +4,7 @@ import {
   createNonce,
   CSP_REPORT_PATH,
   IMMUTABLE,
+  nonceFromPolicy,
   reportingEndpoints,
   RUNTIME_STATIC_POLICY,
   runtimeHeaders,
@@ -65,6 +66,22 @@ describe("content security policy", () => {
     expect(reportingEndpoints("https://example.test")).toBe(
       'csp="https://example.test/api/csp-report"',
     );
+  });
+
+  it("[NFR-SEC-02] [FR-AUTH-06] lets the sign-in page alone frame the bot challenge", () => {
+    expect(directives(production).has("frame-src")).toBe(false);
+    const signIn = directives(
+      contentSecurityPolicy({
+        nonce: "abc123",
+        development: false,
+        secure: true,
+        signInPage: true,
+      }),
+    );
+    expect(signIn.get("frame-src")).toEqual(["https://challenges.cloudflare.com"]);
+    // Everything else is the same policy.
+    signIn.delete("frame-src");
+    expect(signIn).toEqual(directives(production));
   });
 
   it("[NFR-SEC-02] does not ask a plain-HTTP local server to upgrade requests", () => {
@@ -186,5 +203,20 @@ describe("the runtime path's static policy", () => {
       "/_runtime/:path*",
       "/_runtime/worker/:path+.js",
     ]);
+  });
+});
+
+describe("nonceFromPolicy [NFR-SEC-02]", () => {
+  it("reads back the nonce the policy was made with", () => {
+    const nonce = createNonce();
+    expect(
+      nonceFromPolicy(contentSecurityPolicy({ nonce, development: false, secure: true })),
+    ).toBe(nonce);
+  });
+
+  it("finds none in a missing or nonce-free policy", () => {
+    expect(nonceFromPolicy(null)).toBeUndefined();
+    expect(nonceFromPolicy("default-src 'self'")).toBeUndefined();
+    expect(nonceFromPolicy("script-src 'nonce-a b'")).toBeUndefined();
   });
 });

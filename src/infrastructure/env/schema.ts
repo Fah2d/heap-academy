@@ -26,9 +26,17 @@ const publishableKey = required.startsWith("sb_publishable_", {
   error: "must be a publishable key (sb_publishable_...), never a secret key",
 });
 
+// The bot challenge's site key is public by design: the widget sends it from
+// the browser. Cloudflare's keys start with 0x; its published test keys,
+// used on the local stack and in CI, start with 1x, 2x or 3x.
+const challengeSiteKey = z
+  .string()
+  .regex(/^[0-3]x[A-Za-z0-9_-]{10,}$/, "must be a Turnstile site key (0x...)");
+
 export const publicEnvironmentSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: challengeSiteKey,
 });
 
 // The release in log lines and in the health answer: the commit SHA, which
@@ -78,6 +86,7 @@ export function parseEnvironment(source: Source): {
     public: {
       NEXT_PUBLIC_SUPABASE_URL: all.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: all.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: all.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     },
     server: {
       RESEND_API_KEY: all.RESEND_API_KEY,

@@ -64,7 +64,7 @@ describe("error page", () => {
 describe("site shell", () => {
   it("[NFR-A11Y-03] puts the skip link first and points it at the main landmark", async () => {
     render(
-      <SiteShell>
+      <SiteShell account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
@@ -77,12 +77,23 @@ describe("site shell", () => {
 
   it("[ADR-0031] shows the wordmark as live text linking home, and a banner landmark", () => {
     render(
-      <SiteShell>
+      <SiteShell account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
     expect(screen.getByRole("banner")).toBeTruthy();
     expect(screen.getByRole("link", { name: shell.productName }).getAttribute("href")).toBe("/");
+  });
+
+  it("[FR-AUTH-05] puts the account control in a labelled navigation landmark in the header", () => {
+    render(
+      <SiteShell account={<a href="/sign-in">Account</a>}>
+        <p>Content</p>
+      </SiteShell>,
+    );
+    const nav = screen.getByRole("navigation", { name: shell.accountNavigation });
+    expect(screen.getByRole("banner").contains(nav)).toBe(true);
+    expect(nav.textContent).toBe("Account");
   });
 });
 
