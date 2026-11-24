@@ -1,0 +1,13 @@
+# Local Supabase stack for development and the `db` CI job
+# (docs/spec/07-operations.md section 2). Settings not named here take the
+# CLI's defaults. Only `public` is exposed to the data API; `private` holds
+# is_admin and the trigger functions and is never exposed.
+project_id = "heap-academy"
+
+[api]
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
