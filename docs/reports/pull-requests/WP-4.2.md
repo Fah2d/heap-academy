@@ -2,6 +2,8 @@
 
 ## Up to date with main
 
+`wp/4.1-courses-chapters` with the course form focus fix from WP-4.3 (84aff13, WP-4.3 decision 17) is merged into this branch: a2ab47e. One conflict, `docs/reports/local-build-progress.md`: this branch's copy plus the new subsection. On a2ab47e, `pnpm verify`, exit 0, 73 files, 1331 tests; `next build` with CI's public values, exit 0; `check-bundle` (22 files) and `check-static`: exit 0. This branch's lesson editor keeps its own copy of the race until WP-4.3 merges, which fixes it.
+
 `main` at 7875ee2 (#12, WP-2.1 merged) is in this branch through `wp/4.1-courses-chapters`, its base (1910c3b): merge commit 7acef42. One file conflicted, `docs/reports/local-build-progress.md`: this branch's copy with the new session section from `wp/4.1-courses-chapters` added; no section dropped. #12's merge commit changes no file against `wp/2.1-schema-policies`, which this branch already had. The merge also brings the approved spec changes of WP-2.1, WP-2.2, WP-2.3 and WP-4.1.
 
 With the merge and this package's approved rule and spec changes, `pnpm verify`, exit 0:
