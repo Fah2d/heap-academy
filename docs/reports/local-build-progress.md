@@ -2,6 +2,85 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 12:50), in `night-a`, on `wp/3.1-python-worker`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Every item under "Next" below waits on security review 8, round 3, of WP-3.1's a24111c. This run did the first part of the first item anyway, as it needs no owner decision; the merges stay until the review. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 33 done: Run restores before its first collection (the harness's c694902)
+
+- a7c3ba7: `run-support.ts` restores once before the collect-and-restore loop, as the harness does since WP-3.3 security review 6, MAJOR 1. A new Pyodide test runs the harness's case and checks that the next run sees only its own output.
+- **Not reproduced.** The harness's case and three variants never left the runner's first collection empty: the runner's own garbage (107 to 246 objects in CPython) was always there, so the second pass caught the planted cycle. The new test passes with and without the restore, and removing the restore fails no test. Kept because it removes the reliance on that garbage. Said so in the commit, the test's comment and the description.
+- `pnpm verify` on a7c3ba7: exit 0, 37 files, 920 tests. `pnpm build` with CI's fake public values: exit 0; the built `run-support.js` has the new restore. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen a7c3ba7.
+- Decision: security review 8, round 3, not started, as in the earlier sessions (the 09:47 interruption may have been on purpose). It should now cover a24111c and a7c3ba7.
+- Description: the first line, "How it was verified", owner action 3 and "Not fixed" (the harness's single `collect()` is fixed on `wp/3.3-grader`) of `docs/reports/pull-requests/WP-3.1.md`.
+- Push: `wp/3.1-python-worker` with a7c3ba7 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. Ask for security review 8, round 3, on a24111c and a7c3ba7.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- After round 3 approves: merge `wp/3.1-python-worker` into `wp/3.3-grader` and on into `wp/3.4-statechart`, with `pnpm verify` and `pnpm build` on each.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
+## Session of 2026-11-24 (from about 10:35), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file is `wp/3.3-grader`'s copy (it held every line of this branch's copy) with this section added on top.
+
+### Task 3, part 32 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 4c612bc: `wp/3.3-grader` at c8e67f4 merged (WP-3.3 security review 6: 65af875, c694902, ff9e6eb and the docs). One conflict, this file; `wp/3.3-grader`'s copy taken (insertions only against this branch's copy). The harness and its tests merged with no conflict.
+- Checked: no code or test on this branch expects `HARNESS_VERSION = "4"`; `grade.ts` takes the value from the harness.
+- `pnpm verify` on 4c612bc: exit 0, 46 files, 1228 tests. `pnpm build` with CI's fake public values: exit 0; the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "5"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests. No reviewer has seen 4c612bc (a clean code merge).
+- Description: the first line and "Up to date with main" of `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with 4c612bc and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.4.md` on `wp/3.4-statechart`, if that pull request is open.
+2. The owner actions of the sections below are still due (security review 8, round 3, on WP-3.1's a24111c among them).
+
+### Next
+
+- After round 3 approves a24111c: the leading restore in WP-3.1's `run-support.ts` (the same fix as c694902), then merge `wp/3.1-python-worker` into `wp/3.3-grader` and on into `wp/3.4-statechart`.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
+## Session of 2026-11-24 (from about 10:10), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). Security review 8, round 3, on WP-3.1's a24111c was left for the owner, as the section below says. This run did the second item under "Next" below. This file is `wp/3.1-python-worker`'s copy (the newest; it held every section of this branch's copy) with this section added on top.
+
+### Task 3, part 31 done: the harness collects until nothing is left (found for WP-3.3 during WP-3.1 security review 8)
+
+- 65af875: `run_case` collects and restores until a collection finds nothing and raises `Uncollected` (a `NotRestored`) after eight passes; `check()` re-raises it. The fallback in `check()` runs after the except block and collects the same way; it did not collect before. `HARNESS_VERSION` is "5". Before, the next link of a `__del__` chain wrote `INJECTED` into the next test case's output; the new tests failed this way first.
+- Security review 6, round 1 on 65af875: CHANGES REQUIRED, 1 MAJOR (an object planted while the namespace was cleared made its cycle only in the first pass's restore, after a collection that found nothing), 1 MINOR (two dead calls in the fallback). Both fixed in c694902.
+- Round 2 on c694902: **APPROVE**, 2 MINOR (the capture's state dict stayed alive past the last collection; the header did not name the harness's frames). Both fixed in ff9e6eb. No reviewer has seen ff9e6eb. Report: `docs/reports/reviews/WP-3.3/security-review-6.md`.
+- Mutants: nine, each fails a test other than the hash pin; two equivalent survivors (list in the description).
+- `pnpm verify` on ff9e6eb: exit 0, 42 files, 1113 tests. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "5"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Decisions: `HARNESS_VERSION` "5", because "4" had already reached `wp/3.4-statechart` by merge. `Uncollected` is a subclass of `NotRestored`. Locals rebound through `sys._getframe(...).f_locals` are listed as not fixed (`freshWorker` is the control).
+- Found for WP-3.1, not changed (WP-3.1 code; round 3 of its review is pending): `run-support.ts` (16711f5) collects before its first restore, so it very likely has the same first-pass gap (argued by the reviewer, not reproduced). The fix is a restore before the first collection.
+- Not done: merging this into `wp/3.4-statechart`.
+- Description: the first line, "How it was verified", Reviews and "Not fixed" of `docs/reports/pull-requests/WP-3.3.md`.
+- Push: `wp/3.3-grader` with 65af875, c694902, ff9e6eb and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: the run took more than 20 minutes.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. Ask for a review of ff9e6eb, or accept it on the evidence in the description.
+3. The owner actions of the sections below are still due (security review 8, round 3, on WP-3.1's a24111c among them).
+
+### Next
+
+- Merge `wp/3.3-grader` (with ff9e6eb) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there.
+- After round 3 approves a24111c: the same leading restore in WP-3.1's `run-support.ts`, then merge `wp/3.1-python-worker` into `wp/3.3-grader` (the run support and the harness change in different files) and on into `wp/3.4-statechart`.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
 ## Session of 2026-11-24 (from about 09:36), in `night-a`, on `wp/3.1-python-worker`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). The worktree held unfinished work from an earlier run that stopped without a record here: three unpushed commits on `wp/3.1-python-worker` (4d6608f, 16711f5, a24111c) and an uncommitted `docs/reports/reviews/WP-3.1/security-review-8.md` with rounds 1 and 2. This run finished recording that work. This file is `wp/3.4-statechart`'s copy (the newest; it held every line of this branch's copy) with this section added on top.
