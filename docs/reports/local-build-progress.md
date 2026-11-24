@@ -11,6 +11,8 @@ Task 1 done as far as it can go: `wp/7.3-operations` now contains `origin/main` 
 - WP-7.3 itself cannot go further: every remaining part in "What is left for later parts of WP-7.3" of `docs/reports/pull-requests/WP-7.3-part-2.md` still needs decision C, WP-2.1 in `main`, or the owner.
 - Task 2: `main` has WP-1.1 to 1.4, WP-6.1 part 1, WP-6.2 part 1 and the smoke fix. Every package that depends only on those already has an open pull request (WP-2.1 #12, WP-3.1 #9, WP-6.3 #11). Every other package in `docs/spec/08-delivery-plan.md` depends on WP-2.1, 2.2, 2.3, 3.1, 4.x or 5.x, none of which is in `main` (checked with `git merge-base --is-ancestor`). WP-7.1 and WP-7.2 review the whole application, so they wait too. No new branch was started.
 
+- Checked again in a later run on 2026-11-24: `origin/main` still 81fdc39 and already in `wp/7.3-operations`; WP-2.1, 2.2, 3.1 and 6.3 still not in `origin/main`; `gh pr list` still fails with the same TLS error. Still blocked, no code changed. This note was committed but not pushed, to save a Vercel build for a change with no new work.
+
 ### Owner: run this
 
 - Merge WP-2.1 (#12) or WP-3.1 (#9), or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
