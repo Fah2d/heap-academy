@@ -24,6 +24,9 @@ describe("[FR-PRG-02] the sync mounted for a signed-in learner", () => {
     await deviceProgress().record(pass);
     await waitFor(() => expect(recordCompletion).toHaveBeenCalledWith(pass));
     await waitFor(async () => expect(await deviceProgress().pending()).toEqual([]));
+    const synced = mergeProgress.mock.calls.length;
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(mergeProgress.mock.calls.length).toBeGreaterThan(synced));
     view.unmount();
     await deviceProgress().clear();
     await deviceProgress().record(pass);

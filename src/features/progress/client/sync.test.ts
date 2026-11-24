@@ -3,6 +3,7 @@ import { parseLessonId, type LessonId } from "@/domain/ids";
 import { type Completion, MAX_COMPLETION_CODE, MAX_SYNC_COMPLETIONS } from "@/domain/progress";
 import { createProgressStore } from "./progress-store";
 import {
+  MAX_BATCH_BYTES,
   type ProgressSync,
   RETRY_FIRST_MS,
   RETRY_LAST_MS,
@@ -265,6 +266,37 @@ describe("[FR-PRG-02] what is sent fits what the server takes", () => {
     await h.store.record({ ...pass(1), code: `\u0000${"a".repeat(MAX_COMPLETION_CODE + 5)}` });
     const [sent] = await h.store.pending();
     expect(sent?.code).toBe("a".repeat(MAX_COMPLETION_CODE));
+  });
+
+  it("splits a batch that would pass the server action's size limit", async () => {
+    const h = harness();
+    const code = "é".repeat(MAX_COMPLETION_CODE);
+    for (let n = 1; n <= 30; n += 1) await h.store.record({ ...pass(n), code });
+    const sync = startProgressSync(h.store, h.ports);
+    expect(await sync.sync()).toBe(true);
+    const sizes = h.sent.map((batch) => new TextEncoder().encode(JSON.stringify(batch)).length);
+    expect(Math.max(...sizes)).toBeLessThanOrEqual(MAX_BATCH_BYTES + 2);
+    expect(await h.store.pending()).toEqual([]);
+    sync.stop();
+  });
+});
+
+describe("[FR-AUTH-05] a sign-out during a sync", () => {
+  it("does not bring the account's list back", async () => {
+    let release: () => void = () => {};
+    const h = harness({
+      merge: async () => {
+        await new Promise<void>((resolve) => (release = resolve));
+        return { ok: true, value: { completions: [pass(9)], rejected: [] } };
+      },
+    });
+    const sync = startProgressSync(h.store, h.ports);
+    await settle();
+    await h.store.clear();
+    sync.stop();
+    release();
+    await settle();
+    expect(await h.store.completions()).toEqual([]);
   });
 });
 

@@ -2,6 +2,16 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 01:15), in `night-b`, WP-6.1 part 3 on `wp/6.1-sync-wiring`
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- The screens are on `wp/5.4-progress-preview`, so the new branch is that (215251b) with `wp/6.1-synced-progress` merged in. One conflict: this file.
+- Done: one device store; the sync runs for a signed-in learner; sign-out clears the device's completions. One code and one security review, both CHANGES REQUIRED; the fixes are in and were not reviewed again. Description: `docs/reports/pull-requests/WP-6.1-part-3.md`.
+- `pnpm verify`: exit 0, 129 files, 2314 tests. `pnpm build`, `check-bundle`, `check-static`: exit 0. Not run: `pnpm test:db`, browser tests.
+- Owner: open a draft pull request from `wp/6.1-sync-wiring`; answer decision 1 (clear saved code at sign-out too?).
+- Next: the unsynced notice and server-rendered progress (rest of WP-6.1), then WP-6.2 part 2 (XP and streak on screen). WP-5.4 part 3 is another session's.
+- Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule).
+
 ## Session of 2026-11-24 (from about 23:35), in `night-b`, WP-6.1 part 2 reviewed
 
 - Another session built a second device store (`src/features/progress/device`) in this checkout and committed both. This session kept `src/features/progress/client` (atomic across tabs, retry with backoff) and removed `device`; its note below about a lost-entry window no longer applies.

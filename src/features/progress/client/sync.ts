@@ -37,6 +37,24 @@ export type ProgressSync = {
 export const RETRY_FIRST_MS = 2_000;
 export const RETRY_LAST_MS = 60_000;
 
+/**
+ * Next refuses a server action body over 1 MB, so a batch is limited by size
+ * as well as by count. One completion always fits.
+ */
+export const MAX_BATCH_BYTES = 900_000;
+
+function firstBatch(pending: readonly Completion[]): Completion[] {
+  const encoder = new TextEncoder();
+  let bytes = 0;
+  const batch: Completion[] = [];
+  for (const completion of pending.slice(0, MAX_SYNC_COMPLETIONS)) {
+    bytes += encoder.encode(JSON.stringify(completion)).length + 1;
+    if (batch.length > 0 && bytes > MAX_BATCH_BYTES) break;
+    batch.push(completion);
+  }
+  return batch;
+}
+
 export function startProgressSync(
   store: ProgressStore,
   ports: SyncPorts,
@@ -74,8 +92,9 @@ export function startProgressSync(
   };
 
   const attempt = async (): Promise<boolean> => {
+    const since = await store.epoch();
     const pending = await store.pending();
-    const batch = pending.slice(0, MAX_SYNC_COMPLETIONS);
+    const batch = firstBatch(pending);
     let result: Awaited<ReturnType<SyncPorts["mergeProgress"]>>;
     try {
       result = await ports.mergeProgress({ completions: batch });
@@ -83,7 +102,7 @@ export function startProgressSync(
       return false;
     }
     if (!result.ok) return false;
-    await store.applySync(result.value.completions, result.value.rejected);
+    await store.applySync(result.value.completions, result.value.rejected, since);
     if (pending.length > batch.length) again = true;
     return true;
   };
@@ -126,8 +145,12 @@ export function startProgressSync(
   void sync();
 
   return {
-    send: (completion) =>
-      exclusive(async () => {
+    send: async (completion) => {
+      // Read now, not when its turn comes: a pass made before a sign-out is
+      // not sent after it.
+      const since = await store.epoch();
+      await exclusive(async () => {
+        if ((await store.epoch()) !== since) return;
         let outcome: Awaited<ReturnType<SyncPorts["recordCompletion"]>>;
         try {
           outcome = await ports.recordCompletion(sendable(completion));
@@ -136,13 +159,14 @@ export function startProgressSync(
           return;
         }
         if (outcome.ok) {
-          await store.markSynced(completion.lessonId);
+          await store.markSynced(completion.lessonId, since);
           onChange();
         } else if (outcome.error === "lesson_unavailable") {
-          await store.drop([completion.lessonId]);
+          await store.drop([completion.lessonId], since);
           onChange();
         } else retryLater();
-      }),
+      });
+    },
     sync,
     state: () => state,
     stop() {

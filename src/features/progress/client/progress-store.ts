@@ -34,12 +34,22 @@ export type ProgressStore = {
   subscribe: (listener: (completion: Completion) => void) => () => void;
   /** What the next sync sends: what the server has not stored (FR-PRG-06). */
   pending: () => Promise<Completion[]>;
+  /**
+   * Changes whenever the list is cleared, in this tab or another. Read it
+   * before asking the server, and pass it with the answer: an answer from
+   * before a sign-out then changes nothing.
+   */
+  epoch: () => Promise<string>;
   /** The server stored this lesson. */
-  markSynced: (lessonId: LessonId) => Promise<void>;
+  markSynced: (lessonId: LessonId, since: string) => Promise<void>;
   /** The server answered a sync: apply the account's list, drop refused lessons. */
-  applySync: (account: readonly Completion[], rejected: readonly LessonId[]) => Promise<void>;
+  applySync: (
+    account: readonly Completion[],
+    rejected: readonly LessonId[],
+    since: string,
+  ) => Promise<void>;
   /** The database refused these lessons, so they are no longer there to complete. */
-  drop: (lessonIds: readonly LessonId[]) => Promise<void>;
+  drop: (lessonIds: readonly LessonId[], since: string) => Promise<void>;
   /** Forgets every completion on this device: at sign-out. */
   clear: () => Promise<void>;
 };
@@ -63,6 +73,26 @@ function parseRows(values: unknown[]): [string, DeviceCompletion][] {
   });
 }
 
+/** The key of the row that says when the list was last cleared; it is not a completion. */
+const CLEARED = "cleared";
+
+function clearedIn(values: unknown[]): string {
+  for (const value of values) {
+    const cleared = (value as Record<string, unknown> | null)?.[CLEARED];
+    if (typeof cleared === "string") return cleared;
+  }
+  return "";
+}
+
+/** Resolves once the transaction has committed, not only answered its requests. */
+function committed(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB write failed"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB write aborted"));
+  });
+}
+
 type Written = "stored" | "taken" | "failed";
 
 export function createProgressStore(factory: IDBFactory | undefined): ProgressStore {
@@ -72,6 +102,44 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
   /** Passes not yet in IndexedDB, by lesson. */
   const pending = new Map<string, DeviceCompletion>();
   const listeners = new Set<(completion: Completion) => void>();
+  /** The clearing this store last saw; undefined until it has read the database. */
+  let epoch: string | undefined;
+  /** A clear IndexedDB has not taken yet: its rows are not read until it has. */
+  let owed: string | undefined;
+
+  /** Another tab cleared the list: what this one holds in memory goes too. */
+  const adopt = (cleared: string) => {
+    const first = epoch === undefined;
+    if (cleared === epoch) return;
+    epoch = cleared;
+    // The first read finds an old clearing, which says nothing about this tab's passes.
+    if (first) return;
+    known = new Map();
+    pending.clear();
+  };
+
+  const wipe = async (opened: IDBDatabase, cleared: string): Promise<void> => {
+    const transaction = opened.transaction(COMPLETION_STORE, "readwrite");
+    const done = committed(transaction);
+    const store = transaction.objectStore(COMPLETION_STORE);
+    store.clear();
+    store.put({ [CLEARED]: cleared }, CLEARED);
+    await done;
+  };
+
+  /** The open database once any owed clear is done; undefined while it cannot be. */
+  const ready = async (): Promise<IDBDatabase | undefined> => {
+    const opened = await database.open();
+    if (opened === undefined || owed === undefined) return opened;
+    try {
+      await wipe(opened, owed);
+      owed = undefined;
+      return opened;
+    } catch {
+      database.reset();
+      return undefined;
+    }
+  };
   // One operation at a time, so two passes of one lesson in this tab cannot both be first.
   let queue: Promise<unknown> = Promise.resolve();
   const serial = <T>(task: () => Promise<T>): Promise<T> => {
@@ -82,12 +150,13 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
 
   /** Reads IndexedDB into `known`; when the read fails, `known` stays as it was. */
   const refresh = async (): Promise<void> => {
-    const opened = await database.open();
+    const opened = await ready();
     if (opened === undefined) return;
     try {
       const values: unknown[] = await settle(
         opened.transaction(COMPLETION_STORE, "readonly").objectStore(COMPLETION_STORE).getAll(),
       );
+      adopt(clearedIn(values));
       known = new Map(parseRows(values));
     } catch {
       database.reset();
@@ -95,7 +164,7 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
   };
 
   const write = async (completion: DeviceCompletion): Promise<Written> => {
-    const opened = await database.open();
+    const opened = await ready();
     if (opened === undefined) return "failed";
     try {
       await settle(
@@ -115,6 +184,7 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
 
   /** Adds every pending pass it can, in order, stopping at the first refusal. */
   const flush = async (): Promise<void> => {
+    await refresh();
     for (const [lessonId, completion] of [...pending]) {
       const written = await write(completion);
       if (written === "failed") return;
@@ -140,24 +210,34 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
 
   /**
    * Rewrites the whole list in one transaction, so another tab's pass cannot
-   * land between the read and the write. When IndexedDB cannot, the new list
-   * is kept in memory.
+   * land between the read and the write. Does nothing when the list has been
+   * cleared since `since`. When IndexedDB cannot, the new list is kept in
+   * memory.
    */
-  const change = async (apply: (rows: DeviceCompletion[]) => DeviceCompletion[]) => {
+  const change = async (since: string, apply: (rows: DeviceCompletion[]) => DeviceCompletion[]) => {
     await flush();
-    const opened = await database.open();
+    if ((epoch ?? "") !== since) return;
+    const opened = await ready();
     if (opened !== undefined) {
       try {
-        const store = opened
-          .transaction(COMPLETION_STORE, "readwrite")
-          .objectStore(COMPLETION_STORE);
+        const transaction = opened.transaction(COMPLETION_STORE, "readwrite");
+        const done = committed(transaction);
+        // Handled below; this keeps an abort during the read from going unheard.
+        done.catch(() => undefined);
+        const store = transaction.objectStore(COMPLETION_STORE);
         const values: unknown[] = await settle(store.getAll());
+        const cleared = clearedIn(values);
+        if (cleared !== since) {
+          adopt(cleared);
+          return;
+        }
         const rows = new Map(parseRows(values));
         for (const [lessonId, row] of pending) if (!rows.has(lessonId)) rows.set(lessonId, row);
         const next = apply([...rows.values()]);
-        const requests: IDBRequest[] = [store.clear()];
-        for (const row of next) requests.push(store.put(row, row.lessonId));
-        await Promise.all(requests.map((request) => settle<unknown>(request)));
+        store.clear();
+        if (cleared !== "") store.put({ [CLEARED]: cleared }, CLEARED);
+        for (const row of next) store.put(row, row.lessonId);
+        await done;
         known = new Map(next.map((row) => [row.lessonId, row]));
         pending.clear();
         return;
@@ -165,10 +245,18 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
         database.reset();
       }
     }
-    const next = apply([...new Map([...pending, ...known]).values()]);
+    const next = apply([...new Map([...known, ...pending]).values()]);
     known = new Map();
     pending.clear();
     for (const row of next) pending.set(row.lessonId, row);
+  };
+
+  const clear = async (): Promise<void> => {
+    epoch = `${Date.now()}-${Math.random()}`;
+    owed = epoch;
+    known = new Map();
+    pending.clear();
+    await ready();
   };
 
   return {
@@ -195,24 +283,31 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
         return pending.size === 0 && (await database.open()) !== undefined ? "device" : "memory";
       }),
     pending: () => serial(async () => unsynced(await all()).map(sendable)),
-    markSynced: (lessonId) =>
+    epoch: () =>
+      serial(async () => {
+        await refresh();
+        return epoch ?? "";
+      }),
+    markSynced: (lessonId, since) =>
       serial(() =>
-        change((rows) =>
+        change(since, (rows) =>
           rows.map((row) => (row.lessonId === lessonId ? { ...row, synced: true } : row)),
         ),
       ),
-    applySync: (account, rejected) =>
+    applySync: (account, rejected, since) =>
       serial(() =>
-        change((rows) =>
+        change(since, (rows) =>
           applyAccount(
             rows.filter((row) => !rejected.includes(row.lessonId)),
             account,
           ),
         ),
       ),
-    drop: (lessonIds) =>
-      serial(() => change((rows) => rows.filter((row) => !lessonIds.includes(row.lessonId)))),
-    clear: () => serial(() => change(() => [])),
+    drop: (lessonIds, since) =>
+      serial(() =>
+        change(since, (rows) => rows.filter((row) => !lessonIds.includes(row.lessonId))),
+      ),
+    clear: () => serial(clear),
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
