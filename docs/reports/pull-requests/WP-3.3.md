@@ -1,4 +1,4 @@
-**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which no reviewer has seen (see Reviews). Security review 7 (each test case starts with the harness's collections, 3ab21e9): **APPROVE**; its two minors are answered in d757f11, which no reviewer has seen.
+**Base: `wp/3.1-python-worker`; merges after WP-3.1.** `main` is at 0efe863 (#3 to #8). `wp/3.1-python-worker`, which carries that `main` since 5f72072, is merged into this branch (last in df1c7bb, at aec6c83), so until WP-3.1 merges this pull request also shows WP-3.1's commits. It is a **draft**: the browser tests have run in Chromium only (on 459c0c3: the 13 parity cases and WP-3.1's 15 runtime tests pass), not in Firefox or WebKit. Review round 3 on the round-2 fixes: code and security both **APPROVE**; their six minors are answered in b67f730 or listed for you. Security review 4 (the restore of `sys.monitoring`, `gc.callbacks` and the other hooks, 203b6bb to 3fa2bd3): **APPROVE** in round 5; its last minor is answered in 3fa2bd3. Security review 5 (the garbage collector's state, 853f0c1 to 5649d7a): **APPROVE** in round 2; its two minors are answered in 5649d7a. Security review 6 (collecting until nothing is left, 65af875 to ff9e6eb): **APPROVE** in round 2; its two minors are answered in ff9e6eb, which security review 7, round 2, has seen. Security review 7 (each test case starts with the harness's collections, 3ab21e9 to be9375c): **APPROVE** in round 2, on d757f11 and ff9e6eb; its two minors are answered in be9375c, which no reviewer has seen.
 
 ## What and why
 
@@ -57,6 +57,15 @@ Code review 4 on df1c7bb: CHANGES REQUIRED, 4 MINOR, all fixed in 89fb157 (see R
 Not run on the merge: the browser tests.
 
 ## How it was verified
+
+**Security review 7, round 2 fix (be9375c), 2026-11-24.** A test reads `builtins` on the interpreter after `check()` returns, so it fails without `state = None`; two comments inside the Python text name both causes of a failed start collection. `HARNESS_VERSION` is "7". On be9375c with `state = None` removed, `src/grader/harness.test.ts`: `Tests 2 failed | 81 passed (83)` (the new test and the hash pin); with it back, `Tests 83 passed (83)`. `pnpm verify` on be9375c, exit 0:
+
+```
+ Test Files  42 passed (42)
+      Tests  1115 passed (1115)
+```
+
+`pnpm build` with CI's fake public values on be9375c: exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built `public/_runtime/worker/grader/harness.js` has `HARNESS_VERSION = "7"`; `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run: the browser tests.
 
 **Security review 7 fix (3ab21e9, d757f11), 2026-11-24.** `run_case` starts with `collect_all()` instead of a bare `restore()`. In the Node runner's thread a JavaScript timer one test case set fires before the next case's message; before, its callback could make a reference cycle whose `__del__` wrote into the next case's output. `HARNESS_VERSION` is "6". `pnpm verify` on d757f11, exit 0:
 
@@ -356,17 +365,18 @@ Security review 6, on 65af875 to c694902 (found during WP-3.1 security review 8:
 | Round, on | Verdict | What was done |
 |---|---|---|
 | 1, 65af875 | CHANGES REQUIRED, 1 MAJOR, 1 MINOR | c694902: a restore before the first collection (an object planted while the namespace was cleared made a cycle only when the first restore freed it, after a collection that found nothing), with the reviewer's probe as a test; the fallback's two dead collector calls removed. |
-| 2, c694902 | **APPROVE**, 2 MINOR | ff9e6eb: the capture's state dict dropped before collecting, with the reviewer's probe as a test; the header names the harness's frames as well as its closure. No reviewer has seen ff9e6eb. |
+| 2, c694902 | **APPROVE**, 2 MINOR | ff9e6eb: the capture's state dict dropped before collecting, with the reviewer's probe as a test; the header names the harness's frames as well as its closure. Security review 7, round 2, approved ff9e6eb; its test no longer guarded the fix after 3ab21e9, answered in be9375c. |
 
 Decisions: `HARNESS_VERSION` is "5", because "4" had left this branch by merge into `wp/3.4-statechart` (4fe1874); it stays "5" through the three commits, which were pushed together. `Uncollected` is a subclass of `NotRestored`, so callers that read the type see the same family. Locals rebound through `sys._getframe(...).f_locals` can still keep an object alive past the last collection; clearing locals cannot close that from inside Python, and `freshWorker` is the control (listed below).
 
-Security review 7, on 3ab21e9 (the timers between test cases that security review 6, round 2, left not checked). Report: `docs/reports/reviews/WP-3.3/security-review-7.md`. One round:
+Security review 7, on 3ab21e9 (the timers between test cases that security review 6, round 2, left not checked); round 2 also covered ff9e6eb. Report: `docs/reports/reviews/WP-3.3/security-review-7.md`. Two rounds:
 
 | Round, on | Verdict | What was done |
 |---|---|---|
-| 1, 3ab21e9 | **APPROVE**, 2 MINOR | d757f11: the comment on `check()` says that a failure in the collections at the start of a case is reported against that case, though an earlier case's timer caused it (fails closed, as a bare `restore()` did before); the header rewrapped. No reviewer has seen d757f11. |
+| 1, 3ab21e9 | **APPROVE**, 2 MINOR | d757f11: the comment on `check()` says that a failure in the collections at the start of a case is reported against that case, though an earlier case's timer caused it (fails closed, as a bare `restore()` did before); the header rewrapped. |
+| 2, d757f11 and ff9e6eb | **APPROVE**, 2 MINOR | be9375c: a new test reads the interpreter after `check()` returns, so it fails without `state = None` (the ff9e6eb test passed without it once each case started with the collections); the comment on `check()` and the header say what an earlier case left can come from a timer or from a write into the harness's frames. No reviewer has seen be9375c. |
 
-Decisions: `HARNESS_VERSION` is "6", because "5" had left this branch by merge into `wp/3.4-statechart` (4c612bc); it stays "6" through d757f11, which changed only a comment inside the Python text, and the hash pin moved with it.
+Decisions: `HARNESS_VERSION` is "6", because "5" had left this branch by merge into `wp/3.4-statechart` (4c612bc); it stays "6" through d757f11, which changed only a comment inside the Python text, and the hash pin moved with it. It is "7" from be9375c, which changed a comment inside the Python text, because "6" had left this branch by merge into `wp/3.4-statechart` (68595de).
 
 ## Try it
 
