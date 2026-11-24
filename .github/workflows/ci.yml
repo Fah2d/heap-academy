@@ -1,7 +1,6 @@
 # The pull request pipeline (docs/spec/07-operations.md section 2.1). The job
 # names are the required checks of docs/spec/05-engineering-handbook.md
-# section 10: renaming one is a spec change. `db` arrives with the first
-# migration (WP-2.1) and `e2e` with the journeys.
+# section 10: renaming one is a spec change. `e2e` arrives with the journeys.
 #
 # Rules: .claude/rules/ci.md. Actions pinned by commit, no permissions by
 # default, a timeout on every job, the frozen lockfile, no secrets.
@@ -165,3 +164,25 @@ jobs:
       # A prerendered page carries no nonce, so the policy blocks its scripts.
       - name: No prerendered page
         run: node scripts/check-static.mjs .next
+
+  # Every migration on an empty database, then the policy, trigger and
+  # function tests (docs/spec/07-operations.md section 2.1; WP-2.1).
+  db:
+    name: db
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the Supabase CLI
+        run: |
+          mkdir "$RUNNER_TEMP/bin"
+          scripts/install-supabase.sh "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Start the local stack, applying every migration and the seed to an empty database
+        run: supabase start
+      - name: Policy, trigger and function tests
+        run: supabase test db
