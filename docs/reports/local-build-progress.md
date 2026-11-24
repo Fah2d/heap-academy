@@ -17,7 +17,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 Same as the run before. `origin/main` has WP-1.1 to 1.4, WP-2.1, WP-6.1 part 1 and WP-6.2 part 1. The only packages that depend on nothing else are WP-2.2 (`origin/wp/2.2-sign-in`, 9717efb at 15:17) and WP-3.1 (`origin/wp/3.1-python-worker`, pull request #9), and both already have another agent's branch. Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or all of WP-6.1. No branch was started.
 
-- Checked again at about 17:50, 17:52, 17:53, 17:55, 17:56, 17:58 and 17:59: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 15:26 except other agents' `origin/wp/5.1-catalog` (now 7a57d81, not merged, not touched); `gh pr list` still fails with the same TLS error; the dependencies in `docs/spec/08-delivery-plan.md` re-read and unchanged. Still blocked, no code changed. Committed but not pushed, to save a Vercel build; the next push of this branch carries it.
+- Checked again at about 17:50, 17:52, 17:53, 17:55, 17:56, 17:58, 17:59 and 18:01: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 15:26 except other agents' `origin/wp/5.1-catalog` (now 7a57d81, not merged, not touched); `gh pr list` still fails with the same TLS error; the dependencies in `docs/spec/08-delivery-plan.md` re-read and unchanged. Still blocked, no code changed. Committed but not pushed, to save a Vercel build; the next push of this branch carries it.
 
 ### Owner: run this
 
