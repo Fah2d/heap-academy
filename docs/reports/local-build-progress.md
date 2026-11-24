@@ -15,10 +15,18 @@ Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 8
 - Not run: `pnpm test:db` (no Docker), e2e (no browser).
 - Description: `docs/reports/pull-requests/WP-2.1.md`, "Up to date with main" section rewritten for 81fdc39.
 
+### Task 1b done: wp/2.2-sign-in
+
+- Merge commit 30dbedc: `wp/2.1-schema-policies` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.1's copy, a superset of this branch's).
+- No test failed. `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values (including the Turnstile test key): exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.2.md`, a new paragraph at the top of "Up to date with main"; decision A unchanged.
+- `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`), so neither pull request text on GitHub is updated. Owner: paste the "Up to date with main" sections of `WP-2.1.md` and `WP-2.2.md`.
+
 ### Next
 
-- Task 1b: `wp/2.2-sign-in`, merging `wp/2.1-schema-policies` (with the new `main`).
-- Then 2.3, 4.1, 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- Task 1c: `wp/2.3-admin-gate`, merging `wp/2.2-sign-in` (with the new `main`).
+- Then 4.1, 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
 - Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
 
 ## Session of 2026-11-23 (from about 23:25), in `night-b`, merging `main` into the open branches
