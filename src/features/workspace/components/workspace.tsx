@@ -11,8 +11,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { LessonId } from "@/domain/ids";
 import type { Neighbours } from "@/domain/workspace/neighbours";
 import { ariaKeyShortcuts, workspaceShortcut } from "@/domain/workspace/shortcuts";
+import { deviceProgress, type Durability } from "@/features/progress";
+import type { CheckSummary } from "@/grader/grade";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
 import { SOURCE_LIMIT, STDIN_LINE_LENGTH_LIMIT, STDIN_LINE_LIMIT } from "@/runtime/protocol";
@@ -35,6 +38,10 @@ import { ResetCode } from "./reset-code";
 import { TestsPanel } from "./tests-panel";
 
 export type WorkspaceLesson = {
+  /** The lesson's ID, which its completion is kept under (FR-PRG-07). */
+  id: LessonId;
+  /** What a first pass earns (FR-WSP-06). */
+  xp: number;
   course: { slug: string; title: string };
   slug: string;
   title: string;
@@ -126,6 +133,11 @@ export function Workspace({
   const edited = useRef(false);
   const pendingSave = useRef<number | undefined>(undefined);
   const latestCode = useRef(code);
+  // The code the last Check ran, kept as the completion's code.
+  const checkedCode = useRef(code);
+  const [completion, setCompletion] = useState<{ summary: CheckSummary; first: boolean }>();
+  const [durability, setDurability] = useState<Durability>("device");
+  const recorded = useRef<CheckSummary | undefined>(undefined);
 
   // The saved code is on the device, so it is read only here.
   useEffect(() => {
@@ -191,6 +203,48 @@ export function Workspace({
     replaceCode(next);
   };
 
+  // Whether the device keeps what is saved, known only in the browser (FR-PRG-01).
+  useEffect(() => {
+    let active = true;
+    void deviceProgress()
+      .durability()
+      .then((known) => {
+        if (active) setDurability(known);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // A check that passed every test is kept on the device at once, once per
+  // summary (NFR-REL-01). The store says whether it is the lesson's first
+  // pass, which alone earns its XP (FR-WSP-06).
+  useEffect(() => {
+    const summary = view.summary;
+    if (view.ended !== "check" || summary?.allPassed !== true) return;
+    if (recorded.current === summary) return;
+    recorded.current = summary;
+    const progress = deviceProgress();
+    let active = true;
+    void progress
+      .record({ lessonId: lesson.id, completedAt: Date.now(), code: checkedCode.current })
+      .then(async (first) => {
+        if (active) setCompletion({ summary, first });
+        const known = await progress.durability();
+        if (active) setDurability(known);
+      });
+    return () => {
+      active = false;
+    };
+  }, [view.ended, view.summary, lesson.id]);
+
+  const completionText =
+    completion !== undefined && completion.summary === view.summary
+      ? completion.first
+        ? words.completeFirst(lesson.xp)
+        : words.completeAgain
+      : undefined;
+
   const runtime = chart.runtime;
   const pending = "pending" in runtime ? runtime.pending : null;
   const canPress = (type: "RUN" | "CHECK") => canStart(chart) || isRemembered(runtime.name, type);
@@ -208,6 +262,7 @@ export function Workspace({
     setPhoneView("output");
     if (over !== undefined) return;
     setTab(action === "run" ? "console" : "tests");
+    if (action === "check") checkedCode.current = code;
     dispatch({ type });
   };
 
@@ -218,7 +273,9 @@ export function Workspace({
     view.ended === "run" && view.result !== undefined
       ? runAnnouncement(view.result, transcript(view.output, false).lines)
       : view.ended === "check" && view.summary !== undefined
-        ? words.summary(view.summary.passed, view.summary.total)
+        ? [words.summary(view.summary.passed, view.summary.total), completionText]
+            .filter((part) => part !== undefined)
+            .join(". ")
         : "";
 
   const moveTo = (line: number) => {
@@ -351,6 +408,11 @@ export function Workspace({
         />
       </div>
       {restored && <p className="text-sm text-text-muted">{words.restored}</p>}
+      {durability === "memory" && (
+        <Notice kind="warning" kindLabel={words.warningKind}>
+          <strong className="font-semibold">{words.memoryTitle}</strong> {words.memoryBody}
+        </Notice>
+      )}
       {/* Always present, so the words are announced when they appear. */}
       <div role="status" className={beforeReset === undefined ? "sr-only" : "text-base text-text"}>
         {beforeReset === undefined ? "" : words.resetDone}
@@ -497,6 +559,7 @@ export function Workspace({
                 tests={lesson.tests}
                 results={view.tests}
                 summary={view.summary}
+                completion={completionText}
                 checking={runtime.name === "checking"}
                 checkEnded={view.ended === "check"}
                 strategy={strategy}

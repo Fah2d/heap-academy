@@ -59,6 +59,8 @@ describe("[FR-WSP-02] loadLesson", () => {
     expect(loaded).toEqual({
       instructionsMarkdown: "Print hello.",
       lesson: {
+        id: "0b6f4c2e-6a0c-4a43-9a3e-2f0d6c1c9b51",
+        xp: 10,
         course: { slug: "python", title: "Python" },
         slug: "second",
         title: "Second",
@@ -92,6 +94,11 @@ describe("[FR-WSP-02] loadLesson", () => {
   it("is null when the course is not published", async () => {
     publishedCourse.mockResolvedValue({ ok: true, value: null });
     expect(await loadLesson("python", "second")).toBeNull();
+  });
+
+  it("throws, so the request ends on the error page with status 500, when the lesson's ID is not a UUID", async () => {
+    publishedLesson.mockResolvedValue({ ok: true, value: { ...lesson, id: "not-a-uuid" } });
+    await expect(loadLesson("python", "second")).rejects.toThrow("ID is not a UUID");
   });
 
   it("throws, so the request ends on the error page with status 500, when the lesson read fails", async () => {

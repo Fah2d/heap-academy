@@ -120,6 +120,28 @@ test("[FR-WSP-05] [FR-WSP-11] J-2: check, see a failure with expected and actual
   await screens(page, "workspace-passed");
 });
 
+// WP-5.4: a pass is kept on the device, survives a reload, and earns its XP once.
+test("[FR-WSP-06] [FR-PRG-01] a pass shows its XP once and is kept after a reload", async ({
+  page,
+}) => {
+  await ready(page);
+  await write(page, EXAMPLE_LESSON.solution);
+  await checkButton(page).click();
+  const completion = page.locator("[data-completion]");
+  await expect(completion).toHaveText(words.completeFirst(10));
+  await expect(
+    page.getByRole("status").filter({ hasText: words.completeFirst(10) }),
+  ).toBeAttached();
+  await expect(page.getByText(words.memoryTitle)).toHaveCount(0);
+  await noAxeViolations(page);
+
+  await page.reload();
+  await ready(page);
+  await expect(page.getByText(words.restored)).toBeVisible();
+  await checkButton(page).click();
+  await expect(completion).toHaveText(words.completeAgain);
+});
+
 test("[FR-WSP-08] J-3: a program that asks for input twice", async ({ page }) => {
   await ready(page);
   await write(page, 'a = input("First? ")\nb = input("Second? ")\nprint(a + b)\n');

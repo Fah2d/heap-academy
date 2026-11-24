@@ -32,6 +32,7 @@ export function TestsPanel({
   tests,
   results,
   summary,
+  completion,
   checking,
   checkEnded,
   strategy,
@@ -40,6 +41,8 @@ export function TestsPanel({
   tests: readonly TestCase[];
   results: readonly TestResult[];
   summary: CheckSummary | undefined;
+  /** The completion line once a check passed and the pass is kept (section 6.6). */
+  completion?: string | undefined;
   checking: boolean;
   /** The last thing that ended was a check, so its summary is new. */
   checkEnded: boolean;
@@ -74,6 +77,11 @@ export function TestsPanel({
         >
           {words.summary(summary.passed, summary.total)}
         </h3>
+      )}
+      {completion !== undefined && (
+        <p data-completion className="text-base font-semibold text-text">
+          {completion}
+        </p>
       )}
       <ol className="flex flex-col gap-1">
         {tests.map((test) => {

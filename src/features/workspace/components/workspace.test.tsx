@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { LessonId } from "@/domain/ids";
 import { EXAMPLE_LESSON } from "@/grader/example-lesson";
 import { goToLine, workspace as words } from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
@@ -36,6 +37,21 @@ vi.mock("../client/use-runtime", () => ({
     };
   },
 }));
+// The device's progress store, answering as the test says.
+const progress = vi.hoisted(() => ({
+  first: true,
+  durability: "device" as "device" | "memory",
+  record: vi.fn<(completion: { lessonId: string; completedAt: number; code: string }) => void>(),
+}));
+vi.mock("@/features/progress", () => ({
+  deviceProgress: () => ({
+    record: (completion: { lessonId: string; completedAt: number; code: string }) => {
+      progress.record(completion);
+      return Promise.resolve(progress.first);
+    },
+    durability: () => Promise.resolve(progress.durability),
+  }),
+}));
 vi.mock("../client/browser-support", () => ({ supportsPython: () => true }));
 vi.mock("../client/saved-code", () => ({
   savedCodeKey: (course: string, lesson: string) => `${course}/${lesson}`,
@@ -67,6 +83,8 @@ vi.mock("./code-editor", () => ({
 const { Workspace } = await import("./workspace");
 
 const lesson = {
+  id: "00000000-0000-4000-8000-00000000e001" as LessonId,
+  xp: 10,
   course: { slug: "python-basics", title: "Python basics" },
   slug: "say-hello",
   title: EXAMPLE_LESSON.title,
@@ -95,6 +113,9 @@ beforeEach(() => {
   runtime.view = { ...INITIAL_VIEW, status: "ready" };
   runtime.chart = { runtime: { name: "ready" }, lesson: "untouched" };
   runtime.dispatch.mockReset();
+  progress.first = true;
+  progress.durability = "device";
+  progress.record.mockReset();
 });
 
 afterEach(() => {
@@ -361,5 +382,94 @@ describe("[FR-WSP-13] below 768 px", () => {
     show();
     expect(screen.queryByRole("tablist", { name: words.views })).toBeNull();
     expect(screen.queryByRole("button", { name: words.toCode })).toBeNull();
+  });
+});
+
+describe("[FR-WSP-06] [FR-PRG-01] [NFR-REL-01] the completion moment", () => {
+  const passedAll = {
+    total: 2,
+    passed: 2,
+    failed: 0,
+    notRun: 0,
+    allPassed: true,
+    timeLimit: false,
+  };
+  const passedOne = {
+    total: 2,
+    passed: 1,
+    failed: 1,
+    notRun: 0,
+    allPassed: false,
+    timeLimit: false,
+  };
+  const region = () => screen.getAllByRole("status").find((element) => element.textContent !== "");
+
+  async function check(summary: typeof passedAll, rerender: (ui: React.ReactElement) => void) {
+    fireEvent.change(editor(), { target: { value: 'print("mine")' } });
+    await userEvent.click(button(words.check));
+    runtime.view = { ...runtime.view, summary, ended: "check" };
+    await act(async () => {
+      rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" />);
+      await Promise.resolve();
+    });
+  }
+
+  it("keeps a pass on the device with the checked code, and shows the XP of a first pass", async () => {
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    expect(progress.record).toHaveBeenCalledOnce();
+    expect(progress.record.mock.calls[0]?.[0]).toMatchObject({
+      lessonId: lesson.id,
+      code: 'print("mine")',
+    });
+    expect(await screen.findByText(words.completeFirst(10))).toBeTruthy();
+    expect(region()?.textContent).toBe(`${words.summary(2, 2)}. ${words.completeFirst(10)}`);
+  });
+
+  it("says a repeat pass earns no XP again", async () => {
+    progress.first = false;
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    expect(await screen.findByText(words.completeAgain)).toBeTruthy();
+    expect(screen.queryByText(words.completeFirst(10))).toBeNull();
+  });
+
+  it("keeps one pass once, however often the same result renders", async () => {
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" />);
+    expect(progress.record).toHaveBeenCalledOnce();
+  });
+
+  it("keeps nothing and says nothing of completion when a test fails", async () => {
+    const { rerender } = show();
+    await check(passedOne, rerender);
+    expect(progress.record).not.toHaveBeenCalled();
+    expect(screen.queryByText(words.completeFirst(10))).toBeNull();
+    expect(region()?.textContent).toBe(words.summary(1, 2));
+  });
+
+  it("drops the completion line when a later check fails", async () => {
+    const { rerender } = show();
+    await check(passedAll, rerender);
+    expect(await screen.findByText(words.completeFirst(10))).toBeTruthy();
+    runtime.view = { ...runtime.view, summary: { ...passedOne }, ended: "check" };
+    rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" />);
+    expect(screen.queryByText(words.completeFirst(10))).toBeNull();
+  });
+
+  it("says when the device keeps nothing past this tab", async () => {
+    progress.durability = "memory";
+    show();
+    expect(await screen.findByText(words.memoryTitle)).toBeTruthy();
+    expect(screen.getByText(words.memoryBody)).toBeTruthy();
+  });
+
+  it("shows no storage notice when the device keeps progress", async () => {
+    show();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(words.memoryTitle)).toBeNull();
   });
 });

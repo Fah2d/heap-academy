@@ -185,6 +185,12 @@ export const workspace = {
   testsBefore: "Check runs these tests on your code.",
   checking: "Checking your code",
   summary: (passed: number, total: number) => `${passed} of ${total} tests passed`,
+  // The completion moment (section 6.6; FR-WSP-06). A lesson's XP counts once.
+  completeFirst: (xp: number) => `Lesson complete. You earned ${xp} XP.`,
+  completeAgain: "Lesson complete. Its XP counted the first time you passed it.",
+  // Storage refused (FR-PRG-01): what is kept lasts only while the tab is open.
+  memoryTitle: "This browser is not saving your work.",
+  memoryBody: "Your code and completed lessons stay only until you close this tab.",
   passed: "Passed",
   failedTest: "Failed",
   notRun: "Not run",

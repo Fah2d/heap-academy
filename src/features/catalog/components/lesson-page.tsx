@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { cache } from "react";
 import { type ContentResult, publishedCourse, publishedLesson } from "@/content";
 import { renderMarkdown } from "@/content/markdown";
+import { parseLessonId } from "@/domain/ids";
 import { lessonNeighbours } from "@/domain/workspace/neighbours";
 import { parseTestCases } from "@/grader/test-case";
 import { learnPath, LessonContent, Workspace, type WorkspaceLesson } from "@/features/workspace";
@@ -44,11 +45,15 @@ export const loadLesson = cache(async (courseSlug: string, lessonSlug: string): 
   if (neighbours === undefined) {
     throw new Error("workspace: the course's order does not hold the lesson");
   }
+  const id = parseLessonId(lesson.id);
+  if (id === undefined) throw new Error("workspace: a published lesson's ID is not a UUID");
   const tests = parseTestCases(lesson.tests);
   if (!tests.ok) throw new Error("workspace: a published lesson's test cases do not parse");
   return {
     instructionsMarkdown: lesson.instructionsMarkdown,
     lesson: {
+      id,
+      xp: lesson.xp,
       course: lesson.course,
       slug: lesson.slug,
       title: lesson.title,
