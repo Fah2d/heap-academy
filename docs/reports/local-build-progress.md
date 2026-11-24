@@ -2,6 +2,36 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-24 (from about 07:50), in `night-a`, on `wp/3.3-grader`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). The worktree held unfinished work from an earlier run that stopped without a record here: three unpushed commits on `wp/3.3-grader` (203b6bb, 6a4f0f8, 839707a), uncommitted round-3 fixes, and an unfinished `docs/reports/reviews/WP-3.3/security-review-4.md`. This run finished that work instead of starting the "Next" items below.
+
+### Task 3, part 26 done: WP-3.3 security review 2, MINOR 5 (hooks that survived into later test cases)
+
+- 203b6bb, 6a4f0f8, 839707a (earlier run): the harness frees the `sys.monitoring` tools and restores `gc.callbacks`, the exception, unraisable, display and breakpoint hooks, the import lists, the importer cache, the digit limit and the async generator hooks; `intact()` checks every part by identity and the harness raises `NotRestored` when the state is not back. `HARNESS_VERSION` is "3".
+- f4c7a16: the earlier run's uncommitted round-3 fixes, committed after the tests passed: every key of the checked dicts must be a plain `str` before any lookup. Round 3's reviewer message was not saved; the report rebuilds its findings from the fixes and says so.
+- Security review 4, round 4 on f4c7a16: CHANGES REQUIRED, 1 MAJOR (six mutants survived), 2 MINOR (a key left in `linecache.cache` ran its `__eq__` in the next case; the module-table loop hashed the program's keys). All fixed in 7468f65.
+- Round 5 on 7468f65: **APPROVE**, 1 MINOR (no test pinned the module-table clear), fixed in 3fa2bd3. While doing that, the line-cache test of 7468f65 failed 1 run in 5 (its `__eq__` printed a varying number of times in its own case); 3fa2bd3 makes it independent of that and makes it catch a cache left unrestored, which it did not before. No reviewer has seen 3fa2bd3 (tests and one comment).
+- Mutants: the reviewer's six round-4 survivors and five more each fail a test other than the hash pin (table in the description).
+- `pnpm verify` on 3fa2bd3: exit 0, 42 files, 1098 tests. `harness.test.ts` 6 of 6 runs passed. `pnpm build` with CI's fake public values: exit 0; the built harness has `HARNESS_VERSION = "3"`. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Decision: `HARNESS_VERSION` stays "3" through all six commits, since "3" had not left this branch.
+- Not done: the same restore for WP-3.1's Run (`run-support.ts`); listed under "Not fixed" in the description. The `gc` thresholds and enabled state carry over; listed.
+- Description: the first line, "How it was verified", Reviews and "Not fixed" of `docs/reports/pull-requests/WP-3.3.md`. Report: `docs/reports/reviews/WP-3.3/security-review-4.md`.
+- Push: `wp/3.3-grader` with the six fix commits and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- Stopped here: the run took about 30 minutes.
+
+### Owner: run this
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-3.3.md` on `wp/3.3-grader`, if that pull request is open.
+2. Ask for a review of 3fa2bd3, or accept it on the evidence in the description.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with 3fa2bd3) into `wp/3.4-statechart`, then `pnpm verify` and `pnpm build` there. The earlier item (89fb157, `check()` after dispose) is part of the same merge.
+- After `wp/fix-smoke-and-runtime` merges into `main`: merge `main` into `wp/3.1-python-worker`, then into `wp/3.3-grader` and `wp/3.4-statechart` in turn, and run `e2e/csp.spec.ts` on each.
+
 ## Session of 2026-11-24 (from about 04:42), in `night-a`, on `wp/3.3-grader`
 
 Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so tasks 1 and 2 needed nothing (task 1's pull request is not merged yet). This run did the first item under "Next" in the section below. This file came to `wp/3.3-grader` with the merge (WP-3.1's copy, the newest) and this section was added on top.
