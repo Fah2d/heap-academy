@@ -2,6 +2,20 @@
 
 ## Up to date with main
 
+`main` at 81fdc39 (#10 on top of #5 to #8) is in this branch through `wp/2.1-schema-policies`, which has it (57903a0): merge commit 30dbedc. No rebase, no force push. One file conflicted, `docs/reports/local-build-progress.md`: the copy from `wp/2.1-schema-policies`, which holds every section of this branch's copy. No test failed and no code changed.
+
+On 30dbedc, `pnpm verify`, exit 0:
+
+```
+All matched files use Prettier code style!
+ Test Files  42 passed (42)
+      Tests  927 passed (927)
+```
+
+`next build` on 30dbedc with CI's public values, exit 0, the same five routes. `check-bundle` (21 files) and `check-static`: exit 0. Not run: `pnpm test:db` (no Docker) and e2e (no browser).
+
+The earlier merge of `main` at 0efe863, and decision A, follow.
+
 `main` at 0efe863 (#5, #6, #7, #8) is in this branch through `wp/2.1-schema-policies`, which already has it (9077917): merge commit 2f45f1d. No rebase, no force push.
 
 - Two files conflicted. `docs/reports/local-build-progress.md`: the copy from `wp/2.1-schema-policies`, the newer one. `playwright.config.ts`: both new projects kept, this branch's `stack` journeys and `main`'s three `phone` projects; the desktop projects ignore the gallery, phone and stack specs (decision A).
