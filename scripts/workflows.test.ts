@@ -274,4 +274,9 @@ describe("workflows", () => {
     const config: unknown = JSON.parse(readFileSync("vercel.json", "utf8"));
     expect(config).toMatchObject({ git: { deploymentEnabled: { main: false } } });
   });
+
+  it("[T-12] gives the build a marker value for the key that bypasses row level security", () => {
+    const build = job(read("ci.yml"), "build");
+    expect(build).toContain("SUPABASE_SECRET_KEY: ci_marker_secret_key_not_a_real_key\n");
+  });
 });

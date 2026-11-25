@@ -4,5 +4,6 @@ export { accountLessons } from "./server/account-lessons";
 export { AccountControl } from "./components/account-control";
 export { SignInPage } from "./components/sign-in-page";
 export { SignOutForm } from "./components/sign-out-form";
+export { signOut } from "./server/actions";
 export { handleGoogleCallback } from "./server/google-callback";
 export { guestInvitation } from "./server/guest-invitation";

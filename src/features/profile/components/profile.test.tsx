@@ -19,10 +19,13 @@ const mocks = vi.hoisted(() => ({
   pageIdentity: vi.fn(),
   read: vi.fn(),
   publishedCourses: vi.fn(),
+  deletion: vi.fn(() => false),
 }));
+vi.mock("../server/delete-account", () => ({ accountDeletionAvailable: mocks.deletion }));
 vi.mock("@/content", () => ({ publishedCourses: mocks.publishedCourses }));
 vi.mock("@/features/auth", () => ({
   SignOutForm: () => <button type="submit">sign-out-form</button>,
+  signOut: vi.fn(),
 }));
 vi.mock("@/features/catalog", () => ({ coursePath: (slug: string) => `/courses/${slug}` }));
 vi.mock("server-only", () => ({}));
@@ -35,7 +38,7 @@ vi.mock("@/infrastructure/db/session-client", () => ({ createSessionClient: asyn
 vi.mock("@/infrastructure/db/profile-store", () => ({
   supabaseProfileStore: () => ({ read: mocks.read }),
 }));
-vi.mock("../server/actions", () => ({ updateProfile: vi.fn() }));
+vi.mock("../server/actions", () => ({ updateProfile: vi.fn(), deleteAccount: vi.fn() }));
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
@@ -120,6 +123,19 @@ describe("[FR-PRF-01] the profile", () => {
     expect(screen.getByText(catalogCommon.progress(1, 2))).toBeTruthy();
     expect(screen.getByRole("button", { name: "sign-out-form" })).toBeTruthy();
   });
+
+  it.each([true, false])(
+    "[FR-PRF-03] offers account deletion only where it can be done (%s)",
+    async (available) => {
+      mocks.deletion.mockReturnValue(available);
+      vi.mocked(updateProfile).mockResolvedValue({ ok: true, value: { changed: false } });
+      mocks.pageIdentity.mockResolvedValue({ userId: "u1" });
+      mocks.read.mockResolvedValue({ displayName: "Sam", timeZone: "UTC", completions: [] });
+      mocks.publishedCourses.mockResolvedValue({ ok: true, value: [] });
+      render(await ProfilePage());
+      expect(screen.queryByRole("button", { name: words.deleteAccount }) !== null).toBe(available);
+    },
+  );
 
   it("sends a visitor to sign in and back, reading nothing", async () => {
     mocks.pageIdentity.mockResolvedValue(null);
