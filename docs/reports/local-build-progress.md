@@ -2,6 +2,32 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 05:50), in `night-a`, on `wp/7.2-a11y-perf`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. The `night-b` sessions in `heap-summary.md` work in the other checkout; nothing here had changed since 04:16.
+
+### Task 3, part 64 done: WP-7.2 part 2, the workspace's accessibility and load profile
+
+- 3b6df36: axe added to four workspace journeys (stopped, keyboard, markup as text, saved code restored); `e2e/workspace-a11y-runtime.spec.ts` (error while running, time limit, a test case out of input, a revealed hint, the open reset dialog, the keyboard walkthrough, test cases by keyboard, the dialog's focus, reduced motion); `e2e/workspace-load-profile.spec.ts` in a new `profile` project (throttled phone, one-line Run); `docs/reports/day-7-quality.md`.
+- Code review 2: CHANGES REQUIRED, 3 MAJOR, 7 MINOR; all fixed in 30b720b. Report: `docs/reports/reviews/WP-7.2/code-review-2.md`.
+- `pnpm verify` on 30b720b: exit 0, `Test Files  130 passed (130)`, `Tests  2326 passed (2326)`. `pnpm build` on 3b6df36: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser, Chromium, one test per process, against `next dev --webpack` on port 3272 (started by this run as a background task): `workspace-a11y-runtime` 8 of 8, `workspace-runtime` 17 of 17, `workspace-load-profile` 2 of 2.
+- Numbers (development server, throttled phone): first paint 740 ms, editor typing 45.4 s, Python ready 77.7 s; one-line Run 3 to 13 ms.
+- Found: CI (`.github/workflows/ci.yml` line 226) runs only the `chromium`, `stack` and `gallery` projects, so no workspace browser test, and none of its axe checks, runs in CI. Not changed here; the owner decides (description, "For the owner" 1).
+- Not run: Lighthouse (no preview deployment, not installed), stack journeys and `pnpm test:db` (no Docker), Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.2.md` (46 lines), now parts 1 and 2.
+- Push: `wp/7.2-a11y-perf` (last push 04:16).
+
+### Owner: run this (part 64)
+
+1. Open or update the draft pull request from `wp/7.2-a11y-perf` with `docs/reports/pull-requests/WP-7.2.md` as its body.
+2. Decide on adding `--project=runtime-chromium --project=phone-workspace` to CI (description, "For the owner" 1).
+3. Lighthouse on a preview for NFR-PERF-01, or a waiver.
+
+### Next
+
+- WP-7.2 part 3: keyboard walkthroughs of the catalog, sign-in and admin pages, and the phone layout's views. Then WP-7.5 (polish) once 7.1 to 7.4 merge, per the plan.
+
 ## Session of 2026-11-25 (from about 03:15), in `night-a`, on the new branch `wp/7.2-a11y-perf`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-a7) asked; it works on `wp/6.3-profile-page` there, with no file overlap.
