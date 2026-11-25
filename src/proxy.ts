@@ -7,6 +7,7 @@ import { createRequestId, REQUEST_ID_HEADER } from "@/infrastructure/http/reques
 import {
   contentSecurityPolicy,
   createNonce,
+  isAdminPath,
   reportingEndpoints,
   SIGN_IN_PATH,
 } from "@/infrastructure/http/security-headers";
@@ -66,6 +67,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // The provider asks for `cache-control: private, no-store` with new
   // cookies, so no shared cache keeps one visitor's session.
   for (const [name, value] of Object.entries(refresh.headers)) response.headers.set(name, value);
+  if (isAdminPath(request.nextUrl.pathname)) {
+    response.headers.set("cache-control", "private, no-store");
+  }
   response.headers.set("content-security-policy", policy);
   response.headers.set("reporting-endpoints", reportingEndpoints(request.nextUrl.origin));
   response.headers.set(REQUEST_ID_HEADER, requestId);

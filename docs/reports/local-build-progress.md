@@ -27,6 +27,44 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - `pnpm verify`: exit 0, 43 files, 929 tests. Not run: `supabase start` and the stack e2e (no Docker here).
 - Next: merge-forward of later branches onto 2.2, then part 2 of 6.1, 6.2, 6.3. Blocked: nothing.
 
+## Session of 2026-11-24 (from about 15:14), in `night-b`, `main` at 7875ee2 and the owner's decisions
+
+Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 in that order, each also merging the one before it; verify, build, push. (2) Finish WP-5.1. New: the owner's decisions of 2026-11-24 approve every recommended default in every pull request description (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, clear device progress at sign-out, the stored row wins, every proposed spec change). Each approved spec change is written into `docs/spec` on the branch it belongs to and marked "Approved by the owner on 2026-11-24".
+
+`origin/main` moved from 81fdc39 to 7875ee2: #12 merged `wp/2.1-schema-policies`. The merge commit changes no file against 57903a0, which every later branch already has.
+
+### Task 1a skipped: wp/2.1-schema-policies
+
+- Merged into `main` (#12). Nothing to merge into it, and a push would only cost a Vercel build. Its one proposed spec change (`afterCode`) is written on `wp/2.2-sign-in`, the next branch to reach `main` (decision B).
+
+### Task 1b done: wp/2.2-sign-in (pushed 9717efb)
+
+- Started at 15:14. Merge commit 4c297fc: `origin/main` (7875ee2), no conflict.
+- Spec changes written, each marked approved on 2026-11-24: `03-experience.md` section 5.4 ("Send code") and section 8 (one "code not accepted" state); `06-security-privacy.md` section 6 (a residual risk row for response timing); `02-architecture.md` section 9.1 (`startGoogleSignIn`); `08-delivery-plan.md` WP-2.2 (no browser database client); `04-content-system.md` sections 2.1, 2.2, 2.4 and 8 (`afterCode`, from WP-2.1).
+- `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values: exit 0, five routes. `check-bundle` (21 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.2.md`: base is now `main`, a new paragraph at the top of "Up to date with main", and "Decisions for the owner" became "Your decisions".
+- This file was not updated on that branch (its copy is older than this one); this section is its record.
+
+### Task 1c done: wp/2.3-admin-gate
+
+- Started at 15:19. Merge commit d3a05da: `wp/2.2-sign-in`, no conflict.
+- Spec changes written, each marked approved on 2026-11-24: `02-architecture.md` section 9.1 (the three second-step actions) and section 8.3 (`private.is_on_admin_list()`); `03-experience.md` section 7.1 (the button before the QR code); `06-security-privacy.md` section 6 (code guessing with a stolen session, T-19). `docs/runbooks/admin-access.md` section 4 says the risk is accepted.
+- `pnpm verify`: exit 0, 53 files, 1019 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
+
+Decisions taken with a safe default:
+
+- B. A merged branch's approved spec changes go on the next branch in the chain to reach `main`, not on a new branch, because no new pull request can be opened from here (`gh` still fails: `x509: OSStatus -26276`).
+- C. Only items a description called a spec change, or a deviation from the spec, are written into `docs/spec`. Approved defaults that change no spec text (for example WP-2.2's decisions 1 and 3, WP-2.3's decision 1) are recorded as approved in the description only.
+- D. Each spec change is written into the rule text where that is one line, with a quoted note "Approved by the owner on 2026-11-24 (proposed in WP-x.y)" beside it, as the WP-1.3 approvals were marked.
+
+### Owner: run this
+
+1. Paste `WP-2.2.md` into the WP-2.2 pull request (base `main`) and `WP-2.3.md` into WP-2.3's.
+
+
 ## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
 
 Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 81fdc39 (#10: the smoke wait, `public/_runtime` ignored, the CSP e2e fixes), so task 1 starts again: each of the seven branches is 9 commits behind `main`. One branch per task, as the task list says; at most two tasks per session.
@@ -48,10 +86,20 @@ Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 8
 - Description: `docs/reports/pull-requests/WP-2.2.md`, a new paragraph at the top of "Up to date with main"; decision A unchanged.
 - `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`), so neither pull request text on GitHub is updated. Owner: paste the "Up to date with main" sections of `WP-2.1.md` and `WP-2.2.md`.
 
+## Session of 2026-11-24 (from about 13:45), in `night-b`, task 1c
+
+### Task 1c done: wp/2.3-admin-gate
+
+- Merge commit d6dfb0c: `wp/2.2-sign-in` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.2's copy; this branch's copy differed only in older lines of the 23:25 session).
+- No test failed. `pnpm verify`: exit 0, 53 files, 1019 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main". `gh` was not tried again; owner: paste that section into the pull request.
+- `pnpm verify` printed `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` for its install-before-run step (the sandbox blocks the store lock); `node_modules` was already in place and every check ran.
+
 ### Next
 
-- Task 1c: `wp/2.3-admin-gate`, merging `wp/2.2-sign-in` (with the new `main`).
-- Then 4.1, 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- Task 1d: `wp/4.1-courses-chapters`, merging `wp/2.3-admin-gate` (with the new `main`).
+- Then 4.2, 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
 - Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
 
 ## Session of 2026-11-23 (from about 23:25), in `night-b`, merging `main` into the open branches
