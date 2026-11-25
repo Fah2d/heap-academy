@@ -35,6 +35,7 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "learn",
   "new",
   "lessons",
+  "preview",
   "csp-report",
   "health",
   "dev",

@@ -9,12 +9,13 @@ import {
   type LessonField,
   type LessonFields,
 } from "@/domain/admin/lesson-details";
+import { adminLessonPreviewPath } from "@/domain/admin/gate";
 import type { ContentStatus } from "@/domain/admin/structure";
 import { CodeEditor } from "@/features/workspace";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import { testCaseProblems, type TestCaseProblem } from "@/grader/test-case-list";
 import { lessonStatus, lessonEditor as words, structure } from "@/messages/admin";
-import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
+import { Button, FieldErrorMessage, Link, Notice, SelectField, TextArea, TextField } from "@/ui";
 import { validateLessonContent, type ValidationContent } from "../client/validate-lesson";
 import {
   openBrowserValidationRuntime,
@@ -481,14 +482,20 @@ export function LessonEditor({
             {unsaved ? words.unsaved : words.allSaved}
           </span>
         </p>
-        <Button
-          type="submit"
-          variant="primary"
-          isPending={saving || saveWaits}
-          isDisabled={statusPending && !publishing}
-        >
-          {saving ? words.saving : words.save}
-        </Button>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* The preview shows the last saved version (section 7.7). */}
+          <Link href={adminLessonPreviewPath(lesson.id)} variant="standalone">
+            {words.previewLesson}
+          </Link>
+          <Button
+            type="submit"
+            variant="primary"
+            isPending={saving || saveWaits}
+            isDisabled={statusPending && !publishing}
+          >
+            {saving ? words.saving : words.save}
+          </Button>
+        </div>
       </div>
 
       {/* A taken address is said once, under its field. */}

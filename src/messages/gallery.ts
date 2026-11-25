@@ -87,6 +87,8 @@ export const gallery = {
 
 // The development-only page that shows the admin area's states the J-12
 // journey cannot reach on the local stack (WP-2.3).
+export const adminPreviewGallery = { title: "Admin preview" };
+
 export const adminGallery = {
   title: "Admin states",
   intro:

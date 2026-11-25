@@ -49,6 +49,10 @@ const progress = vi.hoisted(() => ({
   record: vi.fn<(completion: { lessonId: string; completedAt: number; code: string }) => void>(),
   /** What the root layout hands down: the invitation for a guest, null when signed in. */
   invitation: null as unknown,
+  /** How many times the workspace asked for the device's progress. */
+  asked: 0,
+  /** The IndexedDB factory each code store was built with. */
+  codeFactories: [] as unknown[],
 }));
 // What the sync says is still waiting, as the test sets it.
 const sync = vi.hoisted(() => {
@@ -68,29 +72,35 @@ const sync = vi.hoisted(() => {
 });
 vi.mock("@/features/progress", () => ({
   syncStatus: sync,
-  deviceProgress: () => ({
-    record: (completion: { lessonId: string; completedAt: number; code: string }) => {
-      progress.record(completion);
-      const first = progress.first;
-      const hold = progress.hold;
-      if (hold === undefined) return Promise.resolve(first);
-      return new Promise<boolean>((resolve) => {
-        hold(() => {
-          resolve(first);
+  deviceProgress: () => {
+    progress.asked += 1;
+    return {
+      record: (completion: { lessonId: string; completedAt: number; code: string }) => {
+        progress.record(completion);
+        const first = progress.first;
+        const hold = progress.hold;
+        if (hold === undefined) return Promise.resolve(first);
+        return new Promise<boolean>((resolve) => {
+          hold(() => {
+            resolve(first);
+          });
         });
-      });
-    },
-    durability: () => Promise.resolve(progress.durability),
-  }),
+      },
+      durability: () => Promise.resolve(progress.durability),
+    };
+  },
   useGuestInvitation: () => progress.invitation,
 }));
 vi.mock("../client/browser-support", () => ({ supportsPython: () => true }));
 vi.mock("../client/saved-code", () => ({
   savedCodeKey: (course: string, lesson: string) => `${course}/${lesson}`,
-  createCodeStore: () => ({
-    load: () => Promise.resolve(undefined),
-    save: () => Promise.resolve(),
-  }),
+  createCodeStore: (factory: unknown) => {
+    progress.codeFactories.push(factory);
+    return {
+      load: () => Promise.resolve(undefined),
+      save: () => Promise.resolve(),
+    };
+  },
 }));
 vi.mock("./code-editor", () => ({
   CodeEditor: ({
@@ -150,6 +160,8 @@ beforeEach(() => {
   progress.record.mockReset();
   progress.hold = undefined;
   progress.invitation = null;
+  progress.asked = 0;
+  progress.codeFactories = [];
   runtime.checkedSource = undefined;
 });
 
@@ -642,5 +654,79 @@ describe("[FR-WSP-06] [FR-PRG-01] [NFR-REL-01] the completion moment", () => {
       await Promise.resolve();
     });
     expect(screen.queryByText(words.memoryTitle)).toBeNull();
+  });
+});
+
+describe("[FR-ADM-08] the admin's preview", () => {
+  const preview = { backHref: "/admin/lessons/x", backLabel: "Back to the lesson editor" };
+  const passedAll = {
+    total: 2,
+    passed: 2,
+    failed: 0,
+    notRun: 0,
+    allPassed: true,
+    timeLimit: false,
+  };
+  const showPreview = () =>
+    render(<Workspace lesson={lesson} instructions={null} nonce="nonce" preview={preview} />);
+
+  it("says it is a preview, and its back link goes to the editor", () => {
+    showPreview();
+    expect(screen.getByText(words.previewBody)).toBeTruthy();
+    const back = screen.getByRole("link", { name: preview.backLabel });
+    expect(back.getAttribute("href")).toBe(preview.backHref);
+    expect(
+      screen.queryByRole("link", { name: words.backToCourse(lesson.course.title) }),
+    ).toBeNull();
+    expect(screen.queryByRole("navigation", { name: words.lessons })).toBeNull();
+  });
+
+  it("records no pass and asks nothing of the device, and says so when every test passes", async () => {
+    progress.invitation = <p>Save your progress here</p>;
+    progress.durability = "memory";
+    const { rerender } = showPreview();
+    await userEvent.click(button(words.check));
+    runtime.view = { ...runtime.view, summary: passedAll, ended: "check" };
+    await act(async () => {
+      rerender(<Workspace lesson={lesson} instructions={null} nonce="nonce" preview={preview} />);
+      await Promise.resolve();
+    });
+    expect(document.querySelector("[data-completion]")?.textContent).toBe(words.previewComplete);
+    expect(progress.record).not.toHaveBeenCalled();
+    expect(progress.asked).toBe(0);
+    // No storage warning and no invitation: the banner already says nothing is kept.
+    expect(screen.queryByText(words.memoryTitle)).toBeNull();
+    expect(screen.queryByText("Save your progress here")).toBeNull();
+  });
+
+  it("turns Check off for a draft with no test case yet, and the tests panel says why", async () => {
+    render(
+      <Workspace
+        lesson={{ ...lesson, tests: [] }}
+        instructions={null}
+        nonce="nonce"
+        preview={preview}
+      />,
+    );
+    expect(button(words.check).hasAttribute("disabled")).toBe(true);
+    fireEvent.keyDown(editor(), { key: "Enter", ctrlKey: true, shiftKey: true });
+    expect(runtime.dispatch).not.toHaveBeenCalledWith({ type: "CHECK" });
+    await userEvent.click(screen.getByRole("tab", { name: words.tests }));
+    expect(screen.getByText(words.noTests)).toBeTruthy();
+    expect(button(words.run).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("keeps code in memory only, so a learner's saved code is never read or replaced", () => {
+    // A browser with IndexedDB, which jsdom does not have.
+    vi.stubGlobal("indexedDB", { open: () => undefined });
+    showPreview();
+    expect(progress.codeFactories).toEqual([undefined]);
+  });
+
+  it("a learner's workspace keeps code on the device", () => {
+    vi.stubGlobal("indexedDB", { open: () => undefined });
+    show();
+    expect(progress.codeFactories).toHaveLength(1);
+    expect(progress.codeFactories[0]).toBe(indexedDB);
   });
 });
