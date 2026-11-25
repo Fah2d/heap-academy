@@ -1,6 +1,11 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/5.2-workspace-laptop` at 8fe35c8** (which carries `wp/3.4-statechart` with WP-3.1 to WP-3.4, and `main` at dffe1a8 with WP-4.1 and WP-4.2). Merges after WP-5.2. Until then this pull request also shows WP-5.2's commits; review 1536808 and 63a1097. Merged in 76a5745 on 2026-11-25 (one conflict, `docs/reports/local-build-progress.md`, both sides kept): `pnpm verify` exit 0, `Test Files  107 passed (107)`, `Tests  1968 passed (1968)`; `pnpm build` with CI's fake public values, `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+**Base: `wp/5.2-workspace-laptop` at af88060** (which carries `wp/3.4-statechart` with WP-3.1 to WP-3.4, and `main` at 032246c with WP-4.1 to WP-5.1). Merges after WP-5.2. Until then this pull request also shows WP-5.2's commits; review 1536808 and 63a1097. Merged in 76a5745 on 2026-11-25 (one conflict, `docs/reports/local-build-progress.md`, both sides kept): `pnpm verify` exit 0, `Test Files  107 passed (107)`, `Tests  1968 passed (1968)`; `pnpm build` with CI's fake public values, `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+
+## Up to date with WP-5.2
+
+On 2026-11-26 `wp/5.2-workspace-laptop` came in twice: at 5d6549b (its merge of `wp/3.4-statechart` and `main` at 032246c) in 9d404cd, and at af88060 (WP-5.1's checks counting the lesson page, 08df7cc, and WP-5.2's notes) in ca8986d. Two files conflicted in 9d404cd: `e2e/screens.ts`, where the screenshot projects are both sides' (`main`'s `stack` and this branch's `phone-workspace`), and `docs/reports/local-build-progress.md` (both sides kept). On ca8986d: `pnpm verify` exit 0 (`Test Files  123 passed (123)`, `Tests  2238 passed (2238)`). The e2e job of CI ran here against the local stack, freshly reset (`supabase db reset`), with `CI=1` and the stack's publishable key: `pnpm test:e2e --project=chromium --project=stack --project=gallery`, `120 passed`, `1 skipped` (`[T-19] repeated wrong codes are limited`, a `test.fixme` that `main` has too), exit 0. Not run: Firefox, WebKit, `phone-workspace` and the `runtime-*` projects, which CI does not run on a pull request.
 
 ## What
 
