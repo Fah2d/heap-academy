@@ -2,6 +2,36 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 12:40), in `night-a`, on the new branch `wp/7.4-journeys-part-2c`
+
+Same task list, owner decisions and speed mode (2026-11-24). At the start `origin/main` was still 428c437. Task 2: nothing new that does not need the owner. `night-b` pushed `wp/6.3-account-deletion` (f89420c), so J-10 could be written; `night-b` (heap-academy-24) was told this session takes J-10. This file is `wp/7.4-journeys-part-2b`'s copy with `night-b`'s account deletion section merged in and this section on top.
+
+### Task 3, part 71 done: WP-7.4 part 2c, J-10
+
+- Base: `wp/7.4-journeys-part-2b` at d728f0c with `origin/wp/6.3-account-deletion` at f89420c merged in (de082c8; only this file conflicted).
+- 9a8aa1c: `e2e/j10-delete-account-journey.spec.ts` (`stack` project): sign in, pass a lesson, change the name, then delete the account from the profile at 375 px (a lower-case word refused, `DELETE` accepted). Signed out, device completions cleared, and every `public` and `auth` table with a `user_id` column (from the system catalog) holds no row of the user; the same address then signs up as a new, empty account. CI's `e2e` job now sets the local stack's secret key (masked) and two test addresses, so the delete control exists there.
+- Code review 4: CHANGES REQUIRED, 1 MAJOR, 9 MINOR; the major and seven minors fixed in the next commit, two answered in the description. The major: the title claimed every table, but the audit log names users in JSON; it is now counted and reported, not asserted (owner's open decision). Report: `docs/reports/reviews/WP-7.4/code-review-4.md`.
+- `pnpm verify`: exit 0, `Test Files  147 passed (147)`, `Tests  2524 passed (2524)`. `next build` with the CI build job's markers: exit 0.
+- Not run: the journey (no Docker); its first run is CI's `stack` job. Firefox and WebKit (speed mode). No security review (test and CI step only).
+- Description: `docs/reports/pull-requests/WP-7.4-part-2c.md` (43 lines).
+- Push: with task 1's branches, below.
+
+### Task 1 done at 13:43: `origin/main` moved to 76f616d (PR #13, WP-2.2 sign-in)
+
+- Merged into `wp/3.1-python-worker` (b2baee0, then bed8d1c), `wp/3.3-grader` and `wp/3.4-statechart`. Conflicts in `playwright.config.ts` (both the `stack` project and the runtime projects kept, one `notDesktop` list), `src/proxy.test.ts` (both test groups and imports kept) and this file (each branch kept its own copy). Each branch's `scripts/next-config.test.ts` now stubs `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, which main's `next.config.ts` requires.
+- `pnpm verify`, exit 0 on each: 3.1 `Tests  1166 passed (1166)` (53 files), 3.3 `Tests  1343 passed (1343)` (58 files), 3.4 `Tests  1458 passed (1458)` (62 files). `pnpm build` with the `.env.example` values: exit 0 on each.
+- `wp/7.4-journeys-part-2c` already held PR #13's commits (through `wp/2.2-sign-in`), so it needed no merge.
+- Push: the three runtime branches and `wp/7.4-journeys-part-2c`, in one `git push` at about 13:50.
+
+### Owner: run this (part 71)
+
+1. Open a draft pull request from `wp/7.4-journeys-part-2c` with `docs/reports/pull-requests/WP-7.4-part-2c.md` as its body; check CI's `stack` job and the J-10 audit log annotation.
+2. Accept or refuse J-10's notice call to Resend with the fake key, and decide on the audit log (description, "For the owner" 2 and 3).
+
+### Next
+
+- WP-7.1 part 3 needs Docker. WP-7.5 starts once 7.1 to 7.4 merge. Nothing else in the 3.x or 5.x line is left unbuilt on a branch.
+
 ## Session of 2026-11-25 (from about 11:40), in `night-a`, on the new branch `wp/7.4-journeys-part-2b`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-6.1's description lists J-5 and J-6 as not written, and WP-7.4 builds every journey, so this part wrote them on a new branch. This file is `wp/7.1-security-canary`'s copy (the newest) with this section on top. Two `night-b` sessions (heap-academy-9a, heap-academy-32) asked whether this one works there; it does not (answered 9a; 32's address had gone).

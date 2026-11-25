@@ -105,7 +105,8 @@ describe("workflows", () => {
   it("[FR-PRF-03] the e2e job gives the app the local stack's secret key, masked, before the journeys", () => {
     const text = job(read("ci.yml"), "e2e");
     const deletion = step(text, "Let the app delete accounts on the local stack");
-    expect(deletion).toContain("supabase status -o env");
+    expect(deletion).toContain("supabase status -o env | sed -n 's/^SECRET_KEY=");
+    expect(deletion.indexOf("::add-mask::")).toBeLessThan(deletion.indexOf("GITHUB_ENV"));
     expect(deletion).toContain('test -n "$secret"');
     expect(deletion).toContain('echo "::add-mask::$secret"');
     for (const name of ["SUPABASE_SECRET_KEY", "DELETION_NOTICE_FROM", "DELETION_NOTICE_TO"]) {

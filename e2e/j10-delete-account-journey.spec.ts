@@ -11,14 +11,23 @@ import { stackCourse } from "./stack-course";
 // WP-7.4 part 2c: J-10 (delete my account), docs/spec/01-requirements.md
 // section 2, FR-PRF-03 and T-17, on the production build against the local
 // stack (the `stack` project). The delete control exists only when the server
-// has the three account deletion variables, which CI's e2e job sets.
+// has the three account deletion variables, which CI's e2e job sets. To run it
+// locally, export SUPABASE_SECRET_KEY (SECRET_KEY of `supabase status -o env`),
+// DELETION_NOTICE_FROM and DELETION_NOTICE_TO (any two addresses) first.
 //
 // A learner signs in, passes a lesson (a completion with its code) and names
 // themselves, then deletes the account from the profile: a mistyped word is
-// refused, "DELETE" is accepted. The browser ends signed out with nothing on
-// the device, and every table in the public and auth schemas that names a
-// user holds no row of theirs. Signing in again with the same address makes a
-// new, empty account.
+// refused, "DELETE" is accepted, in a 375 px wide window, where the dialog's
+// buttons stack. The browser ends signed out with the device's completions
+// cleared, and every table in the public and auth schemas with a `user_id`
+// column holds no row of theirs. Signing in again with the same address makes
+// a new, empty account.
+//
+// The auth server's audit log names a user inside a JSON payload, not by a
+// `user_id` column. Whether deletion must erase it is the owner's open
+// question (WP-6.3's account deletion description, owner action 2), so the
+// journey counts those rows and reports the number as an annotation instead
+// of asserting it.
 //
 // Not walked here: the "sign in again" answer to a session older than 5
 // minutes. The server reads the sign-in time from the verified token, so the
@@ -49,15 +58,17 @@ function userIds(): string[][] {
  * table added later is inspected without changing this journey.
  */
 function rowsPerTable(userId: string): Map<string, number> {
-  const rows = sqlRows(`select c.table_schema || '.' || c.table_name,
+  // From the system catalog rather than information_schema, which hides a
+  // table the role holds no privilege on; such a table fails here instead.
+  const rows = sqlRows(`select n.nspname || '.' || c.relname,
   (xpath('/row/n/text()', query_to_xml(format(
     'select count(*) as n from %I.%I where user_id::text = %L',
-    c.table_schema, c.table_name, '${userId}'), false, true, '')))[1]::text
-from information_schema.columns c
-join information_schema.tables t
-  on t.table_schema = c.table_schema and t.table_name = c.table_name
-where c.column_name = 'user_id' and c.table_schema in ('public', 'auth')
-  and t.table_type = 'BASE TABLE'
+    n.nspname, c.relname, '${userId}'), false, true, '')))[1]::text
+from pg_catalog.pg_attribute a
+join pg_catalog.pg_class c on c.oid = a.attrelid
+join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+where a.attname = 'user_id' and not a.attisdropped
+  and c.relkind in ('r', 'p') and n.nspname in ('public', 'auth')
 order by 1;`);
   return new Map(rows.map(([table = "", count = ""]) => [table, Number(count)]));
 }
@@ -68,6 +79,13 @@ function sessionRows(sessionIds: readonly string[]): string[][] {
   return sqlRows(`select 'sessions', count(*) from auth.sessions where id in (${list})
 union all
 select 'mfa_amr_claims', count(*) from auth.mfa_amr_claims where session_id in (${list});`);
+}
+
+/** Rows of the auth server's audit log that name the user or the address. */
+function auditLogRows(userId: string): number {
+  const [[count = ""] = []] = sqlRows(`select count(*) from auth.audit_log_entries
+where payload ->> 'actor_id' = '${userId}' or payload::text like '%${address}%';`);
+  return Number(count);
 }
 
 async function expectDeviceCount(page: Page, completed: number) {
@@ -86,7 +104,7 @@ test.afterAll(() => {
   course.remove();
 });
 
-test("[FR-PRF-03] [T-17] J-10: a learner deletes their account; no row of theirs is left in any table", async ({
+test("[FR-PRF-03] [T-17] J-10: a learner deletes their account; no table keeps a row with their user ID", async ({
   page,
   request,
 }) => {
@@ -131,7 +149,9 @@ test("[FR-PRF-03] [T-17] J-10: a learner deletes their account; no row of theirs
     expect(Number(count), table).toBeGreaterThan(0);
   }
 
-  // The dialog says what is erased and wants the word typed exactly.
+  // The dialog says what is erased and wants the word typed exactly. A phone
+  // width, where its buttons stack.
+  await page.setViewportSize({ width: 375, height: 740 });
   await page.goto("/profile");
   await page.getByRole("button", { name: profile.deleteAccount }).click();
   const dialog = page.getByRole("dialog", { name: profile.deleteTitle });
@@ -151,7 +171,7 @@ test("[FR-PRF-03] [T-17] J-10: a learner deletes their account; no row of theirs
   await expect(page.getByRole("link", { name: account.signIn })).toBeVisible();
   await page.goto("/profile");
   await expect(page).toHaveURL(/\/sign-in\?returnTo=%2Fprofile$/);
-  // Nothing of the account is left on the device.
+  // The device's completions are cleared, as at sign-out.
   await expectDeviceCount(page, 0);
 
   // Every row is gone, in every table that names a user.
@@ -167,6 +187,10 @@ test("[FR-PRF-03] [T-17] J-10: a learner deletes their account; no row of theirs
     sqlRows(`select count(*) from auth.identities
       where identity_data ->> 'email' = '${address}';`),
   ).toEqual([["0"]]);
+  test.info().annotations.push({
+    type: "audit log rows naming the deleted user (owner decision open)",
+    description: String(auditLogRows(userId)),
+  });
 
   // The same address signs up again as a new account with nothing in it.
   await signInWithCode(page, request, address);
