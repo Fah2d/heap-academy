@@ -1,5 +1,5 @@
 import { test } from "@playwright/test";
-import { completeALesson, programThatAsksForInput, runawayCode } from "./journeys";
+import { completeALesson, DEV_WORKSPACE, programThatAsksForInput, runawayCode } from "./journeys";
 
 // WP-7.4: journeys J-2 to J-4 on a phone, by touch, at the three widths
 // FR-WSP-13 names, in the phone-workspace projects (an emulated Pixel 7, an
@@ -19,19 +19,19 @@ for (const width of [320, 375, 430]) {
     test(`[NFR-COMPAT-01] [NFR-COMPAT-03] J-2 at ${width} px: run, fail, fix, pass, completion, next`, async ({
       page,
     }) => {
-      await completeALesson(page, device);
+      await completeALesson(page, device, DEV_WORKSPACE);
     });
 
     test(`[NFR-COMPAT-01] [NFR-COMPAT-03] J-3 at ${width} px: a program that asks for input twice`, async ({
       page,
     }) => {
-      await programThatAsksForInput(page, device);
+      await programThatAsksForInput(page, device, DEV_WORKSPACE);
     });
 
     test(`[NFR-COMPAT-01] [NFR-COMPAT-03] J-4 at ${width} px: Stop ends a runaway loop and the next Run works`, async ({
       page,
     }) => {
-      await runawayCode(page, device);
+      await runawayCode(page, device, DEV_WORKSPACE);
     });
   });
 }

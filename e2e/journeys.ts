@@ -6,18 +6,39 @@ import { learnerErrorHeading, workspace as words } from "../src/messages/workspa
 
 // WP-7.4: journeys J-1 to J-4 (docs/spec/01-requirements.md section 2), each
 // written once and walked at phone and laptop sizes (NFR-COMPAT-03), in each
-// engine (NFR-COMPAT-01). They run
-// on the development-only page /dev/workspace, which holds the example lesson
-// with no database. On a phone (below 768 px) the workspace shows one view at
-// a time, so a journey taps to the view it needs; on a laptop every part is
-// on the screen and it clicks. e2e/journeys-phone.spec.ts and
-// e2e/journeys-wide-runtime.spec.ts choose the sizes and engines. Next, at
-// the end of J-2, is checked by its address only: the lesson it names is not
-// on this page, and the real route needs the database (the stack journeys).
+// engine (NFR-COMPAT-01). Each takes the lesson it walks: the development-only
+// page /dev/workspace, which holds the example lesson with no database, or
+// the seeded sample lesson on its real address, which needs the local stack
+// (e2e/lesson-route-journey.spec.ts). Both hold the example lesson of
+// docs/spec/04-content-system.md section 7. On a phone (below 768 px) the
+// workspace shows one view at a time, so a journey taps to the view it
+// needs; on a laptop every part is on the screen and it clicks.
+// e2e/journeys-phone.spec.ts and e2e/journeys-wide-runtime.spec.ts choose
+// the sizes and engines for the development page.
 
 export const READY_MS = 60_000;
 
 export type Device = { phone: boolean };
+
+/** The lesson a journey walks, and the lesson after it, if any. */
+export type Target = {
+  address: string;
+  next: { href: string; title: string } | null;
+};
+
+export const DEV_WORKSPACE: Target = {
+  address: "/dev/workspace",
+  next: {
+    href: `/learn/${workspaceGallery.courseSlug}/${workspaceGallery.next.slug}`,
+    title: workspaceGallery.next.title,
+  },
+};
+
+// supabase/seed.sql: the sample course's one lesson, so nothing comes after it.
+export const SEEDED_LESSON: Target = {
+  address: "/learn/sample-course/say-hello-by-name",
+  next: null,
+};
 
 const python = (page: Page) => page.locator("[data-python]");
 const editor = (page: Page) => page.locator(".cm-content");
@@ -70,11 +91,11 @@ async function write(page: Page, code: string, device: Device) {
   await expect(editor(page)).toContainText(code.split("\n")[0] ?? "");
 }
 
-// J-1 above the phone layout: the lesson reads at once and the editor takes
-// typing before Python is ready; Run shows the output. J-1 on a phone, view
-// by view, is in e2e/workspace-phone.spec.ts.
-export async function videoToFirstRun(page: Page) {
-  const device = { phone: false };
+// J-1: the lesson reads at once and the editor takes typing before Python is
+// ready; Run shows the output. On a phone the Lesson view comes first. J-1 on
+// the development page's phone layout, with that layout's own checks, is in
+// e2e/workspace-phone.spec.ts.
+export async function videoToFirstRun(page: Page, device: Device, target: Target) {
   // Python's files are held at first, as on a slow connection.
   let release: () => void = () => undefined;
   const gate = new Promise<void>((resolve) => {
@@ -84,8 +105,11 @@ export async function videoToFirstRun(page: Page) {
     await gate;
     await route.continue();
   });
-  await page.goto("/dev/workspace");
+  await page.goto(target.address);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(EXAMPLE_LESSON.title);
+  if (device.phone) {
+    await expect(view(page, words.viewLesson)).toHaveAttribute("aria-selected", "true");
+  }
   await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
   await noSidewaysScroll(page);
 
@@ -96,15 +120,20 @@ export async function videoToFirstRun(page: Page) {
   release();
   await ready(page);
   await press(button(page, words.run), device);
+  // On a phone, Run shows the Output view with the console.
+  if (device.phone) {
+    await expect(view(page, words.viewOutput)).toHaveAttribute("aria-selected", "true");
+  }
   await expect(consoleOutput(page)).toHaveText("my first run\n");
   await noSidewaysScroll(page);
   await noAxeViolations(page);
 }
 
 // J-2: Run, Check, a failing test case with expected and actual output, a
-// fix, a pass, the completion moment, and Next to the following lesson.
-export async function completeALesson(page: Page, device: Device) {
-  await page.goto("/dev/workspace");
+// fix, a pass, the completion moment, and Next to the following lesson. The
+// last lesson of a course has no Next; its way on is the course page.
+export async function completeALesson(page: Page, device: Device, target: Target) {
+  await page.goto(target.address);
   await ready(page);
   const summary = page.locator("[data-summary]");
 
@@ -129,14 +158,13 @@ export async function completeALesson(page: Page, device: Device) {
   await press(button(page, words.check), device);
   await expect(summary).toHaveText(words.summary(2, 2));
   await expect(page.locator("[data-completion]")).toHaveText(words.completeFirst(10));
-  const next = page.getByRole("link", {
-    name: words.neighbour(words.next, workspaceGallery.next.title),
-  });
-  await expect(next).toBeVisible();
-  await expect(next).toHaveAttribute(
-    "href",
-    `/learn/${workspaceGallery.courseSlug}/${workspaceGallery.next.slug}`,
-  );
+  if (target.next === null) {
+    await expect(page.getByRole("link", { name: new RegExp(`^${words.next}: `) })).toHaveCount(0);
+  } else {
+    const next = page.getByRole("link", { name: words.neighbour(words.next, target.next.title) });
+    await expect(next).toBeVisible();
+    await expect(next).toHaveAttribute("href", target.next.href);
+  }
   await noSidewaysScroll(page);
   await noAxeViolations(page);
 }
@@ -144,8 +172,8 @@ export async function completeALesson(page: Page, device: Device) {
 // J-3: a program that calls input() twice. The console asks for each answer
 // where the browser can pause a program; elsewhere the Input field takes the
 // answers before Run (FR-WSP-08).
-export async function programThatAsksForInput(page: Page, device: Device) {
-  await page.goto("/dev/workspace");
+export async function programThatAsksForInput(page: Page, device: Device, target: Target) {
+  await page.goto(target.address);
   await ready(page);
   await write(page, 'a = input("First? ")\nb = input("Second? ")\nprint(a + b)\n', device);
   await showView(page, words.viewOutput, device);
@@ -180,8 +208,8 @@ export async function programThatAsksForInput(page: Page, device: Device) {
 
 // J-4: a runaway loop is stopped, Python comes back without a reload, and
 // the next Run works.
-export async function runawayCode(page: Page, device: Device) {
-  await page.goto("/dev/workspace");
+export async function runawayCode(page: Page, device: Device, target: Target) {
+  await page.goto(target.address);
   await ready(page);
   await write(page, "while True:\n    pass\n", device);
   await press(button(page, words.run), device);
