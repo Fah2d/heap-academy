@@ -36,6 +36,13 @@ export function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
+const NONCE_SOURCE = /'nonce-([A-Za-z0-9+/]+={0,2})'/;
+
+/** The nonce in a policy this proxy wrote, or undefined when there is none. */
+export function nonceFromPolicy(policy: string | null | undefined): string | undefined {
+  return typeof policy === "string" ? NONCE_SOURCE.exec(policy)?.[1] : undefined;
+}
+
 export function contentSecurityPolicy({
   nonce,
   development,

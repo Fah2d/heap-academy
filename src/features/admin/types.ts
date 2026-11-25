@@ -13,7 +13,8 @@ export type MoveDirection = "up" | "down";
 
 export type ReorderInput =
   | { kind: "course"; id: string; direction: MoveDirection }
-  | { kind: "chapter"; courseId: string; id: string; direction: MoveDirection };
+  | { kind: "chapter"; courseId: string; id: string; direction: MoveDirection }
+  | { kind: "lesson"; chapterId: string; id: string; direction: MoveDirection };
 
 export type CourseStatus = "draft" | "published" | "archived";
 
@@ -53,3 +54,30 @@ export type EditorCourse = {
 };
 
 export type EditorCourseResult = { ok: true; course: EditorCourse | null } | { ok: false };
+
+/** A chapter the lesson may sit in: one of its course's. */
+export type LessonChapterOption = { id: string; title: string };
+
+/** One lesson as the lesson editor shows it (docs/spec/03-experience.md section 7.4). */
+export type EditorLessonDetail = {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  chapterId: string;
+  chapters: LessonChapterOption[];
+  title: string;
+  slug: string;
+  xp: number;
+  status: CourseStatus;
+  instructionsMd: string;
+  hints: string[];
+  starterCode: string;
+  solutionCode: string;
+  wrongAnswers: { label: string; code: string }[];
+  /** How many test cases it has; they are edited in the test case list. */
+  testCount: number;
+  /** The row's version: a save names it, and is refused if the row is newer (FR-ADM-10). */
+  loadedAt: string;
+};
+
+export type EditorLessonResult = { ok: true; lesson: EditorLessonDetail | null } | { ok: false };

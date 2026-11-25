@@ -279,6 +279,8 @@ Invariant: **public pages are built only from queries in `src/content`, and thos
 
 Instructions are stored as Markdown and rendered to elements on the server by one renderer with an allowlist (NFR-SEC-07). The dashboard preview calls the same renderer.
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-4.2):** the renderer (parser and highlighter) is in `src/content`, and the one component that draws its elements is in `src/features/workspace`, because `src/content` may not import `src/ui` or `src/messages` (section 4.1). The dashboard preview uses the same component.
+
 ## 8. Data model
 
 ADR-0012, ADR-0027. Postgres via Supabase. All timestamps are `timestamptz`. Migrations are forward-only SQL files.
@@ -451,7 +453,7 @@ Each of these cost time in the prototypes or in reading current documentation. E
 9. Supabase's built-in email sender is limited to 2 emails per hour (E-11).
 10. A per-request nonce needs dynamic rendering. Partial prerendering and static generation are incompatible with it (E-21).
 11. In development the framework needs `'unsafe-eval'` for debugging; production must not have it (E-21).
-12. The editor library injects style elements at run time. It must be given the nonce, or its styles are blocked. First check in WP-5.2.
+12. The editor library injects style elements at run time. It must be given the nonce of the loaded document, or its styles are blocked. After a move inside the app the request's nonce is a new one the document does not know, so the editor reads the nonce from the document's own scripts first (found in WP-4.2; approved by the owner on 2026-11-24).
 13. The assurance level lives in the session token. After the second step the token must be refreshed before the server sees `aal2` (E-20).
 14. A server action is reachable by anyone who can craft a request. Treat it like any public endpoint.
 
