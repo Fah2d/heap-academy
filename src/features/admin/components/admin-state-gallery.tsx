@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
 import type { LessonDocument } from "@/content/markdown";
@@ -22,7 +22,12 @@ import { SetupFlow } from "./setup-flow";
 // views that the J-12 journey cannot reach, with fake actions, so the e2e
 // gallery spec can check and photograph them (WP-2.3 design review 1).
 
+/** The one example a page shows when its address names it (`?example=<id>`). */
+const ShownExample = createContext<string | undefined>(undefined);
+
 function Example({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const shown = useContext(ShownExample);
+  if (shown !== undefined && shown !== id) return null;
   // As wide as the real pages, so a screenshot shows the layout they have.
   return (
     <section aria-labelledby={id} className="flex max-w-page flex-col gap-4">
@@ -332,10 +337,19 @@ const oddRuntime = fixedResultsRuntime((source, tests) => {
 export type AdminGalleryPart = "course" | "lesson" | "validation";
 
 /**
- * One page per part, so that no page holds every editor at once: each axe
- * run and screenshot then covers one area's states, not all of them.
+ * One page per part, so that no page holds every editor at once. A page can
+ * also show one example by itself, so that an axe run or a screenshot of it
+ * costs the same however many examples the part has.
  */
-export function AdminStateGallery({ nonce, part }: { nonce: string; part: AdminGalleryPart }) {
+export function AdminStateGallery({
+  nonce,
+  part,
+  example,
+}: {
+  nonce: string;
+  part: AdminGalleryPart;
+  example?: string | undefined;
+}) {
   const heading = m.pages[part];
   return (
     <div className="flex flex-col gap-7">
@@ -343,7 +357,9 @@ export function AdminStateGallery({ nonce, part }: { nonce: string; part: AdminG
         <h1 className="text-xl font-semibold text-text">{heading.title}</h1>
         <p className="max-w-prose text-base text-text-muted">{heading.intro}</p>
       </div>
-      <GalleryPart nonce={nonce} part={part} />
+      <ShownExample value={example}>
+        <GalleryPart nonce={nonce} part={part} />
+      </ShownExample>
     </div>
   );
 }

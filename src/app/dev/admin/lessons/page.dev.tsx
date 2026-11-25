@@ -9,10 +9,14 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default function AdminLessonStatesPage() {
+export default function AdminLessonStatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
     <AdminFrame>
-      <AdminStateGalleryServer part="lesson" />
+      <AdminStateGalleryServer part="lesson" searchParams={searchParams} />
     </AdminFrame>
   );
 }
