@@ -53,16 +53,45 @@ function variantClasses(variant: ButtonVariant, surface: ButtonSurface): string 
  * shared live region that is labelled by the button's id, and keeps that
  * node for seconds. When the finished action removes the button, as
  * publishing removes Publish, the node is left naming nothing: it reads as
- * empty and fails axe's role-img-alt rule. Removing the nodes that only this
- * button labelled loses nothing a screen reader could still read.
+ * empty and fails axe's role-img-alt rule. The nodes this button labelled
+ * go with it. Its element may still be in the document at that moment, as
+ * when the router leaves a page, so whether it is there is not asked.
  */
 function forgetAnnouncements(id: string) {
   for (const node of document.querySelectorAll("[role='img'][aria-labelledby]")) {
     const labels = (node.getAttribute("aria-labelledby") ?? "").split(" ");
-    if (labels.includes(id) && labels.every((label) => document.getElementById(label) === null)) {
-      node.remove();
+    if (labels.includes(id)) node.remove();
+  }
+}
+
+/**
+ * React Aria waits a moment before the first announcement in a document, so
+ * a button that the finished action removes quickly can be gone before its
+ * node arrives. One watcher per document drops such a node as it lands: every
+ * element that labels it is already gone.
+ */
+const watchedDocuments = new WeakSet<Document>();
+
+function dropUnnamedAnnouncements(records: MutationRecord[]) {
+  for (const record of records) {
+    for (const node of record.addedNodes) {
+      if (!(node instanceof Element) || node.getAttribute("role") !== "img") continue;
+      if (node.closest("[data-live-announcer]") === null) continue;
+      const labels = (node.getAttribute("aria-labelledby") ?? "").split(" ");
+      if (labels.every((label) => node.ownerDocument.getElementById(label) === null)) {
+        node.remove();
+      }
     }
   }
+}
+
+function watchAnnouncements(page: Document) {
+  if (watchedDocuments.has(page)) return;
+  watchedDocuments.add(page);
+  new MutationObserver(dropUnnamedAnnouncements).observe(page.body, {
+    childList: true,
+    subtree: true,
+  });
 }
 
 /**
@@ -79,7 +108,10 @@ export function Button({
 }: ButtonProps) {
   const ownId = useId();
   const id = props.id ?? ownId;
-  useEffect(() => () => forgetAnnouncements(id), [id]);
+  useEffect(() => {
+    watchAnnouncements(document);
+    return () => forgetAnnouncements(id);
+  }, [id]);
   return (
     <AriaButton
       {...props}
