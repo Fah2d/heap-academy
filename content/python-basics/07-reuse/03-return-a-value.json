@@ -1,0 +1,54 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Return a value",
+  "slug": "return-a-value",
+  "xp": 20,
+  "instructions_md": "## Give an answer back\n\n`return` sends a value back to the line that called the function. You can store it or print it. `print()` only shows text. It gives nothing back.\n\n```python\ndef double(number):\n    return number * 2\n\nresult = double(6)\nprint(result + 1)\n```\n\n```text\n13\n```\n\n## Your task\n\nDefine `area(width, height)`. It returns the area of a rectangle: the width multiplied by the height. Do not print inside the function.\n",
+  "hints": [
+    "The function needs two parameters.",
+    "Use `return`, not `print()`.",
+    "Write `def area(width, height):` and return the two values multiplied."
+  ],
+  "starter_code": "# Define area below.\n",
+  "solution_code": "def area(width, height):\n    return width * height\n",
+  "wrong_answers": [
+    {
+      "label": "prints instead of returning",
+      "code": "def area(width, height):\n    print(width * height)\n"
+    },
+    {
+      "label": "adds the sides",
+      "code": "def area(width, height):\n    return width + height\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "three-by-four",
+      "name": "`area(3, 4)` gives 12",
+      "stdin": "",
+      "afterCode": "print(area(3, 4))",
+      "expected": "12",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "five-by-five",
+      "name": "`area(5, 5)` gives 25",
+      "stdin": "",
+      "afterCode": "print(area(5, 5))",
+      "expected": "25",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "result-is-usable",
+      "name": "The result can be used in a calculation",
+      "stdin": "",
+      "afterCode": "print(area(2, 10) + 1)",
+      "expected": "21",
+      "match": "normalized",
+      "hint": "A function that only prints gives nothing back."
+    }
+  ]
+}
