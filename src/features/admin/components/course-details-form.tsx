@@ -72,7 +72,13 @@ export function CourseDetailsForm({
   onCreated,
   onUnsavedChange,
 }: CourseDetailsFormProps) {
-  const start = { ...initial, outcomes: outcomeLines(initial.outcomes) };
+  // The four fields only: the course editor hands over the whole course.
+  const start: CourseFields = {
+    title: initial.title,
+    slug: initial.slug,
+    summary: initial.summary,
+    outcomes: outcomeLines(initial.outcomes),
+  };
   const [fields, setFields] = useState<CourseFields>(start);
   const [savedFields, setSavedFields] = useState<CourseFields>(start);
   const [invalid, setInvalid] = useState<Invalid>([]);
