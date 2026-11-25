@@ -359,6 +359,34 @@ Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 8
 - This session did two tasks and stops here.
 - Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
 
+## Session of 2026-11-23 (from 23:40), in `night-c`, on `wp/6.3-legal-pages-footer`
+
+Task list: build new work packages that depend only on `origin/main` (0efe863: WP-1.1 to 1.4, 6.1 part 1, 6.2 part 1), in plan order from WP-6.3, then any WP-7.x whose dependencies are all in `main`; one part per run. This file is kept whole; this section is added to the newest copy (from `origin/wp/5.1-catalog` at 23:58).
+
+`night-c` was on the local branch `wp/4.2-lesson-editor` (be24f80, already contained in `origin/wp/4.2-lesson-editor`). The worktree now has `wp/6.3-legal-pages-footer` checked out, so `wp/4.2-lesson-editor` is free to check out in `night-a`. Nothing was lost.
+
+### WP-6.3 part 1 done: the privacy and terms pages and the footer, `wp/6.3-legal-pages-footer`
+
+- Scope: `/privacy`, `/terms` and the footer (`contentinfo`, on every page, the current link marked). The profile, display name and account deletion need WP-2.1 and WP-2.2, so they are part 2, after those merge.
+- Commits: c7fcaf7 (pages, footer, tests), 9872009 (round 1 fixes), 660ffdc (round 2 fixes), then the reports and description.
+- `pnpm verify` on 660ffdc: exit 0, 28 files, 718 tests. `next build` exit 0; `check-static` and `check-bundle` exit 0; the served HTML checked with curl.
+- Not run: every e2e test. The sandbox stops Chromium at launch (`mach_port_rendezvous_mac.cc:159 ... Permission denied (1100)`), so there are no screenshots and no axe result. `next dev` also fails here (`TurbopackInternalError: unable to start FSEvent stream`). Port 3100 is held by a server this session did not start, so the build was served on 3631 (stopped).
+- Reviews in `docs/reports/reviews/WP-6.3/`: code 1, design 1 and code 2 all CHANGES REQUIRED; each blocker is the missing browser run; every other finding is fixed or listed as an owner action. The round 2 fixes were not reviewed again.
+- The legal text was checked against Supabase's and Vercel's current documentation; it lists four things the spec's data inventory leaves out, and the description proposes the `spec-change`.
+- Description: `docs/reports/pull-requests/WP-6.3-part-1.md`, with its `gh pr create` command. Eight owner actions, among them approving the text and deciding when it goes live.
+- The first `git push` answered `! [remote rejected] wp/6.3-legal-pages-footer -> wp/6.3-legal-pages-footer (failed)`; the same push a moment later succeeded.
+
+### Owner: run this
+
+1. Outside the sandbox: `pnpm test:e2e --project=chromium e2e/legal.spec.ts e2e/shell.spec.ts`, then the `gallery` and `phone` projects; commit `docs/reports/screens/WP-6.3/`; then ask `design-reviewer` with the screens.
+2. Read and approve the privacy and terms text, and the owner actions 2 to 8 in the description.
+3. Open the draft pull request with the command at the end of the description.
+
+### Next
+
+- WP-7.x: no Day 7 package depends only on `main`. WP-7.1, 7.2 and 7.4 check the whole application, which needs WP-2.x to 5.x. WP-7.3's backup workflow needs the database (WP-2.1). Its `/api/client-error` route, client reporter and logger allowlist tests could be a part 1 on `main` alone; the next run decides after reading WP-7.3 in full.
+- WP-6.3 part 2 after WP-2.1 and WP-2.2 merge.
+
 ## Session of 2026-11-23 (from about 23:25), in `night-b`, merging `main` into the open branches
 
 New task list: (1) merge `origin/main` (0efe863: WP-1.1 to 1.4, #5, #6, #7, #8) into wp/2.1-schema-policies, wp/2.2-sign-in, wp/2.3-admin-gate, wp/4.1-courses-chapters, wp/4.2-lesson-editor, wp/4.3-validate-publish and wp/5.1-catalog, one branch per task, each later branch also merging the branch before it; `pnpm verify` and `pnpm build` on each; push; update each description's "Up to date with main" section. (2) Then continue WP-5.1.
@@ -773,6 +801,17 @@ Task list given by the owner for this run: (1) a new branch `wp/fix-smoke-and-ru
 ### Next
 
 - Task 2: merge `origin/main` into `wp/3.1-python-worker`, resolve conflicts, `pnpm verify` and `pnpm build`, push, and update "Up to date with main" in its description.
+
+
+Checked once more at 23:52 in a fresh session: `git fetch` shows `origin/main` still at 0efe863 and none of the seven branches behind it, so task 1 needs no new merge. Docker and Chromium fail with the same two errors.
+
+Checked again at 23:54 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`, and each stacked branch already contains the one before it (2.1 in 2.2, 2.2 in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, 4.1 in 5.1). Local and remote branches match. Docker and Chromium fail with the same two errors.
+
+Checked again at 23:56 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
+
+Checked again at 23:57 in another fresh session: `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it; local and remote branches match. Docker fails with the same error; Chromium fails with `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`.
+
+No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
 
 ## Session of 2026-11-23 (from about 20:35), in `night-b`, on `wp/5.1-catalog`
 

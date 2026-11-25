@@ -53,7 +53,7 @@ const APP = import.meta.dirname;
 
 // docs/spec/03-experience.md section 3. `/admin/courses/new` is not a row of
 // its own there; it is part of the admin dashboard, which is not indexed.
-const INDEXED = new Set(["/", "/courses", "/courses/[course]"]);
+const INDEXED = new Set(["/", "/courses", "/courses/[course]", "/privacy", "/terms"]);
 const NOT_INDEXED = new Set([
   "/sign-in",
   "/admin",
@@ -101,6 +101,8 @@ const LOADERS: Record<string, () => Promise<unknown>> = {
   "/": () => import("./page"),
   "/courses": () => import("./courses/page"),
   "/courses/[course]": () => import("./courses/[course]/page"),
+  "/privacy": () => import("./privacy/page"),
+  "/terms": () => import("./terms/page"),
   "/sign-in": () => import("./sign-in/page"),
   "/admin": () => import("./admin/page"),
   "/admin/courses/new": () => import("./admin/courses/new/page"),
