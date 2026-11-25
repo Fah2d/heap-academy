@@ -67,20 +67,22 @@ function exported(row: z.infer<typeof lessonRow>): ExportedLesson | undefined {
   };
 }
 
-export type CourseExport = { ok: true; file: CourseFile | null } | { ok: false };
+/** `broken`: a stored lesson's test cases do not parse, so the file would not import again. */
+export type CourseExport =
+  { ok: true; file: CourseFile | null } | { ok: false; reason: "unavailable" | "broken" };
 
 /** The course file for one row as the query below returns it; null for no row. */
 export function courseExport(row: unknown): CourseExport {
   if (row === null) return { ok: true, file: null };
   const parsed = courseRow.safeParse(row);
-  if (!parsed.success) return { ok: false };
+  if (!parsed.success) return { ok: false, reason: "unavailable" };
   const chapters: { title: string; summary: string; lessons: ExportedLesson[] }[] = [];
   for (const chapter of [...parsed.data.chapters].sort(byPosition)) {
     const lessons: ExportedLesson[] = [];
     for (const lesson of [...chapter.lessons].sort(byPosition)) {
       const one = exported(lesson);
-      // The database checks every test case on write, so this is a broken read.
-      if (one === undefined) return { ok: false };
+      // The database checks every test case on write, so this is a broken row.
+      if (one === undefined) return { ok: false, reason: "broken" };
       lessons.push(one);
     }
     chapters.push({ title: chapter.title, summary: chapter.summary, lessons });
@@ -96,6 +98,6 @@ export async function readCourseExport(db: SessionClient, id: string): Promise<C
     )
     .eq("id", id)
     .maybeSingle();
-  if (error !== null) return { ok: false };
+  if (error !== null) return { ok: false, reason: "unavailable" };
   return courseExport(data);
 }

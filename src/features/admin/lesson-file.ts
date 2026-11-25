@@ -16,6 +16,21 @@ export const FILE_VERSION = 1;
 /** A file larger than this is refused before it is read. A full lesson is far smaller. */
 export const LESSON_FILE_MAX_BYTES = 1024 * 1024;
 
+/**
+ * The most an import may send, as the action wrapper measures it: the UTF-8
+ * bytes of the input as JSON. Under the 1 MB body Next.js accepts for a
+ * server action, and above a full lesson of plain text.
+ */
+export const LESSON_IMPORT_MAX_BYTES = 700 * 1024;
+
+/** The bytes of an input as the action wrapper counts them. */
+export function jsonByteLength(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+/** A field name from the file is shown cut to this many characters. */
+const FIELD_NAME_LIMIT = 60;
+
 export type LessonFile = {
   format: typeof LESSON_FILE_FORMAT;
   version: typeof FILE_VERSION;
@@ -126,11 +141,16 @@ export type LessonFileResult =
   | { ok: false; problem: "invalid_field"; field: string };
 
 function fieldPath(path: readonly PropertyKey[]): string {
-  return path
+  const name = path
     .map((key, index) =>
       typeof key === "number" ? `[${String(key)}]` : `${index === 0 ? "" : "."}${String(key)}`,
     )
     .join("");
+  // An unknown key comes from the file and may be any length.
+  const characters = [...name];
+  return characters.length <= FIELD_NAME_LIMIT
+    ? name
+    : `${characters.slice(0, FIELD_NAME_LIMIT).join("")}…`;
 }
 
 /** Parses a lesson file that is already JSON, naming the first field that is wrong. */

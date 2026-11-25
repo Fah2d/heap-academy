@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { structure, transfer as words } from "@/messages/admin";
 import { fileText, lessonFile, LESSON_FILE_MAX_BYTES } from "../lesson-file";
-import { CourseTransfer, type ExportCourse, type ImportLesson } from "./course-transfer";
+import { CourseTransfer, type ExportCourse, type ImportLesson, saveFile } from "./course-transfer";
 
 // Export and import on the course editor (FR-ADM-12, T-23): export hands the
 // file to the browser; import names the field that is wrong before anything
@@ -95,10 +95,8 @@ describe("CourseTransfer export [FR-ADM-12]", () => {
     const { save } = setup({ exportCourse });
     await userEvent.click(screen.getByRole("button", { name: words.exportCourse }));
     expect(exportCourse).toHaveBeenCalledWith({ id: COURSE });
+    expect(await screen.findByText(words.exported("python-basics.json"))).toBeTruthy();
     expect(save).toHaveBeenCalledWith("python-basics.json", "{}\n");
-    expect(screen.getAllByRole("status")[0]?.textContent).toBe(
-      words.exported("python-basics.json"),
-    );
   });
 
   it("says a failed export failed and saves nothing", async () => {
@@ -106,6 +104,38 @@ describe("CourseTransfer export [FR-ADM-12]", () => {
     await userEvent.click(screen.getByRole("button", { name: words.exportCourse }));
     expect(await screen.findByText(words.exportFailed)).toBeTruthy();
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it("says which lesson to look for when one cannot be read", async () => {
+    setup({ exportCourse: () => Promise.resolve({ ok: false, error: "export_broken" }) });
+    await userEvent.click(screen.getByRole("button", { name: words.exportCourse }));
+    expect(await screen.findByText(words.exportBroken)).toBeTruthy();
+  });
+
+  it("hands the text to the browser's download, and lets the address go only later", () => {
+    vi.useFakeTimers();
+    const created: Blob[] = [];
+    const revoke = vi.fn();
+    vi.stubGlobal("URL", {
+      createObjectURL: (blob: Blob) => {
+        created.push(blob);
+        return "blob:course";
+      },
+      revokeObjectURL: revoke,
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {
+      // jsdom does not download.
+    });
+    saveFile("python-basics.json", "{}\n");
+    const link = click.mock.contexts[0] as HTMLAnchorElement;
+    expect(link.download).toBe("python-basics.json");
+    expect(link.getAttribute("href")).toBe("blob:course");
+    expect(created[0]?.type).toBe("application/json");
+    expect(revoke).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(10_000);
+    expect(revoke).toHaveBeenCalledWith("blob:course");
+    click.mockRestore();
+    vi.useRealTimers();
   });
 });
 
@@ -167,6 +197,49 @@ describe("CourseTransfer import [FR-ADM-12, T-23]", () => {
     expect(document.activeElement).toBe(fileField());
     expect(importLesson).not.toHaveBeenCalled();
     expect(workers).not.toHaveBeenCalled();
+  });
+
+  it("refuses a lesson too large to send, though the file is under the read limit", async () => {
+    const importLesson = vi.fn(never);
+    setup({ importLesson });
+    // Each control character is six bytes once written as JSON.
+    const wide = "\u0001".repeat(5_000);
+    const tests = Array.from({ length: 12 }, (_, n) => ({
+      ...lesson.tests[0],
+      id: `t${String(n)}`,
+      stdin: wide.slice(0, 2_000),
+      afterCode: wide.slice(0, 2_000),
+      expected: wide,
+    }));
+    const text = JSON.stringify({
+      ...lesson,
+      tests,
+      solution_code: "\u0001".repeat(10_000),
+      starter_code: "\u0001".repeat(10_000),
+    });
+    expect(text.length).toBeLessThan(LESSON_FILE_MAX_BYTES);
+    await userEvent.upload(fileField(), jsonFile(text));
+    await userEvent.click(importButton());
+    expect(await screen.findByText(words.fileTooLarge)).toBeTruthy();
+    expect(importLesson).not.toHaveBeenCalled();
+  });
+
+  it("sends one import when Import is pressed twice", async () => {
+    const importLesson = vi.fn(never);
+    setup({ importLesson });
+    await userEvent.upload(fileField(), jsonFile(fileText(lesson)));
+    const form = importButton().closest("form")!;
+    form.requestSubmit();
+    form.requestSubmit();
+    await screen.findByText(words.importing);
+    expect(importLesson).toHaveBeenCalledOnce();
+  });
+
+  it("says a draft may be left behind when the import could not clean up", async () => {
+    setup({ importLesson: () => Promise.resolve({ ok: false, error: "import_left_draft" }) });
+    await userEvent.upload(fileField(), jsonFile(fileText(lesson)));
+    await userEvent.click(importButton());
+    expect(await screen.findByText(words.failure.import_left_draft)).toBeTruthy();
   });
 
   it("clears the field's error when another file is chosen", async () => {

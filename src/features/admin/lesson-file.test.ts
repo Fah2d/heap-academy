@@ -150,6 +150,10 @@ describe("lesson files [FR-ADM-12]", () => {
     expect(field(value)).toBe(expected);
   });
 
+  it("cuts a long unknown key from the file to 60 characters", () => {
+    expect(field(changed({ ["k".repeat(500)]: 1 }))).toBe(`${"k".repeat(60)}…`);
+  });
+
   it("names the field in a file read from text", () => {
     expect(parseLessonFileText(JSON.stringify(changed({ xp: 0 })))).toEqual({
       ok: false,

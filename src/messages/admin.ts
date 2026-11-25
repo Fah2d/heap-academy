@@ -175,17 +175,19 @@ export const transfer = {
   exporting: "Exporting course",
   exported: (fileName: string) => `Saved as ${fileName}.`,
   exportFailed: "The course could not be exported right now. Try again in a minute.",
+  exportBroken:
+    "A lesson in this course could not be read, so the course was not exported. Open each lesson to find the one that does not load.",
   importHeading: "Import a lesson",
   importExplain:
     "Import adds one lesson from a JSON file as a draft at the end of the chapter you choose. Nothing in it runs. Publish it like any other lesson, after Validate passes.",
   importNeedsChapter: "Add a chapter before you import a lesson.",
   chapterLabel: "Chapter",
   fileLabel: "Lesson file",
-  fileHint: "A .json file in the lesson export format, up to 1 MB.",
+  fileHint: "A .json file in the lesson export format.",
   importLesson: "Import lesson",
   importing: "Importing lesson",
   fileMissing: "Choose a lesson file.",
-  fileTooLarge: "This file is larger than 1 MB. Choose a lesson file.",
+  fileTooLarge: "This file is too large to be one lesson. Choose a lesson file.",
   fileUnreadable: "This file could not be read. Choose it again.",
   notJson: "This file is not JSON. Choose a lesson file exported from Heap Academy.",
   fieldInvalid: (field: string) =>
@@ -197,6 +199,8 @@ export const transfer = {
   openLesson: (title: string) => `Open ${title}`,
   failure: {
     invalid_file: "The lesson was not imported. Choose the file again.",
+    import_left_draft:
+      "The lesson was not imported, and an empty draft with its title may be left at the end of the chapter. Reload the page to check before you try again.",
     chapter_not_found: "That chapter is no longer in this course. Reload the page.",
     not_found: "This course no longer exists. Reload the page.",
     unavailable: "The change could not be saved right now. Try again in a minute.",

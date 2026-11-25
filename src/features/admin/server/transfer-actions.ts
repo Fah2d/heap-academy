@@ -3,9 +3,8 @@
 import "server-only";
 import { z } from "zod";
 import { defineAction } from "@/infrastructure/actions/server-action";
-import { courseFileName, fileText, parseLessonFile } from "../lesson-file";
+import { courseFileName, fileText, LESSON_IMPORT_MAX_BYTES, parseLessonFile } from "../lesson-file";
 import { readCourseExport } from "./course-export";
-import { MAX_SAVE_LESSON_BYTES } from "./lesson-input";
 import { importLesson as storeImport } from "./lesson-store";
 
 // Export and import (docs/spec/04-content-system.md section 8;
@@ -24,7 +23,13 @@ export const exportCourse = defineAction({
   maxBytes: 1024,
   run: async (input, { services }) => {
     const read = await readCourseExport(services.db, input.id);
-    if (!read.ok) return { ok: false as const, error: "unavailable" as const };
+    // The wrapper logs the code: `error:unavailable` or `error:export-broken`.
+    if (!read.ok) {
+      return {
+        ok: false as const,
+        error: read.reason === "broken" ? "export_broken" : "unavailable",
+      };
+    }
     if (read.file === null) return { ok: false as const, error: "not_found" as const };
     return {
       ok: true as const,
@@ -42,8 +47,8 @@ export const importLesson = defineAction({
   name: "import-lesson",
   access: "admin",
   input: z.strictObject({ courseId: id, chapterId: id, lesson: z.unknown() }),
-  // A lesson file holds what a full save holds, under the same limits.
-  maxBytes: MAX_SAVE_LESSON_BYTES,
+  // The dashboard checks the same limit before it sends, to say the file is too large.
+  maxBytes: LESSON_IMPORT_MAX_BYTES,
   run: (input, { services }) => {
     const parsed = parseLessonFile(input.lesson);
     // A new draft is not on the site, so the published content cache stays.

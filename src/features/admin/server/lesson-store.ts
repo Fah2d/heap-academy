@@ -31,6 +31,8 @@ export type LessonFailure =
   | "slug_needed"
   /** The status cannot move this way (docs/spec/04-content-system.md section 4.3). */
   | "status_not_allowed"
+  /** An import's fill failed and its empty draft could not be deleted again. */
+  | "import_left_draft"
   | "not_found"
   | "unavailable";
 
@@ -231,7 +233,7 @@ export async function createLesson(
  * course has the file's address, the draft gets the next free one, as an
  * added lesson does. The row is created, then filled through save_lesson, so
  * the solution is written by the same function as every save; if the fill
- * fails, the empty row is deleted again.
+ * fails, the empty row is deleted again, and a failed delete is reported.
  */
 export async function importLesson(
   db: SessionClient,
@@ -277,7 +279,9 @@ export async function importLesson(
     p_validated: false,
   });
   if (saveError !== null || typeof saved !== "string") {
-    await db.from("lessons").delete().eq("id", created.id);
+    const { error: deleteError } = await db.from("lessons").delete().eq("id", created.id);
+    // The action wrapper logs the code, so a draft left behind is on record.
+    if (deleteError !== null) return { ok: false, error: "import_left_draft" };
     return { ok: false, error: saveError === null ? "unavailable" : lessonFailure(saveError) };
   }
   return { ok: true, value: { id: created.id, slug } };

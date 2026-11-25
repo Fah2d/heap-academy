@@ -4,7 +4,13 @@ import { type FormEvent, useId, useRef, useState, useTransition } from "react";
 import { adminLessonPath } from "@/domain/admin/gate";
 import { structure, transfer as words } from "@/messages/admin";
 import { Button, FieldErrorMessage, Link, Notice, SelectField } from "@/ui";
-import { LESSON_FILE_MAX_BYTES, type LessonFile, parseLessonFileText } from "../lesson-file";
+import {
+  jsonByteLength,
+  LESSON_FILE_MAX_BYTES,
+  LESSON_IMPORT_MAX_BYTES,
+  type LessonFile,
+  parseLessonFileText,
+} from "../lesson-file";
 import type { AdminAction } from "../types";
 import { settle } from "./structure-controls";
 
@@ -28,7 +34,8 @@ export function saveFile(fileName: string, text: string) {
   link.href = url;
   link.download = fileName;
   link.click();
-  URL.revokeObjectURL(url);
+  // Revoked later: a browser may still be starting the download after the click.
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export type CourseTransferProps = {
@@ -67,6 +74,7 @@ export function CourseTransfer({
   const fileHintId = useId();
   const fileErrorId = useId();
   const file = useRef<HTMLInputElement>(null);
+  const busy = useRef(false);
   const [exporting, startExport] = useTransition();
   const [exported, setExported] = useState<string | null>(null);
   const [exportFailure, setExportFailure] = useState<string | null>(null);
@@ -84,7 +92,9 @@ export function CourseTransfer({
     startExport(async () => {
       const outcome = await settle(() => exportCourse({ id: courseId }));
       if (!outcome.ok) {
-        setExportFailure(words.exportFailed);
+        setExportFailure(
+          outcome.error === "export_broken" ? words.exportBroken : words.exportFailed,
+        );
         return;
       }
       save(outcome.value.fileName, outcome.value.text);
@@ -99,7 +109,7 @@ export function CourseTransfer({
   }
 
   /** The parsed lesson in the chosen file, or undefined once the field says what is wrong. */
-  async function readChosen(): Promise<LessonFile | undefined> {
+  async function readChosen(chapterId: string): Promise<LessonFile | undefined> {
     const chosen = file.current?.files?.[0];
     if (chosen === undefined) return refuseFile(words.fileMissing);
     if (chosen.size > LESSON_FILE_MAX_BYTES) return refuseFile(words.fileTooLarge);
@@ -115,21 +125,30 @@ export function CourseTransfer({
         parsed.problem === "not_json" ? words.notJson : words.fieldInvalid(parsed.field),
       );
     }
+    if (jsonByteLength({ courseId, chapterId, lesson: parsed.lesson }) > LESSON_IMPORT_MAX_BYTES) {
+      return refuseFile(words.fileTooLarge);
+    }
     return parsed.lesson;
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (importing || chapter === undefined) return;
+    // Pressed again while the file is read: the first press is still running.
+    if (busy.current || chapter === undefined) return;
+    busy.current = true;
     const target = chapter;
     setFileError(null);
     setImportFailure(null);
     setImported(null);
     // Read and checked before the field is disabled, so a refusal can focus it.
-    const lesson = await readChosen();
-    if (lesson === undefined) return;
+    const lesson = await readChosen(target.id);
+    if (lesson === undefined) {
+      busy.current = false;
+      return;
+    }
     startImport(async () => {
       const outcome = await settle(() => importLesson({ courseId, chapterId: target.id, lesson }));
+      busy.current = false;
       if (!outcome.ok) {
         setImportFailure(failureText(outcome.error));
         return;

@@ -185,12 +185,17 @@ describe("exportCourse [FR-ADM-12]", () => {
       },
     );
     expect(await actions.exportCourse({ id: COURSE })).toEqual({ ok: false, error: "not_found" });
-    for (let n = 0; n < 3; n += 1) {
+    for (let n = 0; n < 2; n += 1) {
       expect(await actions.exportCourse({ id: COURSE })).toEqual({
         ok: false,
         error: "unavailable",
       });
     }
+    // A stored lesson the grader cannot read gets its own code, which the wrapper logs.
+    expect(await actions.exportCourse({ id: COURSE })).toEqual({
+      ok: false,
+      error: "export_broken",
+    });
   });
 });
 
@@ -298,6 +303,22 @@ describe("importLesson [FR-ADM-12, T-23]", () => {
       ["delete", []],
       ["eq", ["id", LESSON]],
     ]);
+  });
+
+  it("says a draft may be left when the fill and its cleanup both fail", async () => {
+    asAdmin();
+    const lesson = await exportedLesson();
+    state.db.answer(
+      { data: { id: CHAPTER } },
+      { data: [] },
+      { data: { id: LESSON, updated_at: CREATED } },
+      { error: { code: "XX000", message: "boom" } },
+      { error: { code: "XX000", message: "boom" } },
+    );
+    expect(await actions.importLesson({ courseId: COURSE, chapterId: CHAPTER, lesson })).toEqual({
+      ok: false,
+      error: "import_left_draft",
+    });
   });
 
   it("refuses a chapter of another course, and a failed insert, with nothing left behind", async () => {
