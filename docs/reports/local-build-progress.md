@@ -30,6 +30,12 @@ Task 1 took about 10 minutes, so the run went on. Task 2 had nothing new that do
 - On the new merges: `wp/3.1-python-worker` `pnpm verify` exit 0, `Test Files  85 passed (85)`, `Tests  1575 passed (1575)`; `wp/3.3-grader` exit 0, `Test Files  90 passed (90)`, `Tests  1752 passed (1752)`; `wp/3.4-statechart` exit 0, `Test Files  94 passed (94)`, `Tests  1867 passed (1867)`. `pnpm build` with CI's fake public values, `check-bundle` and `check-static`: exit 0 on all three.
 - Push: the three branches, in one push.
 
+## Session of 2026-11-25 (from about 04:58), journey fixes carried to 5.1
+
+- `wp/2.2-sign-in` merged into 2.3, then 4.1, 4.2, 4.3 and `wp/5.1-catalog`; the same unscoped `alert` locator fixed in the admin, course structure and lesson editor journeys (scoped to `main`).
+- Sign-in journeys on 2.3 against the fake auth server: 3/3. The admin, course structure and lesson editor journeys need the database and were not run.
+- Next: merge forward into 5.2 and later at their next work. Push: from 05:38.
+
 ## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list and owner decisions. `git fetch`: `origin/main` moved to 428c437, the merge of #14 (`wp/db-types`, one generated file: `src/infrastructure/db/database.types.ts`). This file is `wp/5.2-workspace-laptop`'s copy (the newest, from part 53) with this section added on top.
@@ -314,6 +320,15 @@ Same task list. `git fetch`: `origin/main` moved to 81fdc39, the merge of #10 (`
 - Push: from 05:38.
 - Next: when #13 is green or merged, merge it forward into 2.3 and later branches; 2.3's journey files need the same two fixes if they repeat them. Blocked: account deletion.
 
+## Session of 2026-11-24 (from about 23:20), in `night-b`, merge-forward to 5.1
+
+- Merged in order: `wp/2.2-sign-in` into 2.3 (conflicts: this file, and the journey spec, where 2.3's shared helper already has the token wait), then 2.3 into 4.1, 4.1 into 4.2, 4.2 into 4.3 (no conflicts), then 4.3 into 5.1 (conflicts: this file and `playwright.config.ts`, both comments kept).
+- 5.1 broke after the merge: the stricter import rule (from the 3.x line) refuses the computed `import()` in `src/app/indexing.test.ts`. The test now has one fixed import per page, lists `/admin/lessons/[id]`, and drops the check that read `next.config.ts`, which now calls `pageExtensions` (tested in its own file).
+- On 5.1 without the unfinished part 2 files: `pnpm verify` exit 0, 108 files, 2009 tests; `next build` with CI's public values exit 0; `check-bundle` and `check-static` exit 0. 2.3 alone: `pnpm verify` exit 0. 4.1 to 4.3 were not verified on their own (merges without conflicts; 5.1 contains them).
+- Not run: stack e2e and `pnpm test:db` (no Docker).
+- WP-5.1 owner decision 6 (error text) is in `src/messages/system.ts`; decision 5 (lint bypass) is branch `wp/fix-lint-template-import` (2 commits ahead of `main`).
+- Left in this checkout, not committed: part 2 of WP-6.1 (progress server module, completion store). Its test "refuses an upper-case ID" fails: next task.
+
 ## Session of 2026-11-24 (from about 23:10), in `night-a`, on `wp/5.2-workspace-laptop`, then `wp/5.3-workspace-phone`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the three runtime branches are 0 behind it. Task 2: nothing new that does not need the owner. Speed mode allows one review round, already done on WP-5.2, and no design review, so this run finished WP-5.2 instead of a second round. This file is `wp/5.3-workspace-phone`'s copy (the newest) with this section added on top.
@@ -386,6 +401,144 @@ Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origi
 - Review round 1 (code-reviewer, security-reviewer): applied the e2e test change (it checks the `content-security-policy` header, no Cloudflare call) and shorter comments. Not done: a spec note in `06-security-privacy.md` 5.2 and a lint rule against other links to `/sign-in` (spec change needs the owner; listed as a default in the PR).
 - `pnpm verify`: exit 0, 43 files, 929 tests. Not run: `supabase start` and the stack e2e (no Docker here).
 - Next: merge-forward of later branches onto 2.2, then part 2 of 6.1, 6.2, 6.3. Blocked: nothing.
+
+## Session of 2026-11-24 (from about 22:50), in `night-b`, PR #13's CI and `main` at 428c437
+
+Top priority from the owner: CI on PR #13 (`wp/2.2-sign-in`, 9717efb) failed in `unit` and in the `e2e` job's `stack` project. `git fetch` at 22:50: `origin/main` moved from 7875ee2 to 428c437 (#14, `wp/db-types`: `src/infrastructure/db/database.types.ts`).
+
+### PR #13's CI done: `wp/2.2-sign-in` (pushed 5eab223)
+
+- Started at 22:50. The CI log of run 45438429284 was read through the GitHub API with `curl` (`gh` itself still fails with `x509: OSStatus -26276`).
+- unit: `src/domain/auth/return-path.test.ts`, "never returns a path that leaves the site" (177,155 cases), has an explicit `60_000` ms limit, as the owner instructed (9161501).
+- e2e `stack`: the cause is the test. "Send code" stays enabled while Turnstile runs, and `requestCode` pressed it right after typing. The page then says "Wait for the check that keeps automated sign-ups out to finish, then try again." and stays on the email step. Shown on this branch's production build in Chromium: the early press gave that message, and the test key's token arrived after 2320 ms. `requestCode` now waits for a value in `input[name="cf-turnstile-response"]` (15 s limit) before it presses. With the wait, the press reaches the server action (HTTP 200; "not working right now", because no auth service ran here).
+- CI's own log: `supabase start` hit `toomanyrequests: Rate exceeded` on image pulls but started on retry; the server printed no error for the code requests. The `e2e` job does not upload `test-results/`, so its traces were not available.
+- Merge commit f8d21ed: `origin/main` (428c437), no conflict.
+- `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values: exit 0, five routes.
+- Not verified: the stack journeys. Docker is not running here, so CI on 5eab223 is their first run.
+- Description: `docs/reports/pull-requests/WP-2.2.md`, a new first section, "CI fixes for #13", with decisions K and L.
+
+### Task 1 done for `main` at 428c437
+
+Each branch merged the one before it, then `pnpm verify`, `next build` with CI's public values, `check-bundle` (22 files) and `check-static`, all exit 0. Each description has a new paragraph at the top of "Up to date with main".
+
+- `wp/2.3-admin-gate`: merge 10ac619. One conflict, `e2e/sign-in-journey.spec.ts`: 2.3 had moved the helpers into `e2e/sign-in-helpers.ts`, so 2.3's journey file was kept and the token wait went into that helper's `requestCode` (the admin journey signs in through it too). 53 files, 1019 tests. Pushed bdb9469.
+- `wp/4.1-courses-chapters`: merge 6672c50, no conflict. 62 files, 1114 tests. Pushed b10e6d6.
+- `wp/4.2-lesson-editor`: merge 93d529d, no conflict. 73 files, 1331 tests. Pushed 4417719.
+- `wp/4.3-validate-publish`: merge 610a729, no conflict. 102 files, 1901 tests. Pushed ef5abd5.
+- `wp/5.1-catalog`: merge efaaa98 of `wp/4.1-courses-chapters` (5.1 is built on 4.1, as before), no conflict. 67 files, 1218 tests, 15 routes. Pushed with this section, which also carries the eighteen progress commits that were waiting.
+- Not run on any branch: `pnpm test:db` and the `stack` journeys (no Docker).
+
+Decisions taken with a safe default:
+
+- K. The fix is in the test only: the page already tells a learner who presses too early what to do. Turning the button off until the token arrives would be an interface change for design review.
+- L. The new token wait has its own 15 s limit, the same as the code email's. It is a new wait, not a raised limit.
+- M. `wp/5.1-catalog` merges `wp/4.1-courses-chapters`, not 4.3, as every earlier session did.
+
+### Owner: run this
+
+1. Watch CI on #13 at 5eab223. If a `stack` journey still fails, the next suspects are the auth service's captcha check and the mail catcher. Reading them needs the trace, which the `e2e` job does not upload; adding that upload is a change to `.github/workflows/ci.yml`, and this session did not make it.
+2. As before: the WP-5.1 stack journey with the local stack, then design review 4 on `home`, `courses` and `course`.
+
+## Session of 2026-11-24 (from about 19:24), in `night-b`, WP-5.1 owner actions 5 and 6
+
+New owner decisions (WP-5.1): action 5, fix the backtick `import()` lint gap as its own small branch from `origin/main`; action 6, the error page says "We could not prepare this page. Try again.". Pull requests are opened and updated from the owner's chat, so this session does not wait for descriptions to be pasted.
+
+`git fetch` at 19:24: `origin/main` is still at 7875ee2, and it already has #10. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it. Task 1 has nothing to do.
+
+### Task 2a done: owner action 5, `wp/fix-lint-template-import` (pushed 9f15550)
+
+- Started at 19:24, from `origin/main` at 7875ee2.
+- 01c8227: the module boundary rule checks a backtick name like a quoted one, refuses an `import()` or `require()` whose name is computed (except the Python worker's `import(url)`), and lets only a test import a test file. This is bce0f08 from `wp/3.3-grader` (also on 3.4, 4.3 and 5.2) without its Node runner parts, so the open branches carry the same text. 9f15550: a test for a joined name and for the worker's other imports, the description and both reviews.
+- Security review 1 (on a first, uncommitted version that refused computed names only in `src/content`): CHANGES REQUIRED, two MAJORs, both fixed by taking bce0f08's text. Security review 2: APPROVE, two MINORs. MINOR 1 is fixed. MINOR 2 (`require` called through another name) is older than the branch, and is listed in the description.
+- The new tests against `main`'s rule: 6 failed, then 1 more for the joined-name test. With the change: 141 passed. `pnpm verify`: exit 0, 28 files, 726 tests.
+- Merging it into 4.3, 5.1 or 5.2 conflicts in `scripts/eslint/module-boundaries.mjs` (and `rules.test.ts` for 4.3 and 5.2). The description says how to resolve each, and the reviewer checked those resolutions in a copy.
+- Description: `docs/reports/pull-requests/fix-lint-template-import.md` on that branch. This file was not updated there, because that branch has `main`'s older copy; this section is its record.
+
+### Task 2b done: owner action 6 on `wp/5.1-catalog`
+
+- Started at 19:35. `src/messages/system.ts`: the error page body is "We could not prepare this page. Try again.".
+- `pnpm verify`: exit 0, 67 files, 1218 tests. `next build` with CI's public values: exit 0, 15 routes, no `/dev` route.
+- The outage spec against `next start` of that build on port 3418, in Chromium with `--no-sandbox --single-process`: 3 passed. The nine `catalog-error-*` screens were taken again; `catalog-error-courses-375.png` shows the new sentence. The first try on port 3417 lacked `RESEND_API_KEY` and failed at the server's environment check; that server was stopped.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 8 (items 45 and 46), owner actions 5 and 6 marked done.
+
+Decisions taken with a safe default:
+
+- I. The lint fix reuses bce0f08's text rather than a new rule, so one version of the check reaches every branch (security review 1's advice).
+- J. Design review was not run again for the one-sentence copy change, which is the wording the design reviewer proposed. WP-1.4's `/dev/error` screens were not taken again.
+
+### Checked again at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51, 19:52, 19:54, 19:56, 19:57, 19:59, 20:01, 20:02, 20:04, 20:05 and 20:07, nothing to do
+
+- `git fetch` at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51, 19:52, 19:54, 19:56, 19:57, 19:59, 20:01, 20:02, 20:04, 20:05 and 20:07: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3, 5.1 and `wp/fix-lint-template-import` contain it, and every local head matches its remote except `wp/5.1-catalog` (progress commits only). The chain holds: 2.2 is in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, and 4.1 in 5.1 (5.1 is built on 4.1, not 4.3, as the 15:14 session merged it). Task 1 has nothing to do.
+- Task 2 (WP-5.1): every item this sandbox can do is done. The approved spec changes (decisions 2, 9 and 15) are already in `docs/spec` on this branch. Docker is still not running, so the stack journey, its screens and design review 4 stay with the owner.
+- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped. At 20:07 Docker was still down, and `wp/5.1-catalog` was eighteen progress commits ahead of its remote, counting this one (owner action 6 itself is pushed, f2ab9b3).
+
+### Owner: run this
+
+1. Open a pull request for `wp/fix-lint-template-import` (base `main`) with its description.
+2. As before: the WP-5.1 stack journey with the local stack, then design review 4 on `home`, `courses` and `course`.
+
+## Session of 2026-11-24 (from about 18:06, checked again at 18:08, 18:09, 18:11, 18:13, 18:14, 18:16, 18:17, 18:19, 19:17, 19:19, 19:20, 19:22 and 19:23), in `night-b`, nothing to do
+
+- `git fetch` at 18:06, 18:08, 18:09, 18:11, 18:13, 18:14, 18:16, 18:17, 18:19, 19:17, 19:19, 19:20, 19:22 and 19:23: `origin/main` is still at 7875ee2, and it already contains #10 (`origin/wp/fix-smoke-and-runtime` at 27ce416 is an ancestor). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which was nine progress commits ahead before the 18:11 check (the 19:23 check makes twenty; each check updates this section instead of adding another identical one). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running; owner actions 5 and 6 are still undecided; `gh` still fails with `x509: OSStatus -26276`.
+- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped.
+
+## Session of 2026-11-24 (from about 18:03), in `night-b`, nothing to do
+
+- `git fetch` at 18:03: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is four progress commits ahead (this section makes five). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 and 6 have no recommendation, so the 2026-11-24 approval does not decide them. `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`).
+- Decision H again: committed on `wp/5.1-catalog`, not pushed.
+- Stopped. Nothing moves until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+- Checked again at 18:04: `origin/main` still at 7875ee2, every other branch head matches its remote, Docker still down, `gh` still fails with the same x509 error. Nothing changed; not pushed (decision H).
+
+## Session of 2026-11-24 (from about 18:01), in `night-b`, nothing to do
+
+- `git fetch` at 18:01: `origin/main` is still at 7875ee2 (#12; #10 has been in it since 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is three progress commits ahead (this section makes four). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control this run does not edit) and 6 (the error page's wording) have no recommendation, so the 2026-11-24 approval does not decide them. `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`).
+- Decision H again: committed on `wp/5.1-catalog`, not pushed, because no code changed and a push only costs a Vercel build.
+- Stopped. Nothing moves until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+
+## Session of 2026-11-24 (from about 18:00), in `night-b`, nothing to do
+
+- `git fetch`: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it; every local head matches its remote except `wp/5.1-catalog`, which is two progress commits ahead (this section makes three). `wp/2.1-schema-policies` is merged (#12). Task 1 has nothing to do.
+- Task 2 (WP-5.1): still blocked on the owner, for the same reasons as the 17:56 session. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control) and 6 (the error page's wording) have no recommendation in the description, so the 2026-11-24 approval does not decide them. `gh` still fails (`x509: OSStatus -26276`).
+- Decision H applies again: committed on `wp/5.1-catalog`, not pushed, because nothing in the code changed and a push only costs a Vercel build.
+- Stopped here. Nothing in either task can move until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+
+## Session of 2026-11-24 (from about 17:56), in `night-b`, nothing to do
+
+- `git fetch`: `origin/main` is still at 7875ee2 (#12, WP-2.1, merged; #10 was already in it at 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, local and remote heads match. Task 1 has nothing to do.
+- Task 2 (WP-5.1): still blocked on the owner. Docker is not running (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control) and 6 (the error page's wording) have no recommendation, so they stay the owner's. `gh` still fails (`x509: OSStatus -26276`).
+- Checked again at 17:58: `origin/main` still at 7875ee2; every branch head matches its remote (5.1 is one progress commit ahead); Docker still down; `gh` still fails with the same x509 error. Nothing changed.
+- Decision H: this section is committed on `wp/5.1-catalog` but not pushed, because it changes no code and a push only costs a Vercel build. It goes up with the next push of this branch.
+
+## Session of 2026-11-24 (from about 17:50), in `night-b`, task 2
+
+`origin/main` is still at 7875ee2, and 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already have it with their approved spec changes (the 15:14 session below). Task 1 has nothing to do; no branch of it was pushed again.
+
+### Task 2, WP-5.1 part 7 done: owner action 7
+
+- Started at 17:50. Docker is still not running here (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), so the stack journey, its screens and design review 4 stay with the owner. The one WP-5.1 item left that this sandbox can do was owner action 7 (security review 3 MINOR 1), recommended by that review and so approved on 2026-11-24.
+- a2f4122: `cachedReader` in `src/content/published.ts` reads the database address once, puts it first in the cache arguments and builds the public client from the same value; `createPublicClient(address)` takes the address. A repeated key part throws (security review 4's MINOR, decision 30).
+- Three new tests; two mutations each failed one of them (output in the description, part 7).
+- Security review 4: APPROVE, one minor (fixed in a2f4122) and one note. Saved as `docs/reports/reviews/WP-5.1/security-review-4.md`.
+- `pnpm verify`: exit 0, 67 files, 1218 tests. `next build` with CI's public values: exit 0, 15 routes, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db`, the stack journey, and the gallery and outage specs again (no page changed).
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 7, round 4, owner action 7 marked done, decision 30.
+
+Decision taken with a safe default:
+
+- G. No other branch was pushed: `origin/main` has not moved, and a push without a change only costs a Vercel build.
+
+### Owner: run this
+
+1. Kill the leftover servers and run the stack journey, as in the 13:49 session's list (items 1 and 2); then design review 4 on the `home`, `courses` and `course` screens.
+2. WP-5.1 owner actions 5 (lint MINOR A) and 6 (the error page's wording) have no recommendation, so they are still yours to decide.
+3. When `gh` works: paste the WP-5.1 description into its pull request.
+
+### Next
+
+- WP-5.1 has nothing left that this sandbox can do. Task 1 starts again when `origin/main` moves.
 
 ## Session of 2026-11-24 (from about 15:14), in `night-b`, `main` at 7875ee2 and the owner's decisions
 
