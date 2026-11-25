@@ -53,9 +53,23 @@ async function noAxeViolations(page: Page) {
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 }
 
-async function screens(page: Page, name: string) {
+// Crossing 768 px builds the other layout once the media query's listener
+// runs, after the resize. Waiting for it keeps a later step from typing into
+// the layout that is about to go. A browser that cannot run Python keeps the
+// wide layout at every width, so it has nothing to wait for.
+async function resize(page: Page, width: number, phoneLayout: boolean) {
+  await page.setViewportSize({ width, height: 900 });
+  if (!phoneLayout) return;
+  await page.waitForFunction(
+    (wantPhone) =>
+      document.querySelector("[data-workspace]")?.hasAttribute("data-phone") === wantPhone,
+    width < 768,
+  );
+}
+
+async function screens(page: Page, name: string, { phoneLayout = true } = {}) {
   for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: 900 });
+    await resize(page, width, phoneLayout);
     await settled(page);
     // Below 768 px the screen is WP-5.3's phone layout.
     await saveScreen(page, name, width, {
@@ -63,7 +77,7 @@ async function screens(page: Page, name: string) {
       fullPage: width < 768,
     });
   }
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await resize(page, 1280, phoneLayout);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -349,7 +363,7 @@ test("[FR-SYS-02] a browser that cannot run Python sees why, not a broken worksp
   await expect(runButton(page)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
   await noAxeViolations(page);
-  await screens(page, "workspace-unsupported");
+  await screens(page, "workspace-unsupported", { phoneLayout: false });
 });
 
 test("[NFR-A11Y-01] a program longer than the editor stays reachable by keyboard", async ({
