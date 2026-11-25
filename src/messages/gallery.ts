@@ -20,6 +20,8 @@ export const gallery = {
   inlineAfter: "further down.",
   standaloneVariant: "Standalone link",
   standaloneLink: "Go to the notices",
+  headingVariant: "Heading link, such as a course title in a list",
+  headingLink: "Go to the dialog",
   navVariant: "Navigation, the first link current",
   navCurrent: "Buttons",
   navOther: "Links",
@@ -211,4 +213,27 @@ export const adminGallery = {
   previewText: "Ask for a name with ",
   previewCode: "input()",
   previewTail: ", then greet that person.",
+} as const;
+
+// The development-only page that shows the catalog's states that the local
+// stack cannot show on demand: no course, and sample content (WP-5.1).
+export const catalogGallery = {
+  title: "Catalog states",
+  intro:
+    "The home page's, the course list's and the course page's states that need an empty database or content the local stack does not have. Each link opens one state as its whole page. The courses are sample content, not published ones. A read that fails ends on the error page, shown at /dev/error.",
+  homeEmpty: "Home page with no course",
+  listEmpty: "Course list with no course",
+  listRows: "Course list with courses, one with the longest title the dashboard allows",
+  courseNoOutcomes: "Course page with no outcomes, one chapter with no summary",
+  sampleCourse: "Python basics",
+  sampleSummary: "Print text, keep values in names, and do sums.",
+  longCourse: "Reading and writing text files, one careful line at a time",
+  longSummary:
+    "Open a file, read it line by line, and write what you found to a new file without losing a word.",
+  firstChapter: "First steps",
+  firstChapterSummary: "Your first program, and what print does.",
+  secondChapter: "Numbers and the arithmetic you already know from school",
+  lessonHello: "Say hello",
+  lessonNames: "Keep a value in a name",
+  lessonSums: "Add two numbers that someone typed",
 } as const;
