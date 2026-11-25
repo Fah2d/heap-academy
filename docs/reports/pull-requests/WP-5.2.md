@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.4-statechart` (WP-3.1 to WP-3.4, with `main` at 428c437) and `origin/wp/4.2-lesson-editor`.** Merges after WP-3.x, WP-4.2 and WP-5.1 (decision 10). Until then this pull request also shows their commits. The full history of parts 1 to 3 is in git and in `docs/reports/local-build-progress.md`.
+**Base: `wp/3.4-statechart` (WP-3.1 to WP-3.4) and `main` at dffe1a8 (WP-4.1 and WP-4.2 are merged there).** Merges after WP-3.x and WP-5.1 (decision 10). Until then this pull request also shows their commits. On 2026-11-25 `main` at dffe1a8 came in through af95dc4 (one conflict, `src/ui/primitives/button.tsx`: this branch's `aria-keyshortcuts` effect and `main`'s announcement cleanup both kept) and `wp/3.4-statechart` at fd7b9dc through eaac0d7 (this branch's side kept in `playwright.config.ts`, `module-boundaries.mjs` and the workspace's `index.ts`, which already held both sides). On eaac0d7: `pnpm verify` exit 0, `Test Files  106 passed (106)`, `Tests  1951 passed (1951)`; `pnpm build` with CI's fake public values, `check-bundle` and `check-static` exit 0. The browser tests were not run again. The full history of parts 1 to 3 is in git and in `docs/reports/local-build-progress.md`.
 
 ## What
 
