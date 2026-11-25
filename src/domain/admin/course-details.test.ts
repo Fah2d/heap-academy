@@ -21,6 +21,14 @@ describe("checkCourseFields [FR-ADM-03]", () => {
     expect(checked.ok && courseDetails.safeParse(checked.details).success).toBe(true);
   });
 
+  it("checks only the four fields when handed a whole course", () => {
+    const course = { ...fields, id: "c1", status: "draft", loadedAt: "2026-11-21", chapters: [] };
+    expect(checkCourseFields(course)).toEqual({
+      ok: true,
+      details: { ...fields, outcomes: ["Print a line"] },
+    });
+  });
+
   it("names every field that is wrong, with the outcome's line", () => {
     expect(
       checkCourseFields({
