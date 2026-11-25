@@ -267,7 +267,7 @@ select is(
     'authenticated:lessons:SELECT', 'authenticated:lessons:UPDATE',
     'authenticated:profiles:SELECT'
   ],
-  '[NFR-SEC-03] each role holds exactly the table privileges the policies expect');
+  '[NFR-SEC-03] [T-25] each role holds exactly the table privileges the policies expect');
 select is(
   (select array_agg(format('%s:%s', t, c) order by t, c)
    from (values ('profiles'), ('completions'), ('lesson_solutions')) as tables (t),

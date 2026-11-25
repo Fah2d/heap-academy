@@ -71,7 +71,7 @@ test.describe("Python runtime", () => {
     await expect(output(page)).toContainText("NameError");
   });
 
-  test("[FR-RUN-02] [NFR-REL-03] stops while True: pass at the limit, and the next run works within 5 s", async ({
+  test("[FR-RUN-02] [NFR-REL-03] [T-02] stops while True: pass at the limit, and the next run works within 5 s", async ({
     page,
   }) => {
     await runProgram(page, "while True: pass");

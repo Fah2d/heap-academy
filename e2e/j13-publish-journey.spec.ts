@@ -44,7 +44,7 @@ const publishButton = (page: Page) =>
 const statusLine = (status: "draft" | "published") =>
   `${lessonStatus.now(lessonStatus.name[status])} ${lessonStatus.explain[status]}`;
 
-test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson cannot go live; a validated one is published and moved back to draft", async ({
+test("[J-13] [FR-GRD-05] [T-22] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson cannot go live; a validated one is published and moved back to draft", async ({
   page,
   request,
 }) => {
