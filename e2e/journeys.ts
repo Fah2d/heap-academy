@@ -67,7 +67,7 @@ async function ready(page: Page) {
 // A state change has a 160 ms color transition (DESIGN.md section 7); axe
 // measures the settled colors. Endless animations, such as the editor's
 // blinking cursor, are not waited for.
-async function noAxeViolations(page: Page) {
+export async function noAxeViolations(page: Page) {
   await page.waitForFunction(() =>
     document
       .getAnimations()

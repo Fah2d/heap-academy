@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 11:40), in `night-a`, on the new branch `wp/7.4-journeys-part-2b`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-6.1's description lists J-5 and J-6 as not written, and WP-7.4 builds every journey, so this part wrote them on a new branch. This file is `wp/7.1-security-canary`'s copy (the newest) with this section on top. Two `night-b` sessions (heap-academy-9a, heap-academy-32) asked whether this one works there; it does not (answered 9a; 32's address had gone).
+
+### Task 3, part 70 done: WP-7.4 part 2b, J-5 and J-6
+
+- Base: `wp/7.4-journeys` at dbd91b2 with `origin/wp/6.3-profile-page` at a50ed1a merged in (deb8398; only this file conflicted).
+- ed6b241: `e2e/progress-journey.spec.ts` (`stack` project): three devices on one account. A signs in, passes a lesson, signs out (device cleared); B passes another as a guest, signs in, and the account holds both; C, a fresh phone, sees the same course page and profile. `e2e/stack-course.ts` holds the course writer `lesson-route-journey.spec.ts` had.
+- Code review 3: CHANGES REQUIRED, 2 MAJOR, 10 MINOR; all but one minor fixed in the next commit: the wait between code emails polls the provider's `auth.users` timestamps instead of a timer, axe on every screen, exact streaks, the phone device, contexts closed before cleanup, the user deleted, `latestCode` never answers a spent code. Report: `docs/reports/reviews/WP-7.4/code-review-3.md`.
+- `pnpm verify`: exit 0, `Test Files  142 passed (142)`, `Tests  2471 passed (2471)`.
+- Not run: the journey and the refactored `lesson-route-journey.spec.ts` (no Docker); their first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.4-part-2b.md` (40 lines).
+- Push: `wp/7.4-journeys-part-2b`, once 60 minutes had passed since the last push (11:39).
+
+### Owner: run this (part 70)
+
+1. Open a draft pull request from `wp/7.4-journeys-part-2b` with `docs/reports/pull-requests/WP-7.4-part-2b.md` as its body; check CI's `stack` job.
+
+### Next
+
+- J-10 once account deletion exists (blocked on the owner). WP-7.1 part 3 needs Docker. WP-7.5 starts once 7.1 to 7.4 merge. WP-6.2 part 2 (header XP) is `night-b`'s (heap-academy-9a).
+
 ## Session of 2026-11-25 (from about 10:40), in `night-a`, on the new branch `wp/7.1-security-canary`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-7.4 part 2b still waits for the 6.x branches (unchanged since 08:36), so this part started WP-7.1, whose T-21 canary walks the 5.x pages. This file is `wp/7.4-journeys`'s copy (the newest) with this section on top.
