@@ -53,7 +53,9 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
 
   // No published lesson: publishing is refused with the reason.
   await page.getByRole("button", { name: courseEditor.statusAction.published }).click();
-  await expect(page.getByRole("alert")).toContainText(structure.failure.no_published_lesson);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    structure.failure.no_published_lesson,
+  );
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "admin-course-editor-publish-refused", 1280, { workPackage: "WP-4.1" });
 
@@ -67,7 +69,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
   await other.close();
   await page.getByLabel(courseEditor.summaryLabel).fill("Saved in this tab.");
   await page.getByRole("button", { name: courseEditor.save }).click();
-  await expect(page.getByRole("alert")).toContainText(structure.failure.stale);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(structure.failure.stale);
   await expect(page.getByRole("button", { name: structure.reload })).toBeVisible();
   await saveScreen(page, "admin-course-editor-stale", 1280, { workPackage: "WP-4.1" });
 

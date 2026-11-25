@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 04:40), in `night-b`, second CI fix for #13
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- `e2e` still failed on 3ce8e49. Two faults in the stack journeys fixed (an unscoped `alert` locator; T-11 comparing whole response bodies with per-request nonces). Details: `docs/reports/pull-requests/WP-2.2.md`.
+- Run here on the production build with a fake auth server (no Docker): stack 3/3, gallery 23/23, chromium 37/37. Real Supabase Auth: not verified.
+- Chromium works in the sandbox with `--single-process`, one test per process, and the proxy set for `challenges.cloudflare.com`.
+- Push: from 05:38.
+- Next: when #13 is green or merged, merge it forward into 2.3 and later branches; 2.3's journey files need the same two fixes if they repeat them. Blocked: account deletion.
+
 ## Session of 2026-11-24 (from about 23:10), in `night-b`, CI fixes for #13 (`wp/2.2-sign-in`)
 
 - Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.

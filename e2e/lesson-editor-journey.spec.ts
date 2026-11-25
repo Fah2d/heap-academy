@@ -103,7 +103,7 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await other.close();
   await page.getByLabel(lessonEditor.titleLabel).fill("Saved in this tab");
   await page.getByRole("button", { name: lessonEditor.save }).click();
-  await expect(page.getByRole("alert")).toContainText(lessonEditor.failure.stale);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(lessonEditor.failure.stale);
   await expect(page.getByText(lessonEditor.unsaved)).toBeVisible();
   await saveScreen(page, "admin-lesson-editor-stale", 1280, { workPackage: "WP-4.2" });
 
