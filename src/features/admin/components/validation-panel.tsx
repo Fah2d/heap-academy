@@ -1,0 +1,209 @@
+"use client";
+
+import type { TestCase, TestCaseId } from "@/grader/test-case";
+import type { RuleState, TimedOutProgram, ValidationRule } from "@/grader/validation";
+import { validation as words } from "@/messages/admin";
+import { TIME_LIMIT_MS } from "@/runtime/controller";
+import { Button, Notice, Status } from "@/ui";
+import type { PythonState } from "../client/validation-runtime";
+import type { ValidationState } from "../validation-view";
+
+// The checklist of docs/spec/03-experience.md section 7.6 (FR-ADM-06,
+// FR-ADM-07): a state per rule, with what to fix when one fails, and
+// Validate and Stop. The editor owns the validation; this shows it.
+
+export type ValidationPanelProps = {
+  state: ValidationState;
+  python: PythonState;
+  /** The lesson changed after the last finished validation. */
+  outdated: boolean;
+  /** The test cases in the editor now; only these can be opened from a failed rule, named by their place now. */
+  testCases: readonly TestCase[];
+  onValidate: () => void;
+  onStop: () => void;
+  onRetry: () => void;
+  /** Opens a test case in the list and moves focus to it. */
+  onOpenTestCase: (id: TestCaseId) => void;
+};
+
+const RULES: readonly ValidationRule[] = [
+  "complete",
+  "solution_passes",
+  "starter_fails",
+  "wrong_answers_fail",
+  "no_time_limit",
+];
+
+type Opener = { id: TestCaseId; label: string };
+
+type Row = {
+  rule: ValidationRule;
+  state: RuleState["state"];
+  why: string | undefined;
+  open: readonly Opener[];
+};
+
+const statusState = { passed: "pass", failed: "fail", not_run: "not-run" } as const;
+
+function programName(program: TimedOutProgram): string {
+  if (program.program === "wrong_answer") return words.program.wrongAnswer(program.index + 1);
+  return words.program[program.program];
+}
+
+function testCaseRef(id: TestCaseId, testCases: readonly TestCase[]): string {
+  const index = testCases.findIndex((testCase) => testCase.id === id);
+  return words.testCaseRef(index + 1, testCases[index]?.name ?? "");
+}
+
+/**
+ * The failed test cases a button can open: those still in the editor, named
+ * by their place and name there now, so a label matches the test case it opens
+ * after a move or a rename.
+ */
+function openers(rule: RuleState, current: readonly TestCase[]): Opener[] {
+  if (rule.rule !== "solution_passes" || rule.state !== "failed") return [];
+  return rule.testCaseIds
+    .filter((id) => current.some((testCase) => testCase.id === id))
+    .map((id) => ({ id, label: words.openTestCase(testCaseRef(id, current)) }));
+}
+
+/** What to fix, for a failed rule; the test cases are named as the checked lesson had them. */
+function reason(rule: RuleState, testCases: readonly TestCase[]): string | undefined {
+  if (rule.state !== "failed") return undefined;
+  switch (rule.rule) {
+    case "complete":
+      return words.missing(rule.missing.map((part) => words.part[part]));
+    case "solution_passes":
+      return words.solutionFailed(rule.testCaseIds.map((id) => testCaseRef(id, testCases)));
+    case "starter_fails":
+      return words.starterPasses;
+    case "wrong_answers_fail":
+      return words.wrongAnswersPass(rule.wrongAnswers.map((index) => index + 1));
+    case "no_time_limit":
+      return words.timedOut(TIME_LIMIT_MS / 1000, rule.programs.map(programName));
+    default: {
+      const unreachable: never = rule;
+      return unreachable;
+    }
+  }
+}
+
+function liveText(state: ValidationState): string {
+  switch (state.kind) {
+    case "idle":
+    case "unavailable":
+      return "";
+    case "running":
+      return state.stopping ? words.status.stopping : words.status.running;
+    case "stopped":
+      return words.status.stopped;
+    case "done": {
+      const failed = state.rules.filter((rule) => rule.state === "failed").length;
+      return failed === 0 ? words.status.passed : words.status.failed(failed);
+    }
+    default: {
+      const unreachable: never = state;
+      return unreachable;
+    }
+  }
+}
+
+export function ValidationPanel({
+  state,
+  python,
+  outdated,
+  testCases,
+  onValidate,
+  onStop,
+  onRetry,
+  onOpenTestCase,
+}: ValidationPanelProps) {
+  // Before a finished validation every rule, rule 1 too, is not checked.
+  const rows: Row[] =
+    state.kind === "done"
+      ? state.rules.map((rule) => ({
+          rule: rule.rule,
+          state: rule.state,
+          why: reason(rule, state.checked.testCases),
+          open: openers(rule, testCases),
+        }))
+      : RULES.map((rule) => ({ rule, state: "not_run", why: undefined, open: [] }));
+  const running = state.kind === "running";
+  const live = liveText(state);
+
+  return (
+    <div className="flex max-w-prose flex-col gap-5">
+      <p className="text-sm text-text-muted">{words.intro}</p>
+      {python === "failed" ? (
+        // One error for a failed start, which Validate cannot get past.
+        <div className="flex flex-col gap-3">
+          <Notice kind="error" kindLabel={words.unavailableLabel} announce="assertive">
+            {state.kind === "unavailable" ? words.unavailableStart : words.python.failed}
+          </Notice>
+          <div>
+            <Button variant="secondary" onPress={onRetry}>
+              {words.retry}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-base text-text">
+          <span className="text-text-muted">{words.pythonLabel}: </span>
+          {words.python[python]}
+        </p>
+      )}
+      <ol aria-label={words.checklistLabel} className="flex flex-col gap-3">
+        {rows.map((row) => (
+          <li key={row.rule} className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <Status state={statusState[row.state]} label={words.state[row.state]} />
+              <span className="text-base text-text">{words.rule[row.rule]}</span>
+            </div>
+            {row.why !== undefined && <p className="text-sm text-text">{row.why}</p>}
+            {row.open.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {row.open.map((opener) => (
+                  <Button
+                    key={opener.id}
+                    variant="secondary"
+                    onPress={() => onOpenTestCase(opener.id)}
+                  >
+                    {opener.label}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+      {state.kind === "done" && outdated && (
+        <Notice kind="information" kindLabel={words.outdatedLabel}>
+          {words.outdated}
+        </Notice>
+      )}
+      {state.kind === "unavailable" && python !== "failed" && (
+        <Notice kind="error" kindLabel={words.unavailableLabel} announce="assertive">
+          {words.unavailable}
+        </Notice>
+      )}
+      <div className="flex flex-wrap gap-3">
+        <Button variant="secondary" isPending={running} onPress={onValidate}>
+          {!running
+            ? words.validate
+            : python === "loading"
+              ? words.validatesWhenReady
+              : words.validating}
+        </Button>
+        {running && (
+          <Button variant="secondary" isPending={state.stopping} onPress={onStop}>
+            {words.stop}
+          </Button>
+        )}
+      </div>
+      {/* Kept in the page for the live region, and out of the layout while empty. */}
+      <p role="status" className={live === "" ? "sr-only" : "text-sm text-text-muted"}>
+        {live}
+      </p>
+    </div>
+  );
+}

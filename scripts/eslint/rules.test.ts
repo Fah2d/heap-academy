@@ -101,6 +101,28 @@ describe("module boundaries", () => {
     ).not.toContain(boundary);
   });
 
+  it("[T-21] lets content read only through the session-less client", async () => {
+    const file = "src/content/published.ts";
+    const read = (code: string) => ruleIds(file, `import "server-only";\n${code}`);
+    expect(await read('import { x } from "@/infrastructure/db/session-client";')).toContain(
+      boundary,
+    );
+    expect(await read('import { x } from "@/infrastructure/auth/claims";')).toContain(boundary);
+    expect(await read('import { cookies } from "next/headers";')).toContain(boundary);
+    expect(await read('const h = await import("next/headers");')).toContain(boundary);
+    expect(await read('import { x } from "@/infrastructure/db/public-client";')).not.toContain(
+      boundary,
+    );
+    expect(await read('import { x } from "@/infrastructure/env/schema";')).not.toContain(boundary);
+    // Other modules may still use a session.
+    expect(
+      await ruleIds(
+        "src/features/admin/server/courses.ts",
+        'import "server-only";\nimport { x } from "@/infrastructure/db/session-client";',
+      ),
+    ).not.toContain(boundary);
+  });
+
   it("[NFR-MAINT-05] treats a feature's client folder as client code without the directive", async () => {
     const hook = "src/features/workspace/client/use-save.ts";
     expect(await ruleIds(hook, 'import { x } from "@/infrastructure/db/client";')).toContain(
@@ -152,7 +174,7 @@ describe("module boundaries", () => {
       'import "server-only";\nimport { x } from "../../../grader/compare";',
     ],
     ["src/runtime/controller.ts", 'import { x } from "@/grader/compare";'],
-    ["src/content/queries.ts", 'import { x } from "@/infrastructure/db/public";'],
+    ["src/content/queries.ts", 'import { x } from "@/infrastructure/db/public-client";'],
     ["src/infrastructure/db/client.ts", 'import "server-only";\nimport { x } from "@/domain/ids";'],
     ["src/app/page.tsx", 'import { x } from "@/features/catalog";'],
     ["src/app/layout.tsx", 'import "@/ui/tokens.css";'],
@@ -161,6 +183,54 @@ describe("module boundaries", () => {
     ["src/domain/streak.ts", 'import { z } from "zod";'],
   ])("[NFR-MAINT-05] allows a permitted import in %s", async (path, code) => {
     expect(await ruleIds(path, code)).not.toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] exempts only the grader's Node runner from purity (ADR-0032)", async () => {
+    const io =
+      'import { Worker } from "node:worker_threads";\nsetTimeout(() => new Worker("x"), 1);';
+    expect(await ruleIds("src/grader/node-runner/runner.ts", io)).toEqual([]);
+    const elsewhere = await ruleIds("src/grader/harness.ts", io);
+    expect(elsewhere).toContain(boundary);
+    expect(elsewhere).toContain("no-restricted-globals");
+  });
+
+  it("[NFR-MAINT-05] lets only tests and the runner itself import the grader's Node runner (ADR-0032)", async () => {
+    const code = 'import { createNodeRunner } from "@/grader/node-runner/runner";';
+    expect(await ruleIds("src/grader/parity.test.ts", code)).not.toContain(boundary);
+    expect(
+      await ruleIds("src/grader/node-runner/thread.ts", 'import { x } from "./host";'),
+    ).not.toContain(boundary);
+    expect(await ruleIds("src/grader/grade.ts", code)).toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.ts", code)).toContain(boundary);
+    expect(
+      await ruleIds("src/features/admin/server/validate.ts", `import "server-only";\n${code}`),
+    ).toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] lets only a test import a test file, so the Node runner cannot be passed on (ADR-0032)", async () => {
+    const code = 'export { x } from "./launder.test";';
+    expect(await ruleIds("src/runtime/controller.ts", code)).toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.test.ts", code)).not.toContain(boundary);
+  });
+
+  it("[NFR-MAINT-05] refuses an import whose source is computed", async () => {
+    const name = 'const name = "runner";\n';
+    for (const code of [
+      "void import(`@/grader/node-runner/${name}`);",
+      "void import(name);",
+      "require(name);",
+    ]) {
+      expect(await ruleIds("src/runtime/controller.ts", name + code)).toContain(boundary);
+    }
+    expect(
+      await ruleIds("src/runtime/controller.ts", "void import(`@/grader/node-runner/runner`);"),
+    ).toContain(boundary);
+    expect(
+      await ruleIds("src/runtime/worker/python-worker.ts", "void import(String(1));"),
+    ).not.toContain(boundary);
+    expect(await ruleIds("src/runtime/controller.ts", "void import(`./protocol`);")).not.toContain(
+      boundary,
+    );
   });
 
   it.each([

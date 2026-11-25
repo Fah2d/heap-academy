@@ -21,7 +21,7 @@ const METHODS: ReadonlySet<string> = new Set([
  * Every literal segment of a route under `src/app`. A route segment missing
  * here is logged as `:param`, which loses detail but never leaks; a test
  * checks the list against the folders. `dev`, `primitives` and `error` are
- * WP-1.4's development routes.
+ * WP-1.4's development routes; `catalog` is WP-5.1's.
  */
 export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "api",
@@ -31,11 +31,17 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "admin",
   "setup",
   "verify",
+  "courses",
+  "new",
+  "lessons",
   "csp-report",
   "health",
   "dev",
+  "runtime",
   "primitives",
+  "validation",
   "error",
+  "catalog",
 ]);
 
 /** Segments past this many are folded into one `*`, so a line stays short. */
@@ -50,6 +56,14 @@ export function logRoute(method: string, pathname: string): LogRoute {
     .map((segment) => (ROUTE_SEGMENTS.has(segment) ? segment : ":param"));
   if (segments.length > MAX_ROUTE_SEGMENTS) shown.push("*");
   return `${verb} /${shown.join("/")}` as LogRoute;
+}
+
+/**
+ * The `route` field for a read of public content, which runs inside the data
+ * cache with no request: `GET /content/published-course`.
+ */
+export function contentLogRoute(query: "published-courses" | "published-course"): LogRoute {
+  return `GET /content/${query}` as LogRoute;
 }
 
 const ACTION_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;

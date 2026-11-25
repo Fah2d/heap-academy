@@ -13,6 +13,9 @@ export type DisclosureProps = {
   title: ReactNode;
   children: ReactNode;
   defaultExpanded?: boolean;
+  /** Set by an owner that opens it itself, such as a list that opens the item with an error. */
+  isExpanded?: boolean;
+  onExpandedChange?: (isExpanded: boolean) => void;
   /** The heading level of the title within the page outline. */
   level?: 2 | 3 | 4;
 };
@@ -22,10 +25,17 @@ export function Disclosure({
   title,
   children,
   defaultExpanded = false,
+  isExpanded,
+  onExpandedChange,
   level = 3,
 }: DisclosureProps) {
   return (
-    <AriaDisclosure defaultExpanded={defaultExpanded} className="group flex flex-col">
+    <AriaDisclosure
+      defaultExpanded={defaultExpanded}
+      {...(isExpanded === undefined ? {} : { isExpanded })}
+      {...(onExpandedChange === undefined ? {} : { onExpandedChange })}
+      className="group flex flex-col"
+    >
       <Heading level={level} className="text-base font-medium">
         <AriaButton
           slot="trigger"
