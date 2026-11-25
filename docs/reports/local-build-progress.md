@@ -2,6 +2,25 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (about 08:30), in `night-b`, the course save fix carried to 4.1 through 6.3
+
+- `origin/main` is 428c437 and every branch from 2.2 already contains it. PR #13 is open at 2516297.
+- Default taken (the owner's rule: take a safe default for a decision): a28300c from `wp/7.2-a11y-perf` ("saving an existing course's details does nothing") is cherry-picked onto `wp/4.1-courses-chapters` as 720de27, because the fault is in WP-4.1 code. It was reviewed in WP-7.2 code review 1. Owner: list this default in the WP-4.1 pull request description.
+- Merged forward: 4.2, 4.3, 5.1, 5.2, 5.3, 5.4, `wp/6.1-sync-wiring`, `wp/6.3-profile-page`. No conflicts.
+- `pnpm verify` exit 0: 4.1 (1118 tests), 4.2 (1335), 4.3 (1905), 5.1 (2011), 5.2 (1948), 5.3 (1965), 5.4 (2322), 6.1 (2381), 6.3 (2456). On 6.3, `pnpm build` with CI's public values, `check-bundle` and `check-static`: exit 0. Not run: browser tests, `pnpm test:db`.
+- Not carried back: 1e95ee3 and 8c41dae (the admin gallery's `landmark-unique` fix). They are built on screens from 4.3 and 5.x, so carrying them back means resolving them by hand, and checking that needs the browser tests that the guard stop below left to the owner. Pull requests for 4.2 and later may fail `e2e` until `wp/7.2-a11y-perf` merges (not verified).
+- Other sessions: `night-a` is in use (`wp/7.4-journeys`).
+- Blocked, unchanged: account deletion (service-role secret, notice address, "recent sign-in" rule), checks that need Docker.
+
+## Session of 2026-11-25 (06:48), in `night-b`, stopped: a guard blocked a command
+
+- After the merge-forward below was pushed, this session tried to run `e2e/admin-gallery.spec.ts` on `wp/4.1-courses-chapters` in Chromium, through a temporary Playwright config in `$TMPDIR`.
+- `scripts/claude-guard.mjs` blocked the whole command: "AI attribution check could not read $TMPDIR/pwc/lines. [...] If this is wrong, stop and ask the owner." Nothing in the command ran. The command was not reworded or retried, and the guard was not changed.
+- The block looks like a false positive: the command listed test line numbers into `$TMPDIR/pwc/lines` and looped over them. It made no commit. Owner: say whether a session may run those browser tests another way.
+- Why the run matters (not verified): WP-5.4's notes say `admin-gallery.spec.ts` fails axe `landmark-unique`, and CI runs the `gallery` project. The fix (1e95ee3, 8c41dae) is only on `wp/7.2-a11y-perf`, so pull requests for 4.2 and later may fail `e2e`. `wp/7.2-a11y-perf` also holds a28300c: saving an existing course's details does nothing (WP-4.1 code).
+- A dev server for this checkout still answers on port 3302 (PID 23417). To stop it, outside the sandbox: `kill 23417`.
+- This entry is not committed (speed mode: no progress-file-only commits).
+
 ## Session of 2026-11-25 (from about 06:42), in `night-b`, journey fixes carried to 5.2 through 6.3
 
 - `origin/main` still 428c437. CI on #13 (2516297): unit, db, e2e, static and build all succeeded.
