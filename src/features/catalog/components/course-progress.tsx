@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext } from "react";
 import { type CourseStanding, courseStanding, type LessonState } from "@/domain/course-progress";
+import { totalXp } from "@/domain/streak";
 import { useDeviceCompletions } from "@/features/progress";
 import { catalogCommon, coursePage as words } from "@/messages/catalog";
 import { Link, type LinkVariant, Status, type StatusState } from "@/ui";
@@ -26,9 +27,11 @@ function useStanding(lessons: readonly Lesson[]): Known {
   };
 }
 
-const CourseContext = createContext<Known | undefined>(undefined);
+type CourseKnown = Known & { xp: { earned: number; total: number } };
 
-function useCourse(): Known {
+const CourseContext = createContext<CourseKnown | undefined>(undefined);
+
+function useCourse(): CourseKnown {
   const value = useContext(CourseContext);
   if (value === undefined) throw new Error("course progress: outside CourseProgress");
   return value;
@@ -39,10 +42,18 @@ export function CourseProgress({
   lessons,
   children,
 }: {
-  lessons: readonly Lesson[];
+  lessons: readonly (Lesson & { xp: number })[];
   children: ReactNode;
 }) {
-  return <CourseContext.Provider value={useStanding(lessons)}>{children}</CourseContext.Provider>;
+  const { standing, known } = useStanding(lessons);
+  // The XP each completed lesson carries now (FR-CRS-05).
+  const xp = {
+    earned: totalXp(lessons.filter((_, index) => standing.states[index] === "completed")),
+    total: totalXp(lessons),
+  };
+  return (
+    <CourseContext.Provider value={{ standing, known, xp }}>{children}</CourseContext.Provider>
+  );
 }
 
 function ActionLink({
@@ -71,14 +82,15 @@ export function CourseAction({ course }: { course: string }) {
   return <ActionLink course={course} standing={useCourse().standing} variant="action" />;
 }
 
-/** The count of completed lessons, shown once the device has answered. */
+/** Lessons completed and XP earned of total (FR-CRS-05), once the device has answered. */
 export function CourseCount() {
-  const { standing, known } = useCourse();
+  const { standing, known, xp } = useCourse();
   if (!known) return null;
   return (
-    <p className="text-xs text-text-muted tabular-nums">
-      {catalogCommon.progress(standing.completed, standing.total)}
-    </p>
+    <div className="flex flex-col gap-1 text-xs text-text-muted tabular-nums">
+      <p>{catalogCommon.progress(standing.completed, standing.total)}</p>
+      <p>{words.xpEarned(xp.earned, xp.total)}</p>
+    </div>
   );
 }
 

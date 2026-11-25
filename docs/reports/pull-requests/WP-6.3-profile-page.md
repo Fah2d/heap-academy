@@ -16,6 +16,8 @@ A signed-in learner can see their display name, XP, and current and longest stre
 - Progress per course (FR-PRF-01): each published course with at least one completed lesson, with a link and a count.
 - Account section with Sign out (experience spec 5.5), the same form as the header's.
 
+- Course page: XP earned of total beside the completed count (FR-CRS-05, WP-6.2).
+
 ## Verification
 
 - prettier, eslint, tsc, attribution, vitest with coverage (138 test files): pass.
@@ -32,6 +34,10 @@ Left open (minor): an invalid Save leaves focus on the button; a direct data API
 
 Third round, on per-course progress and sign-out: code review CHANGES REQUIRED (no test of the whole page), security review APPROVE. The test is added, not reviewed again.
 
+Fourth round, code review of the course page XP line: CHANGES REQUIRED (no Delivery Gate, decision 5 departs from the spec, test titles and cases). The tests are fixed, not reviewed again.
+
+antislop Delivery Gate: **not run** for the profile page or the course page header. No screenshots, axe or browser check; those need the local stack.
+
 ## Decisions taken (safe defaults)
 
 1. XP and streak appear first on the profile. The header shows no numbers: the experience spec (section 4) lists no XP or streak there, while the delivery plan says "in the header". Proposed spec change: remove "header" from WP-6.2.
@@ -40,6 +46,8 @@ Third round, on per-course progress and sign-out: code review CHANGES REQUIRED (
 
 4. Only courses with a completed lesson are listed. A course read that fails shows the error page for the whole profile.
 
+5. The course page counts the XP each completed lesson carries now, for guests and accounts alike. After a lesson's XP is edited, it differs from the profile, which sums the stored completion values. This departs from architecture section 8.1 and FR-CRS-05 ("Values equal derived progress") until you accept it as a spec change, or ask for completion XP to be carried to the page.
+
 ## Not in this part
 
-Account deletion (blocked on the service-role secret, the notice address and the "recent sign-in" rule), the course page summary (FR-CRS-05).
+Account deletion (blocked on the service-role secret, the notice address and the "recent sign-in" rule).
