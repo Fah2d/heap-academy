@@ -2,6 +2,28 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 06:42), in `night-b`, journey fixes carried to 5.2 through 6.3
+
+- `origin/main` still 428c437. CI on #13 (2516297): unit, db, e2e, static and build all succeeded.
+- Merged in order: 4.2 into `wp/5.2-workspace-laptop`, then 5.3, then 5.4 (with 5.1), `wp/6.1-sync-wiring` and `wp/6.3-profile-page`. Conflicts: this file, and the `@/features/progress` mock in `workspace.test.tsx` (both sides kept).
+- `pnpm verify` exit 0: 5.2 (1946 tests), 5.3 (1963), 5.4 (2320), 6.3 (2454). 6.1 alone was not verified. On 6.3, `pnpm build`, `check-bundle` and `check-static` passed. Not run: browser tests, `pnpm test:db`.
+- In this checkout `pnpm` needs `pnpm_config_verify_deps_before_run=false`, or its pre-run install check fails on the sandboxed store lock.
+
+## Session of 2026-11-25 (from about 04:58), journey fixes carried to 5.1
+
+- `wp/2.2-sign-in` merged into 2.3, then 4.1, 4.2, 4.3 and `wp/5.1-catalog`; the same unscoped `alert` locator fixed in the admin, course structure and lesson editor journeys (scoped to `main`).
+- Sign-in journeys on 2.3 against the fake auth server: 3/3. The admin, course structure and lesson editor journeys need the database and were not run.
+- Next: merge forward into 5.2 and later at their next work. Push: from 05:38.
+
+## Session of 2026-11-25 (from about 04:40), in `night-b`, second CI fix for #13
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- `e2e` still failed on 3ce8e49. Two faults in the stack journeys fixed (an unscoped `alert` locator; T-11 comparing whole response bodies with per-request nonces). Details: `docs/reports/pull-requests/WP-2.2.md`.
+- Run here on the production build with a fake auth server (no Docker): stack 3/3, gallery 23/23, chromium 37/37. Real Supabase Auth: not verified.
+- Chromium works in the sandbox with `--single-process`, one test per process, and the proxy set for `challenges.cloudflare.com`.
+- Push: from 05:38.
+- Next: when #13 is green or merged, merge it forward into 2.3 and later branches; 2.3's journey files need the same two fixes if they repeat them. Blocked: account deletion.
+
 ## Session of 2026-11-25 (from about 03:40), in `night-b`, per-course progress on the profile
 
 - `origin/main` still 428c437: nothing to merge for task 1.
@@ -25,6 +47,32 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - Next: per-course progress and sign-out on the profile.
 - Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule). WP-5.1 browser checks (no Docker).
 - Note: a second session (heap-academy-63) asked at about 02:49 whether `night-b` was in use; its address was stale when answered.
+
+## Session of 2026-11-25 (from about 02:14), in `night-a`, on `wp/5.4-progress-preview`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner.
+
+### Task 3, part 62 done: WP-5.4 part 5, the admin preview (WP-5.4 complete)
+
+- a0e14ab: `/admin/lessons/[id]/preview` (FR-ADM-08, section 7.7). The admin guard runs first; the read goes through the admin's session and names no solution or wrong answer; the workspace's new `preview` prop keeps code in memory only, records no completion, asks nothing of the device, and shows a banner, a back link to the editor, no invitation and no previous or next. The editor's top bar links to it.
+- 80e61d9: `/dev/admin/preview` (development only) and `e2e/workspace-preview-runtime.spec.ts`: the preview (banner, back link, no page scroll in the admin frame, a pass that writes nothing to IndexedDB, axe) and NFR-REL-02 (network cut after Python is ready; Run, Check and the kept pass work).
+- Code review 5: CHANGES REQUIRED, 1 BLOCKER, 3 MAJOR, 3 MINOR. Security review 2: APPROVED, 2 MINOR. 6b93dcd fixes all but one minor (Python loads unseen below 1024 px, accepted): the gate journeys list the editor and preview addresses, a page test, Check off with no test case, the banner's words, screens. It also adds J-8 (`e2e/j8-add-lesson-journey.spec.ts`, stack, CI only) and makes a racy assertion in `course-status.test.tsx` wait for the transition.
+- `pnpm verify` on 6b93dcd: exit 0, `Test Files  130 passed (130)`, `Tests  2320 passed (2320)`. `pnpm build` on a0e14ab with the fake public values: exit 0, `/admin/lessons/[id]/preview` listed; `check-bundle` and `check-static`: exit 0.
+- Browser, Chromium, one test per process against the dev server on `localhost:3265`: `workspace-preview-runtime.spec.ts` 2 of 2 (three runs), `workspace-runtime.spec.ts` 17 of 17 on 6b93dcd.
+- Found, not caused here: `admin-gallery.spec.ts` "the lesson editor's states" fails axe `landmark-unique` (several "Sections of this lesson" landmarks on the gallery page); it fails the same with this part's editor change reverted.
+- Not run: J-8, the gate journey and the other stack journeys (no Docker), `pnpm test:db` (no database change), Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-5.4.md` (59 lines), decisions 17 and 18.
+- Push: `wp/5.4-progress-preview`, once 60 minutes had passed since the last push (02:13).
+
+### Owner: run this (part 62)
+
+1. Update the WP-5.4 pull request body with `docs/reports/pull-requests/WP-5.4.md`, or open it as a draft from `wp/5.4-progress-preview`.
+2. Owner step from the plan: time yourself writing and publishing one lesson (G-5), now that the preview exists.
+3. Still running and not stoppable from the sandbox: dev servers on ports 3264 and 3265. `lsof -ti tcp:3264,3265 | xargs kill` from a terminal outside the sandbox.
+
+### Next
+
+- WP-6.1 to 6.3 are on `night-b`'s line. The next package here that needs the runtime or the 5.x pages is WP-7.2 (axe on every workspace state, the keyboard walkthrough, reduced motion, the throttled load profile), or the admin gallery's `landmark-unique` failure as a small fix first.
 
 ## Session of 2026-11-25 (from about 01:45), in `night-b`, profile page on `wp/6.3-profile-page`
 
@@ -190,6 +238,25 @@ Part 56 took about 10 minutes, so the run went on.
 - Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
 - `pnpm verify`: exit 0. Not run: the stack e2e (no Docker here), so the fix is reasoned from the code and CI has to confirm it.
 - Next: merge `origin/main` into the later branches in order if it has moved, then WP-6.1 part 2.
+
+## Session of 2026-11-24 (from about 23:10), in `night-a`, on `wp/5.2-workspace-laptop`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the three runtime branches are 0 behind it. Task 2: nothing new that does not need the owner. Speed mode allows one review round, already done on WP-5.2, and no design review, so this run finished WP-5.2 instead of a second round. This file is `wp/5.2-workspace-laptop`'s copy with this section added on top.
+
+### Task 3, part 56 done: WP-5.2 part 4, on `wp/5.2-workspace-laptop`
+
+- 8c2a19f: a journey for output over the limit (Python restarting with the reason, then the next Run works) with axe and screens. Its 375 px screen was 50,737 px tall: below 768 px the console grew with every printed line. The console now scrolls inside `--workspace-console-max` (24 rem) below 768 px; the new height assertion failed without the fix (`Received: 49207`) and passes with it.
+- Decision 14's spec change written into `04-content-system.md` section 7 (a fenced `python` block), marked approved by the owner on 2026-11-24. Decisions 10 to 18 are treated as approved under the owner's standing approval of recommended defaults, restated at this run's start; listed in the description.
+- `pnpm verify`: exit 0, `Test Files  104 passed (104)`, `Tests  1942 passed (1942)`. `pnpm build` with the fake public values: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser: 15 of 15 journeys passed in Chromium, one per process, against `next dev --webpack` on port 3264. The development server was stopped by this run.
+- Description: shortened to 59 lines (speed mode), with the Delivery Gate report.
+- Not run: Firefox and WebKit (speed mode), `pnpm test:db` (no database change), the real route with seeded data.
+- Push: `wp/5.2-workspace-laptop`, held until 60 minutes after the last push (23:09).
+
+### Owner: run this (part 56)
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-5.2.md` on `wp/5.2-workspace-laptop`, or open the pull request with that body. WP-5.2 is ready for review apart from WP-5.1 merging first (decision 10).
+2. `git stash drop stash@{0}` when convenient: its content is all in b386309.
 
 ## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, then `wp/5.2-workspace-laptop`
 

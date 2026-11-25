@@ -203,6 +203,12 @@ describe("LessonEditor [FR-ADM-04]", () => {
     expect(screen.getByRole("textbox", { name: words.starterLabel }).textContent).toBe("# start");
   });
 
+  it("[FR-ADM-08] links the top bar to the lesson's preview", () => {
+    setup();
+    const link = screen.getByRole("link", { name: words.previewLesson });
+    expect(link.getAttribute("href")).toBe(`/admin/lessons/${lesson.id}/preview`);
+  });
+
   it("[FR-ADM-10] saves the draft with the version it loaded, then with the new one", async () => {
     const { save } = setup();
     await userEvent.clear(field(words.titleLabel));

@@ -56,6 +56,17 @@ export type WorkspaceLesson = {
   neighbours: Neighbours;
 };
 
+/**
+ * The admin's preview of a lesson (docs/spec/03-experience.md section 7.7;
+ * FR-ADM-08): the same workspace, which keeps nothing on the device and
+ * records no completion, with a banner that says so.
+ */
+export type WorkspacePreview = {
+  /** Where the back link goes: the lesson's editor. */
+  backHref: string;
+  backLabel: string;
+};
+
 /** How long typing pauses before the code is saved on the device. */
 const SAVE_DELAY_MS = 400;
 
@@ -96,12 +107,16 @@ export function Workspace({
   lesson,
   instructions,
   nonce,
+  preview,
 }: {
   lesson: WorkspaceLesson;
   /** The rendered instructions, from the server. */
   instructions: ReactNode;
   nonce: string;
+  /** Set only by the admin's preview, which records nothing. */
+  preview?: WorkspacePreview;
 }) {
+  const previewing = preview !== undefined;
   const root = useRef<HTMLDivElement>(null);
   const editorLabel = useId();
   const key = savedCodeKey(lesson.course.slug, lesson.slug);
@@ -143,9 +158,12 @@ export function Workspace({
   const recorded = useRef<CheckSummary | undefined>(undefined);
   const unsynced = useSyncExternalStore(syncStatus.subscribe, syncStatus.unsynced, () => false);
 
-  // The saved code is on the device, so it is read only here.
+  // The saved code is on the device, so it is read only here. A preview keeps
+  // code in memory only, so it never reads or replaces a learner's saved code.
   useEffect(() => {
-    const codeStore = createCodeStore(typeof indexedDB === "undefined" ? undefined : indexedDB);
+    const codeStore = createCodeStore(
+      previewing || typeof indexedDB === "undefined" ? undefined : indexedDB,
+    );
     store.current = codeStore;
     let active = true;
     void codeStore.load(key).then((saved) => {
@@ -158,7 +176,7 @@ export function Workspace({
     return () => {
       active = false;
     };
-  }, [key, lesson.starterCode]);
+  }, [key, lesson.starterCode, previewing]);
 
   const saveNow = useCallback(() => {
     if (pendingSave.current !== undefined) window.clearTimeout(pendingSave.current);
@@ -208,25 +226,29 @@ export function Workspace({
   };
 
   // Whether the device keeps what is saved, known only in the browser (FR-PRG-01).
+  // A preview asks nothing of the device: its banner says nothing is kept.
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
-    void deviceProgress()
-      .durability()
-      .then((known) => {
-        if (mounted.current) setDurability(known);
-      });
+    if (!previewing) {
+      void deviceProgress()
+        .durability()
+        .then((known) => {
+          if (mounted.current) setDurability(known);
+        });
+    }
     return () => {
       mounted.current = false;
     };
-  }, []);
+  }, [previewing]);
 
   // A check that passed every test is kept on the device at once, once per
   // summary (NFR-REL-01). The store says whether it is the lesson's first
   // pass, which alone earns its XP (FR-WSP-06).
   useEffect(() => {
     const summary = view.summary;
-    if (view.ended !== "check" || summary?.allPassed !== true) return;
+    // A preview records nothing (FR-ADM-08); its line says so.
+    if (previewing || view.ended !== "check" || summary?.allPassed !== true) return;
     if (recorded.current === summary) return;
     recorded.current = summary;
     const progress = deviceProgress();
@@ -238,7 +260,7 @@ export function Workspace({
         const known = await progress.durability();
         if (mounted.current) setDurability(known);
       });
-  }, [view.ended, view.summary, lesson.id, lastCheckedSource]);
+  }, [view.ended, view.summary, lesson.id, lastCheckedSource, previewing]);
 
   // A guest is invited to save progress below a lesson's first completion,
   // when the device keeps it (FR-AUTH-07): in memory the warning above the
@@ -248,12 +270,16 @@ export function Workspace({
     completion !== undefined &&
     completion.summary === view.summary &&
     completion.first &&
-    durability === "device"
+    durability === "device" &&
+    !previewing
       ? guestInvitation
       : null;
 
-  const completionText =
-    completion !== undefined && completion.summary === view.summary
+  const completionText = previewing
+    ? view.ended === "check" && view.summary?.allPassed === true
+      ? words.previewComplete
+      : undefined
+    : completion !== undefined && completion.summary === view.summary
       ? completion.first
         ? words.completeFirst(lesson.xp)
         : words.completeAgain
@@ -262,9 +288,12 @@ export function Workspace({
   const runtime = chart.runtime;
   const pending = "pending" in runtime ? runtime.pending : null;
   const canPress = (type: "RUN" | "CHECK") => canStart(chart) || isRemembered(runtime.name, type);
+  // Only a draft in the admin's preview can have no test case: the worker
+  // refuses a check of none, so Check is off and the tests panel says why.
+  const noTests = lesson.tests.length === 0;
   const press = (action: "run" | "check") => {
     const type = action === "run" ? "RUN" : "CHECK";
-    if (!canPress(type)) return;
+    if (!canPress(type) || (action === "check" && noTests)) return;
     // The worker would refuse it and nothing would happen, so say why instead.
     // Check sends no typed-in input.
     const over = tooLarge(
@@ -385,11 +414,16 @@ export function Workspace({
   const title = (
     <div className="flex flex-col gap-1 border-be border-border px-gutter py-3 md:col-span-2">
       <div>
-        <Link href={courseBackPath(lesson.course.slug)} variant="standalone">
-          {words.backToCourse(lesson.course.title)}
+        <Link href={preview?.backHref ?? courseBackPath(lesson.course.slug)} variant="standalone">
+          {preview?.backLabel ?? words.backToCourse(lesson.course.title)}
         </Link>
       </div>
       <h1 className="text-xl font-semibold text-text">{lesson.title}</h1>
+      {previewing && (
+        <Notice kind="information" kindLabel={words.previewKind}>
+          {words.previewBody}
+        </Notice>
+      )}
     </div>
   );
 
@@ -491,6 +525,7 @@ export function Workspace({
         variant={passed ? "secondary" : "primary"}
         {...(!phone && { icon: <Checkmark size={16} /> })}
         isPending={!canPress("CHECK")}
+        isDisabled={noTests}
         keyShortcuts={ariaKeyShortcuts("check", apple)}
         onPress={() => {
           press("check");
@@ -603,7 +638,9 @@ export function Workspace({
     </>
   );
 
-  const nav = (
+  // A preview has no previous or next: the lesson may be the course's only
+  // draft, and its neighbours' public addresses may not exist yet.
+  const nav = previewing ? null : (
     <LessonNav course={lesson.course.slug} neighbours={lesson.neighbours} passed={passed} />
   );
 
