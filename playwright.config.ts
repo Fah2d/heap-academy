@@ -11,10 +11,13 @@ const port = 3100;
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
 const runtime = /runtime\.spec\.ts$/;
+// Journeys that need the local Supabase stack (`supabase start`) run in the
+// `stack` project, which the `e2e` job runs after starting it.
+const stack = /-journey\.spec\.ts$/;
 // The same development pages on an emulated phone: a mobile viewport, touch,
 // and the phone's pixel density, not a resized desktop window.
 const phone = /phone\.spec\.ts$/;
-const developmentOnly = [gallery, runtime, phone];
+const notDesktop = [gallery, runtime, phone, stack];
 
 const engines = [
   ["chromium", devices["Desktop Chrome"]],
@@ -28,6 +31,8 @@ const environment = {
   NEXT_PUBLIC_SUPABASE_URL: process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
     process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ?? "sb_publishable_example",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY:
+    process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"] ?? "1x00000000000000000000AA",
   RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "re_example_not_a_real_key",
 };
 
@@ -42,9 +47,10 @@ export default defineConfig({
   projects: [
     ...engines.map(([name, device]) => ({
       name,
-      testIgnore: developmentOnly,
+      testIgnore: notDesktop,
       use: { ...device },
     })),
+    { name: "stack", testMatch: stack, use: { ...devices["Desktop Chrome"] } },
     {
       name: "gallery",
       testMatch: gallery,

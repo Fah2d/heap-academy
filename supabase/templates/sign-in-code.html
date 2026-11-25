@@ -1,0 +1,8 @@
+<!-- The sign-in email (FR-AUTH-02). It shows the code and no link, so sign-in
+     finishes in the tab that asked for it. Local stack: supabase/config.toml.
+     Staging and production: pasted into the project's email templates by
+     docs/runbooks/infrastructure-setup.md step 10. -->
+<p>Your Heap Academy sign-in code is:</p>
+<p style="font-size: 24px; font-family: monospace; letter-spacing: 4px">{{ .Token }}</p>
+<p>Type it on the sign-in page. It works for 10 minutes.</p>
+<p>If you did not ask to sign in, you can ignore this email.</p>

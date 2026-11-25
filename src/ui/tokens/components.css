@@ -29,6 +29,10 @@
   /* A pressed button moves 1 px down (DESIGN.md section 4.5). */
   --press-shift: 1px;
 
+  /* The bot challenge's widget is 65 px tall; its space is kept so nothing
+     moves when it appears (antislop R-40). */
+  --challenge-height: 4.0625rem;
+
   /* Links in running text (DESIGN.md section 4.2). */
   --link-underline-offset: 0.15em;
 
