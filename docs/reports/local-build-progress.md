@@ -6,7 +6,7 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-7.4 part 2b still waits for the 6.x branches (unchanged since 08:36), so this part started WP-7.1, whose T-21 canary walks the 5.x pages. This file is `wp/7.4-journeys`'s copy (the newest) with this section on top.
 
-### Task 3, part 68 done: WP-7.1 part 1, the T-21 canary test
+### Task 3, parts 68 and 69 done: WP-7.1 parts 1 and 2, the T-21 canary test and the threat results
 
 - Base: `wp/7.2-a11y-perf` at cf6dde1 (it holds the 2.2 to 5.4 line the canary walks; 7.1 and 7.2 may run beside each other).
 - 45d78bc: `e2e/canary-journey.spec.ts` (`stack` project). Tokens in a published lesson's solution and wrong answer, in a draft and an archived lesson, and in a draft course. A guest and a learner walk every page and admin address; every browser response, each page as HTML and as the router's payload, the files, and the Data API's content tables must hold no token. The client bundles must not hold the seed's wrong answer.
@@ -14,18 +14,20 @@ Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origi
 - `pnpm verify` on 2dea27a: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
 - Bundle test on a fresh `next build`: 1 passed; a planted wrong answer in `.next/static/chunks` and in `public/_runtime/worker` each failed it. A local `next start` (port 3321, stopped by this run) answered `text/x-component` behind the redirect for all 11 kinds of page walked.
 - Not run: the guest and learner walks (no Docker); their first run is CI's `stack` job. Firefox and WebKit (speed mode).
-- Found, not fixed: the admin feature's index re-exports the development gallery, so its sample programs ship in a production admin chunk (description, "Owner actions" 2).
-- Description: `docs/reports/pull-requests/WP-7.1.md` (48 lines).
+- Found, not fixed: the admin feature's index re-exports the development gallery, so its sample programs ship in a production admin chunk (description, "Owner actions" 2). A separate entry needs a module boundary rule change, which is the owner's.
+- Part 2, c0c3bbc and 9a4b774: `docs/reports/day-7-security.md`, every threat row with the tests that cite it, and the gaps (T-14's Postgres counters and T-17's J-10 exist on no branch). gitleaks over every branch's history: exit 0, `1189 commits scanned.`, `no leaks found`. `pnpm audit`: 1 moderate (`minimatch`, development only); `--audit-level high` exit 0. Titles now cite `[T-02]`, `[T-22]` and `[T-25]`. Code review 2: CHANGES REQUIRED, 1 MAJOR, 6 MINOR; all fixed in 9a4b774. `pnpm verify` on 9a4b774: exit 0, 2327 tests.
+- T-14's counters were not started: a migration that cannot be run here (no Docker, no Postgres) is not worth writing blind.
+- Description: `docs/reports/pull-requests/WP-7.1.md` (52 lines).
 - Push: `wp/7.1-security-canary`, once 60 minutes had passed since the last push (10:38).
 
-### Owner: run this (part 68)
+### Owner: run this (parts 68 and 69)
 
-1. Open a draft pull request from `wp/7.1-security-canary` with `docs/reports/pull-requests/WP-7.1.md` as its body; check CI's `e2e` job passes `canary-journey.spec.ts`.
+1. Open a draft pull request from `wp/7.1-security-canary` with `docs/reports/pull-requests/WP-7.1.md` as its body; check CI's `e2e` job passes `canary-journey.spec.ts` and `database` passes.
 2. Decide on keeping the development galleries out of the feature indexes (description, "Owner actions" 2).
 
 ### Next
 
-- WP-7.1 part 2: the dependency audit and the history secret scan, the auth provider settings check, T-14's Postgres counters. The firewall rule, the production advisor run and `pnpm infra:verify` against production need the owner. WP-7.4 part 2b once the 6.x branches hold J-5, J-6 and J-10.
+- WP-7.1 part 3: T-14's Postgres counters, once Docker can run `pnpm test:db`; the whole-application `security-reviewer` pass once the 6.x branches merge. The auth provider settings check, the firewall rule, the production advisor run and `pnpm infra:verify` against production need the owner. WP-7.4 part 2b once the 6.x branches hold J-5, J-6 and J-10.
 
 ## Session of 2026-11-25 (from about 10:20), in `night-a`, on `wp/7.4-journeys`
 
