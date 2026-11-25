@@ -6,6 +6,19 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 Same task list, owner decisions and speed mode. `git fetch`: `origin/main` is at 739eacd (#16, `wp/4.1-courses-chapters`). Found on arrival: a run at about 18:07 had merged 739eacd into `wp/3.1-python-worker` (ab0081c) and `wp/3.3-grader` (aa4afa9) without pushing or writing here, and had stopped in the middle of the same merge on `wp/3.4-statechart` with two conflicts. Earlier today (about 14:22) the owner's chat had merged #15 into all three and pushed. `gh` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`).
 
+### Task 3 done: `main` and WP-3.4 into WP-5.2, WP-5.2 into WP-5.3, and a race in the workspace journeys
+
+Task 1 took about 10 minutes, so the run went on. Task 2 had nothing new that does not need the owner. Every package through WP-7.4 has a branch, so task 3 kept the runtime stack merged.
+
+- `wp/5.2-workspace-laptop`: `main` at dffe1a8 in af95dc4 (one conflict, `src/ui/primitives/button.tsx`, both sides kept), `wp/3.4-statechart` at fd7b9dc in eaac0d7 (this branch's side taken where it already held both). `pnpm verify` exit 0, `Test Files  106 passed (106)`, `Tests  1951 passed (1951)`; `pnpm build`, `check-bundle`, `check-static` exit 0. Description: 8fe35c8.
+- `wp/5.3-workspace-phone`: `wp/5.2-workspace-laptop` in 76a5745. `pnpm verify` exit 0, `Test Files  107 passed (107)`, `Tests  1968 passed (1968)`; build and checks exit 0.
+- Browser (Chromium `--no-sandbox --single-process`, one test per process, `next dev --webpack` on port 3291 after `node scripts/build-runtime.mjs`): J-3 failed 2 of 3 runs. Cause: the screen round's resizes returned before the workspace built the other layout, so an answer went into an input line that then went away. ffdae1c and 9771531 wait for the layout after each resize. After them: the 15 desktop journeys 15 of 15, J-3 11 of 11, the restarting journey 4 of 4, the phone journeys at 320, 375 and 430 px and the unsupported browser at 375 px.
+- Code review 2: CHANGES REQUIRED, 1 MAJOR (the same race in the restarting journey), fixed in 9771531. Report: `docs/reports/reviews/WP-5.3/code-review-2.md`.
+- Not fixed, in the WP-5.3 description: an answer typed in the input line and not yet sent is lost when the window crosses 768 px.
+- Left alone: `wp/5.4-progress-preview` needs `wp/5.1-catalog`, which does not yet hold `main` at dffe1a8; the owner's chat is merging that chain (it merged `main` into `wp/4.3-validate-publish` at 20:56).
+- The development server on port 3291 was stopped by this run.
+- Push: `wp/5.2-workspace-laptop` and `wp/5.3-workspace-phone`, after 22:02 (60 minutes after the 21:02 push).
+
 ### Task 1 done: `main` at 739eacd, then dffe1a8, in the three runtime branches
 
 - `wp/3.1-python-worker`: ab0081c. `pnpm verify` exit 0, `Test Files  73 passed (73)`, `Tests  1356 passed (1356)`. `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. Description: 3d6a933.
