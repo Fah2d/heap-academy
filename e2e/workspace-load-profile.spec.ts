@@ -10,8 +10,10 @@ import { workspace as words } from "../src/messages/workspace";
 test.describe.configure({ timeout: 300_000 });
 
 const READY_MS = 240_000;
-// Lighthouse's mobile profile: 150 ms round trip, 1.6 Mbit/s down,
-// 750 kbit/s up, and a processor four times slower.
+// The values of Lighthouse's simulated mobile profile: 150 ms round trip,
+// 1.6 Mbit/s down, 750 kbit/s up, and a processor four times slower, applied
+// here as real throttling. Lighthouse's own applied throttling is slower
+// (about 562 ms round trip), so this profile is the lighter of the two.
 const THROTTLE = {
   latency: 150,
   downloadThroughput: (1.6 * 1024 * 1024) / 8,
@@ -59,10 +61,23 @@ test("[NFR-PERF-03] on a throttled phone, the lesson reads and the editor takes 
   await page.setViewportSize(PHONE);
   const started = Date.now();
   await page.goto("/dev/workspace", { waitUntil: "commit" });
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(EXAMPLE_LESSON.title, {
-    timeout: READY_MS,
-  });
+  const title = page.getByRole("heading", { level: 1 });
+  await expect(title).toHaveText(EXAMPLE_LESSON.title, { timeout: READY_MS });
+  await expect(title).toBeVisible({ timeout: READY_MS });
   const lessonMs = Date.now() - started;
+  // When the browser first painted text, from the navigation's start: the
+  // title in the DOM is not yet the title on screen.
+  const paintMs = await page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        new PerformanceObserver((list, observer) => {
+          const entry = list.getEntries().find((paint) => paint.name === "first-contentful-paint");
+          if (entry === undefined) return;
+          observer.disconnect();
+          resolve(Math.round(entry.startTime));
+        }).observe({ type: "paint", buffered: true });
+      }),
+  );
 
   await page.getByRole("tab", { name: words.viewCode }).click();
   await editor(page).click();
@@ -75,7 +90,8 @@ test("[NFR-PERF-03] on a throttled phone, the lesson reads and the editor takes 
   const readyMs = Date.now() - started;
   await Promise.all(sizes);
 
-  note("lesson readable (ms)", String(lessonMs));
+  note("lesson title visible to Playwright (ms)", String(lessonMs));
+  note("first contentful paint (ms)", String(paintMs));
   note("editor took typing (ms)", String(typedMs));
   note("Python ready (ms)", String(readyMs));
   note("page bytes over the network", String(pageBytes));
@@ -84,6 +100,7 @@ test("[NFR-PERF-03] on a throttled phone, the lesson reads and the editor takes 
 
   expect(stateWhenTyped).not.toBe("ready");
   expect(lessonMs).toBeLessThan(readyMs);
+  expect(paintMs).toBeLessThan(readyMs);
   expect(typedMs).toBeLessThan(readyMs);
 });
 
@@ -94,9 +111,8 @@ test("[NFR-PERF-06] on a laptop, a one-line Run answers in 150 ms or less once P
   await page.goto("/dev/workspace");
   await expect(python(page)).toHaveAttribute("data-python", "ready", { timeout: READY_MS });
   const run = page.getByRole("button", { name: new RegExp(`^${words.run}`) });
-  // The first Run warms the worker; the next five are measured in the page,
-  // from the press to the output on screen. Each prints its own line, so the
-  // previous output never counts.
+  // Six Runs, each measured in the page from the press to the output on
+  // screen. Each prints its own line, so the previous output never counts.
   const timings: number[] = [];
   for (let attempt = 0; attempt < 6; attempt += 1) {
     await editor(page).click();
@@ -120,9 +136,9 @@ test("[NFR-PERF-06] on a laptop, a one-line Run answers in 150 ms or less once P
         }),
       `fast ${String(attempt)}\n`,
     );
-    if (attempt > 0) timings.push(Math.round(elapsed));
+    timings.push(Math.round(elapsed));
     await expect(python(page)).toHaveAttribute("data-python", "ready");
   }
-  note("one-line Run, press to output (ms)", timings.join(", "));
+  note("one-line Run, press to output, first Run first (ms)", timings.join(", "));
   expect(Math.max(...timings)).toBeLessThanOrEqual(RUN_LIMIT_MS);
 });

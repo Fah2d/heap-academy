@@ -1,7 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { learnerErrorHeading, workspace as words } from "../src/messages/workspace";
+import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
+import { catalogCommon } from "../src/messages/catalog";
+import { workspaceGallery } from "../src/messages/gallery";
+import { lessonContent } from "../src/messages/lesson";
 import { shell } from "../src/messages/shell";
+import { account } from "../src/messages/sign-in";
+import { learnerErrorHeading, workspace as words } from "../src/messages/workspace";
 import { TIME_LIMIT_MS } from "../src/runtime/controller";
 import { saveScreen } from "./screens";
 
@@ -100,6 +105,7 @@ function focused(page: Page): Promise<Stop> {
 // Tab from the top of the page until focus comes back to the skip link.
 async function walk(page: Page): Promise<Stop[]> {
   const stops: Stop[] = [];
+  let wrapping = false;
   for (let step = 0; step < 60; step += 1) {
     await page.keyboard.press("Tab");
     // CodeMirror marks itself focused a moment after the focus event.
@@ -108,8 +114,12 @@ async function walk(page: Page): Promise<Stop[]> {
     }
     const stop = await focused(page);
     if (stops.length > 0 && stop.name === shell.skipLink) return stops;
-    if (stop.devOverlay || stop.region === "none") continue;
+    // After the last control, Next lesson, focus passes the development
+    // indicator and the page itself before the skip link. Anywhere else,
+    // focus on the page itself is focus lost: it is kept, and fails below.
+    if (wrapping && (stop.devOverlay || stop.region === "none")) continue;
     stops.push(stop);
+    if (stop.name.startsWith(words.next)) wrapping = true;
     // The editor keeps Tab for indenting; Escape, then Tab, leaves it (section 6.2).
     if (stop.inEditor) await page.keyboard.press("Escape");
   }
@@ -148,11 +158,35 @@ test("[NFR-A11Y-03] the keyboard reaches every control in reading order, each wi
     words.output,
     words.lessons,
   ]);
+  // One stop each, in this order. The Console and Tests tabs are one stop;
+  // the arrow keys move between them.
+  const names = [
+    shell.skipLink,
+    shell.productName,
+    catalogCommon.coursesLink,
+    account.signIn,
+    words.backToCourse(workspaceGallery.courseTitle),
+    "name = input(",
+    lessonContent.copyCode,
+    words.showHint,
+    words.reset,
+    EXAMPLE_LESSON.starter.trim(),
+    words.run,
+    words.check,
+    words.stop,
+    words.console,
+    words.consoleLabel,
+    words.previous,
+    words.next,
+  ];
+  expect(stops).toHaveLength(names.length);
+  stops.forEach((stop, index) => {
+    expect(stop.name.startsWith(names[index] ?? "")).toBe(true);
+  });
   expect(stops.filter((stop) => !stop.ringed)).toEqual([]);
-  expect(stops.some((stop) => stop.inEditor)).toBe(true);
-  for (const action of [words.run, words.check, words.stop]) {
-    expect(stops.some((stop) => stop.name.startsWith(action))).toBe(true);
-  }
+  expect(stops.findIndex((stop) => stop.inEditor)).toBe(
+    names.indexOf(EXAMPLE_LESSON.starter.trim()),
+  );
 });
 
 test("[NFR-A11Y-03] after a failed Check, the keyboard opens and closes each test case", async ({
@@ -189,6 +223,7 @@ test("[NFR-A11Y-03] the reset dialog holds focus until Escape, then gives it bac
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  await noAxeViolations(page);
   for (let step = 0; step < 6; step += 1) {
     await page.keyboard.press("Tab");
     expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
@@ -236,6 +271,15 @@ test("[NFR-A11Y-02] [FR-WSP-07] a program past the time limit is stopped, and Py
   page,
 }) => {
   await ready(page);
+  // The new worker's files are held, so the restarting state stays on screen.
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.context().route("**/_runtime/pyodide/**", async (route) => {
+    await gate;
+    await route.continue();
+  });
   await write(page, "while True:\n    pass\n");
   await runButton(page).click();
   await expect(
@@ -246,8 +290,10 @@ test("[NFR-A11Y-02] [FR-WSP-07] a program past the time limit is stopped, and Py
       }),
     }),
   ).toBeVisible({ timeout: TIME_LIMIT_MS + 15_000 });
+  await expect(python(page)).toHaveAttribute("data-python", "restarting");
   await noAxeViolations(page);
   await screens(page, "workspace-time-limit");
+  release();
   await ready(page);
 });
 
@@ -261,4 +307,12 @@ test("[NFR-A11Y-02] [FR-WSP-09] a test case that runs out of input says so", asy
   ).toBeVisible();
   await noAxeViolations(page);
   await screens(page, "workspace-input-ended");
+});
+
+test("[NFR-A11Y-02] [FR-WSP-02] a revealed hint", async ({ page }) => {
+  await ready(page);
+  await page.getByRole("button", { name: words.showHint }).click();
+  await expect(page.getByRole("heading", { name: words.hintHeading(1, 1) })).toBeVisible();
+  await noAxeViolations(page);
+  await screens(page, "workspace-hint");
 });
