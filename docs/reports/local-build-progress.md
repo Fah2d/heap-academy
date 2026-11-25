@@ -2,6 +2,29 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 10:20), in `night-a`, on `wp/7.4-journeys`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. The 6.x branches on `origin` still hold no J-5, J-6 or J-10 spec (`wp/6.1-sync-wiring` and `wp/6.3-profile-page` changed at 08:33 and 08:36), so this part took what does not depend on them.
+
+### Task 3, part 67 done: WP-7.4 part 2a, J-1 to J-4 on real lesson addresses
+
+- 5a329ca: `e2e/journeys.ts` takes the lesson each journey walks; J-1 also walks the phone layout. `e2e/lesson-route-journey.spec.ts` (`stack` project) walks J-1 to J-4 as a guest on the production build at phone and laptop sizes.
+- Code review 2: CHANGES REQUIRED, 1 MAJOR, 6 MINOR; all fixed in 784e031. The spec now writes its own course with two published lessons, J-2 follows Next and the last lesson's Next is checked disabled, J-1 checks the back link from the database, the phone is a Pixel 7 at 375 px, and in Chromium J-3 must take the interactive input path. Report: `docs/reports/reviews/WP-7.4/code-review-2.md`.
+- `pnpm verify` on 784e031: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`. pnpm prints that its pre-run install could not take the store lock in this sandbox; the checks ran after it.
+- Browser, Chromium with `--no-sandbox --single-process`, one test per process, against `next dev --webpack` on `127.0.0.1:3311` (started by this run): `runtime-chromium` journeys 12 of 12, `phone-workspace` journeys 9 of 9, J-1 to J-4 on a Pixel 7 at 375 px through a temporary spec outside the repository 4 of 4.
+- Not run: `lesson-route-journey.spec.ts` itself (no Docker or Postgres here); its first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.4.md` (51 lines).
+- Push: `wp/7.4-journeys` (last push 06:59).
+
+### Owner: run this (part 67)
+
+1. Open or update the WP-7.4 draft pull request with `docs/reports/pull-requests/WP-7.4.md` as its body; check that CI's `stack` job passes `lesson-route-journey.spec.ts`.
+2. Stop the dev server this run left on port 3311, from a terminal outside the sandbox: `lsof -ti tcp:3311 | xargs kill`.
+
+### Next
+
+- WP-7.4 part 2b: J-5, J-6 and J-10 once the 6.x branches hold them, and the stack journeys in Firefox and WebKit (needs the owner's CI decision). WP-7.5 starts once 7.1 to 7.4 merge.
+
 ## Session of 2026-11-25 (from about 08:15), in `night-a`, on the new branch `wp/7.4-journeys`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-df) asked whether this one works there; it does not (answered: only `wp/7.4-journeys` here).
