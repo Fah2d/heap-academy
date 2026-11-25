@@ -1,6 +1,8 @@
 // What the admin views need to know about the admin actions' answers. Kept
 // outside server/, so client views can import it.
 
+import type { TestCase } from "@/grader/test-case";
+
 export type SecondStepFailure = "code_rejected" | "rate_limited" | "setup_replaced" | "unavailable";
 
 /** An action's answer as the view reads it: its value, or a failure code. */
@@ -74,8 +76,8 @@ export type EditorLessonDetail = {
   starterCode: string;
   solutionCode: string;
   wrongAnswers: { label: string; code: string }[];
-  /** How many test cases it has; they are edited in the test case list. */
-  testCount: number;
+  /** In the order learners see them; a draft may have none. */
+  testCases: TestCase[];
   /** The row's version: a save names it, and is refused if the row is newer (FR-ADM-10). */
   loadedAt: string;
 };

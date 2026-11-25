@@ -29,6 +29,17 @@
 
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import {
+  IMMUTABLE,
+  RUNTIME_STATIC_POLICY,
+  workerContentSecurityPolicy,
+} from "../src/infrastructure/http/security-headers.ts";
+import {
+  RUNTIME_ASSET_BASE_URL,
+  RUNTIME_ROOT,
+  runtimeAssetBase,
+  WORKER_URL,
+} from "../src/runtime/assets.ts";
 
 /** @typedef {{ name: string, status: "pass" | "fail" | "skip", detail: string }} Check */
 
@@ -217,6 +228,46 @@ export function securityHeaderChecks(headers, secure) {
 }
 
 /**
+ * The Python runtime's files (section 5.1, ADR-0033): the worker script
+ * carries its own policy and is revalidated, the Pyodide files are immutable,
+ * and a miss under the runtime's path still carries a policy.
+ * @param {URL} base
+ * @param {(url: URL) => Promise<Response>} request
+ */
+async function runtimeChecks(base, request) {
+  const worker = await request(new URL(WORKER_URL, base));
+  await worker.arrayBuffer();
+  const workerPolicy = worker.headers.get("content-security-policy") ?? "absent";
+  const workerCache = worker.headers.get("cache-control") ?? "absent";
+  const manifest = await request(new URL(`${runtimeAssetBase}manifest.json`, base));
+  await manifest.arrayBuffer();
+  const manifestCache = manifest.headers.get("cache-control") ?? "absent";
+  const miss = await request(new URL(`${RUNTIME_ROOT}infra-verify-missing`, base));
+  await miss.arrayBuffer();
+  const missPolicy = miss.headers.get("content-security-policy") ?? "absent";
+  return [
+    check(
+      "the Python worker carries its own policy",
+      worker.ok && workerPolicy === workerContentSecurityPolicy(RUNTIME_ASSET_BASE_URL),
+      `${worker.status} ${workerPolicy}`,
+    ),
+    check("the Python worker is revalidated", workerCache === "no-cache", workerCache),
+    check(
+      "the runtime files are immutable",
+      manifest.ok &&
+        manifestCache === IMMUTABLE &&
+        manifest.headers.get("x-content-type-options") === "nosniff",
+      `${manifest.status} ${manifestCache}`,
+    ),
+    check(
+      "a miss under the runtime's path carries a policy",
+      missPolicy === RUNTIME_STATIC_POLICY,
+      `${miss.status} ${missPolicy}`,
+    ),
+  ];
+}
+
+/**
  * The release /api/health names, or "absent".
  * @param {unknown} json
  */
@@ -371,6 +422,8 @@ export async function verifyDeployment({
       ),
     );
   }
+
+  checks.push(...(await runtimeChecks(base, request)));
 
   const id = first.headers.get("x-request-id") ?? "";
   const secondId = second.headers.get("x-request-id") ?? "";
