@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 06:15), in `night-a`, on `wp/7.2-a11y-perf`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. Three `night-b` sessions asked whether this one holds `night-b`; it does not (answered where the sender was still listening).
+
+### Task 3, part 65 done: WP-7.2 part 3, the keyboard walkthroughs of every other page
+
+- 4aa6d03: `e2e/keyboard.ts`, a walk that tabs through a whole page and must reach every shown control once, in document order, each with its focus ring. Walked: the catalog states and all 34 admin states (`e2e/keyboard-gallery.spec.ts`, `gallery` project), sign-in with the in-app browser state (`sign-in.spec.ts`) and the not-found page (`shell.spec.ts`) on the production build, and the three phone views (`workspace-phone.spec.ts`).
+- Code review 3: CHANGES REQUIRED, 2 MAJOR, 6 MINOR; all fixed or answered in 9b49a74: the full ring rule (colour, opacity, offset, in view, after the colour transition), the admin editors waited for, the controls counted again after each walk, the part 2 walk on the shared rule, and walks of the shared error page and the admin preview. Report: `docs/reports/reviews/WP-7.2/code-review-3.md`.
+- Found and fixed (9b49a74): the development server never hydrated its pages at `127.0.0.1`, which is how `playwright.config.ts` opens it for the `gallery`, `runtime-*` and `phone*` projects (Next.js blocks its development files to that origin). `next.config.ts` sets `allowedDevOrigins: ["127.0.0.1"]` in development only, with a test.
+- `pnpm verify` on 9b49a74: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`. `pnpm build` on 4aa6d03: exit 0 (no page code changed after it).
+- Browser, Chromium, one test per process: `keyboard-gallery` 44 of 44 at `127.0.0.1` and at `localhost`; production build, sign-in and not-found 40 of 40, the error page 1 of 1 (on port 3103: an older server holds 3102 and the sandbox cannot stop it); `workspace-a11y-runtime` walks 4 of 4, the preview spec 3 of 3, `workspace-phone` 5 of 5. Mutations (no outline; a transparent `--color-focus`) fail a walk.
+- Not run: the sign-in code step and the admin dialogs by keyboard (stack, no Docker), Firefox and WebKit (speed mode), Lighthouse.
+- Description: `docs/reports/pull-requests/WP-7.2.md` (53 lines), now parts 1 to 3, decisions 6 and 7.
+- Push: `wp/7.2-a11y-perf`, once 60 minutes had passed since the last push (06:13).
+
+### Owner: run this (part 65)
+
+1. Update the WP-7.2 draft pull request body with `docs/reports/pull-requests/WP-7.2.md`.
+2. Still open from part 64: adding `--project=runtime-chromium --project=phone-workspace` to CI, and Lighthouse on a preview or a waiver.
+3. Stop the servers the sandbox cannot stop, from a terminal outside it: `lsof -ti tcp:3102,3103,3264,3265,3271,3281,3290 | xargs kill`.
+
+### Next
+
+- WP-7.2 is complete apart from Lighthouse (owner) and the stack-only walks. Next in plan order that needs the 3.x runtime or 5.x pages: WP-7.4 (every journey on three engines), then WP-7.5 (polish) once 7.1 to 7.4 merge.
+
 ## Session of 2026-11-25 (from about 05:50), in `night-a`, on `wp/7.2-a11y-perf`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. The `night-b` sessions in `heap-summary.md` work in the other checkout; nothing here had changed since 04:16.

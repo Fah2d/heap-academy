@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/5.4-progress-preview` at a15f858.** That branch holds the 2.2 to 5.4 line and the runtime branches, which WP-7.2 checks. This pull request merges after them; until then review the commits after a15f858. WP-7.2 parts 1 and 2 of the accessibility and performance pass. The numbers are in `docs/reports/day-7-quality.md`.
+**Base: `wp/5.4-progress-preview` at a15f858.** That branch holds the 2.2 to 5.4 line and the runtime branches, which WP-7.2 checks. This pull request merges after them; until then review the commits after a15f858. WP-7.2 parts 1 to 3 of the accessibility and performance pass. The numbers are in `docs/reports/day-7-quality.md`.
 
 ## What
 
@@ -15,21 +15,26 @@ Part 2, the workspace (3b6df36, 30b720b):
 - Reduced motion on the workspace (NFR-A11Y-08): no transition or animation after a Check.
 - `e2e/workspace-load-profile.spec.ts`, its own `profile` project (Chromium, DevTools throttling): NFR-PERF-03 on a throttled phone, and NFR-PERF-06's one-line Run in the browser.
 
+Part 3, the keyboard elsewhere (4aa6d03, 9b49a74):
+- `e2e/keyboard.ts`: Tab through a whole page; it must reach every shown control once, in document order, never lose focus, and each stop must draw the full ring of DESIGN.md section 6 (solid, 2 px, opaque `--color-focus`, offset 2 or -2 px, in the viewport). The workspace walk now uses the same rule.
+- Walked: the catalog states and all 34 admin states (`gallery`), sign-in with its in-app browser state, the not-found page and the shared error page (production build), the admin preview, and the three phone views with the arrow keys between them.
+- **The development server's pages were never hydrated at 127.0.0.1**, which is how every development-server project opens them. `next.config.ts` now sets `allowedDevOrigins: ["127.0.0.1"]`, in development only.
+
 ## How it was verified
 
-- `pnpm verify` on 30b720b: exit 0, `Test Files  130 passed (130)`, `Tests  2326 passed (2326)`.
+- `pnpm verify` on 9b49a74: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
 - `pnpm build` on 3b6df36 (part 2 changes tests only): exit 0. `check-bundle`: `No server variable (RESEND_API_KEY, HEAP_RELEASE) in 23 files under .next/static.` `check-static`: exit 0.
-- Chromium, one test per process, `next dev --webpack` on `localhost`: `workspace-a11y-runtime` 8 of 8, `workspace-runtime` 17 of 17, `workspace-load-profile` 2 of 2; part 1: `admin-gallery` 46 of 46.
+- Chromium, one test per process, `next dev --webpack` on `localhost`: `workspace-a11y-runtime` 8 of 8, `workspace-runtime` 17 of 17, `workspace-load-profile` 2 of 2; part 1: `admin-gallery` 46 of 46. Part 3: `keyboard-gallery` 44 of 44 at both `127.0.0.1` and `localhost`; on the production build, sign-in and not-found 40 of 40, the error page 1 of 1; preview 3 of 3; phone 5 of 5. Mutations (no outline; a transparent `--color-focus`) fail a walk.
 - Throttled phone (150 ms, 1.6 Mbit/s, CPU x4), development server: first paint 740 ms, editor typing 45.4 s, Python ready 77.7 s. Typing lands while Python is `loading`. The 45 s is the dev server's 9.1 MB of unminified code; the production lesson route's client code is 361,690 bytes gzipped (computed, not measured). One-line Run: 3 to 13 ms (limit 150).
 - Not run: Lighthouse (NFR-PERF-01; no preview deployment, Lighthouse not installed), the stack journeys and `pnpm test:db` (no Docker), Firefox and WebKit (speed mode).
 
 ## Reviews
 
-Code review 1 (part 1): CHANGES REQUIRED, 1 BLOCKER, 6 MINOR; fixed or answered (`docs/reports/reviews/WP-7.2/code-review-1.md`). Code review 2 (part 2): CHANGES REQUIRED, 3 MAJOR, 7 MINOR; all fixed in 30b720b (`code-review-2.md`). No security review: no sign-in, database, runtime or header change.
+Code review 1 (part 1): CHANGES REQUIRED, 1 BLOCKER, 6 MINOR; fixed or answered (`docs/reports/reviews/WP-7.2/code-review-1.md`). Code review 2 (part 2): CHANGES REQUIRED, 3 MAJOR, 7 MINOR; all fixed in 30b720b (`code-review-2.md`). Code review 3 (part 3): CHANGES REQUIRED, 2 MAJOR, 6 MINOR; all fixed or answered in 9b49a74 (`code-review-3.md`). No security review: no sign-in, database, runtime or header change; `allowedDevOrigins` affects only the development server and names only the loopback address.
 
 ## antislop Delivery Gate report
 
-antislop active: during (session override, CLAUDE.md rule 5). No visible change to a learner page in part 2 (tests and a report only). Block 1 PASS: zero axe violations on all checked states (R-25, R-39); focus visible on every stop and never lost. Blocks 2 to 4 PASS: no new technique, no copy, no motion change.
+antislop active: during (session override, CLAUDE.md rule 5). No visible change to a page in parts 2 and 3 (tests, a development setting, reports). Block 1 PASS: zero axe violations on all checked states (R-25, R-39); focus visible on every stop and never lost. Blocks 2 to 4 PASS: no new technique, no copy, no motion change.
 
 ## For the owner
 
@@ -44,3 +49,5 @@ antislop active: during (session override, CLAUDE.md rule 5). No visible change 
 3. The `Button` primitive finds React Aria's announcement by its structure (`role="log"`, then `role="img"` with `aria-labelledby`); if that changes, axe reports it again.
 4. `memory` and `crashed` are not reached in a browser (no program triggers them on demand); they share the error component axe passed. The sync states are WP-6.1's, on the other line.
 5. The load profile is measured on the development page; the production lesson route needs the database. Its numbers are labeled as development numbers.
+6. The sign-in walks replace Cloudflare's bot challenge script with a stand-in; the widget's own keyboard behaviour is not verified.
+7. `allowedDevOrigins` is set here, not in its own branch, because the part 3 walks fail without it in CI's `gallery` project.

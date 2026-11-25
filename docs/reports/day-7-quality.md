@@ -6,9 +6,9 @@ Every number here comes from the command next to it, run on branch `wp/7.2-a11y-
 
 | Requirement | Result | Evidence |
 |---|---|---|
-| NFR-A11Y-01 WCAG 2.2 AA by automated checks and a keyboard walkthrough | Workspace: automated checks and keyboard walkthrough. Admin area and other pages: automated checks only. | Sections 1 and 2 |
+| NFR-A11Y-01 WCAG 2.2 AA by automated checks and a keyboard walkthrough | Automated checks and a keyboard walkthrough on every page and admin state checked; the sign-in code step and the admin dialogs not walked | Sections 1 and 2 |
 | NFR-A11Y-02 zero serious or critical axe findings on every page and workspace state | Zero on every state checked (list below). Four workspace states not reached in a browser. | Section 1 |
-| NFR-A11Y-03 keyboard alone, focus visible, trapped only in dialogs | Pass in the workspace | Section 2 |
+| NFR-A11Y-03 keyboard alone, focus visible, trapped only in dialogs | Pass on every page walked (section 2) | Section 2 |
 | NFR-A11Y-04 outcomes announced in live regions | Pass (component tests) | `src/features/workspace/components/workspace.test.tsx`, `src/features/workspace/client/workspace-view.test.ts`, in `pnpm verify` |
 | NFR-A11Y-05 320 px without page scroll | Pass where checked | `e2e/workspace-phone.spec.ts` (320 px), `e2e/phone.spec.ts`, `e2e/catalog-gallery.spec.ts`, `e2e/shell.spec.ts`; not rerun in this part |
 | NFR-A11Y-06 touch targets 44 by 44 px | Pass where checked | The same phone and gallery specs; not rerun in this part |
@@ -64,7 +64,26 @@ Not reached in a browser, with the reason:
 
 This is the reading order of `03-experience.md` section 6.1. Every stop draws the 2 px solid focus ring; the editor draws it on its outer element. Focus that falls to the page itself before Next lesson fails the test. Also checked: after a failed Check the summary takes focus, Tab reaches each test case, and Enter and Space open and close it; the reset dialog keeps Tab inside it, Escape closes it, and focus returns to Reset code. Next.js's development indicator is skipped; it is not in a production build.
 
-Not walked in this part: the catalog, sign-in, profile and admin pages by keyboard alone (their specs check focus on single controls only), and the phone layout's view tabs beyond `e2e/workspace-phone.spec.ts`.
+### Every other page (part 3)
+
+`e2e/keyboard.ts` walks a whole page: it numbers every control a person can reach (shown, enabled, not inert, no negative tabindex), in document order, then presses Tab from where focus is until it wraps. The test passes only if the walk reached each control once, in that order, never fell to the page itself on the way, and found the same controls afterwards. Each stop must draw the ring of `DESIGN.md` section 6: solid, 2 px, the opaque colour of `--color-focus`, offset 2 px or -2 px, on a control shown in the viewport, read after its 160 ms colour transition. The workspace walk above uses the same ring rule. Mutations checked: the base outline set to `none`, and `--color-focus: transparent`, each fail a walk.
+
+Commands, each test in its own process as in section 1 (a local config with the committed project's settings and the `baseURL` named):
+
+| Spec (project) | Pages | Where run | Result |
+|---|---|---|---|
+| `e2e/keyboard-gallery.spec.ts` (`gallery`) | the catalog gallery, home with no course, empty course list, course list, course page, each at 375 and 1280 px; all 34 admin states at 1280 px, each waiting for its code editors | `next dev` at `127.0.0.1:3281` and at `localhost:3281` | 44 of 44 at each |
+| `e2e/sign-in.spec.ts` (`chromium`) | `/sign-in` and `/sign-in?failed=google` at 375 and 1280 px; the in-app browser before and after "Show Google", focus moving to the Google button | production build, `next start` at `127.0.0.1:3290` | 5 of 5 new; with the other sign-in and not-found tests, 40 of 40 |
+| `e2e/shell.spec.ts` (`chromium`) | the not-found page, with the shell every page shares, at 375 and 1280 px | the same | 2 of 2 new |
+| `e2e/catalog-outage.spec.ts` (`chromium`) | the shared error page at 1280 and 375 px | production build with the database at port 1, at `127.0.0.1:3103`; the spec's port (3102) was changed for this run only, because an older server the sandbox cannot stop holds 3102 | 1 of 1 |
+| `e2e/workspace-preview-runtime.spec.ts` (`runtime-chromium`) | the admin preview, Python ready | `next dev` at `localhost:3281` | 1 of 1 new; the spec 3 of 3 |
+| `e2e/workspace-phone.spec.ts` (`phone-workspace`) | at 375 px: Lesson, Code and Output, each walked; the arrow keys move between them and the selected view takes focus | `next dev` at `localhost:3281` | 1 of 1 new; the spec 5 of 5 |
+
+The sign-in walks replace Cloudflare's bot challenge script with a stand-in that renders nothing. The widget is a frame from Cloudflare's origin, and its keyboard behaviour is Cloudflare's: **not verified**, so "never trapped" is not proven for that frame.
+
+**Finding, fixed: the development server's pages were never hydrated at 127.0.0.1.** `playwright.config.ts` opens the development server as `127.0.0.1`, and Next.js 16.4.6 refuses its development files to that origin (`Blocked cross-origin request to Next.js dev resource /_next/hmr from "127.0.0.1"`). There the admin states' editors never appeared, and "Show Google" did nothing. `next.config.ts` now sets `allowedDevOrigins: ["127.0.0.1"]` in the development phase only.
+
+Not walked: the sign-in code step (needs the auth service; stack only), the profile page (WP-6.3, on the other line), and the admin confirm dialogs (opened by the J-12 and J-13 journeys, stack only). The `phone-workspace` and `runtime-chromium` projects run in no CI job (section 1), so the phone, preview and workspace walks are local evidence only.
 
 ## 3. Reduced motion (NFR-A11Y-08)
 
@@ -98,4 +117,4 @@ Laptop, no throttling, Python ready, six one-line Runs, each from the press to t
 
 - NFR-PERF-01, Lighthouse mobile on the home, course list and course pages: needs a preview deployment of this branch (`07-operations.md`), and Lighthouse is not installed here. Owner: run it on the preview once the line is deployed, or name a waiver.
 - The throttled profile on a production build of the lesson route: needs the local stack (Docker) or a preview with seeded content.
-- Firefox and WebKit: speed mode.
+- Firefox and WebKit: speed mode. `sign-in.spec.ts`, `shell.spec.ts` and `catalog-outage.spec.ts` also run in the `firefox` and `webkit` projects; their walks were run in Chromium only. WebKit on macOS skips links on Tab unless the system setting allows it, so a local WebKit run there may fail the walks (not verified).
