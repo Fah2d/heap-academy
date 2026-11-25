@@ -26,6 +26,10 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_example
   # Cloudflare's published Turnstile test key, which always passes.
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+  # The local value of .env.example. `supabase start` stores it as the Vault
+  # secret action_counter_key (supabase/config.toml), and the app signs its
+  # rate limit counts with it. Not a secret.
+  ACTION_COUNTER_KEY: local-only-action-counter-key-not-a-secret
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:

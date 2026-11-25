@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   EnvironmentError,
+  parseActionCounterKey,
   parseEnvironment,
   parsePublicEnvironment,
   publicEnvironmentSchema,
@@ -14,6 +15,7 @@ const valid = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_example",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
   RESEND_API_KEY: "re_example_not_a_real_key",
+  ACTION_COUNTER_KEY: "local-only-action-counter-key-not-a-secret",
 };
 
 const publicNames = Object.keys(publicEnvironmentSchema.shape);
@@ -45,7 +47,11 @@ describe("environment schema", () => {
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: valid.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
       },
-      server: { RESEND_API_KEY: valid.RESEND_API_KEY, HEAP_RELEASE: "local" },
+      server: {
+        RESEND_API_KEY: valid.RESEND_API_KEY,
+        ACTION_COUNTER_KEY: valid.ACTION_COUNTER_KEY,
+        HEAP_RELEASE: "local",
+      },
     });
   });
 
@@ -97,6 +103,21 @@ describe("environment schema", () => {
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: valid.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: valid.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     });
+  });
+
+  it("[T-14] needs an action counter key of at least 32 characters", () => {
+    const { ACTION_COUNTER_KEY: _omitted, ...rest } = valid;
+    expect(() => parseEnvironment(rest)).toThrow(/ACTION_COUNTER_KEY/);
+    expect(() => parseEnvironment({ ...valid, ACTION_COUNTER_KEY: "x".repeat(31) })).toThrow(
+      /ACTION_COUNTER_KEY: must be at least 32 characters/,
+    );
+    expect(parseActionCounterKey({ ACTION_COUNTER_KEY: "x".repeat(32) })).toBe("x".repeat(32));
+    expect(() => parseActionCounterKey({ ACTION_COUNTER_KEY: "short" })).toThrow(
+      /ACTION_COUNTER_KEY/,
+    );
+    expect(parseEnvironment({ ...valid, ACTION_COUNTER_KEY: "x".repeat(32) }).server).toMatchObject(
+      { ACTION_COUNTER_KEY: "x".repeat(32) },
+    );
   });
 
   it("[NFR-SEC-04] treats an empty value as missing", () => {

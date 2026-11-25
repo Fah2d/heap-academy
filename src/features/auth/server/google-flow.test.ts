@@ -35,8 +35,10 @@ vi.mock("next/navigation", () => ({
     throw Object.assign(new Error("NEXT_REDIRECT"), { url });
   },
 }));
+// The action wrapper counts each call first (T-14); the counter allows it.
 vi.mock("@/infrastructure/db/session-client", () => ({
-  createSessionClient: () => Promise.resolve({ auth, rpc: vi.fn() }),
+  createSessionClient: () =>
+    Promise.resolve({ auth, rpc: vi.fn(() => Promise.resolve({ data: true, error: null })) }),
 }));
 
 const { startGoogleSignIn } = await import("./actions");
@@ -44,11 +46,13 @@ const { handleGoogleCallback } = await import("./google-callback");
 const { RETURN_PATH_COOKIE } = await import("./return-path-cookie");
 
 beforeEach(() => {
+  vi.stubEnv("ACTION_COUNTER_KEY", "test-only-action-counter-key-0123456789");
   vi.spyOn(console, "log").mockImplementation(() => undefined);
   store.cookies.clear();
   store.headers = new Headers({ host: "heap.test", "x-forwarded-proto": "https" });
 });
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.clearAllMocks();
   vi.restoreAllMocks();
 });

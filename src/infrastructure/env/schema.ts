@@ -49,8 +49,13 @@ const release = z
   .regex(/^(?:[0-9a-f]{40}|local)$/, "must be a full commit SHA or local")
   .optional();
 
+// The key the server signs each action counter call with (T-14). The same
+// value is the Vault secret `action_counter_key`; at least 32 characters.
+const actionCounterKey = z.string().min(32, "must be at least 32 characters");
+
 export const serverEnvironmentSchema = z.object({
   RESEND_API_KEY: required,
+  ACTION_COUNTER_KEY: actionCounterKey,
   HEAP_RELEASE: release,
 });
 
@@ -90,9 +95,18 @@ export function parseEnvironment(source: Source): {
     },
     server: {
       RESEND_API_KEY: all.RESEND_API_KEY,
+      ACTION_COUNTER_KEY: all.ACTION_COUNTER_KEY,
       HEAP_RELEASE: all.HEAP_RELEASE ?? RELEASE_LOCAL,
     },
   };
+}
+
+/**
+ * Parses only the action counter key, for the action wrapper, which needs no
+ * other server variable. The server has checked every variable at start.
+ */
+export function parseActionCounterKey(source: Source): string {
+  return parseWith(z.object({ ACTION_COUNTER_KEY: actionCounterKey }), source).ACTION_COUNTER_KEY;
 }
 
 function parseWith<Schema extends z.ZodObject>(schema: Schema, source: Source): z.infer<Schema> {

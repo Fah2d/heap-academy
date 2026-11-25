@@ -29,6 +29,7 @@ describe("bundle secret check", () => {
   it("[T-12] takes the server variables from .env.example, leaving out the public ones", () => {
     expect(serverVariableNames(readFileSync(".env.example", "utf8"))).toEqual([
       "RESEND_API_KEY",
+      "ACTION_COUNTER_KEY",
       "HEAP_RELEASE",
     ]);
     expect(serverVariableNames("# comment\nNEXT_PUBLIC_A=1\nB_SECRET=2\n")).toEqual(["B_SECRET"]);
