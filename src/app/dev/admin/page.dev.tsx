@@ -9,10 +9,15 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export default function AdminStatesPage() {
+export default async function AdminStatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ state?: string | string[] }>;
+}) {
+  const { state } = await searchParams;
   return (
     <AdminFrame>
-      <AdminStateGalleryServer />
+      <AdminStateGalleryServer state={typeof state === "string" ? state : undefined} />
     </AdminFrame>
   );
 }

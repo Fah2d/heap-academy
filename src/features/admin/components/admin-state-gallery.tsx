@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
+import { Link } from "@/ui";
 import type { LessonDocument } from "@/content/markdown";
 import { type TestResult, unfinished } from "@/grader/grade";
 import { HARNESS_OUTPUT_LIMIT, HARNESS_VERSION } from "@/grader/harness";
@@ -17,6 +18,7 @@ import { LessonEditor } from "./lesson-editor";
 import { NewCourseForm } from "./new-course-form";
 import { SecondStepForm } from "./second-step-form";
 import { SetupFlow } from "./setup-flow";
+import { ADMIN_STATE_PATH, ADMIN_STATES, type AdminState } from "./admin-states";
 
 // Development only (src/app/dev/admin/page.dev.tsx): each state of the admin
 // views that the J-12 journey cannot reach, with fake actions, so the e2e
@@ -329,20 +331,21 @@ const oddRuntime = fixedResultsRuntime((source, tests) => {
   });
 });
 
-export function AdminStateGallery({ nonce }: { nonce: string }) {
-  return (
-    <div className="flex flex-col gap-7">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-xl font-semibold text-text">{m.title}</h1>
-        <p className="max-w-prose text-base text-text-muted">{m.intro}</p>
-      </div>
-      <Example id="gallery-empty" title={m.courseListEmpty}>
+/** Each state's view; ADMIN_STATES names them. */
+function adminViews(nonce: string): Record<AdminState, ReactNode> {
+  return {
+    empty: (
+      <>
         <CourseList result={{ ok: true, courses: [] }} reorder={never} refresh={stay} />
-      </Example>
-      <Example id="gallery-failed" title={m.courseListFailed}>
+      </>
+    ),
+    failed: (
+      <>
         <CourseList result={{ ok: false }} reorder={never} refresh={stay} />
-      </Example>
-      <Example id="gallery-rows" title={m.courseListRows}>
+      </>
+    ),
+    rows: (
+      <>
         <CourseList
           result={{
             ok: true,
@@ -368,8 +371,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           reorder={refuse("cannot_move")}
           refresh={stay}
         />
-      </Example>
-      <Example id="gallery-editor-refusing" title={m.editorRefusing}>
+      </>
+    ),
+    "editor-refusing": (
+      <>
         <CourseEditor
           course={refusingCourse}
           saveCourse={refuse("stale")}
@@ -380,8 +385,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           createLesson={refuse("unavailable")}
           refresh={stay}
         />
-      </Example>
-      <Example id="gallery-editor-empty" title={m.editorEmpty}>
+      </>
+    ),
+    "editor-empty": (
+      <>
         <CourseEditor
           course={{ ...refusingCourse, chapters: [] }}
           saveCourse={never}
@@ -392,8 +399,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           createLesson={never}
           refresh={stay}
         />
-      </Example>
-      <Example id="gallery-editor-published" title={m.editorPublished}>
+      </>
+    ),
+    "editor-published": (
+      <>
         <CourseEditor
           course={{ ...refusingCourse, status: "published" }}
           saveCourse={never}
@@ -404,8 +413,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           createLesson={never}
           refresh={stay}
         />
-      </Example>
-      <Example id="gallery-editor-saving" title={m.editorSaving}>
+      </>
+    ),
+    "editor-saving": (
+      <>
         <CourseEditor
           course={refusingCourse}
           saveCourse={succeed({ id: COURSE_ID, updatedAt: SAVED_AT })}
@@ -416,34 +427,48 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           createLesson={never}
           refresh={stay}
         />
-      </Example>
-      <Example id="gallery-editor-failed" title={m.editorFailed}>
+      </>
+    ),
+    "editor-failed": (
+      <>
         <CourseEditorFailed headingId="gallery-editor-failed-heading" />
-      </Example>
-      <Example id="gallery-new-course" title={m.newCourse}>
+      </>
+    ),
+    "new-course": (
+      <>
         <NewCourseForm saveCourse={never} navigate={stay} />
-      </Example>
-      <Example id="gallery-new-course-taken" title={m.newCourseTaken}>
+      </>
+    ),
+    "new-course-taken": (
+      <>
         <NewCourseForm saveCourse={refuse("slug_taken")} navigate={stay} />
-      </Example>
-      <Example id="gallery-setup" title={m.setupFailed}>
+      </>
+    ),
+    setup: (
+      <>
         <SetupFlow
           startSetup={() => Promise.resolve({ ok: false, error: "unavailable" })}
           confirmSetup={never}
           navigate={() => undefined}
         />
-      </Example>
-      <Example id="gallery-limited" title={m.codeLimited}>
+      </>
+    ),
+    limited: (
+      <>
         <SecondStepForm
           action={() => Promise.resolve({ ok: false, error: "rate_limited" })}
           submitLabel={secondStep.verify}
           navigate={() => undefined}
         />
-      </Example>
-      <Example id="gallery-checking" title={m.codeChecking}>
+      </>
+    ),
+    checking: (
+      <>
         <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
-      </Example>
-      <Example id="gallery-lesson-editor" title={m.lessonEditor}>
+      </>
+    ),
+    "lesson-editor": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -453,8 +478,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-refusing" title={m.lessonRefusing}>
+      </>
+    ),
+    "lesson-refusing": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -464,8 +491,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={refuse("unavailable")}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-published" title={m.lessonPublished}>
+      </>
+    ),
+    "lesson-published": (
+      <>
         <LessonEditor
           lesson={{ ...sampleLesson, status: "published" }}
           initialPreview={samplePreview}
@@ -475,8 +504,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={never}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-archived" title={m.lessonArchived}>
+      </>
+    ),
+    "lesson-archived": (
+      <>
         <LessonEditor
           lesson={{ ...sampleLesson, status: "archived" }}
           initialPreview={samplePreview}
@@ -486,8 +517,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={never}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-full" title={m.lessonFull}>
+      </>
+    ),
+    "lesson-full": (
+      <>
         <LessonEditor
           lesson={fullLesson}
           initialPreview={samplePreview}
@@ -497,8 +530,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-taken" title={m.lessonTaken}>
+      </>
+    ),
+    "lesson-taken": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -508,8 +543,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-too-long" title={m.lessonTooLong}>
+      </>
+    ),
+    "lesson-too-long": (
+      <>
         <LessonEditor
           lesson={tooLongLesson}
           initialPreview={samplePreview}
@@ -519,8 +556,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-tests-full" title={m.lessonTestCasesFull}>
+      </>
+    ),
+    "lesson-tests-full": (
+      <>
         <LessonEditor
           lesson={twelveTestsLesson}
           initialPreview={samplePreview}
@@ -530,8 +569,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-test-problem" title={m.lessonTestCaseProblem}>
+      </>
+    ),
+    "lesson-test-problem": (
+      <>
         <LessonEditor
           lesson={testProblemLesson}
           initialPreview={samplePreview}
@@ -541,13 +582,17 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-content" title={m.lessonContent}>
+      </>
+    ),
+    "lesson-content": (
+      <>
         <div className="rounded-panel border border-border bg-surface p-4">
           <LessonContent document={learnerContent} topHeadingLevel={3} />
         </div>
-      </Example>
-      <Example id="gallery-lesson-empty" title={m.lessonEmpty}>
+      </>
+    ),
+    "lesson-empty": (
+      <>
         <LessonEditor
           lesson={emptyLesson}
           initialPreview={{ blocks: [] }}
@@ -557,8 +602,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed({ blocks: [] })}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-python-loading" title={m.lessonPythonLoading}>
+      </>
+    ),
+    "lesson-python-loading": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -568,8 +615,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={loadingRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-python-failed" title={m.lessonPythonFailed}>
+      </>
+    ),
+    "lesson-python-failed": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -579,8 +628,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={failedRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-validating" title={m.lessonValidating}>
+      </>
+    ),
+    "lesson-validating": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -590,8 +641,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={readyRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-python-cannot-run" title={m.lessonPythonCannotRun}>
+      </>
+    ),
+    "lesson-python-cannot-run": (
+      <>
         <LessonEditor
           lesson={sampleLesson}
           initialPreview={samplePreview}
@@ -601,8 +654,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={cannotRunRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-save-validating" title={m.lessonSaveValidating}>
+      </>
+    ),
+    "lesson-save-validating": (
+      <>
         <LessonEditor
           lesson={{ ...sampleLesson, status: "published" }}
           initialPreview={samplePreview}
@@ -612,8 +667,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={readyRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-save-python-failed" title={m.lessonSavePythonFailed}>
+      </>
+    ),
+    "lesson-save-python-failed": (
+      <>
         <LessonEditor
           lesson={{ ...sampleLesson, status: "published" }}
           initialPreview={samplePreview}
@@ -623,8 +680,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={failedRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-save-python-cannot-run" title={m.lessonSavePythonCannotRun}>
+      </>
+    ),
+    "lesson-save-python-cannot-run": (
+      <>
         <LessonEditor
           lesson={{ ...sampleLesson, status: "published" }}
           initialPreview={samplePreview}
@@ -634,8 +693,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={cannotRunRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-save-rule-failed" title={m.lessonSaveRuleFailed}>
+      </>
+    ),
+    "lesson-save-rule-failed": (
+      <>
         <LessonEditor
           lesson={{ ...wrongExpectedLesson, status: "published" }}
           initialPreview={samplePreview}
@@ -645,8 +706,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-odd-results" title={m.lessonOddResults}>
+      </>
+    ),
+    "lesson-odd-results": (
+      <>
         <LessonEditor
           lesson={oddLesson}
           initialPreview={samplePreview}
@@ -656,8 +719,10 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={oddRuntime}
         />
-      </Example>
-      <Example id="gallery-lesson-validation-failed" title={m.lessonValidationFailed}>
+      </>
+    ),
+    "lesson-validation-failed": (
+      <>
         <LessonEditor
           lesson={wrongExpectedLesson}
           initialPreview={samplePreview}
@@ -667,7 +732,35 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           renderPreview={succeed(samplePreview)}
           openRuntime={sampleRuntime}
         />
-      </Example>
+      </>
+    ),
+  };
+}
+
+/** One state when `state` names one; otherwise the list of states. */
+export function AdminStateGallery({ nonce, state }: { nonce: string; state?: string | undefined }) {
+  const chosen = ADMIN_STATES.find((entry) => entry.state === state);
+  return (
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-xl font-semibold text-text">{m.title}</h1>
+        <p className="max-w-prose text-base text-text-muted">{m.intro}</p>
+      </div>
+      {chosen === undefined ? (
+        <ul className="flex flex-col gap-1">
+          {ADMIN_STATES.map((entry) => (
+            <li key={entry.state}>
+              <Link href={`${ADMIN_STATE_PATH}?state=${entry.state}`} variant="standalone">
+                {entry.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Example id={`gallery-${chosen.state}`} title={chosen.title}>
+          {adminViews(nonce)[chosen.state]}
+        </Example>
+      )}
     </div>
   );
 }

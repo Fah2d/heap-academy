@@ -92,7 +92,7 @@ export const adminPreviewGallery = { title: "Admin preview" };
 export const adminGallery = {
   title: "Admin states",
   intro:
-    "The dashboard's and the second step's states that the sign-in journey cannot reach. The actions here are fakes that answer at once, or never.",
+    "The dashboard's, the editors' and the second step's states that the journeys cannot reach. Each link opens one state on its own page. The actions here are fakes that answer at once, or never.",
   courseListEmpty: "Course list with no course",
   courseListFailed: "Course list that could not load",
   courseListRows: "Course list with courses",
