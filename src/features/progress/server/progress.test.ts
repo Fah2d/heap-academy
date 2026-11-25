@@ -37,6 +37,7 @@ function fakeStore(options: { refuse?: number[]; down?: "insert" | "list" } = {}
       if (options.down === "list") return null;
       return [...rows].filter(([key]) => key.startsWith(`${userId}:`)).map(([, c]) => c);
     },
+    lessonIds: () => Promise.reject(new Error("the use cases do not read lesson IDs")),
   };
   return { store, rows, calls };
 }

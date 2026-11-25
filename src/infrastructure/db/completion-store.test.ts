@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 const lesson = "00000000-0000-4000-8000-000000000001";
 
 function fakeDb(answer: { error?: { code?: string }; data?: unknown[] }) {
-  const seen: { upsert?: unknown; options?: unknown; eq?: [string, string] } = {};
+  const seen: { upsert?: unknown; options?: unknown; eq?: [string, string]; columns?: string } = {};
   const db = {
     from: (table: string) => {
       expect(table).toBe("completions");
@@ -16,8 +16,9 @@ function fakeDb(answer: { error?: { code?: string }; data?: unknown[] }) {
           seen.options = options;
           return { error: answer.error ?? null };
         },
-        select: () => ({
+        select: (columns: string) => ({
           eq: async (column: string, value: string) => {
+            seen.columns = columns;
             seen.eq = [column, value];
             return answer.error
               ? { data: null, error: answer.error }
@@ -82,5 +83,19 @@ describe("[FR-PRG-03] [T-08] [T-10] the completion store", () => {
   it("answers null when the list cannot be read", async () => {
     const { db } = fakeDb({ error: { code: "08006" } });
     expect(await supabaseCompletionStore(db).list("u1")).toBeNull();
+  });
+});
+
+describe("[FR-PRG-02] [T-08] the account's completed lesson IDs", () => {
+  it("reads only the lesson ID of the caller's rows and skips a malformed one", async () => {
+    const { db, seen } = fakeDb({ data: [{ lesson_id: lesson }, { lesson_id: "NOT-A-UUID" }] });
+    expect(await supabaseCompletionStore(db).lessonIds("u1")).toEqual([lesson]);
+    expect(seen.eq).toEqual(["user_id", "u1"]);
+    expect(seen.columns).toBe("lesson_id");
+  });
+
+  it("answers null when they cannot be read", async () => {
+    const { db } = fakeDb({ error: { code: "08006" } });
+    expect(await supabaseCompletionStore(db).lessonIds("u1")).toBeNull();
   });
 });
