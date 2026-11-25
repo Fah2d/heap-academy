@@ -25,6 +25,9 @@ const METHODS: ReadonlySet<string> = new Set([
  */
 export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "api",
+  "auth",
+  "callback",
+  "sign-in",
   "csp-report",
   "health",
   "dev",
@@ -45,4 +48,15 @@ export function logRoute(method: string, pathname: string): LogRoute {
     .map((segment) => (ROUTE_SEGMENTS.has(segment) ? segment : ":param"));
   if (segments.length > MAX_ROUTE_SEGMENTS) shown.push("*");
   return `${verb} /${shown.join("/")}` as LogRoute;
+}
+
+const ACTION_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/**
+ * The `route` field for a server action: `POST /actions/request-email-code`.
+ * Server actions are POST requests to a page's address, which says nothing
+ * about the action; the name comes from the code, never from the client.
+ */
+export function actionLogRoute(name: string): LogRoute {
+  return `POST /actions/${ACTION_NAME.test(name) ? name : ":param"}` as LogRoute;
 }
