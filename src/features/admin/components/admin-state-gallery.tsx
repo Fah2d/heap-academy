@@ -418,7 +418,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
         />
       </Example>
       <Example id="gallery-editor-failed" title={m.editorFailed}>
-        <CourseEditorFailed headingId="gallery-editor-failed-heading" />
+        <CourseEditorFailed />
       </Example>
       <Example id="gallery-new-course" title={m.newCourse}>
         <NewCourseForm saveCourse={never} navigate={stay} />
