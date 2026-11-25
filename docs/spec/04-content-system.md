@@ -50,10 +50,12 @@ One model covers every lesson (ADR-0026).
 | `id` | Generated. Stable inside the lesson. |
 | `name` | What the learner reads, written as a requirement: "Prints the total on one line". 1 to 80 characters. |
 | `stdin` | What the program is given as input, one answer per line. May be empty. At most 2,000 characters. |
-| `after_code` | Optional Python that runs after the learner's program, in the same namespace. At most 2,000 characters. |
+| `afterCode` | Optional Python that runs after the learner's program, in the same namespace. At most 2,000 characters. |
 | `expected` | The output the program must print. At most 5,000 characters. |
 | `match` | `normalized` (default), `exact`, or `contains`. |
 | `hint` | Optional. Shown when this test case fails. Says what to look at, never the answer. At most 200 characters. |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.1, pull request #12):** the follow-up code field is named `afterCode`, as the database and the test case parser store it, here and in the import format of section 8. It was `after_code`.
 
 Every test case is visible to the learner, including its follow-up code. Because grading runs in the browser, nothing about a test case could be kept secret anyway (ADR-0007).
 
@@ -62,7 +64,7 @@ Every test case is visible to the learner, including its follow-up code. Because
 1. A fresh namespace and restored builtins (`02-architecture.md` section 5.5).
 2. Standard input is the test case's `stdin`.
 3. The learner's program runs.
-4. If it finished without an error, `after_code` runs in the same namespace.
+4. If it finished without an error, `afterCode` runs in the same namespace.
 5. Everything written to standard output by both steps is the actual output. Standard error is not compared.
 6. The actual output is compared with `expected` under the `match` mode.
 
@@ -93,13 +95,13 @@ When FR-GRD-07 is built, a failed comparison is classified so the message can be
 
 **A variable.** The lesson asks for a variable. Follow-up code prints it.
 
-| name | after_code | expected |
+| name | afterCode | expected |
 |---|---|---|
 | `age` is a whole number | `print(type(age).__name__)` | `int` |
 
 **A function.** The lesson asks for a function. Follow-up code calls it.
 
-| name | after_code | expected |
+| name | afterCode | expected |
 |---|---|---|
 | `area(3, 4)` gives 12 | `print(area(3, 4))` | `12` |
 | `area(5, 5)` gives 25 | `print(area(5, 5))` | `25` |
@@ -263,7 +265,7 @@ A lesson exports to one JSON object:
   "solution_code": "...",
   "wrong_answers": [{ "label": "prints a fixed name", "code": "..." }],
   "tests": [
-    { "name": "Greets Sara by name", "stdin": "Sara\n", "after_code": "", "expected": "What is your name? Hello, Sara!", "match": "normalized", "hint": "" }
+    { "name": "Greets Sara by name", "stdin": "Sara\n", "afterCode": "", "expected": "What is your name? Hello, Sara!", "match": "normalized", "hint": "" }
   ]
 }
 ```
