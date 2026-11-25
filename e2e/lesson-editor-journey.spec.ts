@@ -64,8 +64,13 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
     await instructions.fill(`${markdown}\n\nMarker ${name}`);
     await expect(preview, name).toContainText(`Marker ${name}`);
     const found = await preview.evaluate((root) => ({
-      elements: root.querySelectorAll("script, iframe, img, object, embed, style, svg, form, input")
-        .length,
+      elements: [
+        ...root.querySelectorAll("script, iframe, img, object, embed, style, svg, form, input"),
+      ].filter(
+        // Not from the Markdown: the icon the page draws after a link that
+        // leaves the site.
+        (element) => !element.matches('a[target="_blank"] > svg[aria-hidden="true"]:last-child'),
+      ).length,
       handlers: [...root.querySelectorAll("*")].flatMap((element) =>
         element.getAttributeNames().filter((attribute) => attribute.startsWith("on")),
       ),
@@ -80,7 +85,8 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await instructions.fill(
     "## Ask, then answer\n\nAsk for a name with `input()`, then greet that person.\n\n```python\nname = input()\n```",
   );
-  await expect(preview.getByRole("heading", { level: 2 })).toHaveText("Ask, then answer");
+  // The lesson's own headings sit under the preview's, two levels down.
+  await expect(preview.getByRole("heading", { level: 4 })).toHaveText("Ask, then answer");
 
   // The code editor: typed code is kept, and its styles break no policy.
   const solution = page.getByRole("textbox", { name: lessonEditor.solutionLabel });

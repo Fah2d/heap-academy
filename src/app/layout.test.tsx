@@ -17,6 +17,8 @@ vi.mock("@/features/shell", () => ({
   fontVariables: "",
   SiteShell: ({ children }: { children: ReactNode }) => children,
 }));
+// Async server component with its own test; renderToString cannot wait for it.
+vi.mock("@/features/system", () => ({ CspNonceMeta: () => null }));
 
 const { default: RootLayout } = await import("./layout");
 const { useDeviceCompletions } = await import("@/features/progress");

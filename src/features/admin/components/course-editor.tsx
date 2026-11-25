@@ -42,13 +42,13 @@ export function CourseEditor({
   const courseDetailsId = useId();
   const [detailsUnsaved, setDetailsUnsaved] = useState(false);
   const [chaptersUnsaved, setChaptersUnsaved] = useState(false);
-  useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
+  const leave = useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
   const onDetailsUnsaved = useCallback((unsaved: boolean) => setDetailsUnsaved(unsaved), []);
   const onChaptersUnsaved = useCallback((unsaved: boolean) => setChaptersUnsaved(unsaved), []);
 
   return (
     <div className="flex flex-col gap-7">
-      <section aria-labelledby={courseDetailsId} className="flex flex-col gap-4">
+      <div role="group" aria-labelledby={courseDetailsId} className="flex flex-col gap-4">
         <h2 id={courseDetailsId} className="text-lg font-semibold text-text">
           {words.detailsHeading}
         </h2>
@@ -62,7 +62,7 @@ export function CourseEditor({
             reread();
           }}
         />
-      </section>
+      </div>
       <CourseStatusPanel
         courseId={course.id}
         status={status}
@@ -84,6 +84,7 @@ export function CourseEditor({
         refresh={reread}
         onUnsavedChange={onChaptersUnsaved}
         otherUnsaved={detailsUnsaved}
+        onLeaving={leave.release}
       />
     </div>
   );

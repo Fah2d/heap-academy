@@ -69,7 +69,7 @@ export function CourseStatusPanel({
   }
 
   return (
-    <section aria-labelledby={courseStatusId} className="flex max-w-prose flex-col gap-4">
+    <div role="group" aria-labelledby={courseStatusId} className="flex max-w-prose flex-col gap-4">
       <h2 id={courseStatusId} className="text-lg font-semibold text-text">
         {words.statusHeading}
       </h2>
@@ -150,6 +150,6 @@ export function CourseStatusPanel({
           );
         })}
       </div>
-    </section>
+    </div>
   );
 }
