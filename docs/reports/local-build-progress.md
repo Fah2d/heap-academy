@@ -2,6 +2,21 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 04:58), journey fixes carried to 5.1
+
+- `wp/2.2-sign-in` merged into 2.3, then 4.1, 4.2, 4.3 and `wp/5.1-catalog`; the same unscoped `alert` locator fixed in the admin, course structure and lesson editor journeys (scoped to `main`).
+- Sign-in journeys on 2.3 against the fake auth server: 3/3. The admin, course structure and lesson editor journeys need the database and were not run.
+- Next: merge forward into 5.2 and later at their next work. Push: from 05:38.
+
+## Session of 2026-11-25 (from about 04:40), in `night-b`, second CI fix for #13
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- `e2e` still failed on 3ce8e49. Two faults in the stack journeys fixed (an unscoped `alert` locator; T-11 comparing whole response bodies with per-request nonces). Details: `docs/reports/pull-requests/WP-2.2.md`.
+- Run here on the production build with a fake auth server (no Docker): stack 3/3, gallery 23/23, chromium 37/37. Real Supabase Auth: not verified.
+- Chromium works in the sandbox with `--single-process`, one test per process, and the proxy set for `challenges.cloudflare.com`.
+- Push: from 05:38.
+- Next: when #13 is green or merged, merge it forward into 2.3 and later branches; 2.3's journey files need the same two fixes if they repeat them. Blocked: account deletion.
+
 ## Session of 2026-11-24 (from about 23:20), in `night-b`, merge-forward to 5.1
 
 - Merged in order: `wp/2.2-sign-in` into 2.3 (conflicts: this file, and the journey spec, where 2.3's shared helper already has the token wait), then 2.3 into 4.1, 4.1 into 4.2, 4.2 into 4.3 (no conflicts), then 4.3 into 5.1 (conflicts: this file and `playwright.config.ts`, both comments kept).
