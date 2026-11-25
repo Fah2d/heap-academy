@@ -31,6 +31,17 @@ const forwarded = (response: Response, name: string) =>
   response.headers.get(`x-middleware-request-${name}`);
 
 describe("proxy", () => {
+  it("[FR-ADM-02] sends every admin address, and only those, with private, no-store", async () => {
+    for (const path of ["/admin", "/admin/setup", "/admin/verify", "/admin/courses/x"]) {
+      expect((await run(`https://heap.test${path}`)).headers.get("cache-control"), path).toBe(
+        "private, no-store",
+      );
+    }
+    for (const path of ["/administrator", "/courses", "/sign-in"]) {
+      expect((await run(`https://heap.test${path}`)).headers.get("cache-control"), path).toBeNull();
+    }
+  });
+
   it("[NFR-SEC-02] sets a policy with this request's nonce on the response and on the request", async () => {
     const response = await run("https://heap.test/courses");
     const policy = response.headers.get("content-security-policy") ?? "";
