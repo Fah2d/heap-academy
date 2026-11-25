@@ -51,7 +51,19 @@ const release = z
 
 // The key the server signs each action counter call with (T-14). The same
 // value is the Vault secret `action_counter_key`; at least 32 characters.
+// The local value in .env.example is public, so a Vercel deployment refuses
+// it (VERCEL_ENV is set by Vercel when its system variables are exposed).
 const actionCounterKey = z.string().min(32, "must be at least 32 characters");
+export const LOCAL_ACTION_COUNTER_KEY = "local-only-action-counter-key-not-a-secret";
+
+function refuseLocalKeyOnVercel(key: string, source: Source): void {
+  const deployed = source["VERCEL_ENV"] === "preview" || source["VERCEL_ENV"] === "production";
+  if (deployed && key === LOCAL_ACTION_COUNTER_KEY) {
+    throw new EnvironmentError(
+      "Invalid environment. See .env.example.\n  ACTION_COUNTER_KEY: must not be the public local value on Vercel",
+    );
+  }
+}
 
 export const serverEnvironmentSchema = z.object({
   RESEND_API_KEY: required,
@@ -87,6 +99,7 @@ export function parseEnvironment(source: Source): {
     ...serverEnvironmentSchema.shape,
   });
   const all = parseWith(schema, source);
+  refuseLocalKeyOnVercel(all.ACTION_COUNTER_KEY, source);
   return {
     public: {
       NEXT_PUBLIC_SUPABASE_URL: all.NEXT_PUBLIC_SUPABASE_URL,
@@ -106,7 +119,12 @@ export function parseEnvironment(source: Source): {
  * other server variable. The server has checked every variable at start.
  */
 export function parseActionCounterKey(source: Source): string {
-  return parseWith(z.object({ ACTION_COUNTER_KEY: actionCounterKey }), source).ACTION_COUNTER_KEY;
+  const key = parseWith(
+    z.object({ ACTION_COUNTER_KEY: actionCounterKey }),
+    source,
+  ).ACTION_COUNTER_KEY;
+  refuseLocalKeyOnVercel(key, source);
+  return key;
 }
 
 function parseWith<Schema extends z.ZodObject>(schema: Schema, source: Source): z.infer<Schema> {

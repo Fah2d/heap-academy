@@ -369,6 +369,7 @@ describe("defineAction", () => {
       defineAction({ name: "Say Name", access: "anyone", input, maxBytes: 100, run: ok }),
     ).toThrow("lower-case words");
   });
+
   it("[T-14] counts every call under the action's name, at 120 a minute unless it sets its own", async () => {
     const { defineAction, count } = setup();
     const plain = defineAction({
@@ -440,6 +441,24 @@ describe("defineAction", () => {
     expect(lines).toEqual([
       expect.objectContaining({ level: "error", outcome: "error:counter-unavailable" }),
     ]);
+  });
+
+  it("[FR-AUTH-05] runs an uncounted action without asking the counter, even when it is down", async () => {
+    const count = vi.fn(async (): Promise<CountResult> => "unavailable");
+    const { defineAction } = setup({ count });
+    const run = vi.fn(ok);
+    const action = defineAction({
+      name: "sign-out",
+      access: "anyone",
+      input,
+      maxBytes: 100,
+      perMinute: "uncounted",
+      run,
+    });
+
+    await expect(action({ name: "x" })).resolves.toEqual({ ok: true, value: "ok" });
+    expect(run).toHaveBeenCalledOnce();
+    expect(count).not.toHaveBeenCalled();
   });
 
   it("[T-14] refuses a limit the counter would not accept", () => {

@@ -8,8 +8,9 @@ import { type CountResult, DEFAULT_PER_MINUTE, MAX_PER_MINUTE } from "./action-c
 
 // The one wrapper every server action is built with (ADR-0027,
 // docs/spec/02-architecture.md section 9.1, .claude/rules/server.md). In
-// order: a request ID, the per-action rate limit (T-14), identity from verified claims, schema parsing with a
-// size limit, the use case, a typed result, and one structured log line.
+// order: a request ID, the per-action rate limit (T-14), identity from
+// verified claims, schema parsing with a size limit, the use case, a typed
+// result, and one structured log line.
 //
 // What it needs from the request comes in as an `ActionContext`, built per
 // request by the adapter that knows Next.js and the auth provider. Its
@@ -89,9 +90,11 @@ export type ActionDefinition<
   maxBytes: number;
   /**
    * Calls a minute per network address (docs/spec/07-operations.md section
-   * 7). Unset, it is 120; sign-in and deletion set a lower one.
+   * 7). Unset, it is 120; sign-in and deletion set a lower one. Only
+   * sign-out is `uncounted`: ending one's own session must always work
+   * (FR-AUTH-05), and it costs nothing a flood could use.
    */
-  perMinute?: number;
+  perMinute?: number | "uncounted";
   run: (
     input: z.infer<Schema>,
     call: UseCaseCall<A, Services>,
@@ -124,7 +127,10 @@ export function createActionFactory<Services>(dependencies: ActionDependencies<S
       throw new Error(`An action name is lower-case words joined by hyphens: ${definition.name}`);
     }
     const perMinute = definition.perMinute ?? DEFAULT_PER_MINUTE;
-    if (!Number.isInteger(perMinute) || perMinute < 1 || perMinute > MAX_PER_MINUTE) {
+    if (
+      perMinute !== "uncounted" &&
+      (!Number.isInteger(perMinute) || perMinute < 1 || perMinute > MAX_PER_MINUTE)
+    ) {
       throw new Error(`An action's perMinute is a whole number from 1 to ${MAX_PER_MINUTE}`);
     }
     const route = actionLogRoute(definition.name);
@@ -136,7 +142,8 @@ export function createActionFactory<Services>(dependencies: ActionDependencies<S
     ): Promise<ActionResult<Value, Failure>> {
       // Counted first, before any other work, so a flood costs one database
       // call per request. Without an answer from the counter nothing runs.
-      const counted = await context.count(definition.name, perMinute);
+      const counted =
+        perMinute === "uncounted" ? "allowed" : await context.count(definition.name, perMinute);
       if (counted === "refused") return { ok: false, error: "rate_limited" };
       if (counted === "unavailable") {
         seen.counterDown = true;

@@ -17,6 +17,7 @@ const auth = vi.hoisted(() => ({
   signInWithOAuth: vi.fn(),
   exchangeCodeForSession: vi.fn(),
   getClaims: vi.fn(() => Promise.resolve({ data: null, error: null })),
+  signOut: vi.fn(() => Promise.resolve({ error: null })),
 }));
 
 vi.mock("next/headers", () => ({
@@ -35,13 +36,19 @@ vi.mock("next/navigation", () => ({
     throw Object.assign(new Error("NEXT_REDIRECT"), { url });
   },
 }));
-// The action wrapper counts each call first (T-14); the counter allows it.
 vi.mock("@/infrastructure/db/session-client", () => ({
-  createSessionClient: () =>
-    Promise.resolve({ auth, rpc: vi.fn(() => Promise.resolve({ data: true, error: null })) }),
+  createSessionClient: () => Promise.resolve({ auth, rpc: vi.fn() }),
 }));
+// The action wrapper counts each call first (T-14), through a client with no
+// session; this counter allows every call.
+const counter = vi.hoisted(() => ({
+  rpc: vi.fn((_name: string, _args: Record<string, unknown>) =>
+    Promise.resolve({ data: true, error: null }),
+  ),
+}));
+vi.mock("@/infrastructure/db/counter-client", () => ({ createCounterClient: () => counter }));
 
-const { startGoogleSignIn } = await import("./actions");
+const { signOut, startGoogleSignIn } = await import("./actions");
 const { handleGoogleCallback } = await import("./google-callback");
 const { RETURN_PATH_COOKIE } = await import("./return-path-cookie");
 
@@ -72,7 +79,38 @@ async function redirectOf(promise: Promise<unknown>): Promise<string> {
   throw new Error("no redirect");
 }
 
+describe("signOut", () => {
+  it("[FR-AUTH-05] ends the session without asking the counter, so a counter that is down cannot stop it", async () => {
+    expect(await redirectOf(signOut())).toBe("/");
+    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(counter.rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("startGoogleSignIn", () => {
+  it("[T-14] is counted first, for the platform's address and not a forwarding header the client sets", async () => {
+    auth.signInWithOAuth.mockResolvedValue({ data: { url: "https://g.test" }, error: null });
+    store.headers = new Headers({
+      host: "heap.test",
+      "x-real-ip": "203.0.113.7",
+      "x-forwarded-for": "192.0.2.1",
+    });
+    await redirectOf(startGoogleSignIn({ failed: false }, form("/courses")));
+    expect(counter.rpc).toHaveBeenCalledOnce();
+    expect(counter.rpc).toHaveBeenCalledWith("count_action", {
+      action_name: "start-google-sign-in",
+      client_address: "203.0.113.7",
+      max_hits: 30,
+      signature: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+  });
+
+  it("[T-14] does not start Google when the counter refuses", async () => {
+    counter.rpc.mockResolvedValueOnce({ data: false, error: null });
+    expect(await startGoogleSignIn({ failed: false }, form("/courses"))).toEqual({ failed: true });
+    expect(auth.signInWithOAuth).not.toHaveBeenCalled();
+  });
+
   it("[FR-AUTH-01] [FR-AUTH-04] keeps the return path in a short-lived cookie for the callback only, and goes to Google", async () => {
     auth.signInWithOAuth.mockResolvedValue({
       data: { provider: "google", url: "https://accounts.google.test/o" },

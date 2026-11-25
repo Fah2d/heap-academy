@@ -1,7 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
-import { createActionCounter } from "@/infrastructure/actions/action-counter";
 import { createActionFactory } from "@/infrastructure/actions/define-action";
+import { requestCounter } from "@/infrastructure/actions/request-counter";
 import {
   type SignInProvider,
   supabaseSignInProvider,
@@ -9,8 +9,6 @@ import {
 import { type SecondStepProvider, supabaseSecondStep } from "@/infrastructure/auth/second-step";
 import { verifiedIdentity } from "@/infrastructure/auth/verified-identity";
 import { createSessionClient, type SessionClient } from "@/infrastructure/db/session-client";
-import { parseActionCounterKey } from "@/infrastructure/env/schema";
-import { clientAddress } from "@/infrastructure/http/client-address";
 import {
   createRequestId,
   parseRequestId,
@@ -37,16 +35,11 @@ export const defineAction = createActionFactory<ActionServices>({
     const requestHeaders = await headers();
     const requestId = parseRequestId(requestHeaders.get(REQUEST_ID_HEADER)) ?? createRequestId();
     const db = await createSessionClient("read-write");
-    const counterKey = parseActionCounterKey(process.env);
     return {
       requestId,
-      // Over the caller's own session, like every other call: the counter
-      // function decides from the signature, not from who is asking.
-      count: createActionCounter(
-        (name, args) => db.rpc(name, args),
-        counterKey,
-        clientAddress(requestHeaders),
-      ),
+      // Through a client with no session: the signature is the counter's
+      // authority, so a stale session cookie cannot stop the count.
+      count: requestCounter(requestHeaders),
       identify: () => verifiedIdentity(db),
       async isAdmin() {
         // A failed check is a refusal. The database refuses an admin's

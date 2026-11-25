@@ -5,7 +5,7 @@
 -- against the key in Vault.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(39);
 
 -- This test's own key, whatever the stack was started with. Rolled back.
 do $$
@@ -21,18 +21,22 @@ begin
 end;
 $$;
 
--- What the server sends: an HMAC over "action\naddress\nlimit".
-select set_config('test.sign_a', encode(extensions.hmac(
-  convert_to(E'save-name\n203.0.113.7\n2', 'UTF8'),
-  convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex'), true);
-select set_config('test.sign_b', encode(extensions.hmac(
-  convert_to(E'save-name\n198.51.100.4\n2', 'UTF8'),
-  convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex'), true);
-select set_config('test.sign_c', encode(extensions.hmac(
-  convert_to(E'request-email-code\n203.0.113.7\n2', 'UTF8'),
-  convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex'), true);
+-- What the server sends: an HMAC over "action\naddress\nlimit\nminute",
+-- the minute being the number of whole minutes since 1970 by the server's
+-- clock. Computed here as the owner, before any role is taken.
+create function pg_temp.sign(message text, minutes_back integer default 0) returns text
+language sql as $$
+  select encode(extensions.hmac(
+    convert_to(message || E'\n' || (floor(extract(epoch from now()) / 60)::bigint - minutes_back)::text, 'UTF8'),
+    convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex')
+$$;
+select set_config('test.sign_a', pg_temp.sign(E'save-name\n203.0.113.7\n2'), true);
+select set_config('test.sign_b', pg_temp.sign(E'save-name\n198.51.100.4\n2'), true);
+select set_config('test.sign_c', pg_temp.sign(E'request-email-code\n203.0.113.7\n2'), true);
+select set_config('test.sign_late', pg_temp.sign(E'say-name\n203.0.113.7\n5', 1), true);
+select set_config('test.sign_stale', pg_temp.sign(E'say-name\n203.0.113.7\n5', 2), true);
 select set_config('test.wrong_key', encode(extensions.hmac(
-  convert_to(E'save-name\n192.0.2.1\n100', 'UTF8'),
+  convert_to(E'save-name\n192.0.2.1\n100\n' || floor(extract(epoch from now()) / 60)::bigint::text, 'UTF8'),
   convert_to('a-key-chosen-by-the-caller-0123456789', 'UTF8'), 'sha256'), 'hex'), true);
 select set_config('test.key_of_a', encode(extensions.hmac(
   convert_to('203.0.113.7', 'UTF8'),
@@ -75,11 +79,21 @@ select ok(
   and not has_function_privilege('service_role', 'public.count_action(text, text, integer, text)', 'execute'),
   '[T-14] the entry point is callable by anonymous and signed-in sessions only');
 
+-- The same signature as the server's: action-counter.test.ts pins this value too.
+select is(
+  encode(extensions.hmac(convert_to(E'save-name\n203.0.113.7\n2\n29000000', 'UTF8'),
+    convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex'),
+  '1d730e84c0983b8e4dc5427528c7fef2c23f124d96ecc7ad1707cdbdb724a89b',
+  '[T-14] pgcrypto signs exactly as the server does');
+
 -- Anonymous, through the Data API.
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
 select throws_ok('select * from private.action_counters', '42501', null,
   '[T-14] anonymous cannot read the counter table');
+select throws_ok(
+  $$insert into private.action_counters values ('save-name', repeat('a', 64), now(), 1)$$,
+  '42501', null, '[T-14] anonymous cannot write the counter table');
 select throws_ok(
   $$select public.count_action('save-name', '192.0.2.1', 100, current_setting('test.wrong_key'))$$,
   '42501', null,
@@ -109,6 +123,8 @@ select throws_ok('select * from private.action_counters', '42501', null,
 select throws_ok(
   $$insert into private.action_counters values ('save-name', repeat('a', 64), now(), 1)$$,
   '42501', null, '[T-14] a learner cannot write the counter table');
+select throws_ok('update private.action_counters set hits = 1', '42501', null,
+  '[T-14] a learner cannot change a count');
 select throws_ok(
   $$select public.count_action('save-name', '192.0.2.1', 100, current_setting('test.wrong_key'))$$,
   '42501', null,
@@ -123,6 +139,8 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 select throws_ok('select * from private.action_counters', '42501', null,
   '[T-14] an admin at aal1 cannot read the counter table');
+select throws_ok('delete from private.action_counters', '42501', null,
+  '[T-14] an admin at aal1 cannot clear the counter table');
 reset role;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-8000-000000001302","role":"authenticated","aal":"aal2"}', true);
@@ -131,6 +149,8 @@ select throws_ok('select * from private.action_counters', '42501', null,
   '[T-14] an admin at aal2 cannot read the counter table');
 select throws_ok('delete from private.action_counters', '42501', null,
   '[T-14] an admin at aal2 cannot clear the counter table');
+select throws_ok('update private.action_counters set hits = 1', '42501', null,
+  '[T-14] an admin at aal2 cannot change a count');
 reset role;
 
 -- The server's calls, as an anonymous session (a sign-in action).
@@ -146,6 +166,11 @@ select is(public.count_action('save-name', '198.51.100.4', 2, current_setting('t
   '[T-14] another address has its own count');
 select is(public.count_action('request-email-code', '203.0.113.7', 2, current_setting('test.sign_c')), true,
   '[T-14] another action has its own count');
+select is(public.count_action('say-name', '203.0.113.7', 5, current_setting('test.sign_late')), true,
+  '[T-14] a signature from the minute before is accepted, for clocks a little apart');
+select throws_ok(
+  $$select public.count_action('say-name', '203.0.113.7', 5, current_setting('test.sign_stale'))$$,
+  '42501', null, '[T-14] a signature two minutes old is refused, so a leaked one soon stops working');
 reset role;
 
 select results_eq(
@@ -153,7 +178,8 @@ select results_eq(
   $$values ('request-email-code', current_setting('test.key_of_a'), 1),
            ('save-name', current_setting('test.key_of_a'), 3),
            ('save-name', encode(extensions.hmac(convert_to('198.51.100.4', 'UTF8'),
-             convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex'), 1)$$,
+             convert_to('test-only-action-counter-key-0123456789', 'UTF8'), 'sha256'), 'hex'), 1),
+           ('say-name', current_setting('test.key_of_a'), 1)$$,
   '[T-14] one row per action and client in the window, keyed on an HMAC of the address');
 select is(
   (select count(*)::int from private.action_counters where client_key like '%203.0.113.7%'),

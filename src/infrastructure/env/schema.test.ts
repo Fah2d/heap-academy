@@ -120,6 +120,21 @@ describe("environment schema", () => {
     );
   });
 
+  it("[T-14] refuses the public local key on a Vercel preview or production deployment", () => {
+    for (const VERCEL_ENV of ["preview", "production"]) {
+      expect(() => parseEnvironment({ ...valid, VERCEL_ENV })).toThrow(
+        /ACTION_COUNTER_KEY: must not be the public local value/,
+      );
+      expect(() => parseActionCounterKey({ ...valid, VERCEL_ENV })).toThrow(/ACTION_COUNTER_KEY/);
+      expect(parseActionCounterKey({ ACTION_COUNTER_KEY: "y".repeat(32), VERCEL_ENV })).toBe(
+        "y".repeat(32),
+      );
+    }
+    expect(parseActionCounterKey({ ...valid, VERCEL_ENV: "development" })).toBe(
+      valid.ACTION_COUNTER_KEY,
+    );
+  });
+
   it("[NFR-SEC-04] treats an empty value as missing", () => {
     expect(() => parseEnvironment({ ...valid, RESEND_API_KEY: "" })).toThrow(/RESEND_API_KEY/);
   });

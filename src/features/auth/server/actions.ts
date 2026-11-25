@@ -53,6 +53,7 @@ const signOutAction = defineAction({
   access: "anyone",
   input: signOutInput,
   maxBytes: MAX_SIGN_OUT_BYTES,
+  perMinute: "uncounted",
   run: (_input, { services }) => signOutUseCase(services.signIn),
 });
 
