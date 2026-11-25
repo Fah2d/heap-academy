@@ -100,7 +100,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   const wrong = totp(secret) === "000000" ? "111111" : "000000";
   await field.fill(wrong);
   await page.getByRole("button", { name: secondStep.confirm }).click();
-  await expect(page.getByRole("alert")).toContainText(secondStep.codeRejected);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(secondStep.codeRejected);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "admin-setup-code-rejected", 1280, { workPackage: "WP-2.3" });
 
@@ -162,7 +162,7 @@ test("[T-19] repeated wrong codes are limited", async ({ page, request }) => {
     );
     await button.click();
     await answered;
-    const alert = page.getByRole("alert");
+    const alert = page.getByRole("main").getByRole("alert");
     await expect(alert).toBeVisible();
     limited = (await alert.innerText()).includes(secondStep.tooManyAttempts);
   }
