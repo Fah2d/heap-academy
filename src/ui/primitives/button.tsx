@@ -73,6 +73,21 @@ export function Button({
     if (keyShortcuts === undefined) button.removeAttribute("aria-keyshortcuts");
     else button.setAttribute("aria-keyshortcuts", keyShortcuts);
   }, [keyShortcuts]);
+  // React Aria announces a pending button by its ID and keeps the announcement
+  // for 7 s. A button that leaves the page first, such as Publish once the
+  // lesson is published, would leave it naming nothing (axe role-img-alt).
+  // It has been read by then, so it leaves with the button.
+  useEffect(() => {
+    const button = element.current;
+    return () => {
+      if (button === null || button.id === "") return;
+      for (const node of document.querySelectorAll(
+        '[role="log"] > [role="img"][aria-labelledby]',
+      )) {
+        if (node.getAttribute("aria-labelledby")?.split(" ").includes(button.id)) node.remove();
+      }
+    };
+  }, []);
   return (
     <AriaButton
       ref={element}

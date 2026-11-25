@@ -44,11 +44,22 @@ async function axeViolations(page: Page) {
 }
 
 async function openState(page: Page, state: AdminState, title: string) {
+  // A state the spec has clicked through is checked as it was left, before the next one opens.
+  if (new URL(page.url()).searchParams.has("state")) {
+    expect(await axeViolations(page)).toEqual([]);
+  }
   await page.goto(`${ADMIN_STATE_PATH}?state=${state}`);
   const region = page.getByRole("region", { name: title });
   await expect(region).toBeVisible();
   return region;
 }
+
+// And the last state a test leaves, as it left it.
+test.afterEach(async ({ page }) => {
+  if (new URL(page.url()).searchParams.has("state")) {
+    expect(await axeViolations(page)).toEqual([]);
+  }
+});
 
 test("[FR-ADM-02] the gallery lists every admin state, each on its own page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

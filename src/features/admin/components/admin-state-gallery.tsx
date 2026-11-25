@@ -334,405 +334,327 @@ const oddRuntime = fixedResultsRuntime((source, tests) => {
 /** Each state's view; ADMIN_STATES names them. */
 function adminViews(nonce: string): Record<AdminState, ReactNode> {
   return {
-    empty: (
-      <>
-        <CourseList result={{ ok: true, courses: [] }} reorder={never} refresh={stay} />
-      </>
-    ),
-    failed: (
-      <>
-        <CourseList result={{ ok: false }} reorder={never} refresh={stay} />
-      </>
-    ),
+    empty: <CourseList result={{ ok: true, courses: [] }} reorder={never} refresh={stay} />,
+    failed: <CourseList result={{ ok: false }} reorder={never} refresh={stay} />,
     rows: (
-      <>
-        <CourseList
-          result={{
-            ok: true,
-            courses: [
-              {
-                id: COURSE_ID,
-                slug: "sample-course",
-                title: m.sampleCourse,
-                status: "published",
-                publishedLessons: 1,
-                draftLessons: 0,
-              },
-              {
-                id: "5eed0000-0000-4000-8000-000000000002",
-                slug: "second-course",
-                title: m.secondCourse,
-                status: "draft",
-                publishedLessons: 0,
-                draftLessons: 2,
-              },
-            ],
-          }}
-          reorder={refuse("cannot_move")}
-          refresh={stay}
-        />
-      </>
+      <CourseList
+        result={{
+          ok: true,
+          courses: [
+            {
+              id: COURSE_ID,
+              slug: "sample-course",
+              title: m.sampleCourse,
+              status: "published",
+              publishedLessons: 1,
+              draftLessons: 0,
+            },
+            {
+              id: "5eed0000-0000-4000-8000-000000000002",
+              slug: "second-course",
+              title: m.secondCourse,
+              status: "draft",
+              publishedLessons: 0,
+              draftLessons: 2,
+            },
+          ],
+        }}
+        reorder={refuse("cannot_move")}
+        refresh={stay}
+      />
     ),
     "editor-refusing": (
-      <>
-        <CourseEditor
-          course={refusingCourse}
-          saveCourse={refuse("stale")}
-          setStatus={refuse("no_published_lesson")}
-          saveChapter={refuse("unavailable")}
-          deleteChapter={refuse("unavailable")}
-          reorder={refuse("cannot_move")}
-          createLesson={refuse("unavailable")}
-          refresh={stay}
-        />
-      </>
+      <CourseEditor
+        course={refusingCourse}
+        saveCourse={refuse("stale")}
+        setStatus={refuse("no_published_lesson")}
+        saveChapter={refuse("unavailable")}
+        deleteChapter={refuse("unavailable")}
+        reorder={refuse("cannot_move")}
+        createLesson={refuse("unavailable")}
+        refresh={stay}
+      />
     ),
     "editor-empty": (
-      <>
-        <CourseEditor
-          course={{ ...refusingCourse, chapters: [] }}
-          saveCourse={never}
-          setStatus={never}
-          saveChapter={never}
-          deleteChapter={never}
-          reorder={never}
-          createLesson={never}
-          refresh={stay}
-        />
-      </>
+      <CourseEditor
+        course={{ ...refusingCourse, chapters: [] }}
+        saveCourse={never}
+        setStatus={never}
+        saveChapter={never}
+        deleteChapter={never}
+        reorder={never}
+        createLesson={never}
+        refresh={stay}
+      />
     ),
     "editor-published": (
-      <>
-        <CourseEditor
-          course={{ ...refusingCourse, status: "published" }}
-          saveCourse={never}
-          setStatus={never}
-          saveChapter={never}
-          deleteChapter={never}
-          reorder={never}
-          createLesson={never}
-          refresh={stay}
-        />
-      </>
+      <CourseEditor
+        course={{ ...refusingCourse, status: "published" }}
+        saveCourse={never}
+        setStatus={never}
+        saveChapter={never}
+        deleteChapter={never}
+        reorder={never}
+        createLesson={never}
+        refresh={stay}
+      />
     ),
     "editor-saving": (
-      <>
-        <CourseEditor
-          course={refusingCourse}
-          saveCourse={succeed({ id: COURSE_ID, updatedAt: SAVED_AT })}
-          setStatus={succeed({ updatedAt: SAVED_AT })}
-          saveChapter={succeed({ id: COURSE_ID })}
-          deleteChapter={succeed(null)}
-          reorder={succeed(null)}
-          createLesson={never}
-          refresh={stay}
-        />
-      </>
+      <CourseEditor
+        course={refusingCourse}
+        saveCourse={succeed({ id: COURSE_ID, updatedAt: SAVED_AT })}
+        setStatus={succeed({ updatedAt: SAVED_AT })}
+        saveChapter={succeed({ id: COURSE_ID })}
+        deleteChapter={succeed(null)}
+        reorder={succeed(null)}
+        createLesson={never}
+        refresh={stay}
+      />
     ),
-    "editor-failed": (
-      <>
-        <CourseEditorFailed headingId="gallery-editor-failed-heading" />
-      </>
-    ),
-    "new-course": (
-      <>
-        <NewCourseForm saveCourse={never} navigate={stay} />
-      </>
-    ),
-    "new-course-taken": (
-      <>
-        <NewCourseForm saveCourse={refuse("slug_taken")} navigate={stay} />
-      </>
-    ),
+    "editor-failed": <CourseEditorFailed headingId="gallery-editor-failed-heading" />,
+    "new-course": <NewCourseForm saveCourse={never} navigate={stay} />,
+    "new-course-taken": <NewCourseForm saveCourse={refuse("slug_taken")} navigate={stay} />,
     setup: (
-      <>
-        <SetupFlow
-          startSetup={() => Promise.resolve({ ok: false, error: "unavailable" })}
-          confirmSetup={never}
-          navigate={() => undefined}
-        />
-      </>
+      <SetupFlow
+        startSetup={() => Promise.resolve({ ok: false, error: "unavailable" })}
+        confirmSetup={never}
+        navigate={() => undefined}
+      />
     ),
     limited: (
-      <>
-        <SecondStepForm
-          action={() => Promise.resolve({ ok: false, error: "rate_limited" })}
-          submitLabel={secondStep.verify}
-          navigate={() => undefined}
-        />
-      </>
+      <SecondStepForm
+        action={() => Promise.resolve({ ok: false, error: "rate_limited" })}
+        submitLabel={secondStep.verify}
+        navigate={() => undefined}
+      />
     ),
     checking: (
-      <>
-        <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
-      </>
+      <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
     ),
     "lesson-editor": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={succeed({ updatedAt: SAVED_AT })}
-          setStatus={succeed({ updatedAt: SAVED_AT })}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={succeed({ updatedAt: SAVED_AT })}
+        setStatus={succeed({ updatedAt: SAVED_AT })}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-refusing": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={refuse("stale")}
-          setStatus={refuse("status_not_allowed")}
-          renderPreview={refuse("unavailable")}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={refuse("stale")}
+        setStatus={refuse("status_not_allowed")}
+        renderPreview={refuse("unavailable")}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-published": (
-      <>
-        <LessonEditor
-          lesson={{ ...sampleLesson, status: "published" }}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={never}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={{ ...sampleLesson, status: "published" }}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={never}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-archived": (
-      <>
-        <LessonEditor
-          lesson={{ ...sampleLesson, status: "archived" }}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={never}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={{ ...sampleLesson, status: "archived" }}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={never}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-full": (
-      <>
-        <LessonEditor
-          lesson={fullLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={refuse("unavailable")}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={fullLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={refuse("unavailable")}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-taken": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={refuse("slug_taken")}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={refuse("slug_taken")}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-too-long": (
-      <>
-        <LessonEditor
-          lesson={tooLongLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={tooLongLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-tests-full": (
-      <>
-        <LessonEditor
-          lesson={twelveTestsLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={twelveTestsLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-test-problem": (
-      <>
-        <LessonEditor
-          lesson={testProblemLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={testProblemLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-content": (
-      <>
-        <div className="rounded-panel border border-border bg-surface p-4">
-          <LessonContent document={learnerContent} topHeadingLevel={3} />
-        </div>
-      </>
+      <div className="rounded-panel border border-border bg-surface p-4">
+        <LessonContent document={learnerContent} topHeadingLevel={3} />
+      </div>
     ),
     "lesson-empty": (
-      <>
-        <LessonEditor
-          lesson={emptyLesson}
-          initialPreview={{ blocks: [] }}
-          nonce={nonce}
-          save={succeed({ updatedAt: SAVED_AT })}
-          setStatus={succeed({ updatedAt: SAVED_AT })}
-          renderPreview={succeed({ blocks: [] })}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={emptyLesson}
+        initialPreview={{ blocks: [] }}
+        nonce={nonce}
+        save={succeed({ updatedAt: SAVED_AT })}
+        setStatus={succeed({ updatedAt: SAVED_AT })}
+        renderPreview={succeed({ blocks: [] })}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-python-loading": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={loadingRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={loadingRuntime}
+      />
     ),
     "lesson-python-failed": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={failedRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={failedRuntime}
+      />
     ),
     "lesson-validating": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={readyRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={readyRuntime}
+      />
     ),
     "lesson-python-cannot-run": (
-      <>
-        <LessonEditor
-          lesson={sampleLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={cannotRunRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={sampleLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={cannotRunRuntime}
+      />
     ),
     "lesson-save-validating": (
-      <>
-        <LessonEditor
-          lesson={{ ...sampleLesson, status: "published" }}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={readyRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={{ ...sampleLesson, status: "published" }}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={readyRuntime}
+      />
     ),
     "lesson-save-python-failed": (
-      <>
-        <LessonEditor
-          lesson={{ ...sampleLesson, status: "published" }}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={failedRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={{ ...sampleLesson, status: "published" }}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={failedRuntime}
+      />
     ),
     "lesson-save-python-cannot-run": (
-      <>
-        <LessonEditor
-          lesson={{ ...sampleLesson, status: "published" }}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={cannotRunRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={{ ...sampleLesson, status: "published" }}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={cannotRunRuntime}
+      />
     ),
     "lesson-save-rule-failed": (
-      <>
-        <LessonEditor
-          lesson={{ ...wrongExpectedLesson, status: "published" }}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={{ ...wrongExpectedLesson, status: "published" }}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
     "lesson-odd-results": (
-      <>
-        <LessonEditor
-          lesson={oddLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={never}
-          setStatus={never}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={oddRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={oddLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={never}
+        setStatus={never}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={oddRuntime}
+      />
     ),
     "lesson-validation-failed": (
-      <>
-        <LessonEditor
-          lesson={wrongExpectedLesson}
-          initialPreview={samplePreview}
-          nonce={nonce}
-          save={succeed({ updatedAt: SAVED_AT })}
-          setStatus={succeed({ updatedAt: SAVED_AT })}
-          renderPreview={succeed(samplePreview)}
-          openRuntime={sampleRuntime}
-        />
-      </>
+      <LessonEditor
+        lesson={wrongExpectedLesson}
+        initialPreview={samplePreview}
+        nonce={nonce}
+        save={succeed({ updatedAt: SAVED_AT })}
+        setStatus={succeed({ updatedAt: SAVED_AT })}
+        renderPreview={succeed(samplePreview)}
+        openRuntime={sampleRuntime}
+      />
     ),
   };
 }

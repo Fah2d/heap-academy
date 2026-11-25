@@ -161,6 +161,17 @@ describe("ValidationPanel [FR-ADM-07]", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: words.validate }));
   });
 
+  it("after Stop, focus the owner moved elsewhere stays there", async () => {
+    const handlers = renderPanel({ state: { kind: "running", stopping: false } });
+    await userEvent.click(screen.getByRole("button", { name: words.stop }));
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    rerenderPanel({ state: { kind: "stopped" } }, handlers);
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
   it("after a run ends on its own, focus stays where it was", () => {
     const handlers = renderPanel({ state: { kind: "running", stopping: false } });
     rerenderPanel({ state: { kind: "stopped" } }, handlers);

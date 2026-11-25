@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { RuleState, TimedOutProgram, ValidationRule } from "@/grader/validation";
 import { validation as words } from "@/messages/admin";
@@ -135,12 +135,13 @@ export function ValidationPanel({
   const stopPressed = useRef(false);
   // Stop leaves the page when the run ends. If it took focus with it, focus
   // goes back to Validate instead of the start of the page.
-  useEffect(() => {
+  // Before paint: the run ends on the runtime's callback, not on a press.
+  useLayoutEffect(() => {
     if (running || !stopPressed.current) return;
     stopPressed.current = false;
     const focused = document.activeElement;
     if (focused === null || focused === document.body) {
-      actions.current?.querySelector("button")?.focus();
+      actions.current?.querySelector<HTMLElement>("[data-validate]")?.focus();
     }
   }, [running]);
 
@@ -200,7 +201,7 @@ export function ValidationPanel({
         </Notice>
       )}
       <div ref={actions} className="flex flex-wrap gap-3">
-        <Button variant="secondary" isPending={running} onPress={onValidate}>
+        <Button variant="secondary" data-validate isPending={running} onPress={onValidate}>
           {!running
             ? words.validate
             : python === "loading"
