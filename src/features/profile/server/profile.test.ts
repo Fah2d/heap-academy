@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ProfileStore } from "@/infrastructure/db/profile-store";
-import { profileSummary, updateProfile, updateProfileInput } from "./profile";
+import { profileSummary, progressByCourse, updateProfile, updateProfileInput } from "./profile";
 
 vi.mock("server-only", () => ({}));
 
@@ -16,7 +16,11 @@ const record = (timeZone: string, times: string[]) =>
     read: async () => ({
       displayName: "Sam",
       timeZone,
-      completions: times.map((time) => ({ xp: 10, completedAt: at(time) })),
+      completions: times.map((time, index) => ({
+        lessonId: `l${String(index + 1)}`,
+        xp: 10,
+        completedAt: at(time),
+      })),
     }),
   });
 
@@ -30,6 +34,7 @@ describe("[FR-PRF-01] [FR-PRG-04] [FR-PRG-05] the profile summary", () => {
       timeZone: "UTC",
       xp: 20,
       lessons: 2,
+      completedLessonIds: ["l1", "l2"],
       currentStreak: 2,
       longestStreak: 2,
     });
@@ -122,5 +127,21 @@ describe("[FR-PRF-02] the display name change", () => {
     expect(
       await updateProfile("u1", input, store({ setDisplayName: async () => "unavailable" })),
     ).toEqual({ ok: false, error: "unavailable" });
+  });
+});
+
+describe("[FR-PRF-01] progress per course", () => {
+  const course = (slug: string, ids: string[]) => ({
+    slug,
+    title: slug.toUpperCase(),
+    lessons: ids.map((id) => ({ id })),
+  });
+
+  it("counts published lessons, in the order given, and leaves out a course not started", () => {
+    const courses = [course("b", ["l3", "l4"]), course("c", ["l5"]), course("a", ["l1", "l2"])];
+    expect(progressByCourse(courses, ["l1", "l3", "l4", "archived"])).toEqual([
+      { slug: "b", title: "B", completed: 2, total: 2 },
+      { slug: "a", title: "A", completed: 1, total: 2 },
+    ]);
   });
 });

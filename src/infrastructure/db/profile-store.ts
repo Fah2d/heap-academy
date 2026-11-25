@@ -2,14 +2,14 @@ import "server-only";
 import { z } from "zod";
 import type { SessionClient } from "./session-client";
 
-// The caller's profile and the XP and time of each completion (FR-PRF-01;
+// The caller's profile and the lesson, XP and time of each completion (FR-PRF-01;
 // docs/spec/02-architecture.md section 8). Every call runs with the caller's
 // own session, so row level security decides what is read and changed.
 
 export type ProfileRecord = {
   displayName: string;
   timeZone: string;
-  completions: { xp: number; completedAt: number }[];
+  completions: { lessonId: string; xp: number; completedAt: number }[];
 };
 
 export type ProfileStore = {
@@ -27,7 +27,11 @@ type Db = Pick<SessionClient, "from">;
 
 const profileRow = z.object({ display_name: z.string(), time_zone: z.string() });
 const completionRows = z.array(
-  z.object({ xp: z.number().int(), completed_at: z.iso.datetime({ offset: true }) }),
+  z.object({
+    lesson_id: z.uuid(),
+    xp: z.number().int(),
+    completed_at: z.iso.datetime({ offset: true }),
+  }),
 );
 
 export function supabaseProfileStore(db: Db): ProfileStore {
@@ -51,7 +55,7 @@ export function supabaseProfileStore(db: Db): ProfileStore {
     async read(userId) {
       const [profile, completions] = await Promise.all([
         db.from("profiles").select("display_name, time_zone").eq("user_id", userId).maybeSingle(),
-        db.from("completions").select("xp, completed_at").eq("user_id", userId),
+        db.from("completions").select("lesson_id, xp, completed_at").eq("user_id", userId),
       ]);
       if (profile.error !== null || completions.error !== null) return null;
       const row = profileRow.safeParse(profile.data);
@@ -61,6 +65,7 @@ export function supabaseProfileStore(db: Db): ProfileStore {
         displayName: row.data.display_name,
         timeZone: row.data.time_zone,
         completions: rows.data.map((completion) => ({
+          lessonId: completion.lesson_id,
           xp: completion.xp,
           completedAt: Date.parse(completion.completed_at),
         })),

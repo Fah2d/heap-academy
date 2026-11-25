@@ -13,9 +13,12 @@ A signed-in learner can see their display name, XP, and current and longest stre
 - `profile` added to the log route segments and to the indexing table.
 - Reads and the update use the caller's own session, so row level security decides.
 
+- Progress per course (FR-PRF-01): each published course with at least one completed lesson, with a link and a count.
+- Account section with Sign out (experience spec 5.5), the same form as the header's.
+
 ## Verification
 
-- `pnpm verify`: exit 0, 132 test files, 2349 tests.
+- prettier, eslint, tsc, attribution, vitest with coverage (138 test files): pass.
 - `pnpm build`, `check-bundle`, `check-static`: exit 0.
 - Not run: browser tests, `pnpm test:db`, anything against a real database.
 
@@ -27,12 +30,16 @@ A second round of each, on the name editing and the merges: code review CHANGES 
 
 Left open (minor): an invalid Save leaves focus on the button; a direct data API call can store a name the action would refuse (only its owner sees it); other invisible characters can sit inside a visible name; after guest progress syncs on sign-in, an already open profile shows the earlier numbers until a reload.
 
+Third round, on per-course progress and sign-out: code review CHANGES REQUIRED (no test of the whole page), security review APPROVE. The test is added, not reviewed again.
+
 ## Decisions taken (safe defaults)
 
 1. XP and streak appear first on the profile. The header shows no numbers: the experience spec (section 4) lists no XP or streak there, while the delivery plan says "in the header". Proposed spec change: remove "header" from WP-6.2.
 2. The profile reads only the account's completions, so it needs no decision on guest XP.
 3. A display name may hold any letters, numbers, or symbols, in any script. The database limit (1 to 40) is the only rule it enforces itself; the character rules are the action's.
 
+4. Only courses with a completed lesson are listed. A course read that fails shows the error page for the whole profile.
+
 ## Not in this part
 
-Per-course progress, sign-out section, account deletion (blocked on the service-role secret, the notice address and the "recent sign-in" rule), the course page summary (FR-CRS-05).
+Account deletion (blocked on the service-role secret, the notice address and the "recent sign-in" rule), the course page summary (FR-CRS-05).

@@ -1,15 +1,22 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { catalogCommon } from "@/messages/catalog";
 import { profile as words } from "@/messages/profile";
 import { Link } from "@/ui";
-import type { ProfileSummary } from "../server/profile";
+import type { CourseProgressRow, ProfileSummary } from "../server/profile";
 import { DisplayName } from "./display-name";
 
 /** The profile's content (docs/spec/03-experience.md section 5.5; FR-PRF-01). */
 export function ProfileView({
   summary,
+  courses,
+  coursePath,
   updateProfile,
+  signOut,
 }: {
   summary: ProfileSummary;
+  courses: readonly CourseProgressRow[];
+  coursePath: (slug: string) => string;
+  signOut: ReactNode;
   updateProfile: ComponentProps<typeof DisplayName>["updateProfile"];
 }) {
   const numbers = [
@@ -40,6 +47,27 @@ export function ProfileView({
           </Link>
         </div>
       )}
+      {courses.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold text-text">{words.coursesHeading}</h2>
+          <ul className="flex flex-col gap-3">
+            {courses.map((course) => (
+              <li key={course.slug} className="flex flex-col items-start gap-1">
+                <Link href={coursePath(course.slug)} variant="standalone">
+                  {course.title}
+                </Link>
+                <p className="text-sm text-text-muted tabular-nums">
+                  {catalogCommon.progress(course.completed, course.total)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <section className="flex flex-col items-start gap-3">
+        <h2 className="text-lg font-semibold text-text">{words.accountHeading}</h2>
+        {signOut}
+      </section>
     </div>
   );
 }

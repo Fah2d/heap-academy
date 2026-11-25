@@ -1,9 +1,9 @@
 import { SignedInProgressSync } from "@/features/progress";
 import { account } from "@/messages/sign-in";
-import { signOut } from "../server/actions";
 import { viewer } from "../server/viewer";
-import { SignInLink, SignOutButton } from "./account-buttons";
+import { SignInLink } from "./account-buttons";
 import { ProfileNavLink } from "./profile-nav-link";
+import { SignOutForm } from "./sign-out-form";
 
 /**
  * The account control at the end of the header (docs/spec/03-experience.md
@@ -18,9 +18,7 @@ export async function AccountControl() {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       <SignedInProgressSync />
       <ProfileNavLink />
-      <form action={signOut}>
-        <SignOutButton label={account.signOut} pendingLabel={account.signingOut} />
-      </form>
+      <SignOutForm />
     </div>
   );
 }

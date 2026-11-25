@@ -11,6 +11,8 @@ export const profile = {
   days: (count: number) => (count === 1 ? "1 day" : `${String(count)} days`),
   empty: "You have not completed a lesson yet. Pass a lesson's tests to earn XP.",
   coursesLink: "See the courses",
+  coursesHeading: "Your courses",
+  accountHeading: "Account",
   changeName: "Change name",
   nameLabel: "Display name",
   saveName: "Save name",

@@ -2,6 +2,17 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 03:40), in `night-b`, per-course progress on the profile
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- Done on `wp/6.3-profile-page`: progress per course and the Account section with Sign out. Code review: CHANGES REQUIRED (one test gap, closed). Security review: APPROVE.
+- prettier, eslint, tsc, vitest with coverage, attribution, `next build`, `check-bundle`, `check-static`: pass. Not run: browser tests, `pnpm test:db`.
+- Seen once: `course-status.test.tsx` ("asks before taking a published course off the site") failed in one coverage run and passed in the next; this work does not touch it, and it was not changed.
+- Push: from 04:37 (one push per 60 minutes).
+- Owner: update or open the draft pull request from `WP-6.3-profile-page.md`.
+- Next: WP-6.2 part 2 on screen (course page summary, completion moment).
+- Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule). Browser checks (no Docker).
+
 ## Session of 2026-11-25 (from about 02:47), in `night-b`, 5.4 merged forward and name editing
 
 - `origin/main` still 428c437: nothing to merge for task 1.

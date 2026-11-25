@@ -2,5 +2,6 @@
 // the header, the sign-in actions, and the Google callback.
 export { AccountControl } from "./components/account-control";
 export { SignInPage } from "./components/sign-in-page";
+export { SignOutForm } from "./components/sign-out-form";
 export { handleGoogleCallback } from "./server/google-callback";
 export { guestInvitation } from "./server/guest-invitation";

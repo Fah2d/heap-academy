@@ -41,12 +41,24 @@ describe("[FR-PRF-01] the profile store", () => {
   it("reads the caller's own rows", async () => {
     const { db, seen } = fakeDb({
       profile,
-      completions: ok([{ xp: 10, completed_at: "2023-11-14T22:13:20+00:00" }]),
+      completions: ok([
+        {
+          lesson_id: "6f1f6f4e-3b6a-4d0a-9a3e-2f5b1c9d8e70",
+          xp: 10,
+          completed_at: "2023-11-14T22:13:20+00:00",
+        },
+      ]),
     });
     expect(await supabaseProfileStore(db).read("u1")).toEqual({
       displayName: "Sam",
       timeZone: "UTC",
-      completions: [{ xp: 10, completedAt: 1_700_000_000_000 }],
+      completions: [
+        {
+          lessonId: "6f1f6f4e-3b6a-4d0a-9a3e-2f5b1c9d8e70",
+          xp: 10,
+          completedAt: 1_700_000_000_000,
+        },
+      ],
     });
     expect(seen.filters).toEqual([
       ["profiles", "user_id", "u1"],

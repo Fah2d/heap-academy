@@ -2,7 +2,10 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
+import { catalogCommon } from "@/messages/catalog";
 import { profile as words } from "@/messages/profile";
+import { updateProfile } from "../server/actions";
+import type { CourseProgressRow } from "../server/profile";
 import { DisplayName } from "./display-name";
 import { ProfilePage } from "./profile-page";
 import { ProfileView } from "./profile-view";
@@ -15,7 +18,13 @@ const mocks = vi.hoisted(() => ({
   }),
   pageIdentity: vi.fn(),
   read: vi.fn(),
+  publishedCourses: vi.fn(),
 }));
+vi.mock("@/content", () => ({ publishedCourses: mocks.publishedCourses }));
+vi.mock("@/features/auth", () => ({
+  SignOutForm: () => <button type="submit">sign-out-form</button>,
+}));
+vi.mock("@/features/catalog", () => ({ coursePath: (slug: string) => `/courses/${slug}` }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({
   redirect: mocks.redirect,
@@ -36,13 +45,26 @@ const summary = {
   timeZone: "UTC",
   xp: 35,
   lessons: 2,
+  completedLessonIds: ["l1", "l2"],
   currentStreak: 1,
   longestStreak: 4,
 };
 
+function view(shown: typeof summary, courses: CourseProgressRow[] = []) {
+  return (
+    <ProfileView
+      summary={shown}
+      courses={courses}
+      coursePath={(slug) => `/courses/${slug}`}
+      updateProfile={vi.fn()}
+      signOut={<button type="submit">out</button>}
+    />
+  );
+}
+
 describe("[FR-PRF-01] the profile", () => {
   it("shows the name, XP, and both streaks", () => {
-    render(<ProfileView summary={summary} updateProfile={vi.fn()} />);
+    render(view(summary));
     expect(screen.getByRole("heading", { level: 1, name: words.heading })).toBeTruthy();
     for (const text of ["Sam", "35 XP", "1 day", "4 days"]) {
       expect(screen.getByText(text)).toBeTruthy();
@@ -51,11 +73,52 @@ describe("[FR-PRF-01] the profile", () => {
   });
 
   it("says what to do on a new account", () => {
-    render(<ProfileView summary={{ ...summary, xp: 0, lessons: 0 }} updateProfile={vi.fn()} />);
+    render(view({ ...summary, xp: 0, lessons: 0 }));
     expect(screen.getByText(words.empty)).toBeTruthy();
     expect(screen.getByRole("link", { name: words.coursesLink }).getAttribute("href")).toBe(
       "/courses",
     );
+  });
+
+  it("lists each started course with its count, and the account section", () => {
+    render(view(summary, [{ slug: "basics", title: "Basics", completed: 2, total: 5 }]));
+    expect(screen.getByRole("heading", { level: 2, name: words.coursesHeading })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Basics" }).getAttribute("href")).toBe(
+      "/courses/basics",
+    );
+    expect(screen.getByText(catalogCommon.progress(2, 5))).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: words.accountHeading })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "out" })).toBeTruthy();
+  });
+
+  it("has no course list before a course is started", () => {
+    render(view(summary));
+    expect(screen.queryByRole("heading", { name: words.coursesHeading })).toBeNull();
+  });
+
+  it("fails to the error page when the courses cannot be read", async () => {
+    mocks.pageIdentity.mockResolvedValue({ userId: "u1" });
+    mocks.read.mockResolvedValue({ displayName: "Sam", timeZone: "UTC", completions: [] });
+    mocks.publishedCourses.mockResolvedValue({ ok: false });
+    await expect(ProfilePage()).rejects.toThrow("profile: courses could not be read");
+  });
+
+  it("draws the learner's started courses and the sign-out form", async () => {
+    vi.mocked(updateProfile).mockResolvedValue({ ok: true, value: { changed: false } });
+    mocks.pageIdentity.mockResolvedValue({ userId: "u1" });
+    mocks.read.mockResolvedValue({
+      displayName: "Sam",
+      timeZone: "UTC",
+      completions: [{ lessonId: "l1", xp: 10, completedAt: 0 }],
+    });
+    mocks.publishedCourses.mockResolvedValue({
+      ok: true,
+      value: [{ slug: "basics", title: "Basics", lessons: [{ id: "l1" }, { id: "l2" }] }],
+    });
+    render(await ProfilePage());
+    expect(screen.getByRole("link", { name: "Basics" })).toBeTruthy();
+    expect(screen.getByText(catalogCommon.progress(1, 2))).toBeTruthy();
+    expect(screen.getByRole("button", { name: "sign-out-form" })).toBeTruthy();
   });
 
   it("sends a visitor to sign in and back, reading nothing", async () => {
@@ -173,9 +236,7 @@ describe("[T-07] a display name holding markup", () => {
 
   it("is shown and edited as text, never as markup", async () => {
     const user = userEvent.setup();
-    const { container } = render(
-      <ProfileView summary={{ ...summary, displayName: payload }} updateProfile={vi.fn()} />,
-    );
+    const { container } = render(view({ ...summary, displayName: payload }));
     expect(screen.getByText(payload)).toBeTruthy();
     expect(container.querySelector("img, script")).toBeNull();
     await user.click(screen.getByRole("button", { name: words.changeName }));

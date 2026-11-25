@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { courseStanding } from "@/domain/course-progress";
 import { parseDisplayName } from "@/domain/display-name";
 import { parseTimeZone, streak, totalXp, type TimeZone } from "@/domain/streak";
 import type { UseCaseResult } from "@/infrastructure/actions/define-action";
@@ -14,6 +15,7 @@ export type ProfileSummary = {
   timeZone: string;
   xp: number;
   lessons: number;
+  completedLessonIds: string[];
   currentStreak: number;
   longestStreak: number;
 };
@@ -38,9 +40,33 @@ export async function profileSummary(
     timeZone: record.timeZone,
     xp: totalXp(record.completions),
     lessons: record.completions.length,
+    completedLessonIds: record.completions.map((completion) => completion.lessonId),
     currentStreak: current,
     longestStreak: longest,
   };
+}
+
+export type CourseProgressRow = {
+  slug: string;
+  title: string;
+  completed: number;
+  total: number;
+};
+
+/**
+ * The courses the learner has completed a lesson in, in the order given
+ * (FR-PRF-01). Only published lessons are counted; XP from an archived lesson
+ * stays in the total.
+ */
+export function progressByCourse(
+  courses: readonly { slug: string; title: string; lessons: readonly { id: string }[] }[],
+  completedLessonIds: readonly string[],
+): CourseProgressRow[] {
+  const completedIds = new Set(completedLessonIds);
+  return courses.flatMap(({ slug, title, lessons }) => {
+    const { completed, total } = courseStanding(lessons, completedIds);
+    return completed === 0 ? [] : [{ slug, title, completed, total }];
+  });
 }
 
 // The time zone column holds 1 to 64 characters, and only a named zone is stored.
