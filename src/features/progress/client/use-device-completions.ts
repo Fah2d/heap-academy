@@ -1,19 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAccountLessons } from "./account-lessons";
 import { deviceProgress } from "./device-progress";
 import type { ProgressStore } from "./progress-store";
 
 /**
- * The IDs of the lessons completed on this device, or undefined until the
- * device has answered (docs/spec/02-architecture.md section 10: a guest's
- * progress is filled in on the client). Read again after each new completion
+ * The IDs of the completed lessons (docs/spec/02-architecture.md section 10).
+ * A guest's are filled in from this device, and are undefined until it has
+ * answered. Read again after each new completion
  * in this page, after a sync rewrites the list, and when the tab is shown again, so a lesson passed in
  * another tab appears on return.
+ *
+ * A signed-in learner's account lessons, read on the server, are added, so
+ * they show in the first HTML and before the device answers.
  */
 export function useDeviceCompletions(
   store: () => ProgressStore = deviceProgress,
 ): ReadonlySet<string> | undefined {
+  const account = useAccountLessons();
   const [completed, setCompleted] = useState<ReadonlySet<string>>();
   useEffect(() => {
     const progress = store();
@@ -39,5 +44,8 @@ export function useDeviceCompletions(
       window.removeEventListener("pageshow", read);
     };
   }, [store]);
-  return completed;
+  return useMemo(
+    () => (account === undefined ? completed : new Set([...account, ...(completed ?? [])])),
+    [account, completed],
+  );
 }

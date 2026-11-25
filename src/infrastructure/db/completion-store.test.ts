@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createClient } from "@supabase/supabase-js";
 import { supabaseCompletionStore } from "./completion-store";
 
 vi.mock("server-only", () => ({}));
@@ -6,7 +7,7 @@ vi.mock("server-only", () => ({}));
 const lesson = "00000000-0000-4000-8000-000000000001";
 
 function fakeDb(answer: { error?: { code?: string }; data?: unknown[] }) {
-  const seen: { upsert?: unknown; options?: unknown; eq?: [string, string] } = {};
+  const seen: { upsert?: unknown; options?: unknown; eq?: [string, string]; columns?: string } = {};
   const db = {
     from: (table: string) => {
       expect(table).toBe("completions");
@@ -16,12 +17,16 @@ function fakeDb(answer: { error?: { code?: string }; data?: unknown[] }) {
           seen.options = options;
           return { error: answer.error ?? null };
         },
-        select: () => ({
-          eq: async (column: string, value: string) => {
+        select: (columns: string) => ({
+          eq: (column: string, value: string) => {
+            seen.columns = columns;
             seen.eq = [column, value];
-            return answer.error
-              ? { data: null, error: answer.error }
-              : { data: answer.data ?? [], error: null };
+            const result = Promise.resolve(
+              answer.error
+                ? { data: null, error: answer.error }
+                : { data: answer.data ?? [], error: null },
+            );
+            return Object.assign(result, { retry: () => result });
           },
         }),
       };
@@ -82,5 +87,26 @@ describe("[FR-PRG-03] [T-08] [T-10] the completion store", () => {
   it("answers null when the list cannot be read", async () => {
     const { db } = fakeDb({ error: { code: "08006" } });
     expect(await supabaseCompletionStore(db).list("u1")).toBeNull();
+  });
+});
+
+describe("[FR-PRG-02] [T-08] the account's completed lesson IDs", () => {
+  it("reads only the lesson ID of the caller's rows and skips a malformed one", async () => {
+    const { db, seen } = fakeDb({ data: [{ lesson_id: lesson }, { lesson_id: "NOT-A-UUID" }] });
+    expect(await supabaseCompletionStore(db).lessonIds("u1")).toEqual([lesson]);
+    expect(seen.eq).toEqual(["user_id", "u1"]);
+    expect(seen.columns).toBe("lesson_id");
+  });
+
+  it("[NFR-REL-01] asks once when the database does not answer, through the real client", async () => {
+    const fetch = vi.fn(() => Promise.reject(new DOMException("timed out", "TimeoutError")));
+    const db = createClient("http://127.0.0.1:1", "sb_publishable_example", { global: { fetch } });
+    expect(await supabaseCompletionStore(db).lessonIds("u1")).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers null when they cannot be read", async () => {
+    const { db } = fakeDb({ error: { code: "08006" } });
+    expect(await supabaseCompletionStore(db).lessonIds("u1")).toBeNull();
   });
 });

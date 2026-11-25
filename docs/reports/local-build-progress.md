@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (about 11:00 to 11:25), in `night-b`, server-rendered progress (rest of WP-6.1)
+
+- `origin/main` still 428c437: nothing to merge. PR #13's CI fixes were already pushed; the newest note says it is green at 2516297 (not rechecked here).
+- Done on `wp/6.1-sync-wiring`, merged into `wp/6.3-profile-page`: a signed-in learner's pages are rendered with their completed lessons (`02-architecture.md` section 10). One code review (CHANGES REQUIRED: a blocker and a major, fixed, not reviewed again) and one security review (APPROVE).
+- On the merged 6.3 line: `pnpm verify` exit 0, 142 files, 2466 tests; `pnpm build`, `check-bundle`, `check-static` pass. Not run: browser tests, `pnpm test:db`, J-5, J-6.
+- Owner: update the WP-6.1 part 3 pull request from `WP-6.1-part-3.md` (decisions 5 and 6 are new).
+- Next: merge PR #13, then open or update the later pull requests. Stop the repeating schedule that starts these sessions.
+- Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule), Docker checks, admin gallery browser tests (guard stop).
+
 ## Session of 2026-11-25 (about 08:30), in `night-b`, the course save fix carried to 4.1 through 6.3
 
 - `origin/main` is 428c437 and every branch from 2.2 already contains it. PR #13 is open at 2516297.

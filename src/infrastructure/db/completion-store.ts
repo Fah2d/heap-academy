@@ -1,6 +1,6 @@
 import "server-only";
 import type { Completion } from "@/domain/progress";
-import { parseLessonId } from "@/domain/ids";
+import { type LessonId, parseLessonId } from "@/domain/ids";
 import type { SessionClient } from "./session-client";
 
 // The completions table as the progress use cases see it (docs/spec/02-
@@ -19,6 +19,8 @@ export type CompletionStore = {
   insert: (userId: string, completions: readonly Completion[]) => Promise<InsertOutcome>;
   /** The account's full list, or null when the database cannot say. */
   list: (userId: string) => Promise<Completion[] | null>;
+  /** The lessons the account has completed, without code, or null as for `list`. */
+  lessonIds: (userId: string) => Promise<LessonId[] | null>;
 };
 
 type Db = Pick<SessionClient, "from">;
@@ -59,6 +61,18 @@ export function supabaseCompletionStore(db: Db): CompletionStore {
         }
       }
       return list;
+    },
+
+    async lessonIds(userId) {
+      // A page waits for this read, so one attempt: the library's retries would
+      // each get the session client's timeout again.
+      const { data, error } = await db
+        .from("completions")
+        .select("lesson_id")
+        .eq("user_id", userId)
+        .retry(false);
+      if (error !== null || data === null) return null;
+      return data.flatMap((row) => parseLessonId(row.lesson_id) ?? []);
     },
   };
 }
