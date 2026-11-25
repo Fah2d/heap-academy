@@ -126,9 +126,12 @@ describe("CourseStatusPanel [FR-ADM-03, FR-ADM-09]", () => {
     await user.click(within(dialog).getByRole("button", { name: words.statusAction.archived }));
     expect(setStatus).toHaveBeenCalledWith({ id: ID, loadedAt: LOADED, status: "archived" });
     expect(onChanged).toHaveBeenCalledWith("archived", NEWER);
-    expect(screen.getByRole("status").textContent).toBe(
-      words.statusChanged(words.statusName.archived),
-    );
+    // The panel says so in a transition, which can render after the click returns.
+    await waitFor(() => {
+      expect(screen.getByRole("status").textContent).toBe(
+        words.statusChanged(words.statusName.archived),
+      );
+    });
   });
 
   it("refuses a stale change with a prompt to reload", async () => {
