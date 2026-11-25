@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { notFound } from "../src/messages/system";
 import { shell } from "../src/messages/shell";
+import { expectEveryControlReached } from "./keyboard";
 import { saveScreen } from "./screens";
 
 // The shell and the not-found page on the production build (WP-1.4).
@@ -47,6 +48,18 @@ test("[NFR-A11Y-03] the skip link is first and moves focus to the main landmark"
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: shell.productName })).not.toBeFocused();
 });
+
+// WP-7.2: the keyboard walkthrough of the not-found page, which carries the
+// shell every page shares.
+for (const width of [375, 1280]) {
+  test(`[NFR-A11Y-03] the keyboard reaches every control on the not-found page, in order, at ${width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/no-such-page");
+    await expectEveryControlReached(page);
+  });
+}
 
 for (const width of WIDTHS) {
   test(`[NFR-A11Y-02] the not-found page has no axe violation at ${width} px`, async ({ page }) => {

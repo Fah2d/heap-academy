@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { account, signIn } from "../src/messages/sign-in";
+import { expectEveryControlReached } from "./keyboard";
 import { saveScreen } from "./screens";
 
 // The sign-in page on the production build, without the local stack: its
@@ -136,3 +137,50 @@ for (const state of STATES) {
     });
   }
 }
+
+// WP-7.2: the keyboard walkthrough (NFR-A11Y-03). The bot challenge is
+// Cloudflare's widget in a frame from another origin, and its keyboard
+// support is Cloudflare's. A stand-in script renders nothing, so the walk
+// checks this site's controls and the run reaches no third party.
+const BOT_CHALLENGE = "https://challenges.cloudflare.com/**";
+const STAND_IN = "window.turnstile = { render: () => 'stand-in', reset() {}, remove() {} };";
+
+async function openWithStandIn(page: Page, path: string) {
+  await page.route(BOT_CHALLENGE, (route) =>
+    route.fulfill({ contentType: "text/javascript", body: STAND_IN }),
+  );
+  await page.goto(path);
+  // The page's code has run once it has asked for the bot challenge.
+  await page.waitForFunction(() => "turnstile" in window);
+}
+
+for (const path of ["/sign-in", "/sign-in?failed=google"]) {
+  for (const width of [375, 1280]) {
+    test(`[NFR-A11Y-03] the keyboard reaches every control on ${path}, in order, at ${width} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openWithStandIn(page, path);
+      await expectEveryControlReached(page);
+    });
+  }
+}
+
+test.describe("with a keyboard in an in-app browser", () => {
+  test.use({ userAgent: INSTAGRAM, viewport: { width: 375, height: 900 } });
+
+  test("[NFR-A11Y-03] [FR-AUTH-03] the keyboard reaches every control on the sign-in page, before and after Google is shown", async ({
+    page,
+  }) => {
+    await openWithStandIn(page, "/sign-in");
+    await expect(page.getByText(signIn.inAppBrowser)).toBeVisible();
+    await expectEveryControlReached(page);
+    // Show Google by keyboard: focus stays on a control, and the walk from
+    // there finds the new button.
+    await page.getByRole("button", { name: signIn.showGoogle }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: signIn.google })).toBeVisible();
+    expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+    await expectEveryControlReached(page);
+  });
+});
