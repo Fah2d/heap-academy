@@ -5,14 +5,14 @@ import { adminGallery } from "@/messages/gallery";
 // Development only. The `.dev.tsx` extension is a page extension in
 // development alone (next.config.ts), so the production build has no route here.
 export const metadata: Metadata = {
-  title: adminGallery.title,
+  title: adminGallery.pages.course.title,
   robots: { index: false },
 };
 
 export default function AdminStatesPage() {
   return (
     <AdminFrame>
-      <AdminStateGalleryServer />
+      <AdminStateGalleryServer part="course" />
     </AdminFrame>
   );
 }

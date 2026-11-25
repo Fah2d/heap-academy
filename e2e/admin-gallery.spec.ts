@@ -25,7 +25,7 @@ import { saveScreen } from "./screens";
 test("[FR-ADM-02] every admin state shows, with no axe violation, at 1280 px", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/dev/admin");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(adminGallery.title);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(adminGallery.pages.course.title);
   await expect(page.getByText(dashboard.empty)).toBeVisible();
   await expect(page.getByText(dashboard.loadFailed)).toBeVisible();
   await expect(page.getByRole("rowheader", { name: adminGallery.sampleCourse })).toBeVisible();
@@ -132,7 +132,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   ).toBeFocused();
   await published.getByRole("button", { name: courseEditor.saveChapter }).click();
   await expect(published.getByRole("button", { name: courseEditor.savingChapter })).toBeFocused();
-  await published.getByLabel(courseEditor.summaryLabel).fill("Changed.");
+  await published.getByLabel(courseEditor.summaryLabel, { exact: true }).fill("Changed.");
   await published.getByRole("button", { name: courseEditor.save }).click();
   await expect(published.getByRole("button", { name: courseEditor.saving })).toBeFocused();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -140,7 +140,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
 
   // Saves that succeed: the saved line, and focus on the new status.
   const saving = page.getByRole("region", { name: adminGallery.editorSaving });
-  await saving.getByLabel(courseEditor.summaryLabel).fill("Saved here.");
+  await saving.getByLabel(courseEditor.summaryLabel, { exact: true }).fill("Saved here.");
   await saving.getByRole("button", { name: courseEditor.save }).click();
   await expect(saving.getByRole("status").filter({ hasText: courseEditor.saved })).toBeVisible();
   await saving.getByRole("button", { name: courseEditor.statusAction.published }).click();
@@ -152,9 +152,11 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   const failed = page.getByRole("region", { name: adminGallery.editorFailed });
   await expect(failed.getByText(courseEditor.loadFailed)).toBeVisible();
   const taken = page.getByRole("region", { name: adminGallery.newCourseTaken });
-  await taken.getByLabel(courseEditor.titleLabel).fill("Taken");
+  await taken.getByLabel(courseEditor.titleLabel, { exact: true }).fill("Taken");
   await taken.getByLabel(courseEditor.slugLabel).fill("sample-course");
-  await taken.getByLabel(courseEditor.summaryLabel).fill("A course whose address is taken.");
+  await taken
+    .getByLabel(courseEditor.summaryLabel, { exact: true })
+    .fill("A course whose address is taken.");
   await taken.getByRole("button", { name: courseEditor.create }).click();
   await expect(taken.getByLabel(courseEditor.slugLabel)).toBeFocused();
   await expect(taken.getByText(structure.failure.slug_taken)).toBeVisible();
@@ -178,7 +180,7 @@ for (const width of [375, 800]) {
 
 test("[FR-ADM-04] [FR-ADM-10] the lesson editor's states, at 1280 px", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/dev/admin");
+  await page.goto("/dev/admin/lessons");
   const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
 
   // Saves that succeed, and a preview that renders as the learner sees it.
@@ -226,7 +228,7 @@ test("[FR-ADM-04] [FR-ADM-10] the lesson editor's failures, limits and learner c
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/dev/admin");
+  await page.goto("/dev/admin/lessons");
   const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
 
   // Three wrong answers: no Add; a save that fails says so and keeps the text.
@@ -294,7 +296,7 @@ test("[FR-ADM-05] the test case list: empty, full, and a test case with problems
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/dev/admin");
+  await page.goto("/dev/admin/lessons");
   const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
 
   // No test case yet: the empty sentence, and Add opens a new one with its name focused.
@@ -329,16 +331,18 @@ test("[FR-ADM-05] the test case list: empty, full, and a test case with problems
   await shot("admin-test-case-problems");
 });
 
-test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a failed rule with Fill from solution, and a pass, at 1280 px", async ({
+// The Validate states are split by example, so that each test runs a few
+// axe checks and screenshots, not a dozen; every check is kept.
+test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, stopped, could not start, validating, and could not run, at 1280 px", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/dev/admin");
+  await page.goto("/dev/admin/validation");
   const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
   const validate = (region: ReturnType<typeof page.getByRole>) =>
     region.getByRole("button", { name: validation.validate }).click();
   const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
-    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading });
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading, exact: true });
 
   // Python loading: Validate waits for it, and Stop ends the wait.
   const loading = page.getByRole("region", { name: adminGallery.lessonPythonLoading });
@@ -378,6 +382,18 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await publishHeading(cannotRun).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validation-python-cannot-run");
+});
+
+test("[FR-ADM-06] [FR-ADM-07] Validate: a failed rule, its test case and verdict, Fill from solution, and a pass, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin/validation");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const validate = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: validation.validate }).click();
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading, exact: true });
 
   // A failed rule names the test case; its verdict shows what the solution printed.
   const wrong = page.getByRole("region", { name: adminGallery.lessonValidationFailed });
@@ -422,6 +438,18 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await publishHeading(wrong).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-validation-passed");
+});
+
+test("[FR-ADM-06] [FR-ADM-07] Validate: an empty lesson names what is missing, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin/validation");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const validate = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: validation.validate }).click();
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading, exact: true });
 
   // An empty lesson: rule 1 names what is missing, and nothing runs.
   const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
@@ -434,16 +462,14 @@ test("[FR-ADM-06] [FR-ADM-07] Validate: Python loading, failed, validating, a fa
   await shot("admin-validation-missing");
 });
 
-test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line, cut and cleaned output, and Save on a published lesson validating first, at 1280 px", async ({
+test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line, and cut and cleaned output, at 1280 px", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/dev/admin");
+  await page.goto("/dev/admin/validation");
   const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
   const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
-    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading });
-  const save = (region: ReturnType<typeof page.getByRole>) =>
-    region.getByRole("button", { name: lessonEditor.save }).click();
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading, exact: true });
 
   // The starter reaches the time limit; the solution fails three ways.
   const odd = page.getByRole("region", { name: adminGallery.lessonOddResults });
@@ -497,6 +523,18 @@ test("[FR-ADM-06] [FR-ADM-07] [T-07] Validate: a time limit, an error on a line,
   await third.getByRole("heading", { name: validation.solutionHeading }).scrollIntoViewIfNeeded();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-verdict-truncated");
+});
+
+test("[FR-ADM-06] [FR-ADM-07] Save on a published lesson validates first, and saves nothing when it cannot pass, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin/validation");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
+  const publishHeading = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("heading", { level: 2, name: lessonEditor.publishHeading, exact: true });
+  const save = (region: ReturnType<typeof page.getByRole>) =>
+    region.getByRole("button", { name: lessonEditor.save }).click();
 
   // Save on a published lesson validates first; Stop saves nothing.
   const validating = page.getByRole("region", { name: adminGallery.lessonSaveValidating });
@@ -543,7 +581,7 @@ test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, 
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/dev/admin");
+  await page.goto("/dev/admin/lessons");
   const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.3" });
   const statusGroup = (region: ReturnType<typeof page.getByRole>) =>
     region.getByRole("group", { name: lessonStatus.heading });
@@ -562,9 +600,10 @@ test("[FR-ADM-09] [FR-ADM-07] the lesson status: Publish after a pass, refused, 
   await publish(draft).click();
   // Read out by the live region; the focused status line shows it.
   await expect(draft.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeAttached();
-  await expect(
-    draft.getByText(lessonStatus.now(lessonStatus.name.published), { exact: false }),
-  ).toBeFocused();
+  // The published note says the same words, so the check is on what has focus.
+  await expect(draft.locator(":focus")).toContainText(
+    lessonStatus.now(lessonStatus.name.published),
+  );
   await shot("admin-lesson-published-now");
 
   // The status change is refused: the reason, in the Publish section.

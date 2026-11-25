@@ -45,6 +45,31 @@ describe("Button", () => {
     expect(screen.getByRole("button", { name: "Delete test case" })).toBeTruthy();
     expect(screen.getByTestId("icon").parentElement?.getAttribute("aria-hidden")).toBe("true");
   });
+
+  it("[NFR-A11Y-02] leaves no announcement pointing at it once it is gone", () => {
+    // A pending button that the finished action removes, like Publish once
+    // the course is published.
+    const view = render(
+      <Button variant="secondary" isPending={false}>
+        Publish
+      </Button>,
+    );
+    screen.getByRole("button", { name: "Publish" }).focus();
+    view.rerender(
+      <Button variant="secondary" isPending>
+        Publish
+      </Button>,
+    );
+    const announced = () => [...document.querySelectorAll("[role='img'][aria-labelledby]")];
+    expect(announced()).not.toHaveLength(0);
+    view.rerender(<p>Published</p>);
+    const unnamed = announced().filter((node) =>
+      (node.getAttribute("aria-labelledby") ?? "")
+        .split(" ")
+        .every((id) => document.getElementById(id) === null),
+    );
+    expect(unnamed).toEqual([]);
+  });
 });
 
 describe("Link", () => {

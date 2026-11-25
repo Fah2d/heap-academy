@@ -88,9 +88,25 @@ export const gallery = {
 // The development-only page that shows the admin area's states the J-12
 // journey cannot reach on the local stack (WP-2.3).
 export const adminGallery = {
-  title: "Admin states",
-  intro:
-    "The dashboard's and the second step's states that the sign-in journey cannot reach. The actions here are fakes that answer at once, or never.",
+  // One page per part of the admin area (/dev/admin, /dev/admin/lessons,
+  // /dev/admin/validation).
+  pages: {
+    course: {
+      title: "Admin states",
+      intro:
+        "The dashboard's, the course editor's and the second step's states that the journeys cannot reach. The actions here are fakes that answer at once, or never.",
+    },
+    lesson: {
+      title: "Lesson editor states",
+      intro:
+        "The lesson editor's states that the journeys cannot reach: saves, previews, limits and test cases. The actions here are fakes that answer at once, or never.",
+    },
+    validation: {
+      title: "Validation states",
+      intro:
+        "Validate and the Save that validates first, with Python loading, failing, stuck or answering. The runtimes here are fakes.",
+    },
+  },
   courseListEmpty: "Course list with no course",
   courseListFailed: "Course list that could not load",
   courseListRows: "Course list with courses",
