@@ -2,6 +2,26 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from 14:22), in `night-a`, task 1
+
+Same task list, owner decisions and speed mode (2026-11-24). From 13:51 to 14:20 the earlier session found nothing to do (main 76f616d, Docker refused). At 14:22 `origin/main` had moved to c8ce780 (PR #15, WP-2.3 admin gate).
+
+### Task 1 done at 14:28: `origin/main` c8ce780 merged
+
+- `wp/3.1-python-worker` (9c013da), `wp/3.3-grader` (6e74407) and `wp/3.4-statechart` (77e5be9): each merged `origin/main` directly; only this file conflicted (each branch kept its own copy).
+- `pnpm verify`, exit 0 on each: 3.1 `Tests  1258 passed (1258)` (64 files), 3.3 `Tests  1435 passed (1435)` (69 files), 3.4 `Tests  1550 passed (1550)` (73 files). `pnpm build` with the `.env.example` values: exit 0 on each.
+- `wp/7.4-journeys-part-2c` also merged `origin/main`. Conflicts: `e2e/sign-in-helpers.ts` (this branch's `before` argument to `latestCode` kept, main's `exact: true` on the Verify button taken) and `e2e/admin-gate-journey.spec.ts` (main's order of admin addresses, this branch's check that all three lead to setup, since the course editor exists here). `pnpm verify`: exit 0, `Test Files  147 passed (147)`, `Tests  2524 passed (2524)`. `pnpm build`: exit 0.
+- Not run: the stack journeys (Docker socket still refused).
+- Push: the four branches in one `git push`, once 60 minutes had passed since the last push (13:50).
+
+### For the owner
+
+- PR #15 brought `test.fixme` on the T-19 check "repeated wrong codes are limited" (`e2e/admin-gate-journey.spec.ts`, from `night-b`'s 7845451) into `main`. CLAUDE.md rule 2 forbids skipping a test. It is now on every branch that merges main; it is not changed here. Decide whether T-19 gets a check the local stack can run (for example a Postgres counter, WP-7.1 part 3) or a waiver.
+
+### Next
+
+- Task 2: nothing new that does not need the owner. Task 3: WP-7.1 part 3 needs Docker; WP-7.5 starts once 7.1 to 7.4 merge. Nothing else in the 3.x or 5.x line is unbuilt.
+
 ## Session of 2026-11-25 (from about 12:40), in `night-a`, on the new branch `wp/7.4-journeys-part-2c`
 
 Same task list, owner decisions and speed mode (2026-11-24). At the start `origin/main` was still 428c437. Task 2: nothing new that does not need the owner. `night-b` pushed `wp/6.3-account-deletion` (f89420c), so J-10 could be written; `night-b` (heap-academy-24) was told this session takes J-10. This file is `wp/7.4-journeys-part-2b`'s copy with `night-b`'s account deletion section merged in and this section on top.

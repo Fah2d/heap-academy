@@ -63,6 +63,6 @@ export async function signInWithCode(page: Page, request: APIRequestContext, add
   await page
     .getByRole("textbox", { name: signIn.codeLabel })
     .fill(await latestCode(request, address, before));
-  await page.getByRole("button", { name: signIn.verify }).click();
+  await page.getByRole("button", { name: signIn.verify, exact: true }).click();
   await expect(page.getByRole("button", { name: account.signOut })).toBeVisible();
 }
