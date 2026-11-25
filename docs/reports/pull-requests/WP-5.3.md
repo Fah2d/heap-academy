@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/5.2-workspace-laptop` at 3f5f1bb** (which carries `wp/3.4-statechart` with WP-3.1 to WP-3.4, `main` at 428c437, and `origin/wp/4.2-lesson-editor`). Merges after WP-5.2. Until then this pull request also shows WP-5.2's commits; review 1536808 and 63a1097.
+**Base: `wp/5.2-workspace-laptop` at 8fe35c8** (which carries `wp/3.4-statechart` with WP-3.1 to WP-3.4, and `main` at dffe1a8 with WP-4.1 and WP-4.2). Merges after WP-5.2. Until then this pull request also shows WP-5.2's commits; review 1536808 and 63a1097. Merged in 76a5745 on 2026-11-25 (one conflict, `docs/reports/local-build-progress.md`, both sides kept): `pnpm verify` exit 0, `Test Files  107 passed (107)`, `Tests  1968 passed (1968)`; `pnpm build` with CI's fake public values, `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 ## What
 
