@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Journeys J-1 to J-13 live in e2e/, one file per journey, with axe on every
-// screen (docs/spec/05-engineering-handbook.md section 8). Chromium runs on
+// Journeys J-1 to J-13 live in e2e/, with axe on every screen. J-1 to J-4
+// are written once in e2e/journeys.ts and walked at phone and laptop sizes (docs/spec/05-engineering-handbook.md section 8). Chromium runs on
 // every pull request; Firefox and WebKit on main and before launch.
 const port = 3100;
 // The same production build, served with a database address where nothing
@@ -21,10 +21,11 @@ const stack = /-journey\.spec\.ts$/;
 const runtime = /runtime\.spec\.ts$/;
 // The same development pages on an emulated phone: a mobile viewport, touch,
 // and the phone's pixel density, not a resized desktop window.
-const phone = /(?<!workspace-)phone\.spec\.ts$/;
-// The workspace on a phone (WP-5.3) sets its own widths, 320, 375 and 430 px,
-// so it runs once, on the emulated phone, not in each phone project.
-const workspacePhone = /workspace-phone\.spec\.ts$/;
+const phone = /(?<!workspace-|journeys-)phone\.spec\.ts$/;
+// The workspace on a phone (WP-5.3) and the journeys on a phone (WP-7.4) set
+// their own widths, 320, 375 and 430 px, so they run once per engine on an
+// emulated phone, not in each phone project.
+const workspacePhone = /(workspace|journeys)-phone\.spec\.ts$/;
 // The throttled load profile (WP-7.2) uses the Chrome DevTools Protocol, so
 // it runs once, in Chromium, against the development server.
 const loadProfile = /load-profile\.spec\.ts$/;
@@ -88,6 +89,23 @@ export default defineConfig({
       name: "phone-workspace",
       testMatch: workspacePhone,
       use: { ...devices["Pixel 7"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
+    // The same on the other two engines (WP-7.4): Safari on an iPhone, and
+    // Firefox at a phone's size with touch (Firefox has no mobile mode).
+    {
+      name: "phone-workspace-webkit",
+      testMatch: workspacePhone,
+      use: { ...devices["iPhone 13"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
+    {
+      name: "phone-workspace-firefox",
+      testMatch: workspacePhone,
+      use: {
+        ...devices["Desktop Firefox"],
+        viewport: { width: 390, height: 740 },
+        hasTouch: true,
+        baseURL: `http://127.0.0.1:${developmentPort}`,
+      },
     },
     {
       name: "profile",

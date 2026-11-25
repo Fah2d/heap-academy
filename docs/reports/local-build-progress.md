@@ -2,6 +2,31 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 08:15), in `night-a`, on the new branch `wp/7.4-journeys`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-df) asked whether this one works there; it does not (answered: only `wp/7.4-journeys` here).
+
+### Task 3, part 66 done: WP-7.4 part 1, journeys J-1 to J-4 at every size
+
+- Base: `wp/7.2-a11y-perf` at cf6dde1 (it holds the 2.2 to 5.4 line, the runtime branches and the `127.0.0.1` hydration fix).
+- f6b0d69: `e2e/journeys.ts` (J-1 to J-4 written once, by touch on a phone, by mouse above 768 px), `e2e/journeys-phone.spec.ts` (J-2 to J-4 at 320, 375 and 430 px) and `e2e/journeys-wide-runtime.spec.ts` (J-1 to J-4 at 768, 1024 and 2560 px).
+- Code review 1: CHANGES REQUIRED, 4 MAJOR, 6 MINOR. Fixed in the next commit: J-2 now runs first and checks the actual output; J-3 checks the echoed answers exactly; new projects `phone-workspace-webkit` and `phone-workspace-firefox`; the 768 and 320 px widths; stale comments; tags. CI (major 2) is the owner's open decision. Report: `docs/reports/reviews/WP-7.4/code-review-1.md`.
+- `pnpm verify`: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
+- Browser, Chromium with `--no-sandbox --single-process`, one test per process, against `next dev --webpack` on `127.0.0.1:3301` (started by this run): `phone-workspace` 9 of 9, `runtime-chromium` 12 of 12.
+- Not run: Firefox and WebKit (not installed; speed mode), the stack journeys (no Docker).
+- Description: `docs/reports/pull-requests/WP-7.4.md` (42 lines).
+- Push: `wp/7.4-journeys` (last push 06:59).
+
+### Owner: run this (part 66)
+
+1. Open a draft pull request from `wp/7.4-journeys` with `docs/reports/pull-requests/WP-7.4.md` as its body.
+2. Decide on a CI job on `main` that runs the `runtime-*` and `phone-workspace*` projects on three engines (description, "For the owner" 1).
+3. Stop the dev server this run left on port 3301, from a terminal outside the sandbox: `lsof -ti tcp:3301 | xargs kill`.
+
+### Next
+
+- WP-7.4 part 2: J-5, J-6, J-8, J-10, J-12 and J-13 on the stack in three engines. J-5, J-6 and J-10 depend on the 6.1 and 6.3 branches, which `night-b` is still changing, and every stack journey needs Docker to run. Then WP-7.5 once 7.1 to 7.4 merge.
+
 ## Session of 2026-11-25 (from about 06:15), in `night-a`, on `wp/7.2-a11y-perf`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. Three `night-b` sessions asked whether this one holds `night-b`; it does not (answered where the sender was still listening).

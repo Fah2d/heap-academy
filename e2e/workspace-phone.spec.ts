@@ -7,8 +7,9 @@ import { saveScreen } from "./screens";
 // WP-5.3: the lesson workspace on a phone (docs/spec/03-experience.md section
 // 6.8), on the development-only page /dev/workspace, in the phone-workspace
 // project (an emulated Pixel 7: touch, a mobile viewport). J-1 at the three
-// widths FR-WSP-13 names. The journey on the real route, as a guest, is
-// WP-7.4's (e2e/j01-video-to-first-run.spec.ts). The bar's place above the on-screen keyboard is worked out
+// widths FR-WSP-13 names; J-2 to J-4 at the same widths are in
+// e2e/journeys-phone.spec.ts (WP-7.4). The bar's place above the on-screen
+// keyboard is worked out
 // from the visual viewport (src/features/workspace/client/phone-layout.ts);
 // an emulated phone has no on-screen keyboard, so that part is a unit test.
 test.describe.configure({ timeout: 120_000 });

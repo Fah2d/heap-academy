@@ -5,12 +5,15 @@ import { workspaceGallery } from "../src/messages/gallery";
 import { learnerErrorHeading, workspace as words } from "../src/messages/workspace";
 
 // WP-7.4: journeys J-1 to J-4 (docs/spec/01-requirements.md section 2), each
-// written once and walked at phone and laptop sizes (NFR-COMPAT-03). They run
+// written once and walked at phone and laptop sizes (NFR-COMPAT-03), in each
+// engine (NFR-COMPAT-01). They run
 // on the development-only page /dev/workspace, which holds the example lesson
 // with no database. On a phone (below 768 px) the workspace shows one view at
 // a time, so a journey taps to the view it needs; on a laptop every part is
 // on the screen and it clicks. e2e/journeys-phone.spec.ts and
-// e2e/journeys-wide-runtime.spec.ts choose the sizes and engines.
+// e2e/journeys-wide-runtime.spec.ts choose the sizes and engines. Next, at
+// the end of J-2, is checked by its address only: the lesson it names is not
+// on this page, and the real route needs the database (the stack journeys).
 
 export const READY_MS = 60_000;
 
@@ -67,10 +70,12 @@ async function write(page: Page, code: string, device: Device) {
   await expect(editor(page)).toContainText(code.split("\n")[0] ?? "");
 }
 
-// J-1: the lesson reads at once and the editor takes typing before Python is
-// ready; Run shows the output.
-export async function videoToFirstRun(page: Page, device: Device) {
-  // Python's files are held at first, as on a slow phone connection.
+// J-1 above the phone layout: the lesson reads at once and the editor takes
+// typing before Python is ready; Run shows the output. J-1 on a phone, view
+// by view, is in e2e/workspace-phone.spec.ts.
+export async function videoToFirstRun(page: Page) {
+  const device = { phone: false };
+  // Python's files are held at first, as on a slow connection.
   let release: () => void = () => undefined;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -84,10 +89,6 @@ export async function videoToFirstRun(page: Page, device: Device) {
   await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
   await noSidewaysScroll(page);
 
-  if (device.phone) {
-    await press(button(page, words.toCode), device);
-    await expect(view(page, words.viewCode)).toHaveAttribute("aria-selected", "true");
-  }
   await expect(python(page)).toHaveAttribute("data-python", /idle|loading/);
   await write(page, 'print("my first run")\n', device);
   await noAxeViolations(page);
@@ -96,31 +97,33 @@ export async function videoToFirstRun(page: Page, device: Device) {
   await ready(page);
   await press(button(page, words.run), device);
   await expect(consoleOutput(page)).toHaveText("my first run\n");
-  if (device.phone) {
-    await expect(view(page, words.viewOutput)).toHaveAttribute("aria-selected", "true");
-  }
   await noSidewaysScroll(page);
   await noAxeViolations(page);
 }
 
-// J-2: Check, a failing test case with expected and actual output, a fix,
-// a pass, the completion moment, and Next to the following lesson.
+// J-2: Run, Check, a failing test case with expected and actual output, a
+// fix, a pass, the completion moment, and Next to the following lesson.
 export async function completeALesson(page: Page, device: Device) {
   await page.goto("/dev/workspace");
   await ready(page);
   const summary = page.locator("[data-summary]");
 
-  await press(button(page, words.check), device);
-  await expect(summary).toHaveText(words.summary(0, 2));
-  await expect(page.getByText(words.expected).first()).toBeVisible();
-  await expect(page.getByText(EXAMPLE_LESSON.testCases[0]?.expected ?? "").first()).toBeVisible();
-  await noSidewaysScroll(page);
-  await noAxeViolations(page);
+  // The starter is a comment: it runs and prints nothing.
+  await press(button(page, words.run), device);
+  await expect(page.getByRole("status").filter({ hasText: words.runFinished(0) })).toBeAttached();
 
   await write(page, EXAMPLE_LESSON.wrongAnswer.code, device);
   await press(button(page, words.check), device);
   await expect(summary).toHaveText(words.summary(1, 2));
-  await expect(page.locator('li[data-test-status="failed"]')).toHaveCount(1);
+  const failed = page.locator('li[data-test-status="failed"]');
+  await expect(failed).toHaveCount(1);
+  await expect(failed.getByText(words.expected, { exact: true })).toBeVisible();
+  await expect(failed.getByText(words.actual, { exact: true })).toBeVisible();
+  // The wrong answer prints the same name whatever the input says.
+  await expect(failed).toContainText("Hello, Sara!");
+  await expect(failed).toContainText(EXAMPLE_LESSON.testCases[1]?.expected.trim() ?? "");
+  await noSidewaysScroll(page);
+  await noAxeViolations(page);
 
   await write(page, EXAMPLE_LESSON.solution, device);
   await press(button(page, words.check), device);
@@ -163,8 +166,15 @@ export async function programThatAsksForInput(page: Page, device: Device) {
       await field.press("Enter");
     }
   }
-  await expect(consoleOutput(page)).toContainText("42");
-  await expect(page.getByRole("status").filter({ hasText: "Run finished" })).toBeAttached();
+  // Where the program paused, the console holds each prompt with its answer
+  // echoed after it (FR-WSP-08); where it could not, the answers were given
+  // before Run and the console holds the prompts and the result.
+  await expect(consoleOutput(page)).toHaveText(
+    interactive ? "First? 4\nSecond? 2\n42\n" : "First? Second? 42\n",
+  );
+  await expect(
+    page.getByRole("status").filter({ hasText: words.runFinished(interactive ? 3 : 1) }),
+  ).toBeAttached();
   await noSidewaysScroll(page);
 }
 
