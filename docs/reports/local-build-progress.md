@@ -2,6 +2,14 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (about 12:10), in `night-b`, legal pages joined into the stack (`wp/6.3-stack-legal`)
+
+- `origin/main` 428c437: nothing to merge. WP-5.1 stack checks still need Docker (socket permission denied).
+- Done: merged `wp/6.3-legal-pages-footer` into the account deletion branch; privacy text corrected to match the stack; legal pages added to the sitemap. One code review (CHANGES REQUIRED, fixed except the owner decision, not reviewed again).
+- `pnpm verify` exit 0: 148 files, 2539 tests. Build, `check-bundle`, `check-static` pass. Not run: browser tests (a `next dev` server, PID 49562, holds this checkout; outside the sandbox: `kill 49562`), `pnpm test:db`.
+- Owner: open a draft pull request from `WP-6.3-stack-legal.md` (base `wp/6.3-account-deletion`). Do not release the privacy page before its decision 1.
+- Next: J-10 on the stack. Rate limiting (WP-7.1).
+
 ## Session of 2026-11-25 (about 11:40 to 12:05), in `night-b`, account deletion (`wp/6.3-account-deletion`)
 
 - `origin/main` 428c437: nothing to merge. WP-6.2 part 2 needs nothing more here: XP and streak are on the profile, course page and completion moment; the header shows none (decision 1 of `WP-6.3-profile-page.md`).

@@ -51,8 +51,7 @@ describe("legal text", () => {
 
   // docs/spec/06-security-privacy.md section 7.2: the processors are listed.
   it("[NFR-PRIV-01] names every processor in the privacy policy", () => {
-    // The bot check is named by its role until WP-2.2 chooses the vendor.
-    for (const name of ["Vercel", "Supabase", "Resend", "bot check service", "Google", "GitHub"]) {
+    for (const name of ["Vercel", "Supabase", "Resend", "Cloudflare", "Google", "GitHub"]) {
       expect(privacyText, name).toContain(name);
     }
   });

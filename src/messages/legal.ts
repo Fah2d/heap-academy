@@ -53,7 +53,7 @@ export const privacy: LegalDocument = {
   title: "Privacy policy",
   description:
     "What Heap Academy keeps about you, why, where, and for how long, and how to delete it.",
-  updated: { iso: "2026-11-23", text: "23 November 2026" },
+  updated: { iso: "2026-11-25", text: "25 November 2026" },
   intro:
     'This page lists what Heap Academy keeps about you, why we keep it, who holds it, and for how long. In this policy, "we" means Heap Academy.',
   sections: [
@@ -65,7 +65,10 @@ export const privacy: LegalDocument = {
           "You can read lessons and run code without an account. Your code runs in your own browser, not on our servers.",
         ),
         paragraph(
-          "As a guest, your saved code and your progress stay in your browser. We do not receive them. They stay until you clear this site's data in your browser.",
+          "As a guest, your saved code and your progress stay in your browser, and we do not receive them while you are a guest. They stay until you clear this site's data in your browser.",
+        ),
+        paragraph(
+          "If you sign in, the lessons that you completed in this browser, with the code that passed, are added to your account. Signing out removes the record of completed lessons from this browser. The code saved in the editor stays.",
         ),
       ],
     },
@@ -87,7 +90,7 @@ export const privacy: LegalDocument = {
           "Our sign-in provider also keeps a log of account events, such as each sign-in and sign-out. Each entry has the time, your account's ID, the type of device and browser, and sometimes the network address. This log can stay after you delete your account, for as long as the provider keeps its logs.",
         ),
         paragraph(
-          "When you sign in, your browser stores a cookie that keeps you signed in. We do not use cookies for advertising or to follow you to other sites.",
+          "Your browser stores cookies to complete a sign-in and to keep you signed in. We do not use cookies for advertising or to follow you to other sites.",
         ),
       ],
     },
@@ -110,7 +113,7 @@ export const privacy: LegalDocument = {
           "Vercel hosts the site, counts page views, and keeps the server logs.",
           "Supabase holds the database and handles sign-in.",
           "Resend sends the email with your sign-in code, and the email that tells us an account was deleted.",
-          "A bot check service checks that you are a person when you ask for a sign-in code.",
+          "Cloudflare runs the bot check that confirms you are a person when you ask for a sign-in code.",
           "Google signs you in, but only if you choose to sign in with Google.",
           "GitHub stores the encrypted backups described below.",
         ),
@@ -140,7 +143,7 @@ export const privacy: LegalDocument = {
           "When you delete your account, we receive one email in our own inbox, with the account's ID and no name or email address. If we ever have to restore a backup, this ID lets us delete your account from it again. We delete that email after 8 days, when no backup with your data is left.",
         ),
         paragraph(
-          "Code and progress saved in your browser stay there until you clear this site's data in your browser.",
+          "Deleting your account also removes the record of completed lessons from the browser that you delete it in. The code saved in the editor stays there until you clear this site's data in your browser.",
         ),
       ],
     },
