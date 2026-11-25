@@ -1,5 +1,16 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
+## CI fix for #13 (at 3ce8e49): two journeys could not pass
+
+`e2e` still failed on 3ce8e49 (the job log was not readable from this machine). The journeys were run here on the production build with a small fake auth and mail server in place of the Docker stack, which showed two faults in `e2e/sign-in-journey.spec.ts`:
+
+- The wrong-code journey asked for `getByRole("alert")`, which also matches Next.js's route announcer. It now looks inside the "Enter your code" region.
+- The T-11 journey compared two whole response bodies. Each holds the page rendered again with that request's CSP nonce, so they never match. It now compares the status and the action's result, and pins both to a successful answer.
+
+No product code changed. Chromium, one test per process: `stack` 3 of 3, `gallery` 23 of 23, `chromium` 37 of 37. **Not verified: the journeys against real Supabase Auth** (no Docker). CI on this push is the first such run. Code review: APPROVE, one minor.
+
+Decision M (safe default): T-11 does not compare response headers or timing. Neither did the old assertion. Comparing `set-cookie` names would be a cheap addition.
+
 ## CI fixes for #13 (at 9717efb)
 
 The `unit` and `e2e` jobs failed on 9717efb (run 45438429284). Both are fixed on this branch, and `main` at 428c437 (#14, the generated database types) is merged in (f8d21ed, no conflict).
