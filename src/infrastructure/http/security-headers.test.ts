@@ -3,6 +3,7 @@ import {
   contentSecurityPolicy,
   createNonce,
   CSP_REPORT_PATH,
+  nonceFromPolicy,
   reportingEndpoints,
   SECURITY_HEADERS,
 } from "./security-headers";
@@ -102,5 +103,20 @@ describe("response headers", () => {
     expect(headers.get("Permissions-Policy")).toContain("camera=()");
     expect(headers.get("Permissions-Policy")).toContain("microphone=()");
     expect(headers.get("Permissions-Policy")).toContain("geolocation=()");
+  });
+});
+
+describe("nonceFromPolicy [NFR-SEC-02]", () => {
+  it("reads back the nonce the policy was made with", () => {
+    const nonce = createNonce();
+    expect(
+      nonceFromPolicy(contentSecurityPolicy({ nonce, development: false, secure: true })),
+    ).toBe(nonce);
+  });
+
+  it("finds none in a missing or nonce-free policy", () => {
+    expect(nonceFromPolicy(null)).toBeUndefined();
+    expect(nonceFromPolicy("default-src 'self'")).toBeUndefined();
+    expect(nonceFromPolicy("script-src 'nonce-a b'")).toBeUndefined();
   });
 });

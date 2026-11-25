@@ -112,6 +112,7 @@ describe("course structure actions refuse everyone but an admin [FR-ADM-03, T-20
       actions.saveChapter({ courseId: COURSE, title: "   ", summary: "" }),
       actions.reorder({ kind: "course", id: COURSE, direction: "sideways" }),
       actions.reorder({ kind: "chapter", id: CHAPTER, direction: "up" }),
+      actions.reorder({ kind: "lesson", courseId: COURSE, id: CHAPTER, direction: "up" }),
     ];
     for (const result of await Promise.all(refused)) {
       expect(result).toEqual({ ok: false, error: "invalid_input" });
@@ -271,6 +272,23 @@ describe("course structure actions for an admin [FR-ADM-03, FR-ADM-10, FR-ADM-11
     expect(state.db.calls[1]).toEqual({
       target: "rpc:reorder_chapters",
       chain: [["args", [{ p_course_id: COURSE, p_chapter_ids: [OTHER, CHAPTER] }]]],
+    });
+    expect(state.changed).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves a lesson inside its chapter by sending the chapter's new order", async () => {
+    asAdmin();
+    const FIRST = "00000000-0000-4000-8000-000000000e01";
+    const SECOND = "00000000-0000-4000-8000-000000000e02";
+    state.db.answer({ data: [{ id: FIRST }, { id: SECOND }] }, { data: null });
+    expect(
+      await actions.reorder({ kind: "lesson", chapterId: CHAPTER, id: FIRST, direction: "down" }),
+    ).toEqual({ ok: true, value: null });
+    expect(state.db.calls[0]?.target).toBe("lessons");
+    expect(state.db.calls[0]?.chain).toContainEqual(["eq", ["chapter_id", CHAPTER]]);
+    expect(state.db.calls[1]).toEqual({
+      target: "rpc:reorder_lessons",
+      chain: [["args", [{ p_chapter_id: CHAPTER, p_lesson_ids: [SECOND, FIRST] }]]],
     });
     expect(state.changed).toHaveBeenCalledTimes(1);
   });
