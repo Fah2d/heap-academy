@@ -42,6 +42,8 @@ export type ChapterListProps = ChapterActions & {
   onUnsavedChange?: (unsaved: boolean) => void;
   /** Whether a form outside the list, such as the course details, holds unsaved text. */
   otherUnsaved?: boolean;
+  /** Lets the page go with no question, for a new lesson that opens. */
+  onLeaving?: () => void;
 };
 
 /** The limits of docs/spec/04-content-system.md section 1.2, as the server checks them. */
@@ -157,6 +159,7 @@ export function ChapterList({
   refresh,
   onUnsavedChange,
   otherUnsaved = false,
+  onLeaving,
 }: ChapterListProps) {
   const [failure, setFailure] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -244,7 +247,11 @@ export function ChapterList({
 
   const last = chapters.length - 1;
   return (
-    <section aria-labelledby={courseChaptersId} className="flex max-w-prose flex-col gap-5">
+    <div
+      role="group"
+      aria-labelledby={courseChaptersId}
+      className="flex max-w-prose flex-col gap-5"
+    >
       <h2
         ref={heading}
         id={courseChaptersId}
@@ -280,32 +287,38 @@ export function ChapterList({
               className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-4"
             >
               {renaming === chapter.id ? (
-                <ChapterForm
-                  initial={chapter}
-                  titleLabel={words.renameTitleLabel(chapter.title)}
-                  summaryLabel={words.renameSummaryLabel(chapter.title)}
-                  submitLabel={words.saveChapter}
-                  pendingLabel={words.savingChapter}
-                  pending={pending}
-                  focusOnOpen
-                  formKey={`rename:${chapter.id}`}
-                  onUnsavedChange={reportUnsaved}
-                  onSubmit={async (values) => {
-                    const saved = await run(
-                      () =>
-                        saveChapter({
-                          courseId,
-                          id: chapter.id,
-                          loadedAt: chapter.loadedAt,
-                          ...values,
-                        }),
-                      words.chapterSaved,
-                    );
-                    if (saved) closeRename(chapter.id);
-                    return saved;
-                  }}
-                  onCancel={() => closeRename(chapter.id)}
-                />
+                <>
+                  {/* The form replaces the visible title; the heading stays
+                      for the outline, so the lesson headings below it keep
+                      their level. */}
+                  <h3 className="sr-only">{chapter.title}</h3>
+                  <ChapterForm
+                    initial={chapter}
+                    titleLabel={words.renameTitleLabel(chapter.title)}
+                    summaryLabel={words.renameSummaryLabel(chapter.title)}
+                    submitLabel={words.saveChapter}
+                    pendingLabel={words.savingChapter}
+                    pending={pending}
+                    focusOnOpen
+                    formKey={`rename:${chapter.id}`}
+                    onUnsavedChange={reportUnsaved}
+                    onSubmit={async (values) => {
+                      const saved = await run(
+                        () =>
+                          saveChapter({
+                            courseId,
+                            id: chapter.id,
+                            loadedAt: chapter.loadedAt,
+                            ...values,
+                          }),
+                        words.chapterSaved,
+                      );
+                      if (saved) closeRename(chapter.id);
+                      return saved;
+                    }}
+                    onCancel={() => closeRename(chapter.id)}
+                  />
+                </>
               ) : (
                 <div className="flex items-baseline gap-3">
                   <span className="font-mono text-sm text-text-muted">
@@ -393,6 +406,7 @@ export function ChapterList({
                 chapter={chapter}
                 createLesson={createLesson}
                 onUnsavedChange={reportUnsaved}
+                onLeaving={onLeaving}
                 otherUnsaved={
                   otherUnsaved ||
                   [...unsavedForms].some((key) => key !== addLessonFormKey(chapter.id))
@@ -402,7 +416,7 @@ export function ChapterList({
           ))}
         </ol>
       )}
-      <section aria-labelledby={courseAddChapterId} className="flex flex-col gap-4">
+      <div role="group" aria-labelledby={courseAddChapterId} className="flex flex-col gap-4">
         <h3 id={courseAddChapterId} className="text-base font-semibold text-text">
           {words.addChapterHeading}
         </h3>
@@ -417,7 +431,7 @@ export function ChapterList({
           onUnsavedChange={reportUnsaved}
           onSubmit={(values) => run(() => saveChapter({ courseId, ...values }), words.chapterAdded)}
         />
-      </section>
-    </section>
+      </div>
+    </div>
   );
 }
