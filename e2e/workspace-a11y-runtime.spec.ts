@@ -8,6 +8,7 @@ import { shell } from "../src/messages/shell";
 import { account } from "../src/messages/sign-in";
 import { learnerErrorHeading, workspace as words } from "../src/messages/workspace";
 import { TIME_LIMIT_MS } from "../src/runtime/controller";
+import { focused as focusedControl, type Stop as SharedStop, tab } from "./keyboard";
 import { saveScreen } from "./screens";
 
 // WP-7.2: the workspace states the WP-5.2 journeys do not reach, the keyboard
@@ -63,43 +64,27 @@ async function screens(page: Page, name: string) {
   await page.setViewportSize({ width: 1280, height: 900 });
 }
 
-type Stop = {
+type Stop = Omit<SharedStop, "index"> & {
   /** The landmark the element is in: its label, or its role when it has none. */
   region: string;
-  name: string;
-  ringed: boolean;
-  inEditor: boolean;
-  devOverlay: boolean;
 };
 
 // What the keyboard has reached: where it is, and whether its focus ring is
-// drawn (DESIGN.md section 6). The editor draws its ring on its outer element.
-function focused(page: Page): Promise<Stop> {
-  return page.evaluate(() => {
+// drawn, by the rule of e2e/keyboard.ts (DESIGN.md section 6).
+async function focused(page: Page): Promise<Stop> {
+  const { name, ringed, inEditor, outside } = await focusedControl(page);
+  const region = await page.evaluate(() => {
     const element = document.activeElement;
-    if (!(element instanceof HTMLElement) || element === document.body) {
-      return { region: "none", name: "", ringed: false, inEditor: false, devOverlay: false };
-    }
-    const inEditor = element.classList.contains("cm-content");
-    const ringHolder = inEditor ? element.closest(".cm-editor") : element;
-    const style = ringHolder === null ? undefined : getComputedStyle(ringHolder);
+    if (!(element instanceof HTMLElement) || element === document.body) return "none";
     const landmark = element.closest("section, header, footer, nav, main");
     const labelledBy = landmark?.getAttribute("aria-labelledby");
-    const region =
-      landmark === null
-        ? "body"
-        : (landmark.getAttribute("aria-label") ??
+    return landmark === null
+      ? "body"
+      : (landmark.getAttribute("aria-label") ??
           (labelledBy ? document.getElementById(labelledBy)?.textContent : null) ??
           landmark.tagName.toLowerCase());
-    return {
-      region,
-      name: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 60),
-      ringed: style !== undefined && style.outlineStyle === "solid" && style.outlineWidth === "2px",
-      inEditor,
-      // Next.js's development indicator; not in a production build.
-      devOverlay: element.tagName.toLowerCase() === "nextjs-portal",
-    };
   });
+  return { region, name, ringed, inEditor, outside };
 }
 
 // Tab from the top of the page until focus comes back to the skip link.
@@ -107,17 +92,13 @@ async function walk(page: Page): Promise<Stop[]> {
   const stops: Stop[] = [];
   let wrapping = false;
   for (let step = 0; step < 60; step += 1) {
-    await page.keyboard.press("Tab");
-    // CodeMirror marks itself focused a moment after the focus event.
-    if (await page.evaluate(() => document.activeElement?.classList.contains("cm-content"))) {
-      await page.locator(".cm-editor.cm-focused").waitFor();
-    }
+    await tab(page);
     const stop = await focused(page);
     if (stops.length > 0 && stop.name === shell.skipLink) return stops;
     // After the last control, Next lesson, focus passes the development
     // indicator and the page itself before the skip link. Anywhere else,
     // focus on the page itself is focus lost: it is kept, and fails below.
-    if (wrapping && (stop.devOverlay || stop.region === "none")) continue;
+    if (wrapping && stop.outside) continue;
     stops.push(stop);
     if (stop.name.startsWith(words.next)) wrapping = true;
     // The editor keeps Tab for indenting; Escape, then Tab, leaves it (section 6.2).
@@ -200,7 +181,7 @@ test("[NFR-A11Y-03] after a failed Check, the keyboard opens and closes each tes
   await expect(cases).toHaveCount(2);
   await expect(cases.first()).toHaveAttribute("aria-expanded", "true");
   for (let index = 0; index < 2; index += 1) {
-    await page.keyboard.press("Tab");
+    await tab(page);
     const toggle = cases.nth(index);
     await expect(toggle).toBeFocused();
     expect((await focused(page)).ringed).toBe(true);
@@ -225,7 +206,7 @@ test("[NFR-A11Y-03] the reset dialog holds focus until Escape, then gives it bac
   await expect(dialog).toBeVisible();
   await noAxeViolations(page);
   for (let step = 0; step < 6; step += 1) {
-    await page.keyboard.press("Tab");
+    await tab(page);
     expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
     expect((await focused(page)).ringed).toBe(true);
   }

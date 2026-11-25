@@ -43,6 +43,11 @@ export default function config(phase: string): NextConfig {
     // leaves both out entirely: no route, no bundle.
     pageExtensions: pageExtensions(phase === PHASE_DEVELOPMENT_SERVER, process.env["VERCEL_ENV"]),
     ...(pollIntervalMs !== undefined && { watchOptions: { pollIntervalMs } }),
+    // The browser tests reach the development server as 127.0.0.1
+    // (playwright.config.ts), which Next.js treats as another origin and
+    // refuses its development files: the pages are never hydrated there.
+    // Only the loopback address; the setting does nothing in a build.
+    ...(phase === PHASE_DEVELOPMENT_SERVER && { allowedDevOrigins: ["127.0.0.1"] }),
     // Every response, static files included (docs/spec/06-security-privacy.md
     // section 5.1). The page policy is per request, in src/proxy.ts; the Python
     // worker's own policy and the runtime files' caching are set here.

@@ -20,6 +20,7 @@ import {
 
 type Config = (phase: string) => {
   headers?: () => Promise<{ source: string; headers: { key: string; value: string }[] }[]>;
+  allowedDevOrigins?: string[];
 };
 let config: Config;
 
@@ -34,6 +35,13 @@ beforeAll(async () => {
 
 afterAll(() => {
   vi.unstubAllEnvs();
+});
+
+describe("next.config.ts development origins", () => {
+  it("lets the development server's pages load at 127.0.0.1, as the browser tests open them, and adds nothing to a build", () => {
+    expect(config(PHASE_DEVELOPMENT_SERVER).allowedDevOrigins).toEqual(["127.0.0.1"]);
+    expect(config(PHASE_PRODUCTION_BUILD).allowedDevOrigins).toBeUndefined();
+  });
 });
 
 describe("next.config.ts headers", () => {

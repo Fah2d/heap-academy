@@ -175,12 +175,11 @@ test.describe("with a keyboard in an in-app browser", () => {
     await openWithStandIn(page, "/sign-in");
     await expect(page.getByText(signIn.inAppBrowser)).toBeVisible();
     await expectEveryControlReached(page);
-    // Show Google by keyboard: focus stays on a control, and the walk from
-    // there finds the new button.
+    // Show Google by keyboard: focus moves to the new button, and the walk
+    // from there reaches it with the rest.
     await page.getByRole("button", { name: signIn.showGoogle }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("button", { name: signIn.google })).toBeVisible();
-    expect(await page.evaluate(() => document.activeElement !== document.body)).toBe(true);
+    await expect(page.getByRole("button", { name: signIn.google })).toBeFocused();
     await expectEveryControlReached(page);
   });
 });

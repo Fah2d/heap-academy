@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
 import { lessonEditor } from "../src/messages/admin";
 import { workspace as words } from "../src/messages/workspace";
+import { expectEveryControlReached } from "./keyboard";
 import { saveScreen } from "./screens";
 
 // WP-5.4: the admin's preview (FR-ADM-08; docs/spec/03-experience.md section
@@ -116,6 +117,17 @@ test("[FR-ADM-08] the preview runs and checks the lesson, and keeps and records 
   await ready(page);
   await expect(page.getByText(words.restored)).toHaveCount(0);
   await expect(page.locator("[data-completion]")).toHaveCount(0);
+});
+
+// WP-7.2 (NFR-A11Y-03): the preview by keyboard, once Python is ready.
+test("[NFR-A11Y-03] [FR-ADM-08] the keyboard reaches every control of the preview, in order", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin/preview");
+  await ready(page);
+  await settled(page);
+  await expectEveryControlReached(page);
 });
 
 test("[NFR-REL-02] with the network cut after load, Run and Check work and the pass is kept", async ({

@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN_STATE_PATH, ADMIN_STATES } from "../src/features/admin/components/admin-states";
+import { codeEditor } from "../src/messages/lesson";
 import { expectEveryControlReached } from "./keyboard";
 
 // WP-7.2: the keyboard walkthrough (NFR-A11Y-03) of the catalog's states and
 // every admin state, on their development-only pages. Tab reaches each
-// control once, in document order (the reading order of
-// docs/spec/03-experience.md), each with its focus ring, and focus is never
-// lost. Runs in the `gallery` project, against the development server. The
+// control once, in document order, each with its focus ring, and focus is
+// never lost. The order on the screen is the document order: no page here
+// reorders controls with CSS; the workspace's walk checks its regions by name. Runs in the `gallery` project, against the development server. The
 // sign-in and not-found pages are walked on the production build, in
 // e2e/sign-in.spec.ts and e2e/shell.spec.ts.
 
@@ -37,6 +38,9 @@ for (const { state, title } of ADMIN_STATES) {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`${ADMIN_STATE_PATH}?state=${state}`);
     await expect(page.getByRole("region", { name: title })).toBeVisible();
+    // Each code editor is built after the page loads, beside its hint.
+    const editors = await page.getByText(codeEditor.leaveHint, { exact: true }).count();
+    await expect(page.locator(".cm-editor")).toHaveCount(editors);
     await expectEveryControlReached(page);
   });
 }
