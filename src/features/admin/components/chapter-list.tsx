@@ -244,7 +244,11 @@ export function ChapterList({
 
   const last = chapters.length - 1;
   return (
-    <section aria-labelledby={courseChaptersId} className="flex max-w-prose flex-col gap-5">
+    <div
+      role="group"
+      aria-labelledby={courseChaptersId}
+      className="flex max-w-prose flex-col gap-5"
+    >
       <h2
         ref={heading}
         id={courseChaptersId}
@@ -402,7 +406,7 @@ export function ChapterList({
           ))}
         </ol>
       )}
-      <section aria-labelledby={courseAddChapterId} className="flex flex-col gap-4">
+      <div role="group" aria-labelledby={courseAddChapterId} className="flex flex-col gap-4">
         <h3 id={courseAddChapterId} className="text-base font-semibold text-text">
           {words.addChapterHeading}
         </h3>
@@ -417,7 +421,7 @@ export function ChapterList({
           onUnsavedChange={reportUnsaved}
           onSubmit={(values) => run(() => saveChapter({ courseId, ...values }), words.chapterAdded)}
         />
-      </section>
-    </section>
+      </div>
+    </div>
   );
 }
