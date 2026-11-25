@@ -14,6 +14,7 @@ import {
   setCourseStatus,
 } from "../server/structure-actions";
 import { createLesson } from "../server/lesson-actions";
+import { exportCourse, importLesson } from "../server/transfer-actions";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 
@@ -48,6 +49,8 @@ export async function CourseEditorPage({ params }: { params: Promise<{ id: strin
             deleteChapter={deleteChapter}
             reorder={reorder}
             createLesson={createLesson}
+            exportCourse={exportCourse}
+            importLesson={importLesson}
           />
         </>
       ) : (

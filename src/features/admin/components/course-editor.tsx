@@ -8,6 +8,7 @@ import type { EditorCourse } from "../types";
 import { type ChapterActions, ChapterList } from "./chapter-list";
 import { CourseDetailsForm, type SaveCourse } from "./course-details-form";
 import { CourseStatusPanel, type SetCourseStatus } from "./course-status";
+import { CourseTransfer, type ExportCourse, type ImportLesson } from "./course-transfer";
 import { useLeaveWarning } from "./leave-warning";
 
 // The course editor (docs/spec/03-experience.md section 7.3): Details,
@@ -20,6 +21,8 @@ export type CourseEditorProps = ChapterActions & {
   course: EditorCourse;
   saveCourse: SaveCourse;
   setStatus: SetCourseStatus;
+  exportCourse: ExportCourse;
+  importLesson: ImportLesson;
   /** Reads the course again. The router's refresh by default. */
   refresh?: () => void;
 };
@@ -32,6 +35,8 @@ export function CourseEditor({
   deleteChapter,
   reorder,
   createLesson,
+  exportCourse,
+  importLesson,
   refresh,
 }: CourseEditorProps) {
   const router = useRouter();
@@ -84,6 +89,13 @@ export function CourseEditor({
         refresh={reread}
         onUnsavedChange={onChaptersUnsaved}
         otherUnsaved={detailsUnsaved}
+      />
+      <CourseTransfer
+        courseId={course.id}
+        chapters={course.chapters}
+        exportCourse={exportCourse}
+        importLesson={importLesson}
+        refresh={reread}
       />
     </div>
   );

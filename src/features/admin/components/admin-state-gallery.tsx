@@ -378,6 +378,8 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           deleteChapter={refuse("unavailable")}
           reorder={refuse("cannot_move")}
           createLesson={refuse("unavailable")}
+          exportCourse={refuse("unavailable")}
+          importLesson={refuse("unavailable")}
           refresh={stay}
         />
       </Example>
@@ -390,6 +392,8 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           deleteChapter={never}
           reorder={never}
           createLesson={never}
+          exportCourse={never}
+          importLesson={never}
           refresh={stay}
         />
       </Example>
@@ -402,6 +406,8 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           deleteChapter={never}
           reorder={never}
           createLesson={never}
+          exportCourse={never}
+          importLesson={never}
           refresh={stay}
         />
       </Example>
@@ -414,6 +420,8 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           deleteChapter={succeed(null)}
           reorder={succeed(null)}
           createLesson={never}
+          exportCourse={never}
+          importLesson={never}
           refresh={stay}
         />
       </Example>
