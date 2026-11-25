@@ -59,7 +59,13 @@ export function checkCourseFields(fields: CourseFields): CheckedDetails {
     }
   });
   if (invalid.length > 0) return { ok: false, invalid };
-  const parsed = courseDetails.safeParse({ ...fields, outcomes });
+  // Only the four fields: a caller may hand over a whole course.
+  const parsed = courseDetails.safeParse({
+    title: fields.title,
+    slug: fields.slug,
+    summary: fields.summary,
+    outcomes,
+  });
   // Only a sixth outcome line is left to refuse; the editor shows five.
   return parsed.success
     ? { ok: true, details: parsed.data }
