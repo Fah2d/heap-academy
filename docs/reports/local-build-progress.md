@@ -6,13 +6,15 @@ Work done in sessions while the owner was away, and what is left for the owner t
 
 Same task list, owner decisions and speed mode. `git fetch`: `origin/main` is at 739eacd (#16, `wp/4.1-courses-chapters`). Found on arrival: a run at about 18:07 had merged 739eacd into `wp/3.1-python-worker` (ab0081c) and `wp/3.3-grader` (aa4afa9) without pushing or writing here, and had stopped in the middle of the same merge on `wp/3.4-statechart` with two conflicts. Earlier today (about 14:22) the owner's chat had merged #15 into all three and pushed. `gh` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`).
 
-### Task 1 done: `main` at 739eacd in the three runtime branches
+### Task 1 done: `main` at 739eacd, then dffe1a8, in the three runtime branches
 
 - `wp/3.1-python-worker`: ab0081c. `pnpm verify` exit 0, `Test Files  73 passed (73)`, `Tests  1356 passed (1356)`. `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. Description: 3d6a933.
 - `wp/3.3-grader`: aa4afa9 (`module-boundaries.mjs` conflict resolved by keeping both sides' rules). `pnpm verify` exit 0, `Test Files  78 passed (78)`, `Tests  1533 passed (1533)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: 05cd6d8.
 - `wp/3.4-statechart`: a3265aa finishes the stopped merge. `module-boundaries.mjs` taken from `wp/3.3-grader` (both sides had the same parent copy). This file: the union of both copies' sections (`main`'s five `night-b` sections added in time order). Then `wp/3.3-grader` merged in fcbdda7 (docs only). `pnpm verify` on a3265aa exit 0, `Test Files  82 passed (82)`, `Tests  1648 passed (1648)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: 62c8bf0.
 - Not run: the browser tests and `pnpm test:db`. No reviewer has seen the merges.
 - Note: the three descriptions are far over the 60 lines of speed mode (WP-3.1 is 575 lines). This run did not shorten them; the owner's chat updates the pull request text.
+- Then `main` moved again, to dffe1a8 (#17, `wp/4.2-lesson-editor`), before the push. Merged in b2d331a (`wp/3.1-python-worker`), c3e5c56 (`wp/3.3-grader`) and 3abe4d9 (`wp/3.4-statechart`, then `wp/3.3-grader` in 8b91c4f). Three conflicts each, the same on every branch: this file (the union of both copies), `src/features/workspace/index.ts` (both sides' exports kept: this branch's `RuntimeConsole`, `main`'s `LessonContent` and `CodeEditor`) and `src/infrastructure/http/security-headers.test.ts` (both sides' tests kept). #17's new CodeMirror packages were already in `node_modules`; nothing was installed.
+- On the new merges: `wp/3.1-python-worker` `pnpm verify` exit 0, `Test Files  85 passed (85)`, `Tests  1575 passed (1575)`; `wp/3.3-grader` exit 0, `Test Files  90 passed (90)`, `Tests  1752 passed (1752)`; `wp/3.4-statechart` exit 0, `Test Files  94 passed (94)`, `Tests  1867 passed (1867)`. `pnpm build` with CI's fake public values, `check-bundle` and `check-static`: exit 0 on all three.
 - Push: the three branches, in one push.
 
 ## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`

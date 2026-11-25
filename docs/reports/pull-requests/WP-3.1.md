@@ -41,6 +41,8 @@ The Python worker of architecture section 5: learner code runs in a module worke
 
 ## Up to date with main
 
+`main` at dffe1a8 (#17, `wp/4.2-lesson-editor`) is merged in b2d331a. Two files conflicted besides `docs/reports/local-build-progress.md`: `src/features/workspace/index.ts` (this branch's `RuntimeConsole` export and `main`'s `LessonContent` and `CodeEditor` exports all kept) and `src/infrastructure/http/security-headers.test.ts` (both sides' tests kept). #17's CodeMirror packages were already installed. On b2d331a, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  85 passed (85)`, `Tests  1575 passed (1575)`); `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
 `main` at 739eacd (#16, `wp/4.1-courses-chapters`, since the last merge) is merged in ab0081c. One file conflicted: `docs/reports/local-build-progress.md` (both sides kept). #16 brings the course and chapter editor, which nothing on this branch touches. On ab0081c, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  73 passed (73)`, `Tests  1356 passed (1356)`); `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 9c013da.
