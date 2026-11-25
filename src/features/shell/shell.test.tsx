@@ -12,7 +12,13 @@ import { PrimitiveGallery } from "./components/primitive-gallery";
 // modules directly rather than through index.ts.
 import { SiteShell } from "./components/site-shell";
 
-afterEach(cleanup);
+const navigation = vi.hoisted(() => ({ pathname: "/courses" }));
+vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
+
+afterEach(() => {
+  cleanup();
+  navigation.pathname = "/courses";
+});
 
 function serverError(digest: string): Error {
   return Object.assign(new Error("An error occurred in the Server Components render."), { digest });
@@ -35,6 +41,13 @@ describe("error page", () => {
     await userEvent.click(screen.getByRole("button", { name: errorPage.retry }));
     expect(retry).toHaveBeenCalledOnce();
     expect(screen.getByRole("link", { name: errorPage.homeLink }).getAttribute("href")).toBe("/");
+  });
+
+  it("[FR-SYS-01] offers no way back to the home page when the home page is what failed", () => {
+    navigation.pathname = "/";
+    render(<ErrorView error={new Error("boom")} retry={() => undefined} />);
+    expect(screen.getByRole("button", { name: errorPage.retry })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: errorPage.homeLink })).toBeNull();
   });
 
   it("[FR-SYS-01] [NFR-OBS-01] shows the server's digest as the reference", () => {
@@ -64,7 +77,7 @@ describe("error page", () => {
 describe("site shell", () => {
   it("[NFR-A11Y-03] puts the skip link first and points it at the main landmark", async () => {
     render(
-      <SiteShell account={<a href="/sign-in">Account</a>}>
+      <SiteShell navigation={null} account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
@@ -77,7 +90,7 @@ describe("site shell", () => {
 
   it("[ADR-0031] shows the wordmark as live text linking home, and a banner landmark", () => {
     render(
-      <SiteShell account={<a href="/sign-in">Account</a>}>
+      <SiteShell navigation={null} account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
@@ -87,13 +100,29 @@ describe("site shell", () => {
 
   it("[FR-AUTH-05] puts the account control in a labelled navigation landmark in the header", () => {
     render(
-      <SiteShell account={<a href="/sign-in">Account</a>}>
+      <SiteShell navigation={null} account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
     const nav = screen.getByRole("navigation", { name: shell.accountNavigation });
     expect(screen.getByRole("banner").contains(nav)).toBe(true);
     expect(nav.textContent).toBe("Account");
+  });
+
+  it("[FR-CAT-01] puts the site's own pages in a main navigation landmark after the wordmark", () => {
+    render(
+      <SiteShell
+        navigation={<a href="/courses">Courses</a>}
+        account={<a href="/sign-in">Account</a>}
+      >
+        <p>Content</p>
+      </SiteShell>,
+    );
+    const nav = screen.getByRole("navigation", { name: shell.mainNavigation });
+    expect(screen.getByRole("banner").contains(nav)).toBe(true);
+    expect(nav.textContent).toBe("Courses");
+    const links = screen.getAllByRole("link").map((link) => link.textContent);
+    expect(links.indexOf("Courses")).toBe(links.indexOf(shell.productName) + 1);
   });
 });
 

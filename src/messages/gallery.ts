@@ -20,6 +20,8 @@ export const gallery = {
   inlineAfter: "further down.",
   standaloneVariant: "Standalone link",
   standaloneLink: "Go to the notices",
+  headingVariant: "Heading link, such as a course title in a list",
+  headingLink: "Go to the dialog",
   navVariant: "Navigation, the first link current",
   navCurrent: "Buttons",
   navOther: "Links",
@@ -86,9 +88,25 @@ export const gallery = {
 // The development-only page that shows the admin area's states the J-12
 // journey cannot reach on the local stack (WP-2.3).
 export const adminGallery = {
-  title: "Admin states",
-  intro:
-    "The dashboard's and the second step's states that the sign-in journey cannot reach. The actions here are fakes that answer at once, or never.",
+  // One page per part of the admin area (/dev/admin, /dev/admin/lessons,
+  // /dev/admin/validation).
+  pages: {
+    course: {
+      title: "Admin states",
+      intro:
+        "The dashboard's, the course editor's and the second step's states that the journeys cannot reach. The actions here are fakes that answer at once, or never.",
+    },
+    lesson: {
+      title: "Lesson editor states",
+      intro:
+        "The lesson editor's states that the journeys cannot reach: saves, previews, limits and test cases. The actions here are fakes that answer at once, or never.",
+    },
+    validation: {
+      title: "Validation states",
+      intro:
+        "Validate and the Save that validates first, with Python loading, failing, stuck or answering. The runtimes here are fakes.",
+    },
+  },
   courseListEmpty: "Course list with no course",
   courseListFailed: "Course list that could not load",
   courseListRows: "Course list with courses",
@@ -110,11 +128,45 @@ export const adminGallery = {
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",
-  lessonEditor: "Lesson editor of a draft whose saves succeed and whose preview renders",
+  lessonEditor:
+    "Lesson editor of a draft whose saves and status changes succeed and whose preview renders",
   lessonRefusing:
-    "Lesson editor whose save is refused (changed somewhere else) and whose preview fails",
-  lessonPublished: "Lesson editor of a published lesson whose save never answers",
-  lessonEmpty: "Lesson editor of a new lesson with no instructions, code or wrong answers",
+    "Lesson editor whose save is refused (changed somewhere else), whose status change is refused and whose preview fails",
+  lessonPublished: "Lesson editor of a published lesson whose save and status change never answer",
+  lessonArchived: "Lesson editor of an archived lesson, with Move back to draft",
+  lessonEmpty:
+    "Lesson editor of a new lesson with no instructions, code, wrong answers or test cases",
+  lessonTestCasesFull:
+    "Lesson editor with 12 test cases, so Add a test case and Duplicate are gone",
+  lessonTestCaseProblem:
+    "Lesson editor with a test case that has no name and an expected output over the limit",
+  lessonPythonLoading:
+    "Lesson editor while Python loads: Validate waits for it until Stop is pressed",
+  lessonPythonFailed: "Lesson editor whose Python could not start, with Try again",
+  lessonValidating: "Lesson editor whose validation never ends, to show Validating and Stop",
+  lessonPythonCannotRun:
+    "Lesson editor whose Python started but could not run the programs, so Validate checked nothing",
+  lessonValidationFailed:
+    "Lesson editor whose second test case expects the greeting without the prompt, so the solution fails it and Fill from solution is offered",
+  lessonSaveValidating:
+    "Lesson editor of a published lesson whose validation never ends: Save validates first, and Stop saves nothing",
+  lessonSavePythonFailed:
+    "Lesson editor of a published lesson whose Python could not start, so Save saves nothing",
+  lessonSavePythonCannotRun:
+    "Lesson editor of a published lesson whose Python started but could not run the programs, so Save saves nothing",
+  lessonSaveRuleFailed:
+    "Lesson editor of a published lesson whose solution fails the second test case, so Save saves nothing",
+  lessonOddResults:
+    "Lesson editor whose solution prints color codes, stops with an error on line 2, and prints past the output limit, and whose starter reaches the time limit",
+  oddTestName3: "Greets Sara many times",
+  oddColoredOutput: "\u001b[31mWhat is your name? Hello, Sara!\u001b[0m\n",
+  oddErrorMessage: "NameError: name 'nme' is not defined",
+  oddRepeatedLine: "Hello, Sara!\n",
+  samplePromptOnly: "What is your name? \n",
+  wrongExpected: "Hello, Omar!",
+  extraTestName: (n: number) => `Works for name ${String(n)}`,
+  extraTestInput: (n: number) => `Name ${String(n)}\n`,
+  extraTestExpected: (n: number) => `What is your name? Hello, Name ${String(n)}!`,
   lessonFull:
     "Lesson editor with three wrong answers, so Add a wrong answer is gone, whose save fails",
   lessonTaken: "Lesson editor whose address is taken by another lesson",
@@ -151,8 +203,37 @@ export const adminGallery = {
   sampleSolution: 'name = input("What is your name? ")\nprint(f"Hello, {name}!")\n',
   sampleWrongLabel: "Greets without the name",
   sampleWrongCode: 'input("What is your name? ")\nprint("Hello!")\n',
+  sampleTestName: "Greets Sara by name",
+  sampleTestInput: "Sara\n",
+  sampleTestExpected: "What is your name? Hello, Sara!",
+  sampleTestName2: "Works for a different name",
+  sampleTestInput2: "Omar\n",
+  sampleTestExpected2: "What is your name? Hello, Omar!",
   previewHeading: "Ask, then answer",
   previewText: "Ask for a name with ",
   previewCode: "input()",
   previewTail: ", then greet that person.",
+} as const;
+
+// The development-only page that shows the catalog's states that the local
+// stack cannot show on demand: no course, and sample content (WP-5.1).
+export const catalogGallery = {
+  title: "Catalog states",
+  intro:
+    "The home page's, the course list's and the course page's states that need an empty database or content the local stack does not have. Each link opens one state as its whole page. The courses are sample content, not published ones. A read that fails ends on the error page, shown at /dev/error.",
+  homeEmpty: "Home page with no course",
+  listEmpty: "Course list with no course",
+  listRows: "Course list with courses, one with the longest title the dashboard allows",
+  courseNoOutcomes: "Course page with no outcomes, one chapter with no summary",
+  sampleCourse: "Python basics",
+  sampleSummary: "Print text, keep values in names, and do sums.",
+  longCourse: "Reading and writing text files, one careful line at a time",
+  longSummary:
+    "Open a file, read it line by line, and write what you found to a new file without losing a word.",
+  firstChapter: "First steps",
+  firstChapterSummary: "Your first program, and what print does.",
+  secondChapter: "Numbers and the arithmetic you already know from school",
+  lessonHello: "Say hello",
+  lessonNames: "Keep a value in a name",
+  lessonSums: "Add two numbers that someone typed",
 } as const;

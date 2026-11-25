@@ -125,14 +125,14 @@ export const moduleBoundaries = {
         "The privileged database client may be imported only by the account deletion use case (CLAUDE.md rule 8).",
       impure:
         "`{{from}}` must stay pure: it may not import `{{source}}` (docs/spec/02-architecture.md section 4.1).",
+      contentSession:
+        "`content` reads with no session: it may import from `infrastructure` only `db/public-client`, `env` and `logging`, and never `next/headers` (CLAUDE.md rule 9).",
       nodeRunner:
         "The grader's Node runner is a test tool: only tests and scripts may import it (ADR-0032).",
       testImport:
         "Only a test may import a test file: a test may import the Node runner, so nothing else may import a test (ADR-0032).",
       computedImport:
         "Import with a fixed string, so these rules can see what is imported (docs/spec/02-architecture.md section 4.1).",
-      contentSession:
-        "`content` reads with no session: it may import from `infrastructure` only `db/public-client`, `env` and `logging`, and never `next/headers` (CLAUDE.md rule 9).",
       serverOnly:
         'A module in this folder runs only on the server and must start with `import "server-only"` (docs/spec/02-architecture.md section 4.1).',
     },
