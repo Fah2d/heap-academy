@@ -2,6 +2,21 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (from about 01:40), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list, owner decisions and speed mode. `git fetch`: `origin/main` is at 032246c (#18, `wp/4.3-validate-publish`, then #19, `wp/5.1-catalog`). #18 brings WP-3.2, WP-3.3 and WP-3.4 to `main`, in older copies than these branches. Found on arrival: a merge of `main` at aae2b9d (#18) into `wp/3.1-python-worker`, with all 12 conflicts resolved but not committed, and 7 `.gitkeep` files deleted in the working tree only (restored).
+
+### Task 1 done: `main` at 032246c in the three runtime branches
+
+- `node_modules` here had lost 102 files, all of them empty in the main checkout (for example `client-only@0.0.1/.../index.js`), so 15 component test files could not load. They were recreated as empty files. Nothing was installed. `pnpm verify` runs with `--config.verify-deps-before-run=false`, because pnpm's automatic install before scripts fails in the sandbox (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`) and this run must not install.
+- `wp/3.1-python-worker`: the earlier run's resolution of #18 checked against a three-way merge from the right base (a288083) and committed in 5fdd180, with `playwright.config.ts` changed to `main`'s copy. Then #19 in f3b04ea (only this file conflicted). `pnpm verify` exit 0, `Test Files  110 passed (110)`, `Tests  2119 passed (2119)`. `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. Description: db7ce7d.
+- `wp/3.3-grader`: 5646bfc, 8 conflicts. `controller.ts` keeps this branch's order (a fresh-worker check is sent before `ready` is reported) with `main`'s `interactiveInput`. `pnpm verify` exit 0, `Test Files  110 passed (110)`, `Tests  2130 passed (2130)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Description: bb8022b.
+- `wp/3.4-statechart`: 1a79bcc (6 conflicts, `wp/3.3-grader`'s resolutions reused), then `wp/3.3-grader` in 704fd8e. `pnpm verify` exit 0, `Test Files  110 passed (110)`, `Tests  2130 passed (2130)`. `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0.
+- This file: the union of every copy's sections.
+- Not run: the browser tests and `pnpm test:db`. No reviewer has seen these merges.
+- Task 2: no review ran since the last session, so there is nothing new to fix without the owner.
+- Push: the three branches, in one push (about 01:55).
+
 ## Session of 2026-11-25 (from about 20:52), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list, owner decisions and speed mode. `git fetch`: `origin/main` is at 739eacd (#16, `wp/4.1-courses-chapters`). Found on arrival: a run at about 18:07 had merged 739eacd into `wp/3.1-python-worker` (ab0081c) and `wp/3.3-grader` (aa4afa9) without pushing or writing here, and had stopped in the middle of the same merge on `wp/3.4-statechart` with two conflicts. Earlier today (about 14:22) the owner's chat had merged #15 into all three and pushed. `gh` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`).
