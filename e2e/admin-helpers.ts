@@ -24,6 +24,32 @@ export function sql(statement: string) {
   ]);
 }
 
+/** Runs a query and answers its rows, one per line, columns split by "|". */
+export function sqlRows(statement: string): string[][] {
+  const output = execFileSync(
+    "docker",
+    [
+      "exec",
+      "supabase_db_heap-academy",
+      "psql",
+      "-U",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "--no-align",
+      "--tuples-only",
+      "--field-separator=|",
+      "-c",
+      statement,
+    ],
+    { encoding: "utf8" },
+  );
+  return output
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => line.split("|"));
+}
+
 /** RFC 6238 with the authenticator defaults: SHA-1, 30 seconds, six digits. */
 export function totp(secret: string, at = Date.now()): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";

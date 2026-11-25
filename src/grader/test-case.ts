@@ -39,7 +39,7 @@ export const CHECK_TEST_LIMIT = 12;
 /** Each test case is its own run, with a run's time limit (section 2.2; FR-RUN-02). */
 export const TEST_CASE_TIME_LIMIT_MS = 5_000;
 
-const TEST_CASE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+export const TEST_CASE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 
 export type TestCaseField =
   "testCase" | "id" | "name" | "stdin" | "afterCode" | "expected" | "match" | "hint";
