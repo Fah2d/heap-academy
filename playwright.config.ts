@@ -36,10 +36,23 @@ const engines = [
   ["firefox", devices["Desktop Firefox"]],
   ["webkit", devices["Desktop Safari"]],
 ] as const;
+// Account deletion (WP-6.3) is offered only when all three of its variables
+// are set. CI's e2e job sets them to the local stack's secret key and test
+// addresses, so J-10 can run; elsewhere they stay unset and the profile shows
+// no delete control.
+const deletion = ["SUPABASE_SECRET_KEY", "DELETION_NOTICE_FROM", "DELETION_NOTICE_TO"] as const;
+const deletionEnvironment = Object.fromEntries(
+  deletion.flatMap((name) => {
+    const value = process.env[name];
+    return value === undefined || value === "" ? [] : [[name, value]];
+  }),
+);
 // The servers under test get the fake values of .env.example unless the
-// environment sets real ones. None of them is a secret, and no test reaches
-// Supabase or Resend.
+// environment sets real ones. None of them is a secret. Only the stack
+// journeys reach the local Supabase, and only J-10's deletion notice reaches
+// Resend, which refuses the fake key.
 const environment = {
+  ...deletionEnvironment,
   NEXT_PUBLIC_SUPABASE_URL: process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
     process.env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] ?? "sb_publishable_example",

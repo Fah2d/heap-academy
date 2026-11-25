@@ -102,6 +102,23 @@ describe("workflows", () => {
     expect(text).toMatch(/--project=chromium/);
   });
 
+  it("[FR-PRF-03] the e2e job gives the app the local stack's secret key, masked, before the journeys", () => {
+    const text = job(read("ci.yml"), "e2e");
+    const deletion = step(text, "Let the app delete accounts on the local stack");
+    expect(deletion).toContain("supabase status -o env");
+    expect(deletion).toContain('test -n "$secret"');
+    expect(deletion).toContain('echo "::add-mask::$secret"');
+    for (const name of ["SUPABASE_SECRET_KEY", "DELETION_NOTICE_FROM", "DELETION_NOTICE_TO"]) {
+      expect(deletion).toContain(`echo "${name}=`);
+    }
+    expect(text.indexOf("Let the app delete accounts")).toBeGreaterThan(
+      text.indexOf("run: supabase start"),
+    );
+    expect(text.indexOf("run: pnpm test:e2e")).toBeGreaterThan(
+      text.indexOf("Let the app delete accounts"),
+    );
+  });
+
   it.each(files)(
     "[T-13] %s puts no expression inside a script, so no event text can run",
     (name) => {
