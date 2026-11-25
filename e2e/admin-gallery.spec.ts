@@ -118,7 +118,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   ).toBeFocused();
   await published.getByRole("button", { name: courseEditor.saveChapter }).click();
   await expect(published.getByRole("button", { name: courseEditor.savingChapter })).toBeFocused();
-  await published.getByLabel(courseEditor.summaryLabel).fill("Changed.");
+  await published.getByLabel(courseEditor.summaryLabel, { exact: true }).fill("Changed.");
   await published.getByRole("button", { name: courseEditor.save }).click();
   await expect(published.getByRole("button", { name: courseEditor.saving })).toBeFocused();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -126,7 +126,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
 
   // Saves that succeed: the saved line, and focus on the new status.
   const saving = page.getByRole("region", { name: adminGallery.editorSaving });
-  await saving.getByLabel(courseEditor.summaryLabel).fill("Saved here.");
+  await saving.getByLabel(courseEditor.summaryLabel, { exact: true }).fill("Saved here.");
   await saving.getByRole("button", { name: courseEditor.save }).click();
   await expect(saving.getByRole("status").filter({ hasText: courseEditor.saved })).toBeVisible();
   await saving.getByRole("button", { name: courseEditor.statusAction.published }).click();
@@ -138,9 +138,11 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   const failed = page.getByRole("region", { name: adminGallery.editorFailed });
   await expect(failed.getByText(courseEditor.loadFailed)).toBeVisible();
   const taken = page.getByRole("region", { name: adminGallery.newCourseTaken });
-  await taken.getByLabel(courseEditor.titleLabel).fill("Taken");
+  await taken.getByLabel(courseEditor.titleLabel, { exact: true }).fill("Taken");
   await taken.getByLabel(courseEditor.slugLabel).fill("sample-course");
-  await taken.getByLabel(courseEditor.summaryLabel).fill("A course whose address is taken.");
+  await taken
+    .getByLabel(courseEditor.summaryLabel, { exact: true })
+    .fill("A course whose address is taken.");
   await taken.getByRole("button", { name: courseEditor.create }).click();
   await expect(taken.getByLabel(courseEditor.slugLabel)).toBeFocused();
   await expect(taken.getByText(structure.failure.slug_taken)).toBeVisible();
