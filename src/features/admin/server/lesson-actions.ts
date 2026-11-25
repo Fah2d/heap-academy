@@ -3,15 +3,19 @@
 import "server-only";
 import { contentChanged } from "@/content";
 import { renderMarkdown } from "@/content/markdown";
+import { canMoveStatus } from "@/domain/admin/structure";
 import { defineAction } from "@/infrastructure/actions/server-action";
 import {
   createLessonInput,
   MAX_CREATE_LESSON_BYTES,
   MAX_PREVIEW_BYTES,
   MAX_SAVE_LESSON_BYTES,
+  MAX_STATUS_BYTES,
   renderPreviewInput,
   saveLessonInput,
+  setLessonStatusInput,
 } from "./lesson-input";
+import { gradableHash } from "../gradable-hash";
 import * as store from "./lesson-store";
 
 // The lesson editor's actions (docs/spec/03-experience.md section 7.4;
@@ -26,9 +30,49 @@ export const saveLesson = defineAction({
   input: saveLessonInput,
   maxBytes: MAX_SAVE_LESSON_BYTES,
   run: async (input, { services }) => {
-    const saved = await store.saveLesson(services.db, input.id, input.loadedAt, input.draft);
-    if (saved.ok) contentChanged();
-    return saved;
+    // The server does not run Python. It reports the save validated only when
+    // the dashboard validated exactly this content (docs/spec/04-content-system.md
+    // section 4.2); the database then requires that for a published lesson.
+    const { draft, testCases } = input;
+    const validated =
+      input.validatedHash !== undefined &&
+      input.validatedHash ===
+        (await gradableHash({
+          starterCode: draft.starterCode,
+          solutionCode: draft.solutionCode,
+          wrongAnswers: draft.wrongAnswers,
+          testCases,
+        }));
+    const saved = await store.saveLesson(
+      services.db,
+      input.id,
+      input.loadedAt,
+      draft,
+      testCases,
+      validated,
+    );
+    if (!saved.ok) return saved;
+    contentChanged();
+    return { ok: true as const, value: { ...saved.value, validated } };
+  },
+});
+
+/** Publish, unpublish or archive (docs/spec/04-content-system.md section 4.3; FR-ADM-09). */
+export const setLessonStatus = defineAction({
+  name: "set-lesson-status",
+  access: "admin",
+  input: setLessonStatusInput,
+  maxBytes: MAX_STATUS_BYTES,
+  run: async (input, { services }) => {
+    const result = await store.setLessonStatus(
+      services.db,
+      input.id,
+      input.loadedAt,
+      input.status,
+      (from) => canMoveStatus(from, input.status),
+    );
+    if (result.ok) contentChanged();
+    return result;
   },
 });
 

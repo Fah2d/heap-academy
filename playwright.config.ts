@@ -4,6 +4,11 @@ import { defineConfig, devices } from "@playwright/test";
 // screen (docs/spec/05-engineering-handbook.md section 8). Chromium runs on
 // every pull request; Firefox and WebKit on main and before launch.
 const port = 3100;
+// The same production build, served with a database address where nothing
+// listens (port 1), so every content read fails: e2e/catalog-outage.spec.ts
+// sees the catalog's "Could not load" state there, even when the local stack
+// is running. e2e/catalog-outage.spec.ts names the same port.
+const outagePort = 3102;
 // The primitive gallery, the error page and the Python runtime page (WP-3.1)
 // are not in the production build (the runtime page is also in Vercel
 // preview builds, WP-3.4), so e2e/gallery.spec.ts and the runtime tests run
@@ -82,8 +87,8 @@ export default defineConfig({
       use: { ...devices["Pixel 7"], baseURL: `http://127.0.0.1:${developmentPort}` },
     },
   ],
-  // In order: the production build must finish before the development server
-  // starts writing beside it.
+  // In order: the production build must finish before the outage server
+  // serves it and before the development server starts writing beside it.
   webServer: [
     {
       command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`,
@@ -91,6 +96,12 @@ export default defineConfig({
       // Playwright does not count a 404 there as ready.
       port,
       env: environment,
+      reuseExistingServer: !process.env["CI"],
+    },
+    {
+      command: `pnpm start --hostname 127.0.0.1 --port ${outagePort}`,
+      port: outagePort,
+      env: { ...environment, NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:1" },
       reuseExistingServer: !process.env["CI"],
     },
     {

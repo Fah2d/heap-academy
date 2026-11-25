@@ -6,9 +6,11 @@ import { test, type Page } from "@playwright/test";
 // section 3.3). The folder is the work package that last changed the screen.
 const DEFAULT_PACKAGE = "WP-1.4";
 // One engine's pictures, so Firefox and WebKit runs do not overwrite them.
+// `stack` runs the journeys against the local stack in Desktop Chrome too.
 const SCREENSHOT_PROJECTS = new Set([
   "chromium",
   "gallery",
+  "stack",
   "phone",
   "phone-375",
   "phone-360",

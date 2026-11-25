@@ -2,7 +2,11 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { SLUG_PATTERN } from "@/domain/admin/course-details";
-import { createPublicClient, type PublicClient } from "@/infrastructure/db/public-client";
+import {
+  createPublicClient,
+  publicDatabaseAddress,
+  type PublicClient,
+} from "@/infrastructure/db/public-client";
 import { log } from "@/infrastructure/logging/logger";
 import { contentLogRoute } from "@/infrastructure/logging/route";
 
@@ -96,7 +100,12 @@ export type ContentResult<Value> = { ok: true; value: Value } | { ok: false };
 
 const byPosition = (a: { position: number }, b: { position: number }) => a.position - b.position;
 
-/** Every published course in the owner's order, with its published lesson count. */
+/**
+ * Every published course in the owner's order, with its published lesson
+ * count. A course with no published lesson is left out (FR-CAT-04): the
+ * publish guard refuses to publish one, but its lessons can be unpublished
+ * after it.
+ */
 export async function readPublishedCourses(db: PublicClient): Promise<PublishedCourseSummary[]> {
   const { data, error } = await db
     .from("courses")
@@ -107,6 +116,7 @@ export async function readPublishedCourses(db: PublicClient): Promise<PublishedC
   return z
     .array(courseRow)
     .parse(data)
+    .filter((row) => row.lessons.length > 0)
     .map((row) => ({
       slug: row.slug,
       title: row.title,
@@ -115,7 +125,11 @@ export async function readPublishedCourses(db: PublicClient): Promise<PublishedC
     }));
 }
 
-/** One published course with its chapters and published lessons in order, or null. */
+/**
+ * One published course with its chapters and published lessons in order, or
+ * null. A chapter with no published lesson is left out, and a course with
+ * none at all is null, as it is in the course list (FR-CAT-04).
+ */
 export async function readPublishedCourse(
   db: PublicClient,
   slug: string,
@@ -130,12 +144,10 @@ export async function readPublishedCourse(
   if (error !== null) throw new Error(`published course: ${error.code}`);
   if (data === null) return null;
   const course = courseDetail.parse(data);
-  return {
-    slug: course.slug,
-    title: course.title,
-    summary: course.summary,
-    outcomes: course.outcomes,
-    chapters: [...course.chapters].sort(byPosition).map((chapter) => ({
+  const chapters = [...course.chapters]
+    .sort(byPosition)
+    .filter((chapter) => chapter.lessons.length > 0)
+    .map((chapter) => ({
       id: chapter.id,
       title: chapter.title,
       summary: chapter.summary,
@@ -143,7 +155,14 @@ export async function readPublishedCourse(
         slug: lesson,
         title,
       })),
-    })),
+    }));
+  if (chapters.length === 0) return null;
+  return {
+    slug: course.slug,
+    title: course.title,
+    summary: course.summary,
+    outcomes: course.outcomes,
+    chapters,
   };
 }
 
@@ -177,24 +196,34 @@ export async function readPublishedLesson(
   };
 }
 
-const cachedCourses = unstable_cache(
-  () => readPublishedCourses(createPublicClient()),
-  ["published-courses"],
-  { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
-);
+// Every cached reader is made here. The database's address is read once per
+// call, put first in the cache arguments, so it is part of every cache key,
+// and the same value builds the client. The cache is kept on disk
+// (.next/cache) and shared by every server of one build, and an answer read
+// from one database must never answer for another. Every reader shares the
+// one callback below, whose source is part of the framework's key, so its key
+// part alone keeps it apart from the others and may be used only once.
+const readerKeyParts = new Set<string>();
 
-const cachedCourse = unstable_cache(
-  (slug: string) => readPublishedCourse(createPublicClient(), slug),
-  ["published-course"],
-  { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
-);
+export function cachedReader<Args extends unknown[], Value>(
+  keyPart: string,
+  read: (db: PublicClient, ...args: Args) => Promise<Value>,
+): (...args: Args) => Promise<Value> {
+  if (readerKeyParts.has(keyPart)) throw new Error(`content cache: key part ${keyPart} is taken`);
+  readerKeyParts.add(keyPart);
+  const cached = unstable_cache(
+    (database: string, ...args: Args) => read(createPublicClient(database), ...args),
+    [keyPart],
+    { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
+  );
+  return (...args: Args) => cached(publicDatabaseAddress(), ...args);
+}
 
-const cachedLesson = unstable_cache(
-  (courseSlug: string, lessonSlug: string) =>
-    readPublishedLesson(createPublicClient(), courseSlug, lessonSlug),
-  ["published-lesson"],
-  { tags: [CONTENT_TAG], revalidate: CONTENT_REVALIDATE_SECONDS },
-);
+const cachedCourses = cachedReader("published-courses", readPublishedCourses);
+
+const cachedCourse = cachedReader("published-course", readPublishedCourse);
+
+const cachedLesson = cachedReader("published-lesson", readPublishedLesson);
 
 // A failed read throws inside the cache, so it is never kept; the page gets
 // a failure it can show honestly, and the server logs it (02-architecture.md
@@ -222,17 +251,22 @@ const MAX_SLUG = 60;
 const isSlug = (slug: string) => slug.length <= MAX_SLUG && SLUG_PATTERN.test(slug);
 
 export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary[]>> {
-  return settle("published-courses", cachedCourses);
+  return settle("published-courses", () => cachedCourses());
 }
 
 /**
  * One published course by its address. An address that no course can have
- * is answered at once, so a made-up one costs no query and no cache entry.
+ * is answered at once, and a well-formed one that is not in the cached course
+ * list is answered from that list, so a made-up address costs no course
+ * query and no cache entry (T-14, T-25).
  */
-export function publishedCourse(slug: string): Promise<ContentResult<PublishedCourse | null>> {
-  if (!isSlug(slug)) {
-    return Promise.resolve({ ok: true, value: null });
-  }
+export async function publishedCourse(
+  slug: string,
+): Promise<ContentResult<PublishedCourse | null>> {
+  if (!isSlug(slug)) return { ok: true, value: null };
+  const listed = await publishedCourses();
+  if (!listed.ok) return listed;
+  if (!listed.value.some((course) => course.slug === slug)) return { ok: true, value: null };
   return settle("published-course", () => cachedCourse(slug));
 }
 

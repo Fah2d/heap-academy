@@ -56,6 +56,8 @@ Each journey is an end-to-end test suite in `e2e/`.
 | FR-CRS-02 | M | Each lesson row shows its XP and one state: completed, next up, or open. State is conveyed by text and icon, not color alone. | All three states render and are announced to assistive technology. |
 | FR-CRS-05 | S | A progress summary shows lessons completed and XP earned of total. | Values equal derived progress. |
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-5.1):** a course with no published lesson answers not found on its course page too, so a link cannot reach a page with nothing to learn (FR-CAT-04). A chapter with no published lesson is left out of the course page until it has one.
+
 ### 3.4 Workspace (WSP)
 
 | ID | P | Requirement | Acceptance |
