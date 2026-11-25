@@ -37,6 +37,8 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
+`main` at dffe1a8 (#17, `wp/4.2-lesson-editor`) is merged in c3e5c56. Two files conflicted besides `docs/reports/local-build-progress.md`: `src/features/workspace/index.ts` (this branch's `RuntimeConsole` export and `main`'s `LessonContent` and `CodeEditor` exports all kept) and `src/infrastructure/http/security-headers.test.ts` (both sides' tests kept). #17's CodeMirror packages were already installed. On c3e5c56, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  90 passed (90)`, `Tests  1752 passed (1752)`); `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
 `main` at 739eacd (#16, `wp/4.1-courses-chapters`, since the last merge) is merged in aa4afa9. Two files conflicted: `docs/reports/local-build-progress.md` (both sides kept) and `scripts/eslint/module-boundaries.mjs`, where this branch's `nodeRunner`, `testImport` and `computedImport` rules and `main`'s `contentSession` rule are all kept. `wp/3.1-python-worker` is still not merged in (the approved default). On aa4afa9, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  78 passed (78)`, `Tests  1533 passed (1533)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 6e74407.
