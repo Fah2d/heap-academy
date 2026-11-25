@@ -6,17 +6,30 @@ import { account, signIn } from "../src/messages/sign-in";
 
 const MAIL = "http://127.0.0.1:54324";
 
-export async function latestCode(request: APIRequestContext, address: string): Promise<string> {
+async function newestMessage(request: APIRequestContext, address: string): Promise<string> {
+  const search = await request.get(
+    `${MAIL}/api/v1/search?query=${encodeURIComponent(`to:"${address}"`)}`,
+  );
+  const found = (await search.json()) as { messages?: { ID: string }[] };
+  return found.messages?.[0]?.ID ?? "";
+}
+
+/**
+ * The code in the newest email to the address. `before` is the newest
+ * message's ID before the code was asked for, so an address that has signed
+ * in already never answers its old, spent code.
+ */
+export async function latestCode(
+  request: APIRequestContext,
+  address: string,
+  before = "",
+): Promise<string> {
   let code = "";
   await expect
     .poll(
       async () => {
-        const search = await request.get(
-          `${MAIL}/api/v1/search?query=${encodeURIComponent(`to:"${address}"`)}`,
-        );
-        const found = (await search.json()) as { messages?: { ID: string }[] };
-        const id = found.messages?.[0]?.ID;
-        if (id === undefined) return "";
+        const id = await newestMessage(request, address);
+        if (id === "" || id === before) return "";
         const message = (await (await request.get(`${MAIL}/api/v1/message/${id}`)).json()) as {
           Text?: string;
         };
@@ -45,10 +58,11 @@ export async function requestCode(page: Page, address: string) {
 /** Signs in with an email code from /sign-in, and waits for the header's Sign out. */
 export async function signInWithCode(page: Page, request: APIRequestContext, address: string) {
   await page.goto("/sign-in");
+  const before = await newestMessage(request, address);
   await requestCode(page, address);
   await page
     .getByRole("textbox", { name: signIn.codeLabel })
-    .fill(await latestCode(request, address));
+    .fill(await latestCode(request, address, before));
   await page.getByRole("button", { name: signIn.verify, exact: true }).click();
   await expect(page.getByRole("button", { name: account.signOut })).toBeVisible();
 }
