@@ -190,6 +190,20 @@ export async function completeALesson(page: Page, device: Device, target: Target
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(target.next.title);
 }
 
+/**
+ * Passes a lesson with the example solution and waits for the completion
+ * moment. The progress journeys (e2e/progress-journey.spec.ts) use it to make
+ * a completion; J-2 above walks the whole path to one.
+ */
+export async function passLesson(page: Page, device: Device, target: Target) {
+  await page.goto(target.address);
+  await ready(page);
+  await write(page, EXAMPLE_LESSON.solution, device);
+  await press(button(page, words.check), device);
+  await expect(page.locator("[data-summary]")).toHaveText(words.summary(2, 2));
+  await expect(page.locator("[data-completion]")).toHaveText(words.completeFirst(target.xp));
+}
+
 // J-3: a program that calls input() twice. The console asks for each answer
 // where the browser can pause a program; elsewhere the Input field takes the
 // answers before Run (FR-WSP-08).
