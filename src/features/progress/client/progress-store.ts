@@ -268,6 +268,8 @@ export function createProgressStore(factory: IDBFactory | undefined): ProgressSt
     known = new Map();
     pending.clear();
     await ready();
+    // A page that stays mounted through sign-out reads the empty list.
+    rewritten();
   };
 
   return {

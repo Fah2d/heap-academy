@@ -64,10 +64,13 @@ export function supabaseCompletionStore(db: Db): CompletionStore {
     },
 
     async lessonIds(userId) {
+      // A page waits for this read, so one attempt: the library's retries would
+      // each get the session client's timeout again.
       const { data, error } = await db
         .from("completions")
         .select("lesson_id")
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .retry(false);
       if (error !== null || data === null) return null;
       return data.flatMap((row) => parseLessonId(row.lesson_id) ?? []);
     },

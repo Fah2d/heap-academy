@@ -8,11 +8,10 @@ import { Link, type LinkVariant, Status, type StatusState } from "@/ui";
 import { lessonPath } from "../paths";
 
 // The learner's progress on the course list and the course page (FR-CAT-02,
-// FR-CRS-02). It is read from this device in the browser
-// (docs/spec/02-architecture.md section 10). Until the device answers, the
-// page is drawn as for a learner with nothing completed, except that no
-// count and no lesson state is claimed: the action begins the course, which
-// is a real place to go for everyone.
+// FR-CRS-02; docs/spec/02-architecture.md section 10). A signed-in learner's
+// page arrives with the account's lessons. A guest's is filled in from this
+// device: until it answers, the page claims no count and no lesson state, and
+// the action begins the course, which is a real place to go for everyone.
 
 type Lesson = { id: string; slug: string };
 

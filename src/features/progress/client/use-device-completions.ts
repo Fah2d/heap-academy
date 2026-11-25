@@ -6,9 +6,9 @@ import { deviceProgress } from "./device-progress";
 import type { ProgressStore } from "./progress-store";
 
 /**
- * The IDs of the lessons completed on this device, or undefined until the
- * device has answered (docs/spec/02-architecture.md section 10: a guest's
- * progress is filled in on the client). Read again after each new completion
+ * The IDs of the completed lessons (docs/spec/02-architecture.md section 10).
+ * A guest's are filled in from this device, and are undefined until it has
+ * answered. Read again after each new completion
  * in this page, after a sync rewrites the list, and when the tab is shown again, so a lesson passed in
  * another tab appears on return.
  *

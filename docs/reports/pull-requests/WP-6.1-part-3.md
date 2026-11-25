@@ -31,9 +31,14 @@ Delivery Gate for the notice: existing `Notice` primitive (warning kind, text la
 
 `wp/5.4-progress-preview` at fea2606 was merged in. The course list and course page now also read the device list again when a sync rewrites it (found in review: on a new device they showed nothing completed until the tab was shown again). `pnpm verify` steps pass on the merged line; the build was run on the branch stacked above.
 
-## Not in this pull request
+## Server-rendered progress (added 2026-11-25)
 
-Server-rendered progress for a signed-in learner.
+The root layout reads a signed-in learner's completed lesson IDs with their own session, and the course list, course page and home page are rendered with them; the device's list is added in the browser. The read is one attempt under the session client's time limit; if it fails, progress comes from the device. Sign-out now makes mounted pages read the cleared list.
+
+One code review (CHANGES REQUIRED: retries could hold a page about 13 s, no layout test; both fixed, not reviewed again) and one security review (APPROVE). `pnpm verify`: 138 files, 2391 tests. `pnpm build`, `check-bundle`, `check-static`: pass. Not run: `pnpm test:db`, browser tests, J-6.
+
+5. A second tab keeps the account's marks after sign-out elsewhere until it loads again (display only). Recommended: accept.
+6. A failed server read writes no log line, because a layout has no route name to log. Recommended: add with the error reporting in WP-7.3.
 
 ## Risks and rollback
 

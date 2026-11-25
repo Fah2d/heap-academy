@@ -178,3 +178,21 @@ describe("useDeviceCompletions for a signed-in learner", () => {
     expect(result.current).toEqual(new Set([B]));
   });
 });
+
+describe("useDeviceCompletions at sign-out", () => {
+  it("[FR-PRG-06] [T-08] reads again when this device's list is cleared", async () => {
+    const store = createProgressStore(undefined);
+    await store.record({ lessonId: A, completedAt: 1, code: "" });
+    const get = () => store;
+    const { result } = renderHook(() => useDeviceCompletions(get));
+    await waitFor(() => {
+      expect(result.current).toEqual(new Set([A]));
+    });
+    await act(async () => {
+      await store.clear();
+    });
+    await waitFor(() => {
+      expect(result.current).toEqual(new Set());
+    });
+  });
+});
