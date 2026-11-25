@@ -158,17 +158,31 @@ async function expectRowsMatchDatabase(page: Page, heading: string) {
 const ADMIN = `admin-catalog-${String(stamp)}@example.test`;
 let admin: Page | undefined;
 
+/**
+ * The page asks not to be indexed. A not-found answer carries two robots
+ * tags, the page's own and the one Next.js adds to every not-found response,
+ * so every tag there is must say noindex.
+ */
+async function expectNoindex(page: Page, label: string) {
+  const robots = page.locator('meta[name="robots"]');
+  await expect(robots.first(), label).toBeAttached();
+  const contents = await robots.evaluateAll((metas) =>
+    metas.map((meta) => meta.getAttribute("content") ?? ""),
+  );
+  for (const content of contents) expect(content, label).toMatch(/noindex/);
+}
+
 /** Moves the course to a status in its editor, as the owner does. */
 async function setCourseStatus(page: Page, to: "published" | "draft") {
   const [row] = sqlRows(`select id from public.courses where slug = '${SLUG}'`);
   await page.goto(`/admin/courses/${row?.[0] ?? ""}`);
-  await page.getByRole("button", { name: courseEditor.statusAction[to] }).click();
+  await page.getByRole("button", { name: courseEditor.statusAction[to], exact: true }).click();
   const dialog = page.getByRole("dialog");
   if (to === "draft")
-    await dialog.getByRole("button", { name: courseEditor.statusAction[to] }).click();
+    await dialog.getByRole("button", { name: courseEditor.statusAction[to], exact: true }).click();
   // The editor has a status line per panel; this is the one in the Status panel.
   await expect(
-    page.getByRole("region", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
+    page.getByRole("group", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
   ).toHaveText(courseEditor.statusChanged(courseEditor.statusName[to]));
 }
 
@@ -317,7 +331,7 @@ test("[FR-CAT-04] a draft course answers not found and is left out of the sitema
 }) => {
   const response = await page.goto(`/courses/${DRAFT_SLUG}`);
   expect(response?.status()).toBe(404);
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  await expectNoindex(page, `/courses/${DRAFT_SLUG}`);
 
   const sitemap = await (await request.get("/sitemap.xml")).text();
   expect(sitemap).toContain(`${ORIGIN}/courses/${SLUG}`);
@@ -355,6 +369,6 @@ test("the three pages' screens are saved for the design review", () => {
 test("[FR-SEO-01] sign-in and the admin door ask not to be indexed", async ({ page }) => {
   for (const path of ["/sign-in", "/admin", "/admin/setup", "/admin/verify"]) {
     await page.goto(path);
-    await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", /noindex/);
+    await expectNoindex(page, path);
   }
 });

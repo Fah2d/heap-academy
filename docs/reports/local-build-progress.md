@@ -109,6 +109,8 @@ Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origi
 - Not pushed: the base 290cc7e is unpushed and belongs to the other session.
 - Next: the device store (IndexedDB with memory fallback), the sync orchestration, and server-rendered progress for a signed-in learner; then WP-6.2 and 6.3 part 2.
 
+## Session of 2026-11-25 (from about 04:58), journey fixes carried to 5.1
+
 ## Session of 2026-11-25 (from about 00:12), in `night-a`, on the new branch `wp/5.4-progress-preview`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the runtime branches and `wp/5.2`, `wp/5.3` are 0 behind it and equal to `origin`. Task 2: nothing new that does not need the owner. This file is `wp/5.3-workspace-phone`'s copy (the newest) with `wp/5.1-catalog`'s `night-b` sections added in time order and this section on top.
@@ -181,6 +183,12 @@ Part 56 took about 10 minutes, so the run went on.
 - Not run: stack e2e and `pnpm test:db` (no Docker).
 - WP-5.1 owner decision 6 (error text) is in `src/messages/system.ts`; decision 5 (lint bypass) is branch `wp/fix-lint-template-import` (2 commits ahead of `main`).
 - Left in this checkout, not committed: part 2 of WP-6.1 (progress server module, completion store). Its test "refuses an upper-case ID" fails: next task.
+
+## Session of 2026-11-24 (from about 23:10), in `night-b`, CI fixes for #13 (`wp/2.2-sign-in`)
+
+- Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
+- `pnpm verify`: exit 0. Not run: the stack e2e (no Docker here), so the fix is reasoned from the code and CI has to confirm it.
+- Next: merge `origin/main` into the later branches in order if it has moved, then WP-6.1 part 2.
 
 ## Session of 2026-11-24 (evening), in `night-b`, on `wp/2.2-sign-in`
 

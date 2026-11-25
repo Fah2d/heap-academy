@@ -5,6 +5,7 @@ import { AccountControl, accountLessons, guestInvitation } from "@/features/auth
 import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
 import { AccountLessonsProvider, GuestInvitationProvider } from "@/features/progress";
 import { fontVariables, SiteShell } from "@/features/shell";
+import { CspNonceMeta } from "@/features/system";
 import { documentAttributes, LOCALE } from "@/messages/locale";
 import { shell } from "@/messages/shell";
 import "@/ui/styles.css";
@@ -35,6 +36,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const [invitation, lessonIds] = await Promise.all([guestInvitation(), accountLessons()]);
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
+      <head>
+        <CspNonceMeta />
+      </head>
       <body className="flex flex-col">
         <AccountLessonsProvider lessonIds={lessonIds}>
           <GuestInvitationProvider invitation={invitation}>
