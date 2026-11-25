@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 04:40), in `night-b`, second CI fix for #13
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- `e2e` still failed on 3ce8e49. Two faults in the stack journeys fixed (an unscoped `alert` locator; T-11 comparing whole response bodies with per-request nonces). Details: `docs/reports/pull-requests/WP-2.2.md`.
+- Run here on the production build with a fake auth server (no Docker): stack 3/3, gallery 23/23, chromium 37/37. Real Supabase Auth: not verified.
+- Chromium works in the sandbox with `--single-process`, one test per process, and the proxy set for `challenges.cloudflare.com`.
+- Push: from 05:38.
+- Next: when #13 is green or merged, merge it forward into 2.3 and later branches; 2.3's journey files need the same two fixes if they repeat them. Blocked: account deletion.
+
 ## Session of 2026-11-25 (from about 02:14), in `night-a`, on `wp/5.4-progress-preview`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner.
@@ -139,6 +148,25 @@ Part 56 took about 10 minutes, so the run went on.
 - Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
 - `pnpm verify`: exit 0. Not run: the stack e2e (no Docker here), so the fix is reasoned from the code and CI has to confirm it.
 - Next: merge `origin/main` into the later branches in order if it has moved, then WP-6.1 part 2.
+
+## Session of 2026-11-24 (from about 23:10), in `night-a`, on `wp/5.2-workspace-laptop`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge; the three runtime branches are 0 behind it. Task 2: nothing new that does not need the owner. Speed mode allows one review round, already done on WP-5.2, and no design review, so this run finished WP-5.2 instead of a second round. This file is `wp/5.2-workspace-laptop`'s copy with this section added on top.
+
+### Task 3, part 56 done: WP-5.2 part 4, on `wp/5.2-workspace-laptop`
+
+- 8c2a19f: a journey for output over the limit (Python restarting with the reason, then the next Run works) with axe and screens. Its 375 px screen was 50,737 px tall: below 768 px the console grew with every printed line. The console now scrolls inside `--workspace-console-max` (24 rem) below 768 px; the new height assertion failed without the fix (`Received: 49207`) and passes with it.
+- Decision 14's spec change written into `04-content-system.md` section 7 (a fenced `python` block), marked approved by the owner on 2026-11-24. Decisions 10 to 18 are treated as approved under the owner's standing approval of recommended defaults, restated at this run's start; listed in the description.
+- `pnpm verify`: exit 0, `Test Files  104 passed (104)`, `Tests  1942 passed (1942)`. `pnpm build` with the fake public values: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser: 15 of 15 journeys passed in Chromium, one per process, against `next dev --webpack` on port 3264. The development server was stopped by this run.
+- Description: shortened to 59 lines (speed mode), with the Delivery Gate report.
+- Not run: Firefox and WebKit (speed mode), `pnpm test:db` (no database change), the real route with seeded data.
+- Push: `wp/5.2-workspace-laptop`, held until 60 minutes after the last push (23:09).
+
+### Owner: run this (part 56)
+
+1. `gh pr edit <number> --body-file docs/reports/pull-requests/WP-5.2.md` on `wp/5.2-workspace-laptop`, or open the pull request with that body. WP-5.2 is ready for review apart from WP-5.1 merging first (decision 10).
+2. `git stash drop stash@{0}` when convenient: its content is all in b386309.
 
 ## Session of 2026-11-24 (from about 22:50), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, then `wp/5.2-workspace-laptop`
 
