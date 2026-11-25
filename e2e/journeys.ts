@@ -7,37 +7,45 @@ import { learnerErrorHeading, workspace as words } from "../src/messages/workspa
 // WP-7.4: journeys J-1 to J-4 (docs/spec/01-requirements.md section 2), each
 // written once and walked at phone and laptop sizes (NFR-COMPAT-03), in each
 // engine (NFR-COMPAT-01). Each takes the lesson it walks: the development-only
-// page /dev/workspace, which holds the example lesson with no database, or
-// the seeded sample lesson on its real address, which needs the local stack
-// (e2e/lesson-route-journey.spec.ts). Both hold the example lesson of
-// docs/spec/04-content-system.md section 7. On a phone (below 768 px) the
-// workspace shows one view at a time, so a journey taps to the view it
-// needs; on a laptop every part is on the screen and it clicks.
-// e2e/journeys-phone.spec.ts and e2e/journeys-wide-runtime.spec.ts choose
-// the sizes and engines for the development page.
+// page /dev/workspace, which holds the example lesson with no database, or a
+// lesson on its real address, which needs the local stack
+// (e2e/lesson-route-journey.spec.ts writes two). Every target has the example
+// lesson's title or its own, and the example lesson's starter, wrong answer,
+// solution and test cases (docs/spec/04-content-system.md section 7). On a
+// phone (below 768 px) the workspace shows one view at a time, so a journey
+// taps to the view it needs; on a laptop every part is on the screen and it
+// clicks. e2e/journeys-phone.spec.ts, e2e/journeys-wide-runtime.spec.ts and
+// e2e/lesson-route-journey.spec.ts choose the sizes and engines.
 
 export const READY_MS = 60_000;
 
 export type Device = { phone: boolean };
 
-/** The lesson a journey walks, and the lesson after it, if any. */
+/**
+ * The lesson a journey walks. `course` is the back link's course, checked
+ * where the database supplies it. `next` is the lesson after it, or `null` at
+ * the end of a course; `follow` says whether that lesson exists to be opened.
+ */
 export type Target = {
   address: string;
-  next: { href: string; title: string } | null;
+  title: string;
+  xp: number;
+  course: { title: string; slug: string } | null;
+  next: { href: string; title: string; follow: boolean } | null;
 };
 
+// workspace-gallery.tsx gives the example lesson 10 XP; its Next names a
+// lesson that is not on the development page, so only its address is checked.
 export const DEV_WORKSPACE: Target = {
   address: "/dev/workspace",
+  title: EXAMPLE_LESSON.title,
+  xp: 10,
+  course: null,
   next: {
     href: `/learn/${workspaceGallery.courseSlug}/${workspaceGallery.next.slug}`,
     title: workspaceGallery.next.title,
+    follow: false,
   },
-};
-
-// supabase/seed.sql: the sample course's one lesson, so nothing comes after it.
-export const SEEDED_LESSON: Target = {
-  address: "/learn/sample-course/say-hello-by-name",
-  next: null,
 };
 
 const python = (page: Page) => page.locator("[data-python]");
@@ -106,7 +114,12 @@ export async function videoToFirstRun(page: Page, device: Device, target: Target
     await route.continue();
   });
   await page.goto(target.address);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(EXAMPLE_LESSON.title);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(target.title);
+  if (target.course !== null) {
+    const back = page.getByRole("link", { name: words.backToCourse(target.course.title) });
+    await expect(back).toBeVisible();
+    await expect(back).toHaveAttribute("href", `/courses/${target.course.slug}`);
+  }
   if (device.phone) {
     await expect(view(page, words.viewLesson)).toHaveAttribute("aria-selected", "true");
   }
@@ -131,7 +144,7 @@ export async function videoToFirstRun(page: Page, device: Device, target: Target
 
 // J-2: Run, Check, a failing test case with expected and actual output, a
 // fix, a pass, the completion moment, and Next to the following lesson. The
-// last lesson of a course has no Next; its way on is the course page.
+// last lesson of a course shows Next disabled, not hidden (FR-WSP-11).
 export async function completeALesson(page: Page, device: Device, target: Target) {
   await page.goto(target.address);
   await ready(page);
@@ -157,16 +170,24 @@ export async function completeALesson(page: Page, device: Device, target: Target
   await write(page, EXAMPLE_LESSON.solution, device);
   await press(button(page, words.check), device);
   await expect(summary).toHaveText(words.summary(2, 2));
-  await expect(page.locator("[data-completion]")).toHaveText(words.completeFirst(10));
-  if (target.next === null) {
-    await expect(page.getByRole("link", { name: new RegExp(`^${words.next}: `) })).toHaveCount(0);
-  } else {
-    const next = page.getByRole("link", { name: words.neighbour(words.next, target.next.title) });
-    await expect(next).toBeVisible();
-    await expect(next).toHaveAttribute("href", target.next.href);
-  }
+  await expect(page.locator("[data-completion]")).toHaveText(words.completeFirst(target.xp));
   await noSidewaysScroll(page);
   await noAxeViolations(page);
+  if (target.next === null) {
+    await expect(page.getByRole("link", { name: new RegExp(`^${words.next}: `) })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: words.noNext })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    return;
+  }
+  const next = page.getByRole("link", { name: words.neighbour(words.next, target.next.title) });
+  await expect(next).toBeVisible();
+  await expect(next).toHaveAttribute("href", target.next.href);
+  if (!target.next.follow) return;
+  await press(next, device);
+  await expect(page).toHaveURL(target.next.href);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(target.next.title);
 }
 
 // J-3: a program that calls input() twice. The console asks for each answer
@@ -179,6 +200,11 @@ export async function programThatAsksForInput(page: Page, device: Device, target
   await showView(page, words.viewOutput, device);
   const batch = page.getByLabel(words.batchLabel);
   const interactive = !(await batch.isVisible());
+  // Chromium can pause a program for input, so the Input field showing there
+  // is a fault.
+  if (page.context().browser()?.browserType().name() === "chromium") {
+    expect(interactive).toBe(true);
+  }
   if (!interactive) await batch.fill("4\n2");
   await press(button(page, words.run), device);
   if (interactive) {
