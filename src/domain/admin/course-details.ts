@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../schema";
 
 // A course's details as the owner writes them (docs/spec/04-content-system.md
 // section 1.1; FR-ADM-03). The editor checks them before it sends, to name the

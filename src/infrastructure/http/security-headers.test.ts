@@ -4,6 +4,7 @@ import {
   createNonce,
   CSP_REPORT_PATH,
   IMMUTABLE,
+  nonceFromPolicy,
   reportingEndpoints,
   RUNTIME_STATIC_POLICY,
   runtimeHeaders,
@@ -202,5 +203,20 @@ describe("the runtime path's static policy", () => {
       "/_runtime/:path*",
       "/_runtime/worker/:path+.js",
     ]);
+  });
+});
+
+describe("nonceFromPolicy [NFR-SEC-02]", () => {
+  it("reads back the nonce the policy was made with", () => {
+    const nonce = createNonce();
+    expect(
+      nonceFromPolicy(contentSecurityPolicy({ nonce, development: false, secure: true })),
+    ).toBe(nonce);
+  });
+
+  it("finds none in a missing or nonce-free policy", () => {
+    expect(nonceFromPolicy(null)).toBeUndefined();
+    expect(nonceFromPolicy("default-src 'self'")).toBeUndefined();
+    expect(nonceFromPolicy("script-src 'nonce-a b'")).toBeUndefined();
   });
 });

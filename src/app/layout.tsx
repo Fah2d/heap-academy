@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { AccountControl } from "@/features/auth";
 import { fontVariables, SiteShell } from "@/features/shell";
+import { CspNonceMeta } from "@/features/system";
 import { documentAttributes, LOCALE } from "@/messages/locale";
 import { shell } from "@/messages/shell";
 import "@/ui/styles.css";
@@ -25,6 +26,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const { lang, dir } = documentAttributes(LOCALE);
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
+      <head>
+        <CspNonceMeta />
+      </head>
       <body className="flex flex-col">
         <SiteShell account={<AccountControl />}>{children}</SiteShell>
       </body>

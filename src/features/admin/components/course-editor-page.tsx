@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { z } from "zod";
+import { z } from "@/domain/schema";
 import { ADMIN_PATHS } from "@/domain/admin/gate";
 import { createSessionClient } from "@/infrastructure/db/session-client";
 import { courseEditor as words } from "@/messages/admin";
@@ -13,6 +13,7 @@ import {
   saveCourse,
   setCourseStatus,
 } from "../server/structure-actions";
+import { createLesson } from "../server/lesson-actions";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 
@@ -48,6 +49,7 @@ export async function CourseEditorPage({ params }: { params: Promise<{ id: strin
           saveChapter={saveChapter}
           deleteChapter={deleteChapter}
           reorder={reorder}
+          createLesson={createLesson}
         />
       )}
     </section>
