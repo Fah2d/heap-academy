@@ -2,6 +2,35 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 03:15), in `night-a`, on the new branch `wp/7.2-a11y-perf`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-a7) asked; it works on `wp/6.3-profile-page` there, with no file overlap.
+
+### Task 3, part 63 done: WP-7.2 part 1, the admin gallery's axe checks
+
+- Base: `wp/5.4-progress-preview` at a15f858 (it holds the 2.2 to 5.4 line and the runtime branches).
+- The dev server on port 3265 had hung since 02:31 while compiling, and the sandbox cannot stop it (`kill 99660 failed: operation not permitted`). Its `.next/dev/lock` was moved to `$TMPDIR/next-dev-lock-99660.json` so a new server could start. `next dev` here needs both `WATCHPACK_POLLING=true` and `NEXT_WATCH_POLL_INTERVAL_MS=1000`. Without them it fails on `EMFILE`, restarts in a loop ("The directory ... .next/dev was deleted"), or serves stale chunks.
+- `e2e/admin-gallery.spec.ts` had never passed (0 of 8): about 20 editors on one page made axe report `landmark-unique`. 1e95ee3 gives each state its own page at `/dev/admin?state=<state>`, and the spec runs axe on all 34 states.
+- Found by the gallery's first run:
+  - a28300c: saving an existing course's details did nothing. The strict schema refused the whole course handed to the form, and the check reported that as a hidden sixth outcome. This is WP-4.1 code.
+  - 51c9b24: a pending Stop left the page, so its announcement named nothing and focus fell to `body`. Stop now gives focus back to Validate. A renamed chapter keeps its heading.
+- Code review 1: CHANGES REQUIRED, 1 BLOCKER, 6 MINOR. 8c41dae fixes the blocker and four minors; two minors are answered without change. The fix makes axe check every state as the spec leaves it. That found two more spent announcements (course and lesson status), and the `Button` primitive now removes them when it unmounts. Report: `docs/reports/reviews/WP-7.2/code-review-1.md`.
+- `pnpm verify` on 8c41dae: exit 0, `Test Files  130 passed (130)`, `Tests  2326 passed (2326)`. `pnpm build` on 8c41dae: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser, Chromium, one test per process, on 8c41dae: `admin-gallery.spec.ts` 46 of 46, `workspace-runtime.spec.ts` 17 of 17.
+- Not run: the stack journeys and `pnpm test:db` (no Docker; no database change), Firefox and WebKit (speed mode), Lighthouse (no preview deployment of this branch).
+- Description: `docs/reports/pull-requests/WP-7.2.md` (43 lines).
+- Push: `wp/7.2-a11y-perf`, once 60 minutes had passed since the last push (about 03:13).
+
+### Owner: run this (part 63)
+
+1. Open a draft pull request from `wp/7.2-a11y-perf` with `docs/reports/pull-requests/WP-7.2.md` as its body.
+2. a28300c fixes WP-4.1's course editor. If WP-4.1 merges before this, cherry-pick it there.
+3. Stop the dev servers the sandbox cannot stop, from a terminal outside the sandbox: `lsof -ti tcp:3264,3265,3271 | xargs kill`.
+
+### Next
+
+- WP-7.2 part 2: axe on the workspace states the journeys miss, the keyboard walkthrough, the reduced-motion check, the throttled load profile, and `docs/reports/day-7-quality.md`.
+
 ## Session of 2026-11-25 (from about 02:14), in `night-a`, on `wp/5.4-progress-preview`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner.
