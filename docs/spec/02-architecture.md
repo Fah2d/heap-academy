@@ -341,6 +341,7 @@ Every mutation is a server action built with one wrapper. The wrapper provides, 
 | Action | Purpose | Caller |
 |---|---|---|
 | `requestEmailCode`, `verifyEmailCode`, `signOut` | Sign-in with an email code | Anyone |
+| `startGoogleSignIn` | Start Google sign-in: validate the return path, keep it in a cookie, and send the browser to the provider | Anyone |
 | `recordCompletion` | Store a completion (idempotent) | Signed in |
 | `mergeProgress` | Merge completions from the device (idempotent) | Signed in |
 | `updateProfile` | Display name, time zone | Signed in |
@@ -349,6 +350,8 @@ Every mutation is a server action built with one wrapper. The wrapper provides, 
 | `createLesson`, `saveLesson`, `setLessonStatus`, `deleteLesson` | Lessons | Admin |
 | `renderInstructionsPreview` | Markdown to elements, same renderer as learners see | Admin |
 | `exportCourse`, `importLesson` | JSON out and in (FR-ADM-12) | Admin |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.2):** `startGoogleSignIn` is a server action. The provider's allow-list holds the bare `/auth/callback`, so the return path waits in a cookie and not in the callback address.
 
 Rules:
 

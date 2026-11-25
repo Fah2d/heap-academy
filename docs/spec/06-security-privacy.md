@@ -162,6 +162,7 @@ Accepted knowingly. Each is recorded in an ADR and revisited at the trigger.
 | The privacy policy and terms are approved by the owner, not yet by a lawyer. | Eight days. | Before any paid feature, or at the first formal request about data. |
 | Production runs on Vercel Hobby, whose terms allow only personal or non-commercial use, and Vercel may disable a Hobby project without notice. | The owner chose zero cost (ADR-0029). The site sells nothing. | Any trigger in ADR-0029. |
 | A determined attacker can use up a free-tier limit from many addresses and take the site offline for up to 30 days (T-25). | The owner chose zero cost (ADR-0029). The per-address rule slows this down. | The first time it happens, or a trigger in ADR-0029. |
+| A sign-in code request for a new address costs the auth service a password hash and one for a known address does not, so the response time may tell them apart (not measured). | The responses are the same in content; the auth service owns the timing. Proposed in WP-2.2 and approved by the owner on 2026-11-24. | A measured difference, or a feature that makes account existence sensitive. |
 | The specification, the security design, and the code are public. | Security rests on the controls, which are tested. Zero cost needs a public repository (ADR-0029). | A control that depends on secrecy is proposed. |
 
 ## 7. Privacy

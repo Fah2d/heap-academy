@@ -67,6 +67,22 @@ describe("content security policy", () => {
     );
   });
 
+  it("[NFR-SEC-02] [FR-AUTH-06] lets the sign-in page alone frame the bot challenge", () => {
+    expect(directives(production).has("frame-src")).toBe(false);
+    const signIn = directives(
+      contentSecurityPolicy({
+        nonce: "abc123",
+        development: false,
+        secure: true,
+        signInPage: true,
+      }),
+    );
+    expect(signIn.get("frame-src")).toEqual(["https://challenges.cloudflare.com"]);
+    // Everything else is the same policy.
+    signIn.delete("frame-src");
+    expect(signIn).toEqual(directives(production));
+  });
+
   it("[NFR-SEC-02] does not ask a plain-HTTP local server to upgrade requests", () => {
     const local = contentSecurityPolicy({ nonce: "n", development: false, secure: false });
     expect(directives(local).has("upgrade-insecure-requests")).toBe(false);
