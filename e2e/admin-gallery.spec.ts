@@ -1,7 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { adminArea, courseEditor, dashboard, secondStep, structure } from "../src/messages/admin";
+import {
+  adminArea,
+  courseEditor,
+  dashboard,
+  lessonEditor,
+  secondStep,
+  structure,
+} from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
+import { lessonContent } from "../src/messages/lesson";
 import { saveScreen } from "./screens";
 
 // The admin states the J-12 journey cannot reach (WP-2.3 design review 1),
@@ -163,3 +171,117 @@ for (const width of [375, 800]) {
     await saveScreen(page, "admin-narrow", width, { workPackage: "WP-2.3" });
   });
 }
+
+test("[FR-ADM-04] [FR-ADM-10] the lesson editor's states, at 1280 px", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
+
+  // Saves that succeed, and a preview that renders as the learner sees it.
+  const editing = page.getByRole("region", { name: adminGallery.lessonEditor });
+  await expect(editing.getByTestId("instructions-preview").getByRole("heading")).toHaveText(
+    adminGallery.previewHeading,
+  );
+  await editing.getByLabel(lessonEditor.titleLabel).fill("Renamed");
+  await expect(editing.getByText(lessonEditor.unsaved)).toBeVisible();
+  await editing.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(editing.getByRole("status").filter({ hasText: lessonEditor.saved })).toBeVisible();
+  await expect(editing.getByText(lessonEditor.allSaved)).toBeVisible();
+  await shot("admin-lesson-editor-saved");
+
+  // A refused save and a preview that fails keep what was typed.
+  const refusing = page.getByRole("region", { name: adminGallery.lessonRefusing });
+  await refusing.getByLabel(lessonEditor.instructionsLabel).fill("## Changed");
+  await expect(refusing.getByText(lessonEditor.previewFailed)).toBeVisible();
+  await refusing.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(refusing.getByRole("alert").first()).toContainText(lessonEditor.failure.stale);
+  await expect(refusing.getByLabel(lessonEditor.instructionsLabel)).toHaveValue("## Changed");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-refused");
+
+  // A published lesson says how its code changes are saved; a save that never answers stays pending.
+  const published = page.getByRole("region", { name: adminGallery.lessonPublished });
+  await expect(published.getByText(lessonEditor.publishedCodeNote)).toBeVisible();
+  await published.getByLabel(lessonEditor.titleLabel).fill("Pending");
+  await published.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(published.getByRole("button", { name: lessonEditor.saving })).toBeVisible();
+  await shot("admin-lesson-editor-pending");
+
+  // An empty lesson: the empty preview and no wrong answers; invalid fields are named.
+  const empty = page.getByRole("region", { name: adminGallery.lessonEmpty });
+  await expect(empty.getByText(lessonEditor.previewEmpty)).toBeVisible();
+  await expect(empty.getByText(lessonEditor.wrongAnswersEmpty)).toBeVisible();
+  await empty.getByLabel(lessonEditor.titleLabel).fill("");
+  await empty.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(empty.getByText(lessonEditor.fieldInvalid.title)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-empty");
+});
+
+test("[FR-ADM-04] [FR-ADM-10] the lesson editor's failures, limits and learner content, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.2" });
+
+  // Three wrong answers: no Add; a save that fails says so and keeps the text.
+  const full = page.getByRole("region", { name: adminGallery.lessonFull });
+  await expect(full.getByRole("button", { name: lessonEditor.addWrongAnswer })).toHaveCount(0);
+  await full.getByLabel(lessonEditor.titleLabel).fill("Kept");
+  await full.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(full.getByRole("alert").first()).toContainText(lessonEditor.failure.unavailable);
+  await expect(full.getByLabel(lessonEditor.titleLabel)).toHaveValue("Kept");
+  await shot("admin-lesson-editor-save-failed");
+
+  // A taken address is said once, under its field.
+  const taken = page.getByRole("region", { name: adminGallery.lessonTaken });
+  await taken.getByRole("button", { name: lessonEditor.save }).click();
+  await expect(taken.getByText(lessonEditor.failure.slug_taken)).toHaveCount(1);
+  await expect(taken.getByLabel(lessonEditor.slugLabel)).toHaveAttribute("aria-invalid", "true");
+  await shot("admin-lesson-editor-slug-taken");
+
+  // A starter over the limit: the editor itself is invalid, focused and described.
+  const tooLong = page.getByRole("region", { name: adminGallery.lessonTooLong });
+  await tooLong.getByRole("button", { name: lessonEditor.save }).click();
+  const starter = tooLong.getByRole("textbox", { name: lessonEditor.starterLabel });
+  await expect(starter).toHaveAttribute("aria-invalid", "true");
+  await expect(starter).toBeFocused();
+  await expect(tooLong.getByText(lessonEditor.fieldInvalid.starterCode)).toBeVisible();
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await shot("admin-lesson-editor-code-invalid");
+
+  // The editor's chrome is the design's, not CodeMirror's light theme
+  // (DESIGN.md section 4.4): a focused editor has the 2 px focus ring, the
+  // gutter sits on the editor surface, and the text is in the mono face.
+  const editor = starter.locator("xpath=ancestor::*[contains(@class, 'cm-editor')][1]");
+  const chrome = await editor.evaluate((element) => {
+    const surface = getComputedStyle(element).backgroundColor;
+    const gutters = element.querySelector(".cm-gutters");
+    const scroller = element.querySelector(".cm-scroller");
+    const style = getComputedStyle(element);
+    return {
+      surface,
+      gutter: gutters === null ? "" : getComputedStyle(gutters).backgroundColor,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+      font: scroller === null ? "" : getComputedStyle(scroller).fontFamily,
+      dark: element.classList.contains("cm-light") === false,
+    };
+  });
+  expect(chrome.gutter).toBe(chrome.surface);
+  expect(chrome.outlineStyle).toBe("solid");
+  expect(chrome.outlineWidth).toBe("2px");
+  expect(chrome.font).not.toBe("monospace");
+  expect(chrome.dark).toBe(true);
+
+  // A lesson's instructions as learners see them.
+  const content = page.getByRole("region", { name: adminGallery.lessonContent });
+  await expect(
+    content.getByRole("group", { name: lessonContent.codeBlock("Python") }),
+  ).toBeVisible();
+  await expect(content.getByRole("region", { name: lessonContent.table })).toBeVisible();
+  await expect(content.getByRole("button", { name: lessonContent.copyCode })).toBeVisible();
+  await expect(content.getByRole("link")).toContainText(lessonContent.opensInNewTab);
+  await shot("admin-lesson-content");
+});

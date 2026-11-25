@@ -180,21 +180,34 @@ export async function deleteChapter(db: SessionClient, id: string): Promise<Outc
   return { ok: true, value: null };
 }
 
-/** Moves one course or chapter a place, rewriting the whole order in one statement. */
+/** What a move acts on: a course, or a chapter or lesson inside its parent. */
+export type MoveTarget =
+  | { kind: "course"; id: string }
+  | { kind: "chapter"; courseId: string; id: string }
+  | { kind: "lesson"; chapterId: string; id: string };
+
+/** Moves one course, chapter or lesson a place, rewriting the whole order in one statement. */
 export async function move(
   db: SessionClient,
-  target: { kind: "course"; id: string } | { kind: "chapter"; courseId: string; id: string },
+  target: MoveTarget,
   direction: Direction,
 ): Promise<Outcome<null>> {
   const query =
     target.kind === "course"
       ? db.from("courses").select("id").order("position").order("title")
-      : db
-          .from("chapters")
-          .select("id")
-          .eq("course_id", target.courseId)
-          .order("position")
-          .order("id");
+      : target.kind === "chapter"
+        ? db
+            .from("chapters")
+            .select("id")
+            .eq("course_id", target.courseId)
+            .order("position")
+            .order("id")
+        : db
+            .from("lessons")
+            .select("id")
+            .eq("chapter_id", target.chapterId)
+            .order("position")
+            .order("id");
   const { data, error } = await query;
   if (error !== null || !Array.isArray(data)) return { ok: false, error: structureFailure(error) };
   const order = moveInOrder(
@@ -206,7 +219,9 @@ export async function move(
   const { error: moveError } =
     target.kind === "course"
       ? await db.rpc("reorder_courses", { p_course_ids: order })
-      : await db.rpc("reorder_chapters", { p_course_id: target.courseId, p_chapter_ids: order });
+      : target.kind === "chapter"
+        ? await db.rpc("reorder_chapters", { p_course_id: target.courseId, p_chapter_ids: order })
+        : await db.rpc("reorder_lessons", { p_chapter_id: target.chapterId, p_lesson_ids: order });
   if (moveError !== null) return { ok: false, error: structureFailure(moveError) };
   return { ok: true, value: null };
 }

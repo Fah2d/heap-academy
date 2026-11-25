@@ -8,3 +8,4 @@ export { default as ErrorFilled } from "@carbon/icons-react/es/ErrorFilled.js";
 export { default as InformationFilled } from "@carbon/icons-react/es/InformationFilled.js";
 export { default as Play } from "@carbon/icons-react/es/Play.js";
 export { default as WarningAltFilled } from "@carbon/icons-react/es/WarningAltFilled.js";
+export { default as Launch } from "@carbon/icons-react/es/Launch.js";

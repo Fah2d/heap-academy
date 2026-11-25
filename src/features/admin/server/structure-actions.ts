@@ -100,7 +100,9 @@ export const reorder = defineAction({
         services.db,
         input.kind === "course"
           ? { kind: "course", id: input.id }
-          : { kind: "chapter", courseId: input.courseId, id: input.id },
+          : input.kind === "chapter"
+            ? { kind: "chapter", courseId: input.courseId, id: input.id }
+            : { kind: "lesson", chapterId: input.chapterId, id: input.id },
         input.direction,
       ),
     ),

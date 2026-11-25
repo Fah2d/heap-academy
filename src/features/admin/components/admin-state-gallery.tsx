@@ -3,10 +3,13 @@
 import type { ReactNode } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
-import type { EditorCourse } from "../types";
+import type { LessonDocument } from "@/content/markdown";
+import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
+import { LessonContent } from "@/features/workspace";
+import { LessonEditor } from "./lesson-editor";
 import { NewCourseForm } from "./new-course-form";
 import { SecondStepForm } from "./second-step-form";
 import { SetupFlow } from "./setup-flow";
@@ -38,6 +41,125 @@ const SAVED_AT = "2026-11-21T08:10:00.000000+00:00";
 
 const COURSE_ID = "5eed0000-0000-4000-8000-000000000001";
 
+const sampleLesson: EditorLessonDetail = {
+  id: "5eed0000-0000-4000-8000-000000000201",
+  courseId: COURSE_ID,
+  courseTitle: m.sampleCourse,
+  chapterId: "5eed0000-0000-4000-8000-000000000101",
+  chapters: [
+    { id: "5eed0000-0000-4000-8000-000000000101", title: m.sampleChapter },
+    { id: "5eed0000-0000-4000-8000-000000000102", title: m.secondChapter },
+  ],
+  title: m.sampleLesson,
+  slug: "sample-lesson",
+  xp: 10,
+  status: "draft",
+  instructionsMd: m.sampleInstructions,
+  hints: [m.sampleHint],
+  starterCode: m.sampleStarter,
+  solutionCode: m.sampleSolution,
+  wrongAnswers: [{ label: m.sampleWrongLabel, code: m.sampleWrongCode }],
+  testCount: 2,
+  loadedAt: "2026-11-22T08:00:00.000000+00:00",
+};
+
+const emptyLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  instructionsMd: "",
+  hints: [],
+  starterCode: "",
+  solutionCode: "",
+  wrongAnswers: [],
+  testCount: 0,
+};
+
+/** What the server's renderer gives for the sample instructions. */
+const samplePreview: LessonDocument = {
+  blocks: [
+    { kind: "heading", level: 2, children: [{ kind: "text", text: m.previewHeading }] },
+    {
+      kind: "paragraph",
+      children: [
+        { kind: "text", text: m.previewText },
+        { kind: "code", text: m.previewCode },
+        { kind: "text", text: m.previewTail },
+      ],
+    },
+  ],
+};
+
+const fullLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  wrongAnswers: [
+    { label: m.sampleWrongLabel, code: m.sampleWrongCode },
+    { label: m.sampleWrongLabel2, code: m.sampleWrongCode2 },
+    { label: m.sampleWrongLabel3, code: m.sampleWrongCode3 },
+  ],
+};
+
+/** A starter over the 10,000-character limit, so Save names the field. */
+const tooLongLesson: EditorLessonDetail = {
+  ...sampleLesson,
+  starterCode: m.sampleStarter.repeat(300),
+};
+
+const codeText = [
+  m.contentCodeName,
+  m.contentCodeAssign,
+  m.contentCodeInput,
+  m.contentCodeOpen,
+  m.contentCodePrompt,
+  m.contentCodeClose,
+  m.contentCodeComment,
+].join("");
+
+/** Every construct a lesson's instructions may hold, as the server renders it. */
+const learnerContent: LessonDocument = {
+  blocks: [
+    { kind: "heading", level: 2, children: [{ kind: "text", text: m.contentHeading }] },
+    { kind: "paragraph", children: [{ kind: "text", text: m.contentText }] },
+    {
+      kind: "code_block",
+      language: "python",
+      python: true,
+      text: codeText,
+      runs: [
+        { text: m.contentCodeName },
+        { text: m.contentCodeAssign },
+        { text: m.contentCodeInput, kind: "builtin" },
+        { text: m.contentCodeOpen },
+        { text: m.contentCodePrompt, kind: "string" },
+        { text: m.contentCodeClose },
+        { text: m.contentCodeComment, kind: "comment" },
+      ],
+    },
+    {
+      kind: "table",
+      align: ["start", "start"],
+      head: [[{ kind: "text", text: m.tableFunction }], [{ kind: "text", text: m.tableReturns }]],
+      rows: [
+        [[{ kind: "code", text: m.tableInput }], [{ kind: "text", text: m.tableInputReturns }]],
+        [[{ kind: "code", text: m.tableLen }], [{ kind: "text", text: m.tableLenReturns }]],
+      ],
+    },
+    {
+      kind: "quote",
+      children: [{ kind: "paragraph", children: [{ kind: "text", text: m.contentQuote }] }],
+    },
+    {
+      kind: "paragraph",
+      children: [
+        { kind: "text", text: m.contentLinkBefore },
+        {
+          kind: "link",
+          href: "https://docs.python.org/3/library/functions.html#input",
+          children: [{ kind: "text", text: m.contentLink }],
+        },
+      ],
+    },
+  ],
+};
+
 const refusingCourse: EditorCourse = {
   id: COURSE_ID,
   slug: "sample-course",
@@ -54,6 +176,7 @@ const refusingCourse: EditorCourse = {
       loadedAt: "2026-11-21T08:00:00.000000+00:00",
       lessons: [
         { id: "5eed0000-0000-4000-8000-000000000201", title: m.sampleLesson, status: "draft" },
+        { id: "5eed0000-0000-4000-8000-000000000202", title: m.secondLesson, status: "draft" },
       ],
     },
     {
@@ -66,7 +189,7 @@ const refusingCourse: EditorCourse = {
   ],
 };
 
-export function AdminStateGallery() {
+export function AdminStateGallery({ nonce }: { nonce: string }) {
   return (
     <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-3">
@@ -114,6 +237,7 @@ export function AdminStateGallery() {
           saveChapter={refuse("unavailable")}
           deleteChapter={refuse("unavailable")}
           reorder={refuse("cannot_move")}
+          createLesson={refuse("unavailable")}
           refresh={stay}
         />
       </Example>
@@ -125,6 +249,7 @@ export function AdminStateGallery() {
           saveChapter={never}
           deleteChapter={never}
           reorder={never}
+          createLesson={never}
           refresh={stay}
         />
       </Example>
@@ -136,6 +261,7 @@ export function AdminStateGallery() {
           saveChapter={never}
           deleteChapter={never}
           reorder={never}
+          createLesson={never}
           refresh={stay}
         />
       </Example>
@@ -147,6 +273,7 @@ export function AdminStateGallery() {
           saveChapter={succeed({ id: COURSE_ID })}
           deleteChapter={succeed(null)}
           reorder={succeed(null)}
+          createLesson={never}
           refresh={stay}
         />
       </Example>
@@ -175,6 +302,74 @@ export function AdminStateGallery() {
       </Example>
       <Example id="gallery-checking" title={m.codeChecking}>
         <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
+      </Example>
+      <Example id="gallery-lesson-editor" title={m.lessonEditor}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={succeed({ updatedAt: SAVED_AT })}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-refusing" title={m.lessonRefusing}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("stale")}
+          renderPreview={refuse("unavailable")}
+        />
+      </Example>
+      <Example id="gallery-lesson-published" title={m.lessonPublished}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={never}
+        />
+      </Example>
+      <Example id="gallery-lesson-full" title={m.lessonFull}>
+        <LessonEditor
+          lesson={fullLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("unavailable")}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-taken" title={m.lessonTaken}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("slug_taken")}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-too-long" title={m.lessonTooLong}>
+        <LessonEditor
+          lesson={tooLongLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          renderPreview={succeed(samplePreview)}
+        />
+      </Example>
+      <Example id="gallery-lesson-content" title={m.lessonContent}>
+        <div className="rounded-panel border border-border bg-surface p-4">
+          <LessonContent document={learnerContent} topHeadingLevel={3} />
+        </div>
+      </Example>
+      <Example id="gallery-lesson-empty" title={m.lessonEmpty}>
+        <LessonEditor
+          lesson={emptyLesson}
+          initialPreview={{ blocks: [] }}
+          nonce={nonce}
+          save={succeed({ updatedAt: SAVED_AT })}
+          renderPreview={succeed({ blocks: [] })}
+        />
       </Example>
     </div>
   );

@@ -131,6 +131,26 @@ export default defineConfig([
     },
   },
 
+  // Code a browser can load builds its schemas with the z that turns Zod's
+  // eval probe off (src/domain/schema.ts; NFR-SEC-02).
+  {
+    files: ["src/domain/**/*.{ts,tsx}", "src/features/*/components/**/*.{ts,tsx}"],
+    ignores: [...TESTS, "src/domain/schema.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "zod",
+              message: "Import z from @/domain/schema, which sets jitless for the script policy.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   { files: NEXT_DEFAULT_EXPORTS, rules: { "import/no-default-export": "off" } },
 
   { files: TESTS, rules: { "@typescript-eslint/no-non-null-assertion": "off" } },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type Identity, parseUserId } from "@/domain/auth/identity";
-import { ADMIN_PATHS, decideAdminGate } from "./gate";
+import { ADMIN_PATHS, adminCoursePath, adminLessonPath, decideAdminGate } from "./gate";
 
 const userId = parseUserId("00000000-0000-4000-8000-000000000002");
 if (userId === undefined) throw new Error("fixture user ID is not a UUID");
@@ -59,5 +59,14 @@ describe("decideAdminGate [FR-ADM-01, FR-ADM-02, T-19]", () => {
       setup: "/admin/setup",
       verify: "/admin/verify",
     });
+  });
+});
+
+describe("editor addresses", () => {
+  it("puts a course's and a lesson's ID in their editor's address", () => {
+    const id = "00000000-0000-4000-8000-000000000e01";
+    expect(adminCoursePath(id)).toBe(`/admin/courses/${id}`);
+    expect(adminLessonPath(id)).toBe(`/admin/lessons/${id}`);
+    expect(adminLessonPath("a/b")).toBe("/admin/lessons/a%2Fb");
   });
 });
