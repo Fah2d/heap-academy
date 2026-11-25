@@ -2,6 +2,79 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 10:40), in `night-a`, on the new branch `wp/7.1-security-canary`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-7.4 part 2b still waits for the 6.x branches (unchanged since 08:36), so this part started WP-7.1, whose T-21 canary walks the 5.x pages. This file is `wp/7.4-journeys`'s copy (the newest) with this section on top.
+
+### Task 3, part 68 done: WP-7.1 part 1, the T-21 canary test
+
+- Base: `wp/7.2-a11y-perf` at cf6dde1 (it holds the 2.2 to 5.4 line the canary walks; 7.1 and 7.2 may run beside each other).
+- 45d78bc: `e2e/canary-journey.spec.ts` (`stack` project). Tokens in a published lesson's solution and wrong answer, in a draft and an archived lesson, and in a draft course. A guest and a learner walk every page and admin address; every browser response, each page as HTML and as the router's payload, the files, and the Data API's content tables must hold no token. The client bundles must not hold the seed's wrong answer.
+- Code review 1: CHANGES REQUIRED, 1 BLOCKER, 1 MAJOR, 6 MINOR; fixed in 2dea27a (half of one minor left: a count race other specs already carry). The blocker: payload fetches read only the empty redirect to `?_rsc`. Report: `docs/reports/reviews/WP-7.1/code-review-1.md`.
+- `pnpm verify` on 2dea27a: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
+- Bundle test on a fresh `next build`: 1 passed; a planted wrong answer in `.next/static/chunks` and in `public/_runtime/worker` each failed it. A local `next start` (port 3321, stopped by this run) answered `text/x-component` behind the redirect for all 11 kinds of page walked.
+- Not run: the guest and learner walks (no Docker); their first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Found, not fixed: the admin feature's index re-exports the development gallery, so its sample programs ship in a production admin chunk (description, "Owner actions" 2).
+- Description: `docs/reports/pull-requests/WP-7.1.md` (48 lines).
+- Push: `wp/7.1-security-canary`, once 60 minutes had passed since the last push (10:38).
+
+### Owner: run this (part 68)
+
+1. Open a draft pull request from `wp/7.1-security-canary` with `docs/reports/pull-requests/WP-7.1.md` as its body; check CI's `e2e` job passes `canary-journey.spec.ts`.
+2. Decide on keeping the development galleries out of the feature indexes (description, "Owner actions" 2).
+
+### Next
+
+- WP-7.1 part 2: the dependency audit and the history secret scan, the auth provider settings check, T-14's Postgres counters. The firewall rule, the production advisor run and `pnpm infra:verify` against production need the owner. WP-7.4 part 2b once the 6.x branches hold J-5, J-6 and J-10.
+
+## Session of 2026-11-25 (from about 10:20), in `night-a`, on `wp/7.4-journeys`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. The 6.x branches on `origin` still hold no J-5, J-6 or J-10 spec (`wp/6.1-sync-wiring` and `wp/6.3-profile-page` changed at 08:33 and 08:36), so this part took what does not depend on them.
+
+### Task 3, part 67 done: WP-7.4 part 2a, J-1 to J-4 on real lesson addresses
+
+- 5a329ca: `e2e/journeys.ts` takes the lesson each journey walks; J-1 also walks the phone layout. `e2e/lesson-route-journey.spec.ts` (`stack` project) walks J-1 to J-4 as a guest on the production build at phone and laptop sizes.
+- Code review 2: CHANGES REQUIRED, 1 MAJOR, 6 MINOR; all fixed in 784e031. The spec now writes its own course with two published lessons, J-2 follows Next and the last lesson's Next is checked disabled, J-1 checks the back link from the database, the phone is a Pixel 7 at 375 px, and in Chromium J-3 must take the interactive input path. Report: `docs/reports/reviews/WP-7.4/code-review-2.md`.
+- `pnpm verify` on 784e031: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`. pnpm prints that its pre-run install could not take the store lock in this sandbox; the checks ran after it.
+- Browser, Chromium with `--no-sandbox --single-process`, one test per process, against `next dev --webpack` on `127.0.0.1:3311` (started by this run): `runtime-chromium` journeys 12 of 12, `phone-workspace` journeys 9 of 9, J-1 to J-4 on a Pixel 7 at 375 px through a temporary spec outside the repository 4 of 4.
+- Not run: `lesson-route-journey.spec.ts` itself (no Docker or Postgres here); its first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.4.md` (51 lines).
+- Push: `wp/7.4-journeys` (last push 06:59).
+
+### Owner: run this (part 67)
+
+1. Open or update the WP-7.4 draft pull request with `docs/reports/pull-requests/WP-7.4.md` as its body; check that CI's `stack` job passes `lesson-route-journey.spec.ts`.
+2. Stop the dev server this run left on port 3311, from a terminal outside the sandbox: `lsof -ti tcp:3311 | xargs kill`.
+
+### Next
+
+- WP-7.4 part 2b: J-5, J-6 and J-10 once the 6.x branches hold them, and the stack journeys in Firefox and WebKit (needs the owner's CI decision). WP-7.5 starts once 7.1 to 7.4 merge.
+
+## Session of 2026-11-25 (from about 08:15), in `night-a`, on the new branch `wp/7.4-journeys`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-df) asked whether this one works there; it does not (answered: only `wp/7.4-journeys` here).
+
+### Task 3, part 66 done: WP-7.4 part 1, journeys J-1 to J-4 at every size
+
+- Base: `wp/7.2-a11y-perf` at cf6dde1 (it holds the 2.2 to 5.4 line, the runtime branches and the `127.0.0.1` hydration fix).
+- f6b0d69: `e2e/journeys.ts` (J-1 to J-4 written once, by touch on a phone, by mouse above 768 px), `e2e/journeys-phone.spec.ts` (J-2 to J-4 at 320, 375 and 430 px) and `e2e/journeys-wide-runtime.spec.ts` (J-1 to J-4 at 768, 1024 and 2560 px).
+- Code review 1: CHANGES REQUIRED, 4 MAJOR, 6 MINOR. Fixed in the next commit: J-2 now runs first and checks the actual output; J-3 checks the echoed answers exactly; new projects `phone-workspace-webkit` and `phone-workspace-firefox`; the 768 and 320 px widths; stale comments; tags. CI (major 2) is the owner's open decision. Report: `docs/reports/reviews/WP-7.4/code-review-1.md`.
+- `pnpm verify`: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
+- Browser, Chromium with `--no-sandbox --single-process`, one test per process, against `next dev --webpack` on `127.0.0.1:3301` (started by this run): `phone-workspace` 9 of 9, `runtime-chromium` 12 of 12.
+- Not run: Firefox and WebKit (not installed; speed mode), the stack journeys (no Docker).
+- Description: `docs/reports/pull-requests/WP-7.4.md` (42 lines).
+- Push: `wp/7.4-journeys` (last push 06:59).
+
+### Owner: run this (part 66)
+
+1. Open a draft pull request from `wp/7.4-journeys` with `docs/reports/pull-requests/WP-7.4.md` as its body.
+2. Decide on a CI job on `main` that runs the `runtime-*` and `phone-workspace*` projects on three engines (description, "For the owner" 1).
+3. Stop the dev server this run left on port 3301, from a terminal outside the sandbox: `lsof -ti tcp:3301 | xargs kill`.
+
+### Next
+
+- WP-7.4 part 2: J-5, J-6, J-8, J-10, J-12 and J-13 on the stack in three engines. J-5, J-6 and J-10 depend on the 6.1 and 6.3 branches, which `night-b` is still changing, and every stack journey needs Docker to run. Then WP-7.5 once 7.1 to 7.4 merge.
+
 ## Session of 2026-11-25 (from about 06:15), in `night-a`, on `wp/7.2-a11y-perf`
 
 Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. Three `night-b` sessions asked whether this one holds `night-b`; it does not (answered where the sender was still listening).
