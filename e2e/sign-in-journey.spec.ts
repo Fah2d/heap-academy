@@ -33,6 +33,13 @@ async function latestCode(request: APIRequestContext, address: string): Promise<
   return code;
 }
 
+// The body of a server action's response also holds the page rendered again,
+// with this request's own nonce, so only the action's result can be compared.
+function actionResult(body: string): string | undefined {
+  const row = /^0:\{"a":"\$@(\w+)"/m.exec(body)?.[1];
+  return row === undefined ? undefined : new RegExp(`^${row}:(.*)$`, "m").exec(body)?.[1];
+}
+
 async function requestCode(page: Page, address: string) {
   await page.getByRole("textbox", { name: signIn.emailLabel }).fill(address);
   // Turnstile puts its token here. A press before then only shows the
@@ -79,7 +86,9 @@ test("[FR-AUTH-02] a wrong code is refused and the learner stays on the code ste
   await saveScreen(page, "sign-in-code", 1280, { workPackage: "WP-2.2" });
   await page.getByRole("textbox", { name: signIn.codeLabel }).fill(wrong);
   await page.getByRole("button", { name: signIn.verify, exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText(signIn.codeRejected);
+  // Scoped to the step: Next.js's route announcer is an alert too.
+  const step = page.getByRole("region", { name: signIn.codeHeading });
+  await expect(step.getByRole("alert")).toContainText(signIn.codeRejected);
   await expect(page.getByRole("textbox", { name: signIn.codeLabel })).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "sign-in-code-rejected", 1280, { workPackage: "WP-2.2" });
@@ -101,7 +110,7 @@ test("[T-11] the answer is the same for an address with an account and one witho
   await page.getByRole("button", { name: account.signOut }).click();
   await page.waitForTimeout(61_000);
 
-  const answers: string[] = [];
+  const answers: { status: number; result: string | undefined }[] = [];
   for (const address of [known, `unknown-${Date.now()}@example.test`]) {
     await page.goto("/sign-in");
     const response = page.waitForResponse(
@@ -109,7 +118,9 @@ test("[T-11] the answer is the same for an address with an account and one witho
         candidate.request().method() === "POST" && candidate.url().endsWith("/sign-in"),
     );
     await requestCode(page, address);
-    answers.push(await (await response).text());
+    const answer = await response;
+    answers.push({ status: answer.status(), result: actionResult(await answer.text()) });
   }
-  expect(answers[0]).toBe(answers[1]);
+  expect(answers[0]).toEqual({ status: 200, result: '{"ok":true,"value":null}' });
+  expect(answers[1]).toEqual(answers[0]);
 });
