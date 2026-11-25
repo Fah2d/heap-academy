@@ -10,6 +10,8 @@ import { createWorkerCore } from "./core.ts";
 
 const scope = globalThis;
 const post = scope.postMessage.bind(scope);
+// Held now: Python can replace the global after the lock-down.
+const setLater = scope.setTimeout.bind(scope);
 const originalFetch = scope.fetch.bind(scope);
 
 function countFetchedBytes(onBytes: (bytes: number) => void): () => void {
@@ -51,8 +53,16 @@ const core = createWorkerCore({
   importModule: (url) => import(url) as Promise<unknown>,
   countFetchedBytes,
   lockDown: () => lockDown(scope),
+  later: (callback) => {
+    setLater(callback, 0);
+  },
 });
 
+// Only the page's messages count. Python can reach `dispatchEvent` and make
+// its own message event, to answer its own input request or start a run the
+// page never sent; such an event is never trusted, and Python cannot change
+// that (WP-3.2 security review 1).
 scope.addEventListener("message", (event: MessageEvent<unknown>) => {
+  if (!event.isTrusted) return;
   core.receive(event.data);
 });

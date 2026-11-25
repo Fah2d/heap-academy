@@ -51,6 +51,14 @@ export const FAILURE_REASONS = [
 ] as const;
 export type FailureReason = (typeof FAILURE_REASONS)[number];
 
+/** The reasons a worker may report. The other three belong to the clock's owner. */
+const WORKER_FAILURE_REASONS: readonly FailureReason[] = [
+  "mismatch",
+  "program_error",
+  "after_code_error",
+  "output_limit",
+];
+
 export type TestResult =
   | {
       testCaseId: TestCaseId;
@@ -287,7 +295,9 @@ export function parseTestResult(value: unknown): TestResult | undefined {
   ) {
     return undefined;
   }
-  const reason = FAILURE_REASONS.find((option) => option === value["reason"]);
+  // A worker never decides that its own clock ran out, that the learner
+  // stopped it, or that it died: only the page knows those (section 5.4).
+  const reason = WORKER_FAILURE_REASONS.find((option) => option === value["reason"]);
   if (reason === undefined) return undefined;
   const result: TestResult = { testCaseId: id, status, reason, actual, truncated, harnessVersion };
   if (!Object.hasOwn(value, "error") || value["error"] === undefined) {

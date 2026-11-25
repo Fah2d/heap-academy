@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { parseTestCases } from "@/grader/test-case";
 import type { SessionClient } from "@/infrastructure/db/session-client";
 import type { EditorLessonResult } from "../types";
 
@@ -38,6 +39,10 @@ export function editorLesson(row: unknown): EditorLessonResult {
   const parsed = lessonRow.safeParse(row);
   if (!parsed.success) return { ok: false };
   const lesson = parsed.data;
+  // The database checks every test case on write; a draft may have none.
+  const tests =
+    lesson.tests.length === 0 ? { ok: true as const, value: [] } : parseTestCases(lesson.tests);
+  if (!tests.ok) return { ok: false };
   const stored = Array.isArray(lesson.lesson_solutions)
     ? lesson.lesson_solutions[0]
     : lesson.lesson_solutions;
@@ -60,7 +65,7 @@ export function editorLesson(row: unknown): EditorLessonResult {
       starterCode: lesson.starter_code,
       solutionCode: stored?.solution_code ?? "",
       wrongAnswers: stored?.wrong_answers ?? [],
-      testCount: lesson.tests.length,
+      testCases: tests.value,
       loadedAt: lesson.updated_at,
     },
   };

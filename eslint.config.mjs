@@ -19,8 +19,9 @@ const TESTS = ["**/*.test.{ts,tsx}", "e2e/**"];
 // Files where Next.js requires a default export.
 const NEXT_DEFAULT_EXPORTS = [
   "src/app/**/{page,layout,template,loading,error,global-error,not-found,default,route,opengraph-image,twitter-image,icon,apple-icon,sitemap,robots,manifest}.{ts,tsx}",
-  // Development-only pages (next.config.ts).
+  // Development-only and preview pages (next.config.ts).
   "src/app/**/page.dev.tsx",
+  "src/app/**/page.preview.tsx",
   "*.config.{ts,mjs}",
 ];
 

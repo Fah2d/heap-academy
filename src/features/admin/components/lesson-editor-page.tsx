@@ -7,7 +7,7 @@ import { requestNonce } from "@/infrastructure/http/nonce";
 import { lessonEditor as words, structure } from "@/messages/admin";
 import { Link, Notice } from "@/ui";
 import { requireAdminStage } from "../server/gate";
-import { renderInstructionsPreview, saveLesson } from "../server/lesson-actions";
+import { renderInstructionsPreview, saveLesson, setLessonStatus } from "../server/lesson-actions";
 import { lessonForEditor } from "../server/lessons";
 import { LessonEditor } from "./lesson-editor";
 
@@ -51,6 +51,7 @@ export async function LessonEditorPage({ params }: { params: Promise<{ id: strin
         initialPreview={renderMarkdown(lesson.instructionsMd)}
         nonce={await requestNonce()}
         save={saveLesson}
+        setStatus={setLessonStatus}
         renderPreview={renderInstructionsPreview}
       />
     </section>

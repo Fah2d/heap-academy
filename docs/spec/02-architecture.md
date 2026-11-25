@@ -324,10 +324,12 @@ Enabled on every table. Default deny. Every policy has a test.
 | `private.is_on_admin_list()` | Security definer, fixed search path. Answers one boolean: whether the caller is on the admin list, at any assurance level. A public invoker-rights wrapper exposes it. Grants nothing; the admin gate uses it to choose between not-found and the second step. |
 | `public.save_lesson(...)` | Security invoker, so policies apply. Writes lesson, solution, and wrong answers in one transaction and sets `validated_at` when told the content passed. Refuses when the row is newer than the editor's copy (FR-ADM-10). |
 | Trigger: gradable change | Sets `gradable_changed_at` when starter, test cases, solution, or wrong answers change. |
-| Trigger: publish guard | Enforces section 7.2. Also refuses publishing a course with no published lesson. |
+| Trigger: publish guard | Enforces section 7.2. Also refuses publishing a course with no published lesson, and refuses unpublishing or archiving the last published lesson of a published course, with a reason. |
 | Trigger: completion values | Copies `xp` from the lesson, and clamps `completed_at` so it is never in the future. |
 | Trigger: new user | Creates the `profiles` row. |
 | `public.lesson_completion_counts()` | Security definer, admin only inside the function. Returns counts per lesson for the dashboard (FR-ADM-13). |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-4.3):** the publish guard also refuses to unpublish or archive the last published lesson of a published course, so a published course never has nothing to show. Not built yet: it needs a new migration with a trigger test, after WP-4.3. Until then the database allows it and the course page shows its empty state.
 
 > **Approved by the owner on 2026-11-24 (proposed in WP-2.3):** `private.is_on_admin_list()` is added. The caller's session cannot read `admins`, and `private.is_admin()` answers false below `aal2`, so the gate needs this one answer about the caller only.
 
@@ -494,3 +496,4 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | 0031 | Identity without a brand kit | Accepted |
 | 0032 | Module table additions and a test-only grader runner | Accepted |
 | 0033 | The Python worker is compiled by the TypeScript compiler, outside the bundler | Proposed |
+| 0034 | A program that yields once can compute while the page waits for its input; the risk is accepted with Stop as the control | Proposed |
