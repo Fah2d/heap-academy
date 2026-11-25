@@ -126,7 +126,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   sql(`insert into public.admins (user_id) select id from auth.users where email = '${address}'`);
 
   // On the list, with no app: every admin address leads to setup.
-  for (const start of ["/admin", "/admin/verify", "/admin/courses/anything"]) {
+  for (const start of ["/admin/courses/anything", "/admin", "/admin/verify"]) {
     await page.goto(start);
     if (start === "/admin/courses/anything") {
       // No page exists there yet, so the layout's guard passes and the
