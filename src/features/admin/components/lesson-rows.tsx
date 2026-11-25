@@ -128,6 +128,7 @@ export function AddLessonForm({
   createLesson,
   onUnsavedChange,
   otherUnsaved = false,
+  onLeaving,
   confirmLeave = (text) => window.confirm(text),
 }: {
   courseId: string;
@@ -136,6 +137,8 @@ export function AddLessonForm({
   onUnsavedChange: (formKey: string, unsaved: boolean) => void;
   /** Whether another form on the page holds unsaved text. */
   otherUnsaved?: boolean;
+  /** Lets the page go with no question, just before the new lesson opens. */
+  onLeaving?: (() => void) | undefined;
   confirmLeave?: ConfirmLeave;
 }) {
   const router = useRouter();
@@ -172,45 +175,46 @@ export function AddLessonForm({
         setFailure(lessonFailureText(outcome.error));
         return;
       }
-      // The new lesson holds what was typed; nothing is left unsaved here.
-      onUnsavedChange(formKey, false);
+      // The new lesson holds what was typed, so the page lets it go. The text
+      // is not reported as saved: that would take the leave warning's guard
+      // entry back out of the history, and that Back undoes this move.
+      onLeaving?.();
       router.push(adminLessonPath(outcome.value.id));
     });
   }
 
   return (
-    <form
-      noValidate
-      onSubmit={onSubmit}
-      aria-labelledby={headingId}
-      className="flex flex-col gap-3"
-    >
-      <h4 id={headingId} className="text-base font-medium text-text">
-        {words.addLessonHeading(chapter.title)}
-      </h4>
-      <div ref={field} className="flex flex-wrap items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <TextField
-            label={words.newLessonTitleLabel(chapter.title)}
-            value={title}
-            onChange={(next) => {
-              setInvalid(false);
-              setTitle(next);
-            }}
-            isInvalid={invalid}
-            errorMessage={words.lessonTitleInvalid}
-          />
+    // A labelled group, not a named form: a named form is a landmark, and
+    // every chapter has one of these.
+    <form noValidate onSubmit={onSubmit}>
+      <div role="group" aria-labelledby={headingId} className="flex flex-col gap-3">
+        <h4 id={headingId} className="text-base font-medium text-text">
+          {words.addLessonHeading(chapter.title)}
+        </h4>
+        <div ref={field} className="flex flex-wrap items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <TextField
+              label={words.newLessonTitleLabel(chapter.title)}
+              value={title}
+              onChange={(next) => {
+                setInvalid(false);
+                setTitle(next);
+              }}
+              isInvalid={invalid}
+              errorMessage={words.lessonTitleInvalid}
+            />
+          </div>
         </div>
-      </div>
-      {failure !== null && (
-        <Notice kind="error" kindLabel={structure.errorLabel} announce="assertive">
-          {failure}
-        </Notice>
-      )}
-      <div>
-        <Button type="submit" variant="secondary" isPending={pending}>
-          {pending ? words.addingLesson : words.addLesson}
-        </Button>
+        {failure !== null && (
+          <Notice kind="error" kindLabel={structure.errorLabel} announce="assertive">
+            {failure}
+          </Notice>
+        )}
+        <div>
+          <Button type="submit" variant="secondary" isPending={pending}>
+            {pending ? words.addingLesson : words.addLesson}
+          </Button>
+        </div>
       </div>
     </form>
   );
