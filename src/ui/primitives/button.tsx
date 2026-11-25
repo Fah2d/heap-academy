@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useId } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from "react-aria-components";
 import { cx } from "../class-names";
 
@@ -49,6 +49,23 @@ function variantClasses(variant: ButtonVariant, surface: ButtonSurface): string 
 }
 
 /**
+ * React Aria announces a focused button going pending with a node in its
+ * shared live region that is labelled by the button's id, and keeps that
+ * node for seconds. When the finished action removes the button, as
+ * publishing removes Publish, the node is left naming nothing: it reads as
+ * empty and fails axe's role-img-alt rule. Removing the nodes that only this
+ * button labelled loses nothing a screen reader could still read.
+ */
+function forgetAnnouncements(id: string) {
+  for (const node of document.querySelectorAll("[role='img'][aria-labelledby]")) {
+    const labels = (node.getAttribute("aria-labelledby") ?? "").split(" ");
+    if (labels.includes(id) && labels.every((label) => document.getElementById(label) === null)) {
+      node.remove();
+    }
+  }
+}
+
+/**
  * One primary button per screen; secondary for the other actions; destructive
  * for deleting and archiving, never with a red fill.
  */
@@ -60,9 +77,13 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
+  const ownId = useId();
+  const id = props.id ?? ownId;
+  useEffect(() => () => forgetAnnouncements(id), [id]);
   return (
     <AriaButton
       {...props}
+      id={id}
       className={cx(shared, variantClasses(variant, surface), block && "w-full")}
     >
       {icon !== undefined && (

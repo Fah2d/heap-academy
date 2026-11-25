@@ -31,6 +31,8 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "admin",
   "setup",
   "verify",
+  "courses",
+  "new",
   "csp-report",
   "health",
   "dev",
@@ -50,6 +52,14 @@ export function logRoute(method: string, pathname: string): LogRoute {
     .map((segment) => (ROUTE_SEGMENTS.has(segment) ? segment : ":param"));
   if (segments.length > MAX_ROUTE_SEGMENTS) shown.push("*");
   return `${verb} /${shown.join("/")}` as LogRoute;
+}
+
+/**
+ * The `route` field for a read of public content, which runs inside the data
+ * cache with no request: `GET /content/published-course`.
+ */
+export function contentLogRoute(query: "published-courses" | "published-course"): LogRoute {
+  return `GET /content/${query}` as LogRoute;
 }
 
 const ACTION_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
