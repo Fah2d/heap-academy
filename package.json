@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@carbon/icons-react": "11.92.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.2",
     "@tailwindcss/postcss": "4.3.5",
     "next": "16.4.6",
     "postcss": "8.5.33",

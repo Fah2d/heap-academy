@@ -75,8 +75,8 @@ describe("workflows", () => {
 
   it("[NFR-SEC-04] the pull request workflow names the required checks and holds no secret", () => {
     const text = read("ci.yml");
-    expect(jobs(text)).toEqual(["static", "unit", "build", "db"]);
-    for (const id of ["static", "unit", "build", "db"]) {
+    expect(jobs(text)).toEqual(["static", "unit", "build", "db", "e2e"]);
+    for (const id of ["static", "unit", "build", "db", "e2e"]) {
       expect(job(text, id)).toContain(`    name: ${id}\n`);
     }
     expect(text).not.toMatch(/\$\{\{\s*secrets\./);
@@ -90,6 +90,16 @@ describe("workflows", () => {
     );
     expect(text).toMatch(/^ {8}run: supabase start$/m);
     expect(text).toMatch(/^ {8}run: supabase test db$/m);
+  });
+
+  it("[FR-AUTH-02] the e2e job starts the local stack before the journeys that need it", () => {
+    const text = job(read("ci.yml"), "e2e");
+    const start = text.indexOf("run: supabase start");
+    const journeys = text.indexOf("run: pnpm test:e2e");
+    expect(start).toBeGreaterThan(-1);
+    expect(journeys).toBeGreaterThan(start);
+    expect(text).toMatch(/--project=stack/);
+    expect(text).toMatch(/--project=chromium/);
   });
 
   it.each(files)(
