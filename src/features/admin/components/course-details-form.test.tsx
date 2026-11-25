@@ -151,6 +151,19 @@ describe("CourseDetailsForm [FR-ADM-03, FR-ADM-10]", () => {
     expect(screen.getByRole("status").textContent).toBe(words.saved);
   });
 
+  it("saves when handed a whole course, as the course editor does", async () => {
+    const save = vi.fn<SaveCourse>(() =>
+      Promise.resolve({ ok: true, value: { id: ID, updatedAt: NEWER } }),
+    );
+    const user = userEvent.setup();
+    const course = { ...initial, id: ID, status: "draft" as const, loadedAt: LOADED, chapters: [] };
+    render(
+      <CourseDetailsForm course={{ id: ID, loadedAt: LOADED }} initial={course} save={save} />,
+    );
+    await user.click(screen.getByRole("button", { name: words.save }));
+    expect(save).toHaveBeenCalledWith({ id: ID, loadedAt: LOADED, details: initial });
+  });
+
   it("refuses a stale save with a prompt to reload, and keeps the changes", async () => {
     const user = userEvent.setup();
     render(
