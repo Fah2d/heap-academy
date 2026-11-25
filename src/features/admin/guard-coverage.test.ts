@@ -45,7 +45,8 @@ describe("admin pages and their guard [FR-ADM-01, T-19]", () => {
     "%s renders one view of the admin feature",
     (path) => {
       const source = readFileSync(join(root, path), "utf8");
-      const view = /return <(\w+Page) \/>;/.exec(source)?.[1];
+      // A page passes on its route's params and nothing else.
+      const view = /return <(\w+Page)(?: params=\{params\})? \/>;/.exec(source)?.[1];
       expect(view).toBeDefined();
       expect(source).toMatch(
         new RegExp(`import \\{[^}]*\\b${view ?? ""}\\b[^}]*\\} from "@/features/admin";`),
