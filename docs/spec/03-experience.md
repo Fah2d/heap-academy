@@ -188,9 +188,11 @@ Built for 1024 px and wider. Below that it shows one sentence asking the owner t
 
 ### 7.1 Getting in
 
-- `/admin/setup`: a QR code and a manual key for an authenticator app, then a field for the first six-digit code. Shown once, to an admin with no second step yet.
+- `/admin/setup`: a button that shows a QR code and a manual key for an authenticator app, then a field for the first six-digit code. Shown once, to an admin with no second step yet. Loading the page changes nothing; the key is made on the press.
 - `/admin/verify`: one field for the six-digit code. Shown at the start of each admin session.
 - Anyone who is not on the admin list sees the standard not-found page at every `/admin` address.
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.3):** `/admin/setup` shows a button before the QR code, so that loading the page creates no factor.
 
 ### 7.2 Courses
 
