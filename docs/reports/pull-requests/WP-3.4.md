@@ -19,6 +19,8 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
+`main` at dffe1a8 (#17, `wp/4.2-lesson-editor`) is merged in 3abe4d9, and `wp/3.3-grader` with the same merge in 8b91c4f. Two files conflicted besides `docs/reports/local-build-progress.md`: `src/features/workspace/index.ts` (this branch's `RuntimeConsole` export and `main`'s `LessonContent` and `CodeEditor` exports all kept) and `src/infrastructure/http/security-headers.test.ts` (both sides' tests kept). #17's CodeMirror packages were already installed. On 8b91c4f, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  94 passed (94)`, `Tests  1867 passed (1867)`); `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
 `main` at 739eacd (#16, `wp/4.1-courses-chapters`) is merged in a3265aa, and then `wp/3.3-grader` at 05cd6d8 in fcbdda7 (it adds only WP-3.3's description). Two files conflicted in a3265aa: `docs/reports/local-build-progress.md` (both sides' sections kept) and `scripts/eslint/module-boundaries.mjs`, resolved exactly as `wp/3.3-grader` did (its `nodeRunner`, `testImport` and `computedImport` rules and `main`'s `contentSession` rule all kept). On a3265aa, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  82 passed (82)`, `Tests  1648 passed (1648)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 77e5be9.
