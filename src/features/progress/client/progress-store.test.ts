@@ -66,6 +66,15 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
       const rows = disk.stores.get(name);
       if (rows === undefined) throw new Error("NotFoundError");
       let refused = false;
+      // As in IndexedDB, a transaction does not finish while a request is waiting.
+      let waiting = 0;
+      const tracked = <T>(answer: () => T) => {
+        waiting += 1;
+        return request(() => {
+          waiting -= 1;
+          return answer();
+        });
+      };
       const refuse = () => {
         if (behaviour.failWrites !== true) return;
         // As in IndexedDB, a failed request aborts its transaction.
@@ -77,26 +86,28 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
         onerror: null,
         onabort: null as (() => void) | null,
         set oncomplete(done: () => void) {
-          setTimeout(() => {
-            if (refused || behaviour.abortCommit === true) transaction.onabort?.();
+          const finish = () => {
+            if (waiting > 0) setTimeout(finish, 0);
+            else if (refused || behaviour.abortCommit === true) transaction.onabort?.();
             else done();
-          }, 5);
+          };
+          setTimeout(finish, 5);
         },
         objectStore: () => ({
-          getAll: () => request(() => [...rows.values()]),
+          getAll: () => tracked(() => [...rows.values()]),
           clear: () =>
-            request(() => {
+            tracked(() => {
               refuse();
               if (behaviour.abortCommit !== true) rows.clear();
             }),
           put: (value: unknown, key: string) =>
-            request(() => {
+            tracked(() => {
               refuse();
               if (behaviour.abortCommit !== true) rows.set(key, value);
               return key;
             }),
           add: (value: unknown, key: string) =>
-            request(() => {
+            tracked(() => {
               refuse();
               if (rows.has(key)) {
                 throw Object.assign(new Error("taken"), { name: "ConstraintError" });
