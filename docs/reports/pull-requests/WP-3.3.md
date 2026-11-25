@@ -37,6 +37,10 @@ The grader of `04-content-system.md` sections 2 and 3: one test case model, thre
 
 ## Up to date with main
 
+`main` at 739eacd (#16, `wp/4.1-courses-chapters`, since the last merge) is merged in aa4afa9. Two files conflicted: `docs/reports/local-build-progress.md` (both sides kept) and `scripts/eslint/module-boundaries.mjs`, where this branch's `nodeRunner`, `testImport` and `computedImport` rules and `main`'s `contentSession` rule are all kept. `wp/3.1-python-worker` is still not merged in (the approved default). On aa4afa9, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  78 passed (78)`, `Tests  1533 passed (1533)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 6e74407.
+
 `main` at 428c437 (#14, `wp/db-types`, since the last merge) is merged in bbd6d31, directly, with no conflict. It adds one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses. `wp/3.1-python-worker` is still not merged (the same approved default as below). On bbd6d31: `pnpm verify` exit 0 (`Test Files  43 passed (43)`, `Tests  1132 passed (1132)`); `pnpm build` with CI's fake public values exit 0, and the built harness has `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 Before that: `main` at 7875ee2 (#12, `wp/2.1-schema-policies`, since the last merge) is merged in 7d62414, directly and not through `wp/3.1-python-worker`. One conflict: `docs/reports/local-build-progress.md`, where `wp/3.1-python-worker`'s copy (the newest) was taken. `package.json` gains `main`'s `test:db` with no conflict. Decision, approved with the defaults on 2026-11-24: `wp/3.1-python-worker` is still not merged, so its run fixes wait on WP-3.1 security review 8, round 3; WP-3.1's own approved spec changes reach this branch when WP-3.1 does.
