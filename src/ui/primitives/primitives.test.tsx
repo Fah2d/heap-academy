@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { Activity } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -69,6 +70,64 @@ describe("Button", () => {
         .every((id) => document.getElementById(id) === null),
     );
     expect(unnamed).toEqual([]);
+  });
+
+  it("[NFR-A11Y-02] drops an announcement that arrives after its button is gone", async () => {
+    // React Aria waits a moment before its first announcement in a document,
+    // so a button the finished action removes can be gone before it lands.
+    const view = render(
+      <Button variant="primary" isPending={false}>
+        Create course
+      </Button>,
+    );
+    const { id } = screen.getByRole("button", { name: "Create course" });
+    view.unmount();
+    const announcer = document.createElement("div");
+    announcer.dataset["liveAnnouncer"] = "true";
+    const log = document.createElement("div");
+    log.setAttribute("role", "log");
+    announcer.append(log);
+    document.body.prepend(announcer);
+    const late = document.createElement("div");
+    late.setAttribute("role", "img");
+    late.setAttribute("aria-labelledby", id);
+    log.append(late);
+    await waitFor(() => expect(late.isConnected).toBe(false));
+    announcer.remove();
+  });
+
+  it("[NFR-A11Y-02] takes its announcement with it when it is hidden away with its page", () => {
+    // The router can keep a page it leaves in the document for a while: the
+    // button's effects end, but its element is still there.
+    const view = render(
+      <Activity mode="visible">
+        <Button variant="primary" isPending={false}>
+          Create course
+        </Button>
+      </Activity>,
+    );
+    const button = screen.getByRole("button", { name: "Create course" });
+    button.focus();
+    view.rerender(
+      <Activity mode="visible">
+        <Button variant="primary" isPending>
+          Create course
+        </Button>
+      </Activity>,
+    );
+    const labelledByButton = () =>
+      [...document.querySelectorAll("[role='img'][aria-labelledby]")].filter((node) =>
+        (node.getAttribute("aria-labelledby") ?? "").split(" ").includes(button.id),
+      );
+    expect(labelledByButton()).not.toHaveLength(0);
+    view.rerender(
+      <Activity mode="hidden">
+        <Button variant="primary" isPending>
+          Create course
+        </Button>
+      </Activity>,
+    );
+    expect(labelledByButton()).toEqual([]);
   });
 });
 
@@ -305,6 +364,25 @@ describe("Disclosure", () => {
     await userEvent.click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("Expected 15.")).toBeTruthy();
+  });
+
+  it("[ADR-0014] can be opened by its owner, and reports a press without changing itself", async () => {
+    const onExpandedChange = vi.fn();
+    const { rerender } = render(
+      <Disclosure title="Test 3" isExpanded={false} onExpandedChange={onExpandedChange}>
+        Expected 20.
+      </Disclosure>,
+    );
+    const trigger = screen.getByRole("button", { name: "Test 3" });
+    await userEvent.click(trigger);
+    expect(onExpandedChange).toHaveBeenCalledWith(true);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    rerender(
+      <Disclosure title="Test 3" isExpanded onExpandedChange={onExpandedChange}>
+        Expected 20.
+      </Disclosure>,
+    );
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
   });
 });
 

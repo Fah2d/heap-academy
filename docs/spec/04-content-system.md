@@ -163,6 +163,8 @@ flowchart LR
 - Changing the starter, solution, wrong answers, or test cases requires a passing validation in the same save. The lesson is never live in a half-edited state.
 - If a change could fail code that used to pass, earlier completions still stand. They are a record of what the learner passed at the time.
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-4.3):** in this release, Save on a published lesson always validates first, as `03-experience.md` section 7.6 says, even when only the title, instructions, hints, or XP changed. So a title fix needs Python to load and the checklist to pass, and a published lesson that fails the checklist is never saved. "Saves at once" above means no further step after that save.
+
 ## 5. Markdown
 
 Instructions are plain Markdown.

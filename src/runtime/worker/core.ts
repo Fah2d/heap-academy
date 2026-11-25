@@ -10,7 +10,14 @@ import {
 } from "../protocol.ts";
 import type { LockdownResult } from "../lockdown.ts";
 import { parseRuntimeManifest, type RuntimeManifest } from "../manifest.ts";
-import { parseRunReport, RUN_SUPPORT_SOURCE } from "./run-support.ts";
+import {
+  INTERACTIVE_PROBE_ANSWER,
+  INTERACTIVE_PROBE_SOURCE,
+  parseRunReport,
+  RUN_SUPPORT_SOURCE,
+} from "./run-support.ts";
+import { grade, parseHarnessResult, summarize, type TestResult } from "../../grader/grade.ts";
+import { HARNESS_SOURCE, HARNESS_VERSION } from "../../grader/harness.ts";
 
 // What the Python worker does with each message (architecture sections 5.1
 // to 5.6). The worker's entry file connects this to the real global scope;
@@ -36,19 +43,77 @@ export type WorkerHost = {
   /** Counts the bytes every fetch receives until the returned function is called. */
   countFetchedBytes: (onBytes: (bytes: number) => void) => () => void;
   lockDown: () => LockdownResult;
+  /**
+   * Runs the callback as a task of its own, after whatever runs now. A
+   * program that does not suspend never yields, so a task it queued runs
+   * only after the run has ended.
+   */
+  later: (callback: () => void) => void;
 };
 
 /** The interval between progress messages while loading, as for output. */
 export const PROGRESS_INTERVAL_MS = 50;
 
-type Runner = (source: string) => unknown;
+/** A line from the page, or `undefined` for the end of input. */
+type RequestLine = () => Promise<string | undefined>;
+
+type Runner = {
+  /** A batch run: synchronous, reading the lines it was given. */
+  run: (source: string) => unknown;
+  /** An interactive run, entered so Python can wait on a promise; absent without the capability. */
+  runInteractive: ((source: string, requestLine: RequestLine) => Promise<unknown>) | undefined;
+};
+
+/** The harness's `check` for one test case (docs/spec/04-content-system.md section 3.1). */
+type Checker = (source: string, stdin: string, afterCode: string) => unknown;
+
+type Loaded = { runtime: Runtime; runner: Runner; check: Checker };
+
+/** Where an interactive run's answer goes when it arrives. */
+type Waiting = {
+  runId: string;
+  /** Whether the page has been asked; an answer before that is not one. */
+  posted: boolean;
+  answer: (line: string | undefined) => void;
+};
 
 type State =
   | { name: "idle" }
   | { name: "loading" }
-  | { name: "ready"; runtime: Runtime; run: Runner }
-  | { name: "running" }
+  | ({ name: "ready" } & Loaded)
+  | { name: "running"; waiting: Waiting | undefined }
   | { name: "dead" };
+
+/**
+ * Whether Python can wait on a promise here: WebAssembly stack switching
+ * exists, and a real wait through it returns the promised value. Detected,
+ * never assumed from the browser (NFR-COMPAT-04).
+ */
+async function detectInteractive(
+  runtime: Runtime,
+  runner: object,
+): Promise<Runner["runInteractive"]> {
+  const suspending: unknown = Reflect.get(WebAssembly, "Suspending");
+  const promising: unknown = Reflect.get(WebAssembly, "promising");
+  if (typeof suspending !== "function" || typeof promising !== "function") return undefined;
+  const callPromising: unknown = Reflect.get(runner, "callPromising");
+  if (typeof callPromising !== "function") return undefined;
+  try {
+    const probe: unknown = runtime.runPython(INTERACTIVE_PROBE_SOURCE);
+    if (typeof probe !== "object" && typeof probe !== "function") return undefined;
+    if (probe === null) return undefined;
+    const probeCall: unknown = Reflect.get(probe, "callPromising");
+    if (typeof probeCall !== "function") return undefined;
+    const answer: unknown = await Reflect.apply(probeCall, probe, [
+      () => Promise.resolve(INTERACTIVE_PROBE_ANSWER),
+    ]);
+    if (answer !== INTERACTIVE_PROBE_ANSWER) return undefined;
+  } catch {
+    return undefined;
+  }
+  return (source, requestLine) =>
+    Reflect.apply(callPromising, runner, [source, requestLine]) as Promise<unknown>;
+}
 
 function isRuntime(value: unknown): value is Runtime {
   if (typeof value !== "object" || value === null) return false;
@@ -99,7 +164,8 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     };
 
     let runtime: Runtime;
-    let run: Runner;
+    let runner: Runner;
+    let check: Checker;
     try {
       const loader = await host.importModule(`${assetBase}pyodide.mjs`);
       imported("pyodide.mjs");
@@ -124,10 +190,17 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
         setStdin: loaded.setStdin.bind(loaded),
         runPython: loaded.runPython.bind(loaded),
       });
-      const runner: unknown = bound.runPython(RUN_SUPPORT_SOURCE);
-      if (typeof runner !== "function") return die("load_failed");
+      const run: unknown = bound.runPython(RUN_SUPPORT_SOURCE);
+      if (typeof run !== "function") return die("load_failed");
+      const checker: unknown = bound.runPython(HARNESS_SOURCE);
+      if (typeof checker !== "function") return die("load_failed");
       runtime = bound;
-      run = (source) => Reflect.apply(runner, undefined, [source]) as unknown;
+      runner = {
+        run: (source) => Reflect.apply(run, undefined, [source]) as unknown,
+        runInteractive: await detectInteractive(bound, run),
+      };
+      check = (source, stdin, afterCode) =>
+        Reflect.apply(checker, undefined, [source, stdin, afterCode]) as unknown;
     } catch {
       return die("load_failed");
     } finally {
@@ -138,22 +211,24 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     if (!host.lockDown().ok) return die("lockdown_failed");
     loadedBytes = totalBytes;
     report(true);
-    state = { name: "ready", runtime, run };
-    // Interactive input arrives in WP-3.2; until then every run is batch.
+    state = { name: "ready", runtime, runner, check };
     host.post({
       type: "ready",
       runtimeVersion: runtime.version,
-      capabilities: { interactiveInput: false },
+      capabilities: { interactiveInput: runner.runInteractive !== undefined },
     });
   }
 
-  function execute(
-    runtime: Runtime,
-    run: Runner,
+  async function execute(
+    loaded: Loaded,
     message: Extract<PageMessage, { type: "run" }>,
-  ): void {
+    running: Extract<State, { name: "running" }>,
+  ): Promise<void> {
+    const { runtime, runner } = loaded;
     const { runId } = message;
     const started = host.now();
+    // Time spent waiting for the learner is not the program's (section 5.4).
+    let waitedMs = 0;
     const output = createOutputCollector({
       send: ({ stream, text }) => {
         host.post({ type: "output", runId, stream, text });
@@ -178,7 +253,44 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     };
     const stdout = writer("stdout");
     const stderr = writer("stderr");
-    const lines = [...(message.stdin ?? [])];
+    // An interactive run reads through the run support's reader; anything
+    // that reads the runtime's own stream directly finds it empty.
+    const lines = message.mode === "batch" ? [...(message.stdin ?? [])] : [];
+
+    // One request at a time: a second call while one waits gets the end of
+    // input and posts nothing. The request is posted from a task of its own,
+    // which the worker runs only once Python has suspended. A program that
+    // takes `request_line` out of the reader's closure and keeps computing
+    // without yielding posts nothing, so the page's clock keeps running. One
+    // that suspends once on a promise of its own gets the request posted and
+    // can compute while the page waits; ADR-0034 accepts that, with Stop as
+    // the control. The prompt is flushed in that task, so it arrives before
+    // the request.
+    const requestLine: RequestLine = () => {
+      if (running.waiting !== undefined || state !== running) return Promise.resolve(undefined);
+      return new Promise((resolve) => {
+        let asked: number | undefined;
+        const waiting: Waiting = {
+          runId,
+          posted: false,
+          answer: (line) => {
+            running.waiting = undefined;
+            if (asked !== undefined) waitedMs += Math.max(0, host.now() - asked);
+            resolve(line);
+          },
+        };
+        running.waiting = waiting;
+        host.later(() => {
+          if (state !== running || running.waiting !== waiting) return;
+          output.write("stdout", stdout.decoder.decode());
+          output.write("stderr", stderr.decoder.decode());
+          output.flush();
+          asked = host.now();
+          waiting.posted = true;
+          host.post({ type: "input_request", runId });
+        });
+      });
+    };
 
     let reportText: unknown;
     try {
@@ -194,7 +306,10 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
           return line === undefined ? undefined : `${line}\n`;
         },
       });
-      reportText = run(message.source);
+      reportText =
+        message.mode === "interactive" && runner.runInteractive !== undefined
+          ? await runner.runInteractive(message.source, requestLine)
+          : runner.run(message.source);
     } catch {
       // The run support catches what the program raises and guards what it
       // reads from the error afterwards. What still reaches here is the
@@ -222,14 +337,48 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
             message: head(report.message, MESSAGE_LIMIT),
             ...(report.line !== undefined && { line: report.line }),
           };
-    state = { name: "ready", runtime, run };
+    state = { name: "ready", ...loaded };
     host.post({
       type: "run_done",
       runId,
       outcome,
       truncated: output.truncated,
-      durationMs: Math.max(0, Math.round(host.now() - started)),
+      durationMs: Math.max(0, Math.round(host.now() - started - waitedMs)),
     });
+  }
+
+  /**
+   * Runs each test case in turn with the harness, which captures output and
+   * input itself (section 2.2), and posts each result as it is decided, so
+   * the page's clock restarts for every test case. Checks always use the
+   * test case's input, whatever the input strategy (architecture section 5.3).
+   */
+  function runChecks(loaded: Loaded, message: Extract<PageMessage, { type: "check" }>): void {
+    const { runtime, check } = loaded;
+    const { runId } = message;
+    // Nothing a test case writes past the harness, through sys.__stdout__,
+    // may reach the page as a run's output.
+    const discard = { write: (buffer: Uint8Array) => buffer.length };
+    runtime.setStdout(discard);
+    runtime.setStderr(discard);
+    runtime.setStdin({ stdin: () => undefined });
+    const results: TestResult[] = [];
+    for (const testCase of message.tests) {
+      let text: unknown;
+      try {
+        text = check(message.source, testCase.stdin, testCase.afterCode);
+      } catch {
+        // The harness never raises; the runtime itself failed.
+        return die("runtime_crashed");
+      }
+      const parsed = parseHarnessResult(text);
+      if (parsed === undefined || parsed.version !== HARNESS_VERSION) return die("runtime_crashed");
+      const result = grade(testCase, parsed);
+      results.push(result);
+      host.post({ type: "test_result", runId, result });
+    }
+    state = { name: "ready", ...loaded };
+    host.post({ type: "check_done", runId, summary: summarize(results) });
   }
 
   function receive(data: unknown): void {
@@ -240,24 +389,43 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     switch (message.type) {
       case "init":
         if (state.name !== "idle") return die("unexpected_message");
+        // The page and this worker were built together; a different harness
+        // means a stale cached worker, whose verdicts the page cannot trust.
+        if (message.harnessVersion !== HARNESS_VERSION) return die("version_mismatch");
         state = { name: "loading" };
         void load(message.assetBase);
         return;
       case "run": {
-        // `ready` said interactive input is not available, so the page sends batch runs.
-        if (state.name !== "ready" || message.mode !== "batch") {
+        if (state.name !== "ready") return die("unexpected_message");
+        // An interactive run only where `ready` said the capability exists.
+        if (message.mode === "interactive" && state.runner.runInteractive === undefined) {
           return die("unexpected_message");
         }
-        const { runtime, run } = state;
-        state = { name: "running" };
-        execute(runtime, run, message);
+        const loaded = state;
+        const running: Extract<State, { name: "running" }> = {
+          name: "running",
+          waiting: undefined,
+        };
+        state = running;
+        void execute(loaded, message, running);
+        return;
+      }
+      case "check": {
+        if (state.name !== "ready") return die("unexpected_message");
+        const loaded = state;
+        state = { name: "running", waiting: undefined };
+        runChecks(loaded, message);
         return;
       }
       case "input":
-      case "input_end":
-        // An answer to a request that is no longer waiting. This worker sends
-        // no input requests until WP-3.2, so every answer is one of these.
+      case "input_end": {
+        // An answer to a request that is no longer waiting is dropped: the
+        // page may answer as the run ends.
+        if (state.name !== "running" || state.waiting?.runId !== message.runId) return;
+        if (!state.waiting.posted) return;
+        state.waiting.answer(message.type === "input" ? message.line : undefined);
         return;
+      }
       default: {
         const unreachable: never = message;
         return unreachable;

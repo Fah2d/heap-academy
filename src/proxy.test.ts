@@ -136,7 +136,7 @@ describe("proxy matcher", () => {
   const matches = (url: string) => unstable_doesMiddlewareMatch({ config, nextConfig: {}, url });
 
   it("[T-01] leaves the runtime's files alone, so the worker keeps its own policy", () => {
-    expect(matches("/_runtime/worker/worker/python-worker.js")).toBe(false);
+    expect(matches("/_runtime/worker/runtime/worker/python-worker.js")).toBe(false);
     expect(matches("/_runtime/pyodide/314.0.7/pyodide.asm.wasm")).toBe(false);
   });
 

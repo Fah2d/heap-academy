@@ -1106,6 +1106,214 @@ describe("run support (Pyodide): the streams' codec, devices and originals", () 
   }, 60_000);
 });
 
+/**
+ * The runner as the worker makes it, entered with `callPromising` as an
+ * interactive run is (core.ts): each request takes the next answer, and
+ * `null` is the end of input. Batch runs go through the same runner.
+ */
+async function interactiveWorkerRunner() {
+  const pyodide: PyodideAPI = await loadPyodide();
+  const decoder = new TextDecoder();
+  const written = { stdout: "", stderr: "" };
+  const runner: unknown = pyodide.runPython(RUN_SUPPORT_SOURCE);
+  if (typeof runner !== "function") throw new Error("the run support did not make a runner");
+  const callPromising: unknown = Reflect.get(runner, "callPromising");
+  if (typeof callPromising !== "function") throw new Error("no callPromising");
+  const handlers = () => {
+    written.stdout = "";
+    written.stderr = "";
+    pyodide.setStdout({
+      write: (bytes: Uint8Array) => {
+        written.stdout += decoder.decode(bytes);
+        return bytes.length;
+      },
+    });
+    pyodide.setStderr({
+      write: (bytes: Uint8Array) => {
+        written.stderr += decoder.decode(bytes);
+        return bytes.length;
+      },
+    });
+    pyodide.setStdin({ stdin: () => undefined });
+  };
+  const result = (report: unknown) => ({
+    stdout: written.stdout,
+    stderr: written.stderr,
+    report: typeof report === "string" ? parseRunReport(report) : undefined,
+  });
+  return {
+    interactive: async (source: string, answers: (string | null)[]) => {
+      handlers();
+      const left = [...answers];
+      const requestLine = () => Promise.resolve(left.shift() ?? undefined);
+      return result(await Reflect.apply(callPromising, runner, [source, requestLine]));
+    },
+    batch: (source: string) => {
+      handlers();
+      return result(Reflect.apply(runner, undefined, [source]));
+    },
+  };
+}
+
+describe("run support (Pyodide): an interactive run on the run's own streams", () => {
+  const ok = { kind: "ok", message: "", line: undefined };
+
+  it("[FR-WSP-08] reads the learner's answers, with the stream made over descriptor 0 still bound as __stdin__", async () => {
+    const own = await interactiveWorkerRunner();
+    const first = await own.interactive(
+      'import sys\na = input("A? ")\nprint(a * 2, sys.stdin is sys.__stdin__, type(sys.__stdin__).__name__)',
+      ["x"],
+    );
+    expect(first).toMatchObject({ stdout: "A? xx False TextIOWrapper\n", report: ok });
+    expect(own.batch("import sys\nprint(sys.stdin is sys.__stdin__)")).toMatchObject({
+      stdout: "True\n",
+      report: ok,
+    });
+  }, 60_000);
+
+  it("[FR-RUN-04] what a program stores on the reader is freed in its own run, not after it", async () => {
+    const own = await interactiveWorkerRunner();
+    const first = await own.interactive(
+      [
+        "import sys",
+        "class Late:",
+        "    def __init__(self, run_id):",
+        "        self.run_id = run_id",
+        "    def __del__(self, sys=sys, print=print, id=id):",
+        "        same = 'same' if id(sys.stdout) == self.run_id else 'other'",
+        "        print('late', same, type(sys.stdin).__name__)",
+        "sys.stdin.kept = Late(id(sys.stdout))",
+        'print(input("A? "))',
+      ].join("\n"),
+      ["x"],
+    );
+    expect(first).toMatchObject({ stdout: "A? x\nlate same Answers\n", report: ok });
+    expect(own.batch('print("next")')).toMatchObject({ stdout: "next\n", report: ok });
+  }, 60_000);
+
+  it("[FR-RUN-04] what a program stores on the stream under __stdin__ is freed in its own run too", async () => {
+    const own = await interactiveWorkerRunner();
+    const first = await own.interactive(
+      [
+        "import sys",
+        "class Late:",
+        "    def __init__(self, run_id):",
+        "        self.run_id = run_id",
+        "    def __del__(self, sys=sys, print=print, id=id):",
+        "        print('late', 'same' if id(sys.stdout) == self.run_id else 'other')",
+        "sys.__stdin__.kept = Late(id(sys.stdout))",
+        'print(input("A? "))',
+      ].join("\n"),
+      ["x"],
+    );
+    expect(first).toMatchObject({ stdout: "A? x\nlate same\n", report: ok });
+    expect(own.batch('print("next")')).toMatchObject({ stdout: "next\n", report: ok });
+  }, 60_000);
+});
+
+/**
+ * Runs one program interactively in CPython: the wait is the identity, and
+ * each request takes the next answer (`null` is the end of input). Returns
+ * what was printed, the report, how many requests were made, and what
+ * standard output held at each request.
+ */
+function runInteractive(
+  program: string,
+  answers: unknown[],
+  { canWait = true }: { canWait?: boolean } = {},
+) {
+  const driver = String.raw`
+import io, json, sys
+program, answers, can_wait = json.loads(sys.argv[1]), json.loads(sys.argv[2]), sys.argv[4] == "1"
+real_stdout = sys.__stdout__
+out = io.StringIO()
+sys.stdin, sys.stdout, sys.stderr = io.StringIO(""), out, io.StringIO()
+original_stdin = sys.stdin
+seen = []
+def request_line():
+    seen.append(out.getvalue())
+    return answers.pop(0) if answers else None
+namespace = {}
+exec(sys.argv[3], namespace)
+run = namespace["_heap_make_runner"](False, lambda value: value, lambda: can_wait)
+report = run(program, request_line)
+restored = sys.stdin is original_stdin
+real_stdout.write(json.dumps({"stdout": out.getvalue(), "report": report, "seen": seen, "restored": restored}))
+`;
+  const text = execFileSync(
+    "python3",
+    [
+      "-I",
+      "-c",
+      driver,
+      JSON.stringify(program),
+      JSON.stringify(answers),
+      RUN_SUPPORT_DEFINITION,
+      canWait ? "1" : "0",
+    ],
+    { encoding: "utf8" },
+  );
+  const parsed = JSON.parse(text) as {
+    stdout: string;
+    report: string;
+    seen: string[];
+    restored: boolean;
+  };
+  return { ...parsed, report: parseRunReport(parsed.report) };
+}
+
+describe("the interactive reader", () => {
+  it("[FR-WSP-08] gives input() each answer with a newline added, and the prompt is written before each request", () => {
+    const result = runInteractive('a = input("A? ")\nb = input("B? ")\nprint(a + "|" + b)', [
+      "one",
+      "two",
+    ]);
+    expect(result.stdout).toBe("A? B? one|two\n");
+    expect(result.seen).toEqual(["A? ", "A? B? "]);
+    expect(result.report?.kind).toBe("ok");
+  });
+
+  it("[FR-WSP-08] the end of input makes input() raise EOFError, reported as input_ended, and later reads ask no more", () => {
+    const result = runInteractive("try:\n    input()\nexcept EOFError:\n    pass\ninput()", [null]);
+    expect(result.seen).toHaveLength(1);
+    expect(result.report).toEqual({
+      kind: "input_ended",
+      message: "EOFError: EOF when reading a line",
+      line: 5,
+    });
+  });
+
+  it("[FR-WSP-08] readline with a size, read with a size, and read to the end", () => {
+    const result = runInteractive(
+      "import sys\nprint(repr(sys.stdin.readline(2)), repr(sys.stdin.readline()))\nprint(repr(sys.stdin.read(5)))\nprint(repr(sys.stdin.read()))\nprint(list(sys.stdin))",
+      ["abcd", "ef", "gh", "ij", null],
+    );
+    expect(result.stdout).toBe("'ab' 'cd\\n'\n'ef\\ngh'\n'\\nij\\n'\n[]\n");
+    expect(result.report?.kind).toBe("ok");
+  });
+
+  it("[FR-RUN-02] where the run cannot wait, a read is the end of input and nothing is requested", () => {
+    const result = runInteractive("input()", ["never"], { canWait: false });
+    expect(result.seen).toEqual([]);
+    expect(result.report?.kind).toBe("input_ended");
+  });
+
+  it("[FR-RUN-04] an answer that is not text ends the input, and standard input is restored after the run", () => {
+    const result = runInteractive("print(input())", [5]);
+    expect(result.report?.kind).toBe("input_ended");
+    expect(result.restored).toBe(true);
+  });
+
+  it("[FR-RUN-04] the reader has no instance attributes, and works after builtins are deleted", () => {
+    const result = runInteractive(
+      "import sys, builtins\nprint(sorted(vars(sys.stdin)))\ndel builtins.len, builtins.type, builtins.isinstance\nprint(sys.stdin.readline().strip())",
+      ["after"],
+    );
+    expect(result.stdout).toBe("[]\nafter\n");
+    expect(result.report?.kind).toBe("ok");
+  });
+});
+
 describe("parseRunReport", () => {
   it("[NFR-SEC-01] accepts only the shape run returns", () => {
     expect(parseRunReport('{"kind":"ok","message":"","line":null}')).toEqual({

@@ -9,8 +9,16 @@
 // share one definition. `null` is never valid: it reaches Python as JsNull,
 // not None (section 14, pitfall 2).
 //
-// Not yet here: `check`, `test_result` and `check_done`, which arrive with the
-// harness in WP-3.3, and `init.harnessVersion` with them.
+// Test cases, test results and check summaries are parsed by the grader's own
+// functions (src/grader), which import nothing either.
+
+import {
+  type CheckSummary,
+  parseCheckSummary,
+  parseTestResult,
+  type TestResult,
+} from "../grader/grade.ts";
+import { parseTestCases, type TestCase } from "../grader/test-case.ts";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -61,8 +69,9 @@ export const FATAL_REASONS = [
 export type FatalReason = (typeof FATAL_REASONS)[number];
 
 export type PageMessage =
-  | { type: "init"; assetBase: string }
+  | { type: "init"; assetBase: string; harnessVersion: string }
   | { type: "run"; runId: RunId; source: string; mode: InputMode; stdin?: string[] }
+  | { type: "check"; runId: RunId; source: string; tests: TestCase[] }
   | { type: "input"; runId: RunId; line: string }
   | { type: "input_end"; runId: RunId };
 
@@ -71,6 +80,8 @@ export type WorkerMessage =
   | { type: "ready"; runtimeVersion: string; capabilities: { interactiveInput: boolean } }
   | { type: "output"; runId: RunId; stream: OutputStream; text: string }
   | { type: "input_request"; runId: RunId }
+  | { type: "test_result"; runId: RunId; result: TestResult }
+  | { type: "check_done"; runId: RunId; summary: CheckSummary }
   | {
       type: "run_done";
       runId: RunId;
@@ -199,10 +210,21 @@ export function parsePageMessage(data: unknown): ParseResult<PageMessage> {
     const type = present(fields, "type");
     switch (type) {
       case "init": {
-        only(fields, ["type", "assetBase"]);
+        only(fields, ["type", "assetBase", "harnessVersion"]);
         const assetBase = text(fields, "assetBase", 512);
         if (!isAssetBase(assetBase)) throw new Refused("invalid_field");
-        return { type, assetBase };
+        return { type, assetBase, harnessVersion: text(fields, "harnessVersion", 16) };
+      }
+      case "check": {
+        only(fields, ["type", "runId", "source", "tests"]);
+        const tests = parseTestCases(present(fields, "tests"));
+        if (!tests.ok) throw new Refused("invalid_field");
+        return {
+          type,
+          runId: runId(fields),
+          source: text(fields, "source", SOURCE_LIMIT),
+          tests: tests.value,
+        };
       }
       case "run": {
         only(fields, ["type", "runId", "source", "mode", "stdin"]);
@@ -217,7 +239,10 @@ export function parsePageMessage(data: unknown): ParseResult<PageMessage> {
       }
       case "input": {
         only(fields, ["type", "runId", "line"]);
-        return { type, runId: runId(fields), line: text(fields, "line", STDIN_LINE_LENGTH_LIMIT) };
+        const line = text(fields, "line", STDIN_LINE_LENGTH_LIMIT);
+        // One answer is one line, as in batch input.
+        if (line.includes("\n")) throw new Refused("invalid_field");
+        return { type, runId: runId(fields), line };
       }
       case "input_end": {
         only(fields, ["type", "runId"]);
@@ -264,6 +289,18 @@ export function parseWorkerMessage(data: unknown): ParseResult<WorkerMessage> {
       case "input_request": {
         only(fields, ["type", "runId"]);
         return { type, runId: runId(fields) };
+      }
+      case "test_result": {
+        only(fields, ["type", "runId", "result"]);
+        const result = parseTestResult(present(fields, "result"));
+        if (result === undefined) throw new Refused("invalid_field");
+        return { type, runId: runId(fields), result };
+      }
+      case "check_done": {
+        only(fields, ["type", "runId", "summary"]);
+        const summary = parseCheckSummary(present(fields, "summary"));
+        if (summary === undefined) throw new Refused("invalid_field");
+        return { type, runId: runId(fields), summary };
       }
       case "run_done": {
         only(fields, ["type", "runId", "outcome", "truncated", "durationMs"]);

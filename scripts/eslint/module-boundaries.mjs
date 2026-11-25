@@ -43,6 +43,9 @@ const FRAMEWORK_PACKAGES = /^(?:react|react-dom|next|server-only|@supabase\/.*)(
 const NODE_BUILTINS = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
 
 const PRIVILEGED_CLIENT = "infrastructure/db/privileged";
+// The grader's test-only Node runner (ADR-0032): exempt from purity, and
+// imported only by itself, tests, and scripts.
+const NODE_RUNNER = /^grader\/node-runner(?:\/|$)/;
 // The account deletion use case is the only caller (CLAUDE.md rule 8).
 const PRIVILEGED_CALLER = "features/profile/server/delete-account";
 
@@ -61,6 +64,9 @@ const REQUEST_STATE = /^next\/headers(?:\/.*)?$/;
 const CLIENT_FOLDER = /^features\/[^/]+\/client\//;
 const SERVER_FOLDER = /^(?:features\/[^/]+\/server|infrastructure\/db)\//;
 const TEST_FILE = /\.test$/;
+// The one computed import: the worker loads Pyodide from the asset base it is
+// given (ADR-0033). It is a URL, not a project module.
+const COMPUTED_IMPORT_ALLOWED = "runtime/worker/python-worker";
 
 /**
  * @param {string} srcRoot absolute path of `src`
@@ -80,6 +86,20 @@ function locate(srcRoot, file) {
   const isModuleIndex = segments.length === 1 && Object.hasOwn(ALLOWED, first) && first !== "root";
   const area = segments.length === 1 && !isModuleIndex ? "root" : first;
   return { module: area, path };
+}
+
+/**
+ * The text of a string literal, or of a template literal with no
+ * substitutions; anything computed gives `undefined`.
+ * @param {import("estree").Node} node
+ * @returns {string | undefined}
+ */
+function fixedText(node) {
+  if (node.type === "Literal" && typeof node.value === "string") return node.value;
+  if (node.type === "TemplateLiteral" && node.expressions.length === 0) {
+    return node.quasis[0]?.value.cooked ?? undefined;
+  }
+  return undefined;
 }
 
 /** @param {string} path a path inside `src` @returns {string | undefined} */
@@ -107,6 +127,12 @@ export const moduleBoundaries = {
         "`{{from}}` must stay pure: it may not import `{{source}}` (docs/spec/02-architecture.md section 4.1).",
       contentSession:
         "`content` reads with no session: it may import from `infrastructure` only `db/public-client`, `env` and `logging`, and never `next/headers` (CLAUDE.md rule 9).",
+      nodeRunner:
+        "The grader's Node runner is a test tool: only tests and scripts may import it (ADR-0032).",
+      testImport:
+        "Only a test may import a test file: a test may import the Node runner, so nothing else may import a test (ADR-0032).",
+      computedImport:
+        "Import with a fixed string, so these rules can see what is imported (docs/spec/02-architecture.md section 4.1).",
       serverOnly:
         'A module in this folder runs only on the server and must start with `import "server-only"` (docs/spec/02-architecture.md section 4.1).',
     },
@@ -125,6 +151,7 @@ export const moduleBoundaries = {
           statement.expression.value === "use client",
       );
     const mustBeServerOnly = SERVER_FOLDER.test(importer.path) && !TEST_FILE.test(importer.path);
+    const isPure = PURE.has(importer.module) && !NODE_RUNNER.test(importer.path);
 
     /**
      * @param {import("estree").Node} node
@@ -133,10 +160,7 @@ export const moduleBoundaries = {
     const check = (node, source) => {
       const isProject = source.startsWith("@/") || source.startsWith(".");
       if (!isProject) {
-        if (
-          PURE.has(importer.module) &&
-          (FRAMEWORK_PACKAGES.test(source) || NODE_BUILTINS.has(source))
-        ) {
+        if (isPure && (FRAMEWORK_PACKAGES.test(source) || NODE_BUILTINS.has(source))) {
           context.report({ node, messageId: "impure", data: { from: importer.module, source } });
         }
         if (importer.module === "content" && REQUEST_STATE.test(source)) {
@@ -153,6 +177,18 @@ export const moduleBoundaries = {
       const target = locate(srcRoot, absolute);
       if (target === undefined) return;
 
+      if (TEST_FILE.test(target.path) && !TEST_FILE.test(importer.path)) {
+        context.report({ node, messageId: "testImport" });
+        return;
+      }
+      if (
+        NODE_RUNNER.test(target.path) &&
+        !NODE_RUNNER.test(importer.path) &&
+        !TEST_FILE.test(importer.path)
+      ) {
+        context.report({ node, messageId: "nodeRunner" });
+        return;
+      }
       if (target.path === PRIVILEGED_CLIENT && importer.path !== PRIVILEGED_CALLER) {
         context.report({ node, messageId: "privileged" });
         return;
@@ -214,20 +250,18 @@ export const moduleBoundaries = {
         if (typeof node.source.value === "string") check(node, node.source.value);
       },
       ImportExpression(node) {
-        if (node.source.type === "Literal" && typeof node.source.value === "string") {
-          check(node, node.source.value);
+        const source = fixedText(node.source);
+        if (source !== undefined) check(node, source);
+        else if (importer.path !== COMPUTED_IMPORT_ALLOWED) {
+          context.report({ node, messageId: "computedImport" });
         }
       },
       CallExpression(node) {
+        if (node.callee.type !== "Identifier" || node.callee.name !== "require") return;
         const [argument] = node.arguments;
-        if (
-          node.callee.type === "Identifier" &&
-          node.callee.name === "require" &&
-          argument?.type === "Literal" &&
-          typeof argument.value === "string"
-        ) {
-          check(node, argument.value);
-        }
+        const source = argument === undefined ? undefined : fixedText(argument);
+        if (source === undefined) context.report({ node, messageId: "computedImport" });
+        else check(node, source);
       },
     };
   },

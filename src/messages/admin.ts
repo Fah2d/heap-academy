@@ -220,9 +220,9 @@ export const lessonEditor = {
   removeWrongAnswer: (n: number) => `Remove wrong answer ${String(n)}`,
   removeShort: "Remove",
   publishedCodeNote:
-    "This lesson is published. A change to its starter, solution or wrong answers is saved only together with a passing validation.",
-  testCount: (count: number) =>
-    count === 1 ? "This lesson has 1 test case." : `This lesson has ${String(count)} test cases.`,
+    "This lesson is published. A change to its starter, solution, wrong answers or test cases is saved only together with a passing validation.",
+  testCasesHeading: "Test cases",
+  publishHeading: "Publish",
   fieldInvalid: {
     title: "Enter a title of 1 to 60 characters.",
     slug: "Use lowercase letters, digits and single hyphens, up to 60 characters.",
@@ -239,7 +239,7 @@ export const lessonEditor = {
     stale:
       "This lesson was changed somewhere else after you opened it, so your change was not saved. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
     needs_validation:
-      "This lesson is published. A change to its starter, solution or wrong answers is saved only together with a passing validation, so nothing was saved.",
+      "This lesson is published. A change to its starter, solution, wrong answers or test cases is saved only together with a passing validation, so nothing was saved.",
     published_incomplete:
       "A published lesson needs instructions and at least one test case, so nothing was saved.",
     chapter_not_found: "That chapter is no longer in this course. Reload the page.",
@@ -248,6 +248,216 @@ export const lessonEditor = {
     unavailable: "The lesson could not be saved right now. Try again in a minute.",
     invalid_input: "Some of the values were not accepted. Check them and save again.",
   },
+  /** Save on a published lesson validates first (section 7.6); why nothing was saved. */
+  validateFirst: {
+    failed:
+      "This lesson is published, so Save validates it first. A rule failed, so nothing was saved. The checklist under Publish says what to fix.",
+    stopped:
+      "This lesson is published, so Save validates it first. The validation was stopped, so nothing was saved.",
+    unavailable:
+      "This lesson is published, so Save validates it first. Python could not run the programs, so nothing was saved. Press Save to try again.",
+    unavailableStart:
+      "This lesson is published, so Save validates it first. Python could not start, so nothing was saved. Press Try again under Publish, then Save.",
+  },
+} as const;
+
+/** The status of one lesson, in the lesson editor's Publish section (section 7.6; FR-ADM-09). */
+export const lessonStatus = {
+  heading: "Status",
+  now: (status: string) => `This lesson is ${status}.`,
+  name: { draft: "a draft", published: "published", archived: "archived" },
+  explain: {
+    draft: "Only admins can see it, in the dashboard.",
+    published: "Learners can open it while its course is published.",
+    archived: "It is gone from the site. Learners keep their completions.",
+  },
+  publishWaits:
+    "Publish appears here once every rule above passed for the lesson as it is now in the editor.",
+  publishSaves: "Publish saves the lesson as it is in the editor, then puts it on the site.",
+  action: { draft: "Move back to draft", published: "Publish", archived: "Archive" },
+  changing: "Changing status",
+  changed: (status: string) => `The lesson is now ${status}.`,
+  confirmTitle: {
+    draft: "Move this lesson back to draft?",
+    archived: "Archive this lesson?",
+  },
+  confirmBody: {
+    draft:
+      "Learners will no longer see this lesson on the site. Their completions are kept, and publishing it again brings it back.",
+    archived:
+      "Learners will not see this lesson on the site. Anyone who completed it keeps the completion and its XP. You can move it back to draft later.",
+  },
+  cancel: "Cancel",
+  /** Why a status change was refused. A refused Publish save uses the save's messages. */
+  failure: {
+    needs_validation:
+      "The lesson changed after its last passing validation, so it was not published. Validate it, then publish.",
+    published_incomplete:
+      "A published lesson needs instructions and at least one test case, so it was not published.",
+    status_not_allowed:
+      "The lesson's status was changed somewhere else, so this change was not made. Reloading shows it and drops what you typed here, so copy anything you want to keep first.",
+    stale:
+      "This lesson was changed somewhere else after you opened it, so its status did not change. Reloading shows the newer version and drops what you typed here, so copy anything you want to keep first.",
+    not_found: "This lesson no longer exists. Go back to the course.",
+    unavailable: "The status could not be changed right now. Try again in a minute.",
+    invalid_input: "The change was not accepted. Reload the page and try again.",
+  },
+} as const;
+
+const count = new Intl.NumberFormat("en");
+
+const testCaseGroup = (n: number) => `Test case ${String(n)}`;
+const testCaseTitleName = (name: string) => (name.trim() === "" ? ": no name yet" : `: ${name}`);
+
+/** The test case list of the lesson editor (docs/spec/03-experience.md section 7.5; FR-ADM-05). */
+export const testCaseList = {
+  intro: (limit: number) =>
+    `Each test case runs the program on its own and compares what it prints. Learners see every test case, including its follow-up code. A lesson has 1 to ${count.format(limit)}.`,
+  empty: "No test case yet. A lesson needs at least one before it can be published.",
+  full: (limit: number) =>
+    `This lesson has ${count.format(limit)} test cases, the most a lesson can have.`,
+  add: "Add a test case",
+  /** The group around one test case's fields, and the number at the start of its title. */
+  group: testCaseGroup,
+  /** The rest of the title after the number; title() is the two together. */
+  titleName: testCaseTitleName,
+  title: (n: number, name: string) => `${testCaseGroup(n)}${testCaseTitleName(name)}`,
+  nameLabel: "Name",
+  nameHint: (limit: number) =>
+    `What the learner reads, written as a requirement, such as: Prints the total on one line. 1 to ${count.format(limit)} characters.`,
+  stdinLabel: "Input",
+  stdinHint: "What the program is given, one answer per line. It may be empty.",
+  expectedLabel: "Expected output",
+  expectedHint: "Exactly what the program must print. A prompt given to input() is part of it.",
+  matchLabel: "How to compare",
+  matchHint: "Letter case and spaces at the start of a line always count.",
+  match: {
+    normalized: "Ignore spaces at line ends and blank lines at the end",
+    exact: "Character for character",
+    contains: "The output contains this text",
+  },
+  hintLabel: "Hint (optional)",
+  hintHint: "Shown when this test case fails. Say what to look at, never the answer.",
+  afterCodeLabel: "Follow-up code (optional)",
+  afterCodeHint:
+    "Python that runs after the learner's program, for checking a variable or calling a function.",
+  duplicate: (name: string) => `Duplicate: ${name}`,
+  duplicateShort: "Duplicate",
+  remove: (name: string) => `Delete: ${name}`,
+  removeShort: "Delete",
+  problem: {
+    nameMissing: "Give this test case a name.",
+    tooLong: {
+      name: (limit: number) => `Keep the name to ${count.format(limit)} characters.`,
+      stdin: (limit: number) => `Keep the input to ${count.format(limit)} characters.`,
+      expected: (limit: number) => `Keep the expected output to ${count.format(limit)} characters.`,
+      hint: (limit: number) => `Keep the hint to ${count.format(limit)} characters.`,
+      afterCode: (limit: number) => `Keep the follow-up code to ${count.format(limit)} characters.`,
+    },
+  },
+} as const;
+
+const listed = (items: readonly string[]) =>
+  items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1] ?? ""}`;
+
+/** Validate in the lesson editor (docs/spec/03-experience.md section 7.6; FR-ADM-06, FR-ADM-07). */
+export const validation = {
+  intro:
+    "Validate runs the solution, the starter and each wrong answer against every test case, in the same Python learners use. A lesson is published only when every rule passed for the lesson as it is in the editor.",
+  pythonLabel: "Python",
+  python: {
+    loading: "Loading. Validate waits for it.",
+    ready: "Ready.",
+    failed: "Python could not start, so nothing can be validated.",
+  },
+  retry: "Try again",
+  checklistLabel: "Checklist",
+  rule: {
+    complete: "The lesson has a title, an address, instructions and at least one test case.",
+    solution_passes: "The solution passes every test case.",
+    starter_fails: "The starter fails at least one test case.",
+    wrong_answers_fail: "Every wrong answer fails at least one test case.",
+    no_time_limit: "No run reached the time limit.",
+  },
+  state: { passed: "Passed", failed: "Failed", not_run: "Not checked" },
+  part: {
+    title: "a title",
+    slug: "an address",
+    instructions: "instructions",
+    test_cases: "a test case",
+  },
+  missing: (parts: readonly string[]) => `Still missing: ${listed(parts)}.`,
+  testCaseRef: (n: number, name: string) =>
+    name.trim() === "" ? `test case ${String(n)}` : `test case ${String(n)} (${name})`,
+  solutionFailed: (cases: readonly string[]) =>
+    cases.length === 1
+      ? `The solution did not pass ${listed(cases)}. Open it to see what the solution printed.`
+      : `The solution did not pass ${listed(cases)}. Open each to see what the solution printed.`,
+  /** Opens one of the test cases the solution failed, in the test case list. */
+  openTestCase: (ref: string) => `Open ${ref}`,
+  starterPasses:
+    "The starter passes every test case, so a learner would have nothing to do. Change the starter, or make a test case stricter.",
+  wrongAnswersPass: (numbers: readonly number[]) =>
+    numbers.length === 1
+      ? `Wrong answer ${String(numbers[0])} passes every test case. Add a test case that this mistake fails.`
+      : `Wrong answers ${listed(numbers.map(String))} pass every test case. Add a test case that each of these mistakes fails.`,
+  program: {
+    solution: "the solution",
+    starter: "the starter",
+    wrongAnswer: (n: number) => `wrong answer ${String(n)}`,
+  },
+  timedOut: (seconds: number, programs: readonly string[]) =>
+    `Stopped at the ${count.format(seconds)} second limit: ${listed(programs)}. Look for a loop that never ends.`,
+  validate: "Validate",
+  validating: "Validating",
+  validatesWhenReady: "Validates when Python is ready",
+  stop: "Stop",
+  status: {
+    running: "Validating the lesson.",
+    stopping: "Stopping the validation.",
+    passed: "Validation finished. Every rule passed.",
+    failed: (n: number) =>
+      n === 1
+        ? "Validation finished. 1 rule failed."
+        : `Validation finished. ${String(n)} rules failed.`,
+    stopped: "Validation stopped. No rule was decided.",
+  },
+  unavailableLabel: "Error",
+  unavailable:
+    "Python could not run the programs, so nothing was checked. Press Validate to try again.",
+  unavailableStart:
+    "Python could not start, so nothing was checked. Press Try again, then Validate.",
+  outdatedLabel: "Note",
+  outdated: "You changed the lesson after this validation. Validate again before publishing.",
+  /** The solution's result inside one test case (section 7.5). */
+  solutionHeading: "What the solution printed",
+  verdict: { pass: "Passed", fail: "Failed", not_run: "Not run" },
+  /** The verdict in a test case's title, as a screen reader reads it after the name. */
+  titleVerdict: (verdict: string) => `, ${verdict}`,
+  reason: {
+    mismatch: "The output is different from the expected output.",
+    program_error: "The solution stopped with an error.",
+    after_code_error: "The follow-up code stopped with an error.",
+    output_limit: (limit: number) =>
+      `The solution printed more than ${count.format(limit)} characters.`,
+    time_limit: (seconds: number) =>
+      `The solution reached the ${count.format(seconds)} second limit.`,
+    stopped: "The validation was stopped.",
+    crashed: "Python stopped working during this test case.",
+  },
+  /** Python's own message, which names the error, such as "ValueError: invalid literal". */
+  error: (message: string, line: number | undefined) =>
+    line === undefined ? message : `Line ${String(line)}: ${message}`,
+  noOutput: "Nothing was printed.",
+  truncated: (limit: number) => `The output was cut at ${count.format(limit)} characters.`,
+  cleaned:
+    "Control characters were removed from this output, so it cannot be copied into the expected output.",
+  verdictOutdated:
+    "You changed the expected output or how to compare after this validation. Validate again for a verdict.",
+  fill: "Fill from solution",
+  fillLabel: (name: string) => `Fill from solution: ${name}`,
 } as const;
 
 /** Lessons in the course editor's chapters (docs/spec/03-experience.md section 7.3). */

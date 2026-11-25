@@ -5,18 +5,19 @@ import { defineConfig, devices } from "@playwright/test";
 // every pull request; Firefox and WebKit on main and before launch.
 const port = 3100;
 // The primitive gallery, the error page and the Python runtime page (WP-3.1)
-// exist only on the development server, so e2e/gallery.spec.ts and the runtime
-// tests run against one beside the production build.
+// are not in the production build (the runtime page is also in Vercel
+// preview builds, WP-3.4), so e2e/gallery.spec.ts and the runtime tests run
+// against the development server beside it.
 const developmentPort = 3101;
 const gallery = /gallery\.spec\.ts$/;
-const runtime = /runtime\.spec\.ts$/;
 // Journeys that need the local Supabase stack (`supabase start`) run in the
 // `stack` project, which the `e2e` job runs after starting it.
 const stack = /-journey\.spec\.ts$/;
+const runtime = /runtime\.spec\.ts$/;
 // The same development pages on an emulated phone: a mobile viewport, touch,
 // and the phone's pixel density, not a resized desktop window.
 const phone = /phone\.spec\.ts$/;
-const notDesktop = [gallery, runtime, phone, stack];
+const notDesktop = [gallery, phone, stack, runtime];
 
 const engines = [
   ["chromium", devices["Desktop Chrome"]],
