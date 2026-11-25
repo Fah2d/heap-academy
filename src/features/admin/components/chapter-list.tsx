@@ -280,32 +280,41 @@ export function ChapterList({
               className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-4"
             >
               {renaming === chapter.id ? (
-                <ChapterForm
-                  initial={chapter}
-                  titleLabel={words.renameTitleLabel(chapter.title)}
-                  summaryLabel={words.renameSummaryLabel(chapter.title)}
-                  submitLabel={words.saveChapter}
-                  pendingLabel={words.savingChapter}
-                  pending={pending}
-                  focusOnOpen
-                  formKey={`rename:${chapter.id}`}
-                  onUnsavedChange={reportUnsaved}
-                  onSubmit={async (values) => {
-                    const saved = await run(
-                      () =>
-                        saveChapter({
-                          courseId,
-                          id: chapter.id,
-                          loadedAt: chapter.loadedAt,
-                          ...values,
-                        }),
-                      words.chapterSaved,
-                    );
-                    if (saved) closeRename(chapter.id);
-                    return saved;
-                  }}
-                  onCancel={() => closeRename(chapter.id)}
-                />
+                <>
+                  {/* The chapter keeps its heading, so the lesson rows' headings stay under it. */}
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-sm text-text-muted">
+                      {words.chapterNumber(index + 1)}
+                    </span>
+                    <h3 className="text-base font-semibold text-text">{chapter.title}</h3>
+                  </div>
+                  <ChapterForm
+                    initial={chapter}
+                    titleLabel={words.renameTitleLabel(chapter.title)}
+                    summaryLabel={words.renameSummaryLabel(chapter.title)}
+                    submitLabel={words.saveChapter}
+                    pendingLabel={words.savingChapter}
+                    pending={pending}
+                    focusOnOpen
+                    formKey={`rename:${chapter.id}`}
+                    onUnsavedChange={reportUnsaved}
+                    onSubmit={async (values) => {
+                      const saved = await run(
+                        () =>
+                          saveChapter({
+                            courseId,
+                            id: chapter.id,
+                            loadedAt: chapter.loadedAt,
+                            ...values,
+                          }),
+                        words.chapterSaved,
+                      );
+                      if (saved) closeRename(chapter.id);
+                      return saved;
+                    }}
+                    onCancel={() => closeRename(chapter.id)}
+                  />
+                </>
               ) : (
                 <div className="flex items-baseline gap-3">
                   <span className="font-mono text-sm text-text-muted">
