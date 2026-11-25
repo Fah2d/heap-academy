@@ -42,7 +42,7 @@ export function CourseEditor({
   const courseDetailsId = useId();
   const [detailsUnsaved, setDetailsUnsaved] = useState(false);
   const [chaptersUnsaved, setChaptersUnsaved] = useState(false);
-  useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
+  const leave = useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
   const onDetailsUnsaved = useCallback((unsaved: boolean) => setDetailsUnsaved(unsaved), []);
   const onChaptersUnsaved = useCallback((unsaved: boolean) => setChaptersUnsaved(unsaved), []);
 
@@ -84,6 +84,7 @@ export function CourseEditor({
         refresh={reread}
         onUnsavedChange={onChaptersUnsaved}
         otherUnsaved={detailsUnsaved}
+        onLeaving={leave.release}
       />
     </div>
   );
