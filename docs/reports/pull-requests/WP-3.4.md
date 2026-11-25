@@ -19,6 +19,10 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 
 ## Up to date with main
 
+`main` at 739eacd (#16, `wp/4.1-courses-chapters`) is merged in a3265aa, and then `wp/3.3-grader` at 05cd6d8 in fcbdda7 (it adds only WP-3.3's description). Two files conflicted in a3265aa: `docs/reports/local-build-progress.md` (both sides' sections kept) and `scripts/eslint/module-boundaries.mjs`, resolved exactly as `wp/3.3-grader` did (its `nodeRunner`, `testImport` and `computedImport` rules and `main`'s `contentSession` rule all kept). On a3265aa, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  82 passed (82)`, `Tests  1648 passed (1648)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 77e5be9.
+
 `wp/3.3-grader` at 68a69d2 is merged in 818c111. It brings `main` at 428c437 (#14, `wp/db-types`: one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses), merged into `wp/3.3-grader` in bbd6d31, and WP-3.3's notes on WP-3.1 security review 8 (881e51a). One conflict, `docs/reports/local-build-progress.md`: `wp/5.2-workspace-laptop`'s copy, which holds every line of both sides, was taken. On 818c111: `pnpm verify` exit 0 (`Test Files  47 passed (47)`, `Tests  1247 passed (1247)`); `pnpm build` with CI's fake public values exit 0, and the built harness has `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 Before that: `wp/3.3-grader` at f3c806d is merged in 014adf3. It brings `main` at 7875ee2 (#12, `wp/2.1-schema-policies`), which `wp/3.3-grader` merged in 7d62414, and WP-3.3's spec changes approved on 2026-11-24. One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. WP-3.1's run fixes and WP-3.1's approved spec changes are still not on `wp/3.3-grader`, so they are not here either; they arrive with WP-3.1.
