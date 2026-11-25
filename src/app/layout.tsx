@@ -5,6 +5,7 @@ import { AccountControl, guestInvitation } from "@/features/auth";
 import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
 import { GuestInvitationProvider } from "@/features/progress";
 import { fontVariables, SiteShell } from "@/features/shell";
+import { CspNonceMeta } from "@/features/system";
 import { documentAttributes, LOCALE } from "@/messages/locale";
 import { shell } from "@/messages/shell";
 import "@/ui/styles.css";
@@ -33,6 +34,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const invitation = await guestInvitation();
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
+      <head>
+        <CspNonceMeta />
+      </head>
       <body className="flex flex-col">
         <GuestInvitationProvider invitation={invitation}>
           <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>

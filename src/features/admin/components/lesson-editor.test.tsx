@@ -177,9 +177,9 @@ const saveButton = () => screen.getByRole("button", { name: words.save });
 describe("LessonEditor [FR-ADM-04]", () => {
   it("shows the status, every section in the side list, and the saved values", () => {
     setup();
-    const nav = screen.getByRole("navigation", { name: words.sectionsLabel });
+    const sideList = screen.getByRole("group", { name: words.sectionsLabel });
     expect(
-      within(nav)
+      within(sideList)
         .getAllByRole("link")
         .map(
           (link) =>
@@ -393,9 +393,9 @@ describe("LessonEditor [FR-ADM-04]", () => {
     setup();
     setup();
     const targets = screen
-      .getAllByRole("navigation", { name: words.sectionsLabel })
-      .flatMap((nav) =>
-        within(nav)
+      .getAllByRole("group", { name: words.sectionsLabel })
+      .flatMap((sideList) =>
+        within(sideList)
           .getAllByRole("link")
           .map((link) => link.getAttribute("href")),
       );
@@ -752,7 +752,7 @@ describe("LessonEditor status [FR-ADM-09]", () => {
     });
     await passValidation();
     await userEvent.click(publishButton() as HTMLElement);
-    const publish = screen.getByRole("region", { name: words.publishHeading });
+    const publish = screen.getByRole("group", { name: words.publishHeading });
     await waitFor(() => expect(within(publish).getByText(words.failure.stale)).toBeTruthy());
     expect(within(publish).getByRole("button", { name: structure.reload })).toBeTruthy();
     expect(setStatus).not.toHaveBeenCalled();
