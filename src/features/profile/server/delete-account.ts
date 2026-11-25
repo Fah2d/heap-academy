@@ -22,7 +22,7 @@ export const MAX_DELETE_BYTES = 64;
 export type DeleteAccountFailure = "sign_in_again" | "unavailable";
 
 export type DeletionPorts = {
-  /** The verified claims of the caller's session, or null. */
+  /** The verified claims of the caller's session, or undefined when they cannot be read. */
   claims: () => Promise<unknown>;
   deleteUser: (userId: string) => Promise<"deleted" | "unavailable">;
   notify: (userId: string) => Promise<"sent" | "failed">;
@@ -35,22 +35,30 @@ export async function deleteAccount(
   requestId: RequestId,
   ports: DeletionPorts,
 ): Promise<UseCaseResult<null, DeleteAccountFailure>> {
-  if (!signedInRecently(await ports.claims(), ports.now())) {
+  const claims = await ports.claims();
+  if (claims === undefined) return { ok: false, error: "unavailable" };
+  if (!signedInRecently(claims, ports.now())) {
     return { ok: false, error: "sign_in_again" };
   }
+  const record = (outcome: string) => {
+    ports.log({
+      level: "error",
+      requestId,
+      route: actionLogRoute("delete-account"),
+      outcome,
+      durationMs: 0,
+    });
+  };
   if ((await ports.deleteUser(userId)) === "unavailable") {
+    // The service may have deleted the account and lost the answer, so this
+    // line is checked by hand before any restore.
+    record("error:deletion-unclear");
     return { ok: false, error: "unavailable" };
   }
   // The deletion never waits on the email succeeding (ADR-0030). A failure is
   // logged by request ID alone, and a restore is then checked by hand.
   if ((await ports.notify(userId)) === "failed") {
-    ports.log({
-      level: "error",
-      requestId,
-      route: actionLogRoute("delete-account"),
-      outcome: "error:deletion-notice",
-      durationMs: 0,
-    });
+    record("error:deletion-notice");
   }
   return { ok: true, value: null };
 }

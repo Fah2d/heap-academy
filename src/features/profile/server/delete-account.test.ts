@@ -59,6 +59,15 @@ describe("[FR-PRF-03] [J-10] deleting an account", () => {
     expect(used.notify).not.toHaveBeenCalled();
   });
 
+  it("deletes nothing when the claims cannot be read", async () => {
+    const used = ports({ claims: vi.fn<DeletionPorts["claims"]>(async () => undefined) });
+    await expect(deleteAccount("user-1", requestId, used)).resolves.toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+    expect(used.deleteUser).not.toHaveBeenCalled();
+  });
+
   it("sends no notice when the deletion fails", async () => {
     const used = ports({
       deleteUser: vi.fn<DeletionPorts["deleteUser"]>(async () => "unavailable"),
@@ -68,6 +77,9 @@ describe("[FR-PRF-03] [J-10] deleting an account", () => {
       error: "unavailable",
     });
     expect(used.notify).not.toHaveBeenCalled();
+    expect(used.log).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId, outcome: "error:deletion-unclear" }),
+    );
   });
 
   it("[T-17] still succeeds when the notice fails, and logs no personal data", async () => {
@@ -139,13 +151,14 @@ describe("[FR-PRF-03] the real ports and the privileged client", () => {
   });
 
   it.each([
-    [404, "deleted"],
-    [401, "unavailable"],
-    [500, "unavailable"],
-    [undefined, "unavailable"],
-  ])("read an error with status %s as %s", async (status, outcome) => {
+    [{ status: 404, code: "user_not_found" }, "deleted"],
+    [{ status: 404 }, "unavailable"],
+    [{ status: 401 }, "unavailable"],
+    [{ status: 500 }, "unavailable"],
+    [{}, "unavailable"],
+  ])("read the error %j as %s", async (error, outcome) => {
     configure("sb_secret_example");
-    mocks.deleteUser.mockResolvedValue({ error: { status } });
+    mocks.deleteUser.mockResolvedValue({ error });
     await expect(remove()).resolves.toBe(outcome);
   });
 });

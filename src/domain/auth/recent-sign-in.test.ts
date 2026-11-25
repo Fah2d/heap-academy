@@ -7,7 +7,7 @@ const at = (millisecondsAgo: number, method = "otp") => ({
 });
 
 describe("[FR-PRF-03] [T-01] a recent sign-in", () => {
-  it.each(["otp", "oauth", "magiclink", "email/signup", "totp"])("accepts %s", (method) => {
+  it.each(["otp", "oauth", "magiclink", "email/signup"])("accepts %s", (method) => {
     expect(signedInRecently(at(1000, method), NOW)).toBe(true);
   });
 
@@ -20,6 +20,11 @@ describe("[FR-PRF-03] [T-01] a recent sign-in", () => {
   it("does not count a token refresh or an unknown method", () => {
     expect(signedInRecently(at(0, "token_refresh"), NOW)).toBe(false);
     expect(signedInRecently(at(0, "anonymous"), NOW)).toBe(false);
+  });
+
+  it("does not let a newly verified factor renew an old sign-in", () => {
+    const claims = { amr: [...at(3_600_000).amr, ...at(1000, "totp").amr] };
+    expect(signedInRecently(claims, NOW)).toBe(false);
   });
 
   it("counts the newest qualifying entry among several", () => {

@@ -150,6 +150,9 @@ jobs:
       # A marker, so the bundle check can prove a server value never reaches
       # the browser. Not a real key.
       RESEND_API_KEY: re_ci_marker_not_a_real_key
+      SUPABASE_SECRET_KEY: ci_marker_secret_key_not_a_real_key
+      DELETION_NOTICE_FROM: ci-marker-from@example.com
+      DELETION_NOTICE_TO: ci-marker-to@example.com
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

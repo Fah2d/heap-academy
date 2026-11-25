@@ -21,5 +21,6 @@ export async function deleteAuthUser(
   });
   const { error } = await client.auth.admin.deleteUser(userId);
   // A second request for an account already gone has nothing left to do.
-  return error === null || error.status === 404 ? "deleted" : "unavailable";
+  // Only the service's own "no such user": a gateway's 404 proves nothing.
+  return error === null || error.code === "user_not_found" ? "deleted" : "unavailable";
 }

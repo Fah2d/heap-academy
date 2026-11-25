@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (about 11:40 to 12:05), in `night-b`, account deletion (`wp/6.3-account-deletion`)
+
+- `origin/main` 428c437: nothing to merge. WP-6.2 part 2 needs nothing more here: XP and streak are on the profile, course page and completion moment; the header shows none (decision 1 of `WP-6.3-profile-page.md`).
+- Done: account deletion, no longer blocked for code: safe defaults for the variable names and the "recent sign-in" rule; the control is absent until the owner sets the variables. One code and one security review, both CHANGES REQUIRED; fixes in, not reviewed again.
+- `pnpm verify` exit 0: 147 files, 2518 tests. `pnpm build`, `check-bundle`, `check-static`: exit 0. PGlite database tests pass. Not run: J-10 (not written), browser tests, `pnpm test:db`.
+- Owner: open a draft pull request from `docs/reports/pull-requests/WP-6.3-account-deletion.md` (base `wp/6.3-profile-page`) and do its three actions.
+- Next: J-10 on the stack; merge `wp/6.3-legal-pages-footer` into the stack; rate limiting.
+- Other sessions: `heap-academy-d6` is in `night-a` on J-5 and J-6.
+
 ## Session of 2026-11-25 (about 11:00 to 11:25), in `night-b`, server-rendered progress (rest of WP-6.1)
 
 - `origin/main` still 428c437: nothing to merge. PR #13's CI fixes were already pushed; the newest note says it is green at 2516297 (not rechecked here).
