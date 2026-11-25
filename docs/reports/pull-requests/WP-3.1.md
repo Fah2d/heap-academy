@@ -41,6 +41,10 @@ The Python worker of architecture section 5: learner code runs in a module worke
 
 ## Up to date with main
 
+`main` at 739eacd (#16, `wp/4.1-courses-chapters`, since the last merge) is merged in ab0081c. One file conflicted: `docs/reports/local-build-progress.md` (both sides kept). #16 brings the course and chapter editor, which nothing on this branch touches. On ab0081c, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  73 passed (73)`, `Tests  1356 passed (1356)`); `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 9c013da.
+
 `main` at 428c437 (#14, `wp/db-types`, since the last merge) is merged in 4775139, with no conflict. It adds one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses. On 4775139: `pnpm verify` exit 0 (`Test Files  38 passed (38)`, `Tests  955 passed (955)`); `pnpm build` with CI's fake public values exit 0; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 
 Before that: `main` at 7875ee2 (#12, `wp/2.1-schema-policies`, since the last merge) is merged in dc5f653. One file conflicted: `docs/reports/local-build-progress.md`, where `wp/5.2-workspace-laptop`'s copy (the newest) was taken and `main`'s two `night-b` sections were added in time order. `package.json` merged with no conflict: it keeps this branch's runtime build step and `pyodide`, and gains `main`'s `test:db` script. WP-2.1's migrations, policy tests and seed came in with no conflict.
