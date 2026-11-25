@@ -8,8 +8,10 @@ import { cx } from "../class-names";
  * - `standalone`: a link that stands alone as the next step, such as "Go to
  *   the home page". Underlined, and at least 44 px tall.
  * - `nav`: a header navigation link. Muted, not underlined, marked when current.
+ * - `action`: navigation that is the screen's one main action, such as "New
+ *   course". It looks like the primary button, and it is still a link.
  */
-export type LinkVariant = "inline" | "standalone" | "nav";
+export type LinkVariant = "inline" | "standalone" | "nav" | "action";
 
 export type LinkProps = {
   href: string;
@@ -32,6 +34,8 @@ const classes: Record<LinkVariant, string> = {
   inline: underlined,
   standalone: cx(underlined, "inline-flex min-h-target items-center font-medium"),
   nav: "inline-flex min-h-target min-w-target items-center justify-center border-be-(length:--marker-width) no-underline",
+  action:
+    "inline-flex min-h-target min-w-target items-center justify-center rounded-control border border-transparent bg-action px-4 text-base font-medium text-on-action no-underline transition-colors hover:bg-action-hover active:bg-action-press",
 };
 
 // Exclusive sets: when two utilities set one property, the stylesheet's order
