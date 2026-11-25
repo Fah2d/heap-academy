@@ -75,12 +75,31 @@ describe("workflows", () => {
 
   it("[NFR-SEC-04] the pull request workflow names the required checks and holds no secret", () => {
     const text = read("ci.yml");
-    expect(jobs(text)).toEqual(["static", "unit", "build"]);
-    for (const id of ["static", "unit", "build"]) {
+    expect(jobs(text)).toEqual(["static", "unit", "build", "db", "e2e"]);
+    for (const id of ["static", "unit", "build", "db", "e2e"]) {
       expect(job(text, id)).toContain(`    name: ${id}\n`);
     }
     expect(text).not.toMatch(/\$\{\{\s*secrets\./);
     expect(text).toMatch(/types: \[opened, synchronize, reopened, edited\]/);
+  });
+
+  it("[NFR-SEC-03] the db job installs the pinned CLI, starts an empty database and runs the policy tests", () => {
+    const text = job(read("ci.yml"), "db");
+    expect(step(text, "Install the Supabase CLI")).toContain(
+      'scripts/install-supabase.sh "$RUNNER_TEMP/bin"',
+    );
+    expect(text).toMatch(/^ {8}run: supabase start$/m);
+    expect(text).toMatch(/^ {8}run: supabase test db$/m);
+  });
+
+  it("[FR-AUTH-02] the e2e job starts the local stack before the journeys that need it", () => {
+    const text = job(read("ci.yml"), "e2e");
+    const start = text.indexOf("run: supabase start");
+    const journeys = text.indexOf("run: pnpm test:e2e");
+    expect(start).toBeGreaterThan(-1);
+    expect(journeys).toBeGreaterThan(start);
+    expect(text).toMatch(/--project=stack/);
+    expect(text).toMatch(/--project=chromium/);
   });
 
   it.each(files)(
@@ -185,6 +204,17 @@ describe("workflows", () => {
     const text = read("deploy.yml");
     expect(job(text, "staging-migrations")).toMatch(/^ {4}environment: staging$/m);
     expect(job(text, "production")).toMatch(/^ {4}environment:\n {6}name: production$/m);
+  });
+
+  it("[T-22] staging gets the sample course and production never does", () => {
+    const text = read("deploy.yml");
+    const staging = step(job(text, "staging-migrations"), "Apply migrations to staging");
+    expect(staging).toContain("run: scripts/apply-migrations.sh --include-seed\n");
+    expect(staging).toContain("SEED_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}");
+    expect(step(job(text, "production"), "Apply migrations to production")).toMatch(
+      /^ {8}run: scripts\/apply-migrations\.sh$/m,
+    );
+    expect(job(text, "production")).not.toContain("seed");
   });
 
   it("[T-18] the deploy stays off until the owner sets DEPLOY_ENABLED, and production waits for it", () => {

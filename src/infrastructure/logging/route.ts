@@ -21,15 +21,28 @@ const METHODS: ReadonlySet<string> = new Set([
  * Every literal segment of a route under `src/app`. A route segment missing
  * here is logged as `:param`, which loses detail but never leaks; a test
  * checks the list against the folders. `dev`, `primitives` and `error` are
- * WP-1.4's development routes; `privacy` and `terms` are WP-6.3's legal pages.
+ * WP-1.4's development routes; `catalog` is WP-5.1's; `privacy` and `terms`
+ * are WP-6.3's legal pages.
  */
 export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "api",
+  "auth",
+  "callback",
+  "sign-in",
+  "admin",
+  "setup",
+  "verify",
+  "courses",
+  "new",
+  "lessons",
   "csp-report",
   "health",
   "dev",
+  "runtime",
   "primitives",
+  "validation",
   "error",
+  "catalog",
   "privacy",
   "terms",
 ]);
@@ -46,4 +59,23 @@ export function logRoute(method: string, pathname: string): LogRoute {
     .map((segment) => (ROUTE_SEGMENTS.has(segment) ? segment : ":param"));
   if (segments.length > MAX_ROUTE_SEGMENTS) shown.push("*");
   return `${verb} /${shown.join("/")}` as LogRoute;
+}
+
+/**
+ * The `route` field for a read of public content, which runs inside the data
+ * cache with no request: `GET /content/published-course`.
+ */
+export function contentLogRoute(query: "published-courses" | "published-course"): LogRoute {
+  return `GET /content/${query}` as LogRoute;
+}
+
+const ACTION_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/**
+ * The `route` field for a server action: `POST /actions/request-email-code`.
+ * Server actions are POST requests to a page's address, which says nothing
+ * about the action; the name comes from the code, never from the client.
+ */
+export function actionLogRoute(name: string): LogRoute {
+  return `POST /actions/${ACTION_NAME.test(name) ? name : ":param"}` as LogRoute;
 }

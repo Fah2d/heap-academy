@@ -1,7 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { catalogCommon } from "../src/messages/catalog";
 import { legal, privacy, terms } from "../src/messages/legal";
 import { shell } from "../src/messages/shell";
+import { account } from "../src/messages/sign-in";
 import { saveScreen } from "./screens";
 
 // The privacy and terms pages and the footer that links to them on every page
@@ -61,9 +63,17 @@ test("[NFR-A11Y-03] the footer links are reached by keyboard after the page cont
   const footer = page.getByRole("contentinfo");
   const privacyLink = footer.getByRole("link", { name: shell.footer.privacy });
   const termsLink = footer.getByRole("link", { name: shell.footer.terms });
-  // Skip link, wordmark, then the footer: the privacy page has no other control.
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
+  // The skip link and the header's three links come first; the privacy page has
+  // no control of its own.
+  for (const name of [
+    shell.skipLink,
+    shell.productName,
+    catalogCommon.coursesLink,
+    account.signIn,
+  ]) {
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name, exact: true })).toBeFocused();
+  }
   await page.keyboard.press("Tab");
   await expect(privacyLink).toBeFocused();
   await page.keyboard.press("Tab");
@@ -103,7 +113,7 @@ for (const width of WIDTHS) {
       await page.goto(path);
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations).toEqual([]);
-      await saveScreen(page, screen, width);
+      await saveScreen(page, screen, width, { workPackage: "WP-6.3" });
     });
 
     test(`[NFR-A11Y-05] ${path} does not scroll sideways at ${width} px`, async ({ page }) => {

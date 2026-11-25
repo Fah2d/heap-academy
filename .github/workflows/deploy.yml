@@ -49,10 +49,12 @@ jobs:
           mkdir "$RUNNER_TEMP/bin"
           scripts/install-supabase.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # Staging alone gets the sample course (07-operations.md section 2).
       - name: Apply migrations to staging
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: scripts/apply-migrations.sh
+          SEED_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+        run: scripts/apply-migrations.sh --include-seed
 
   production:
     name: production
@@ -129,7 +131,18 @@ jobs:
       - name: Build
         env:
           HEAP_RELEASE: ${{ github.sha }}
-        run: vercel build --prod
+          # Set here, not only by the pulled settings: the preview-only pages
+          # (`.preview.tsx`) are left out exactly when this is `production`.
+          VERCEL_ENV: production
+        run: |
+          vercel build --prod
+          # A preview-only page in the production output fails the release.
+          # Only the route folders: traced server files have `dev` folders
+          # of their own.
+          if [ -e .vercel/output/functions/dev ] || [ -e .vercel/output/static/dev ]; then
+            echo "::error::a development page is in the production build"
+            exit 1
+          fi
       # Covers every server variable `vercel pull` wrote. A Sensitive
       # variable arrives as a placeholder, so for it this checks the name;
       # the marker build of the `build` job checks the code path.

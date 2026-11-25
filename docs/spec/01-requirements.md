@@ -56,6 +56,8 @@ Each journey is an end-to-end test suite in `e2e/`.
 | FR-CRS-02 | M | Each lesson row shows its XP and one state: completed, next up, or open. State is conveyed by text and icon, not color alone. | All three states render and are announced to assistive technology. |
 | FR-CRS-05 | S | A progress summary shows lessons completed and XP earned of total. | Values equal derived progress. |
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-5.1):** a course with no published lesson answers not found on its course page too, so a link cannot reach a page with nothing to learn (FR-CAT-04). A chapter with no published lesson is left out of the course page until it has one.
+
 ### 3.4 Workspace (WSP)
 
 | ID | P | Requirement | Acceptance |
@@ -137,7 +139,7 @@ Each journey is an end-to-end test suite in `e2e/`.
 |---|---|---|---|
 | FR-ADM-01 | M | The dashboard lives under `/admin` and is reachable only by a user on the admin list who has passed the second sign-in step. Everyone else gets the same not-found page as any missing address. | J-12 passes. |
 | FR-ADM-02 | M | An admin enrolls an authenticator app once and is asked for its code in every new admin session. | An admin session without the second step can read nothing and write nothing in the dashboard. |
-| FR-ADM-03 | M | Create, edit, reorder, publish, unpublish, and archive courses and chapters. | A course cannot be published with no published lesson. |
+| FR-ADM-03 | M | Create, edit, reorder, publish, unpublish, and archive courses. Create, edit, and reorder chapters, and delete a chapter when it is empty. A chapter has no status of its own: it shows when its course is published. | A course cannot be published with no published lesson. |
 | FR-ADM-04 | M | Create and edit a lesson: title, address, XP, instructions in Markdown with a preview rendered exactly as learners will see it, hints, starter, solution, and optional wrong answers. | The preview uses the same renderer as the workspace. |
 | FR-ADM-05 | M | Add, edit, duplicate, reorder, and delete test cases. | Limits in `04-content-system.md` section 2 are enforced with clear messages. |
 | FR-ADM-06 | M | Run the solution against every test case in the dashboard and see each verdict with expected and actual output. Expected output can be filled from the solution's actual output and then edited. | Uses the same runtime and harness as the workspace. |
@@ -149,6 +151,8 @@ Each journey is an end-to-end test suite in `e2e/`.
 | FR-ADM-12 | S | Export a course as one JSON file. Import a lesson from JSON as a draft. | An imported lesson still has to pass validation to be published. |
 | FR-ADM-13 | S | The dashboard shows, per lesson, how many learners completed it. | Counts come from the database. |
 | FR-ADM-14 | M | Solutions, wrong answers, and anything not published are never sent to a browser that is not an admin's. | Database policy tests and a response scan prove it (`06-security-privacy.md` T-21). |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-4.1):** FR-ADM-03 gives only courses a status, as the schema, `02-architecture.md` section 8 and `03-experience.md` section 7.3 do. It said courses and chapters are published, unpublished and archived.
 
 ### 3.11 System and discovery (SYS, SEO)
 

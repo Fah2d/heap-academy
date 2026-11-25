@@ -2,6 +2,363 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 04:58), journey fixes carried to 5.1
+
+- `wp/2.2-sign-in` merged into 2.3, then 4.1, 4.2, 4.3 and `wp/5.1-catalog`; the same unscoped `alert` locator fixed in the admin, course structure and lesson editor journeys (scoped to `main`).
+- Sign-in journeys on 2.3 against the fake auth server: 3/3. The admin, course structure and lesson editor journeys need the database and were not run.
+- Next: merge forward into 5.2 and later at their next work. Push: from 05:38.
+
+## Session of 2026-11-25 (from about 04:40), in `night-b`, second CI fix for #13
+
+- `origin/main` still 428c437: nothing to merge for task 1.
+- `e2e` still failed on 3ce8e49. Two faults in the stack journeys fixed (an unscoped `alert` locator; T-11 comparing whole response bodies with per-request nonces). Details: `docs/reports/pull-requests/WP-2.2.md`.
+- Run here on the production build with a fake auth server (no Docker): stack 3/3, gallery 23/23, chromium 37/37. Real Supabase Auth: not verified.
+- Chromium works in the sandbox with `--single-process`, one test per process, and the proxy set for `challenges.cloudflare.com`.
+- Push: from 05:38.
+- Next: when #13 is green or merged, merge it forward into 2.3 and later branches; 2.3's journey files need the same two fixes if they repeat them. Blocked: account deletion.
+
+## Session of 2026-11-24 (from about 23:20), in `night-b`, merge-forward to 5.1
+
+- Merged in order: `wp/2.2-sign-in` into 2.3 (conflicts: this file, and the journey spec, where 2.3's shared helper already has the token wait), then 2.3 into 4.1, 4.1 into 4.2, 4.2 into 4.3 (no conflicts), then 4.3 into 5.1 (conflicts: this file and `playwright.config.ts`, both comments kept).
+- 5.1 broke after the merge: the stricter import rule (from the 3.x line) refuses the computed `import()` in `src/app/indexing.test.ts`. The test now has one fixed import per page, lists `/admin/lessons/[id]`, and drops the check that read `next.config.ts`, which now calls `pageExtensions` (tested in its own file).
+- On 5.1 without the unfinished part 2 files: `pnpm verify` exit 0, 108 files, 2009 tests; `next build` with CI's public values exit 0; `check-bundle` and `check-static` exit 0. 2.3 alone: `pnpm verify` exit 0. 4.1 to 4.3 were not verified on their own (merges without conflicts; 5.1 contains them).
+- Not run: stack e2e and `pnpm test:db` (no Docker).
+- WP-5.1 owner decision 6 (error text) is in `src/messages/system.ts`; decision 5 (lint bypass) is branch `wp/fix-lint-template-import` (2 commits ahead of `main`).
+- Left in this checkout, not committed: part 2 of WP-6.1 (progress server module, completion store). Its test "refuses an upper-case ID" fails: next task.
+
+## Session of 2026-11-24 (from about 23:10), in `night-b`, CI fixes for #13 (`wp/2.2-sign-in`)
+
+- Cause of the three failing stack journey tests: the "Sign in" header link navigated on the client, so the sign-in page kept the previous page's policy, which does not let the bot challenge frame load. No token, so no code was sent. Fix: `SignInLink` loads in full (not on the sign-in page itself, where a reload would lose the form); the journey waits for the token; the return path sweep has a 60 s limit.
+- `pnpm verify`: exit 0. Not run: the stack e2e (no Docker here), so the fix is reasoned from the code and CI has to confirm it.
+- Next: merge `origin/main` into the later branches in order if it has moved, then WP-6.1 part 2.
+
+## Session of 2026-11-24 (evening), in `night-b`, on `wp/2.2-sign-in`
+
+### Done: CI fixes for #13 (top priority)
+
+- Unit: the return path sweep has a 60 s limit (commit 9161501).
+- e2e: the code step never showed because a client-side navigation to `/sign-in` kept the previous page's policy, which does not frame the Turnstile challenge, so no token arrived. The header "Sign in" link now loads in full (8949c89), except on the sign-in page itself.
+- Review round 1 (code-reviewer, security-reviewer): applied the e2e test change (it checks the `content-security-policy` header, no Cloudflare call) and shorter comments. Not done: a spec note in `06-security-privacy.md` 5.2 and a lint rule against other links to `/sign-in` (spec change needs the owner; listed as a default in the PR).
+- `pnpm verify`: exit 0, 43 files, 929 tests. Not run: `supabase start` and the stack e2e (no Docker here).
+- Next: merge-forward of later branches onto 2.2, then part 2 of 6.1, 6.2, 6.3. Blocked: nothing.
+
+## Session of 2026-11-24 (from about 22:50), in `night-b`, PR #13's CI and `main` at 428c437
+
+Top priority from the owner: CI on PR #13 (`wp/2.2-sign-in`, 9717efb) failed in `unit` and in the `e2e` job's `stack` project. `git fetch` at 22:50: `origin/main` moved from 7875ee2 to 428c437 (#14, `wp/db-types`: `src/infrastructure/db/database.types.ts`).
+
+### PR #13's CI done: `wp/2.2-sign-in` (pushed 5eab223)
+
+- Started at 22:50. The CI log of run 45438429284 was read through the GitHub API with `curl` (`gh` itself still fails with `x509: OSStatus -26276`).
+- unit: `src/domain/auth/return-path.test.ts`, "never returns a path that leaves the site" (177,155 cases), has an explicit `60_000` ms limit, as the owner instructed (9161501).
+- e2e `stack`: the cause is the test. "Send code" stays enabled while Turnstile runs, and `requestCode` pressed it right after typing. The page then says "Wait for the check that keeps automated sign-ups out to finish, then try again." and stays on the email step. Shown on this branch's production build in Chromium: the early press gave that message, and the test key's token arrived after 2320 ms. `requestCode` now waits for a value in `input[name="cf-turnstile-response"]` (15 s limit) before it presses. With the wait, the press reaches the server action (HTTP 200; "not working right now", because no auth service ran here).
+- CI's own log: `supabase start` hit `toomanyrequests: Rate exceeded` on image pulls but started on retry; the server printed no error for the code requests. The `e2e` job does not upload `test-results/`, so its traces were not available.
+- Merge commit f8d21ed: `origin/main` (428c437), no conflict.
+- `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values: exit 0, five routes.
+- Not verified: the stack journeys. Docker is not running here, so CI on 5eab223 is their first run.
+- Description: `docs/reports/pull-requests/WP-2.2.md`, a new first section, "CI fixes for #13", with decisions K and L.
+
+### Task 1 done for `main` at 428c437
+
+Each branch merged the one before it, then `pnpm verify`, `next build` with CI's public values, `check-bundle` (22 files) and `check-static`, all exit 0. Each description has a new paragraph at the top of "Up to date with main".
+
+- `wp/2.3-admin-gate`: merge 10ac619. One conflict, `e2e/sign-in-journey.spec.ts`: 2.3 had moved the helpers into `e2e/sign-in-helpers.ts`, so 2.3's journey file was kept and the token wait went into that helper's `requestCode` (the admin journey signs in through it too). 53 files, 1019 tests. Pushed bdb9469.
+- `wp/4.1-courses-chapters`: merge 6672c50, no conflict. 62 files, 1114 tests. Pushed b10e6d6.
+- `wp/4.2-lesson-editor`: merge 93d529d, no conflict. 73 files, 1331 tests. Pushed 4417719.
+- `wp/4.3-validate-publish`: merge 610a729, no conflict. 102 files, 1901 tests. Pushed ef5abd5.
+- `wp/5.1-catalog`: merge efaaa98 of `wp/4.1-courses-chapters` (5.1 is built on 4.1, as before), no conflict. 67 files, 1218 tests, 15 routes. Pushed with this section, which also carries the eighteen progress commits that were waiting.
+- Not run on any branch: `pnpm test:db` and the `stack` journeys (no Docker).
+
+Decisions taken with a safe default:
+
+- K. The fix is in the test only: the page already tells a learner who presses too early what to do. Turning the button off until the token arrives would be an interface change for design review.
+- L. The new token wait has its own 15 s limit, the same as the code email's. It is a new wait, not a raised limit.
+- M. `wp/5.1-catalog` merges `wp/4.1-courses-chapters`, not 4.3, as every earlier session did.
+
+### Owner: run this
+
+1. Watch CI on #13 at 5eab223. If a `stack` journey still fails, the next suspects are the auth service's captcha check and the mail catcher. Reading them needs the trace, which the `e2e` job does not upload; adding that upload is a change to `.github/workflows/ci.yml`, and this session did not make it.
+2. As before: the WP-5.1 stack journey with the local stack, then design review 4 on `home`, `courses` and `course`.
+
+## Session of 2026-11-24 (from about 19:24), in `night-b`, WP-5.1 owner actions 5 and 6
+
+New owner decisions (WP-5.1): action 5, fix the backtick `import()` lint gap as its own small branch from `origin/main`; action 6, the error page says "We could not prepare this page. Try again.". Pull requests are opened and updated from the owner's chat, so this session does not wait for descriptions to be pasted.
+
+`git fetch` at 19:24: `origin/main` is still at 7875ee2, and it already has #10. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it. Task 1 has nothing to do.
+
+### Task 2a done: owner action 5, `wp/fix-lint-template-import` (pushed 9f15550)
+
+- Started at 19:24, from `origin/main` at 7875ee2.
+- 01c8227: the module boundary rule checks a backtick name like a quoted one, refuses an `import()` or `require()` whose name is computed (except the Python worker's `import(url)`), and lets only a test import a test file. This is bce0f08 from `wp/3.3-grader` (also on 3.4, 4.3 and 5.2) without its Node runner parts, so the open branches carry the same text. 9f15550: a test for a joined name and for the worker's other imports, the description and both reviews.
+- Security review 1 (on a first, uncommitted version that refused computed names only in `src/content`): CHANGES REQUIRED, two MAJORs, both fixed by taking bce0f08's text. Security review 2: APPROVE, two MINORs. MINOR 1 is fixed. MINOR 2 (`require` called through another name) is older than the branch, and is listed in the description.
+- The new tests against `main`'s rule: 6 failed, then 1 more for the joined-name test. With the change: 141 passed. `pnpm verify`: exit 0, 28 files, 726 tests.
+- Merging it into 4.3, 5.1 or 5.2 conflicts in `scripts/eslint/module-boundaries.mjs` (and `rules.test.ts` for 4.3 and 5.2). The description says how to resolve each, and the reviewer checked those resolutions in a copy.
+- Description: `docs/reports/pull-requests/fix-lint-template-import.md` on that branch. This file was not updated there, because that branch has `main`'s older copy; this section is its record.
+
+### Task 2b done: owner action 6 on `wp/5.1-catalog`
+
+- Started at 19:35. `src/messages/system.ts`: the error page body is "We could not prepare this page. Try again.".
+- `pnpm verify`: exit 0, 67 files, 1218 tests. `next build` with CI's public values: exit 0, 15 routes, no `/dev` route.
+- The outage spec against `next start` of that build on port 3418, in Chromium with `--no-sandbox --single-process`: 3 passed. The nine `catalog-error-*` screens were taken again; `catalog-error-courses-375.png` shows the new sentence. The first try on port 3417 lacked `RESEND_API_KEY` and failed at the server's environment check; that server was stopped.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 8 (items 45 and 46), owner actions 5 and 6 marked done.
+
+Decisions taken with a safe default:
+
+- I. The lint fix reuses bce0f08's text rather than a new rule, so one version of the check reaches every branch (security review 1's advice).
+- J. Design review was not run again for the one-sentence copy change, which is the wording the design reviewer proposed. WP-1.4's `/dev/error` screens were not taken again.
+
+### Checked again at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51, 19:52, 19:54, 19:56, 19:57, 19:59, 20:01, 20:02, 20:04, 20:05 and 20:07, nothing to do
+
+- `git fetch` at 19:40, 19:42, 19:43, 19:45, 19:46, 19:48, 19:49, 19:51, 19:52, 19:54, 19:56, 19:57, 19:59, 20:01, 20:02, 20:04, 20:05 and 20:07: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3, 5.1 and `wp/fix-lint-template-import` contain it, and every local head matches its remote except `wp/5.1-catalog` (progress commits only). The chain holds: 2.2 is in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, and 4.1 in 5.1 (5.1 is built on 4.1, not 4.3, as the 15:14 session merged it). Task 1 has nothing to do.
+- Task 2 (WP-5.1): every item this sandbox can do is done. The approved spec changes (decisions 2, 9 and 15) are already in `docs/spec` on this branch. Docker is still not running, so the stack journey, its screens and design review 4 stay with the owner.
+- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped. At 20:07 Docker was still down, and `wp/5.1-catalog` was eighteen progress commits ahead of its remote, counting this one (owner action 6 itself is pushed, f2ab9b3).
+
+### Owner: run this
+
+1. Open a pull request for `wp/fix-lint-template-import` (base `main`) with its description.
+2. As before: the WP-5.1 stack journey with the local stack, then design review 4 on `home`, `courses` and `course`.
+
+## Session of 2026-11-24 (from about 18:06, checked again at 18:08, 18:09, 18:11, 18:13, 18:14, 18:16, 18:17, 18:19, 19:17, 19:19, 19:20, 19:22 and 19:23), in `night-b`, nothing to do
+
+- `git fetch` at 18:06, 18:08, 18:09, 18:11, 18:13, 18:14, 18:16, 18:17, 18:19, 19:17, 19:19, 19:20, 19:22 and 19:23: `origin/main` is still at 7875ee2, and it already contains #10 (`origin/wp/fix-smoke-and-runtime` at 27ce416 is an ancestor). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which was nine progress commits ahead before the 18:11 check (the 19:23 check makes twenty; each check updates this section instead of adding another identical one). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running; owner actions 5 and 6 are still undecided; `gh` still fails with `x509: OSStatus -26276`.
+- Decision H again: committed on `wp/5.1-catalog`, not pushed. Stopped.
+
+## Session of 2026-11-24 (from about 18:03), in `night-b`, nothing to do
+
+- `git fetch` at 18:03: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is four progress commits ahead (this section makes five). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 and 6 have no recommendation, so the 2026-11-24 approval does not decide them. `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`).
+- Decision H again: committed on `wp/5.1-catalog`, not pushed.
+- Stopped. Nothing moves until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+- Checked again at 18:04: `origin/main` still at 7875ee2, every other branch head matches its remote, Docker still down, `gh` still fails with the same x509 error. Nothing changed; not pushed (decision H).
+
+## Session of 2026-11-24 (from about 18:01), in `night-b`, nothing to do
+
+- `git fetch` at 18:01: `origin/main` is still at 7875ee2 (#12; #10 has been in it since 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, and every local head matches its remote except `wp/5.1-catalog`, which is three progress commits ahead (this section makes four). `wp/2.1-schema-policies` is merged. Task 1 has nothing to do.
+- Task 2 (WP-5.1): blocked on the owner, unchanged. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control this run does not edit) and 6 (the error page's wording) have no recommendation, so the 2026-11-24 approval does not decide them. `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`).
+- Decision H again: committed on `wp/5.1-catalog`, not pushed, because no code changed and a push only costs a Vercel build.
+- Stopped. Nothing moves until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+
+## Session of 2026-11-24 (from about 18:00), in `night-b`, nothing to do
+
+- `git fetch`: `origin/main` is still at 7875ee2. 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it; every local head matches its remote except `wp/5.1-catalog`, which is two progress commits ahead (this section makes three). `wp/2.1-schema-policies` is merged (#12). Task 1 has nothing to do.
+- Task 2 (WP-5.1): still blocked on the owner, for the same reasons as the 17:56 session. Docker is not running, so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control) and 6 (the error page's wording) have no recommendation in the description, so the 2026-11-24 approval does not decide them. `gh` still fails (`x509: OSStatus -26276`).
+- Decision H applies again: committed on `wp/5.1-catalog`, not pushed, because nothing in the code changed and a push only costs a Vercel build.
+- Stopped here. Nothing in either task can move until `origin/main` moves, Docker runs, or the owner decides actions 5 and 6.
+
+## Session of 2026-11-24 (from about 17:56), in `night-b`, nothing to do
+
+- `git fetch`: `origin/main` is still at 7875ee2 (#12, WP-2.1, merged; #10 was already in it at 81fdc39). 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already contain it, local and remote heads match. Task 1 has nothing to do.
+- Task 2 (WP-5.1): still blocked on the owner. Docker is not running (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), so the stack journey, its screens and design review 4 cannot run here. Owner actions 5 (the lint boundary rule, an enforcement control) and 6 (the error page's wording) have no recommendation, so they stay the owner's. `gh` still fails (`x509: OSStatus -26276`).
+- Checked again at 17:58: `origin/main` still at 7875ee2; every branch head matches its remote (5.1 is one progress commit ahead); Docker still down; `gh` still fails with the same x509 error. Nothing changed.
+- Decision H: this section is committed on `wp/5.1-catalog` but not pushed, because it changes no code and a push only costs a Vercel build. It goes up with the next push of this branch.
+
+## Session of 2026-11-24 (from about 17:50), in `night-b`, task 2
+
+`origin/main` is still at 7875ee2, and 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 already have it with their approved spec changes (the 15:14 session below). Task 1 has nothing to do; no branch of it was pushed again.
+
+### Task 2, WP-5.1 part 7 done: owner action 7
+
+- Started at 17:50. Docker is still not running here (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), so the stack journey, its screens and design review 4 stay with the owner. The one WP-5.1 item left that this sandbox can do was owner action 7 (security review 3 MINOR 1), recommended by that review and so approved on 2026-11-24.
+- a2f4122: `cachedReader` in `src/content/published.ts` reads the database address once, puts it first in the cache arguments and builds the public client from the same value; `createPublicClient(address)` takes the address. A repeated key part throws (security review 4's MINOR, decision 30).
+- Three new tests; two mutations each failed one of them (output in the description, part 7).
+- Security review 4: APPROVE, one minor (fixed in a2f4122) and one note. Saved as `docs/reports/reviews/WP-5.1/security-review-4.md`.
+- `pnpm verify`: exit 0, 67 files, 1218 tests. `next build` with CI's public values: exit 0, 15 routes, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db`, the stack journey, and the gallery and outage specs again (no page changed).
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 7, round 4, owner action 7 marked done, decision 30.
+
+Decision taken with a safe default:
+
+- G. No other branch was pushed: `origin/main` has not moved, and a push without a change only costs a Vercel build.
+
+### Owner: run this
+
+1. Kill the leftover servers and run the stack journey, as in the 13:49 session's list (items 1 and 2); then design review 4 on the `home`, `courses` and `course` screens.
+2. WP-5.1 owner actions 5 (lint MINOR A) and 6 (the error page's wording) have no recommendation, so they are still yours to decide.
+3. When `gh` works: paste the WP-5.1 description into its pull request.
+
+### Next
+
+- WP-5.1 has nothing left that this sandbox can do. Task 1 starts again when `origin/main` moves.
+
+## Session of 2026-11-24 (from about 15:14), in `night-b`, `main` at 7875ee2 and the owner's decisions
+
+Task list: (1) when `origin/main` moves, merge it into 2.1, 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 in that order, each also merging the one before it; verify, build, push. (2) Finish WP-5.1. New: the owner's decisions of 2026-11-24 approve every recommended default in every pull request description (ADR-0033 and ADR-0034 accepted, a fresh worker per Validate, clear device progress at sign-out, the stored row wins, every proposed spec change). Each approved spec change is written into `docs/spec` on the branch it belongs to and marked "Approved by the owner on 2026-11-24".
+
+`origin/main` moved from 81fdc39 to 7875ee2: #12 merged `wp/2.1-schema-policies`. The merge commit changes no file against 57903a0, which every later branch already has.
+
+### Task 1a skipped: wp/2.1-schema-policies
+
+- Merged into `main` (#12). Nothing to merge into it, and a push would only cost a Vercel build. Its one proposed spec change (`afterCode`) is written on `wp/2.2-sign-in`, the next branch to reach `main` (decision B).
+
+### Task 1b done: wp/2.2-sign-in (pushed 9717efb)
+
+- Started at 15:14. Merge commit 4c297fc: `origin/main` (7875ee2), no conflict.
+- Spec changes written, each marked approved on 2026-11-24: `03-experience.md` section 5.4 ("Send code") and section 8 (one "code not accepted" state); `06-security-privacy.md` section 6 (a residual risk row for response timing); `02-architecture.md` section 9.1 (`startGoogleSignIn`); `08-delivery-plan.md` WP-2.2 (no browser database client); `04-content-system.md` sections 2.1, 2.2, 2.4 and 8 (`afterCode`, from WP-2.1).
+- `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values: exit 0, five routes. `check-bundle` (21 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.2.md`: base is now `main`, a new paragraph at the top of "Up to date with main", and "Decisions for the owner" became "Your decisions".
+- This file was not updated on that branch (its copy is older than this one); this section is its record.
+
+### Task 1c done: wp/2.3-admin-gate
+
+- Started at 15:17. Merge commit d3a05da: `wp/2.2-sign-in`, no conflict.
+- Spec changes written, each marked approved on 2026-11-24: `02-architecture.md` section 9.1 (the three second-step actions) and section 8.3 (`private.is_on_admin_list()`); `03-experience.md` section 7.1 (the button before the QR code); `06-security-privacy.md` section 6 (code guessing with a stolen session, T-19). `docs/runbooks/admin-access.md` section 4 says the risk is accepted.
+- `pnpm verify`: exit 0, 53 files, 1019 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
+
+### Task 1d done: wp/4.1-courses-chapters
+
+- Started at 15:18. Merge commit 6dc9213: `wp/2.3-admin-gate`, no conflict.
+- Spec change written, marked approved on 2026-11-24: `01-requirements.md` FR-ADM-03 (chapters have no status; delete when empty).
+- `pnpm verify`: exit 0, 62 files, 1112 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.1.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
+
+### Task 1e done: wp/4.2-lesson-editor
+
+- Started at 15:20. Merge commit 7acef42: `wp/4.1-courses-chapters`. One conflict: this file (this branch's copy, which has the 13:49 session, plus this session's section from 4.1; no section dropped).
+- Rule and spec changes written, marked approved on 2026-11-24: `.claude/rules/react-next.md` (the editor uses the loaded document's nonce; the lesson-content component lives in `src/features/workspace`), with matching notes in `02-architecture.md` section 7 and section 14 item 12. `.claude/rules/` holds path-scoped instructions, not a guardrail (no hook, guard script, deny rule or settings file), so the approved change was written there (decision E).
+- `pnpm verify`: exit 0, 73 files, 1329 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.2.md`, a new paragraph at the top of "Up to date with main", and "Your decisions".
+
+### WP-4.3 decision 17 on wp/4.1-courses-chapters
+
+- 84aff13: the course form part of 87af7ec (WP-4.3's focus fix) cherry-picked onto this branch, as WP-4.3 decision 17 recommends and the owner approved. The lesson editor part is left out: the lesson editor arrives with WP-4.2.
+- The two new tests failed without the fix (`AssertionError: expected <button …(8)></button> to be <input tabindex="0" …(9)></input>`), and pass with it.
+- `pnpm verify`: exit 0, 62 files, 1114 tests. `next build`: exit 0. `check-bundle` and `check-static`: exit 0. Pushed with 4.2 and 4.3 at the end of task 1f.
+
+### Task 1f done: wp/4.3-validate-publish
+
+- Started at 15:22. Merge commits c600746 (`wp/4.2-lesson-editor` at 6ca712e) and 028a7d3 (with the focus fix through 4.1), no conflict.
+- Spec and design changes written, marked approved on 2026-11-24: `02-architecture.md` section 8.3 (decision 1: the guard refuses unpublishing or archiving a published course's last published lesson; not built yet, it needs a migration and a trigger test, and `pnpm test:db` cannot run here); `04-content-system.md` section 4.4 (decision 9: Save on a published lesson always validates first); `DESIGN.md` section 6 (decision 19: `--spacing-output`). Decision 17 done on 4.1 (above). Decision 20 left for its own work package, as recommended.
+- `pnpm verify`: exit 0, 102 files, 1901 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser), `pnpm infra:verify`.
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, a new paragraph at the top of "Up to date with main", and "Open decisions" became "Your decisions".
+- ADR-0033 and ADR-0034 are on this branch through WP-3.1 and WP-3.4, but belong to those branches; their status is not changed here (decision F).
+
+### Task 1g done: wp/5.1-catalog
+
+- Started at 15:26. Merge commit f702a31: `wp/4.1-courses-chapters` (d26f5b9). One conflict: this file (this branch's copy, which has the 13:49 session, plus this session's section from 4.3's copy; no section dropped).
+- Spec changes written, marked approved on 2026-11-24: `01-requirements.md` below FR-CRS-01 (decision 2), `03-experience.md` section 8 (decision 9, the 500 error page) and section 3 (decision 15, `/admin/courses/new`).
+- `pnpm verify`: exit 0, 67 files, 1215 tests. `next build` with CI's public values: exit 0, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, a new paragraph at the top of "Up to date with main", and the decisions section marked approved.
+- Task 1 is complete for `main` at 7875ee2: 2.2, 2.3, 4.1, 4.2, 4.3 and 5.1 have it, and 2.1 is merged.
+
+Decisions taken with a safe default:
+
+- B. A merged branch's approved spec changes go on the next branch in the chain to reach `main`, not on a new branch, because no new pull request can be opened from here (`gh` still fails: `x509: OSStatus -26276`).
+- C. Only items a description called a spec change, or a deviation from the spec, are written into `docs/spec`. Approved defaults that change no spec text (for example WP-2.2's decisions 1 and 3, WP-2.3's decision 1) are recorded as approved in the description only.
+- D. Each spec change is written into the rule text where that is one line, with a quoted note "Approved by the owner on 2026-11-24 (proposed in WP-x.y)" beside it, as the WP-1.3 approvals were marked.
+- E. An approved change to a `.claude/rules/` file is written there, because the owner approved it and those files are instructions, not enforcement. Hooks, guard scripts, deny rules and `.claude/settings.json` stay untouched.
+- F. ADR-0033 (WP-3.1) and ADR-0034 (WP-3.4) are marked accepted on their own branches, not on the later branches that carry copies of them. `wp/3.1-python-worker` and `wp/3.4-statechart` are not in this session's task list; `origin/wp/3.1-python-worker` already has approval notes of 2026-11-24 from another session.
+
+### Owner: run this
+
+1. Paste each description into its pull request: `WP-2.2.md` (base `main`), `WP-2.3.md`, `WP-4.1.md`, `WP-4.2.md`, `wp/4.3-validate-publish.md`, `wp/5.1-catalog.md`.
+2. WP-4.3 decision 1 (b) needs a migration and a trigger test with `supabase start`; WP-4.3 decision 20 needs its own small work package.
+
+
+## Session of 2026-11-24 (from about 13:49), in `night-b`, task 1e
+
+`origin/main` is still at 81fdc39; 2.1, 2.2, 2.3 and 4.1 already have it (sessions below).
+
+### Task 1e done: wp/4.2-lesson-editor
+
+- Merge commit 9808fb4: `wp/4.1-courses-chapters` (with 2.3 and `main` at 81fdc39) into this branch. One conflict: this file (took 4.1's copy; this branch's copy differed only in older status lines of the 23:25 session).
+- No test failed. `pnpm verify`: exit 0, 73 files, 1329 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.2.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+
+### Task 1f done: wp/4.3-validate-publish
+
+- Started at 13:52, after task 1e took about 3 minutes.
+- Merge commit ceac6b5: `wp/4.2-lesson-editor` (with 4.1, 2.3 and `main` at 81fdc39). Two conflicts: this file (took 4.2's copy) and `scripts/infra-verify.mjs`, where this branch's `runtimeChecks` and `main`'s `healthFor` (with `releaseOf` and `parseJson`) were added at the same place; both kept unchanged. `infra-verify.test.ts`: 48 tests pass.
+- No test failed. `pnpm verify`: exit 0, 102 files, 1901 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser), `pnpm infra:verify` (no deployment of this branch).
+- Description: `docs/reports/pull-requests/wp/4.3-validate-publish.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+
+### Task 1g done: wp/5.1-catalog
+
+- Started at 13:52, after task 1f took about 3 minutes.
+- Merge commit 9ee88bc: `wp/4.1-courses-chapters` (with 2.3 and `main` at 81fdc39). One conflict: this file (resolved to the newest copy, from 4.3 at 608ff07; this branch's copy had no line the newest lacks).
+- No test failed. `pnpm verify`: exit 0, 67 files, 1209 tests. `next build` with CI's public values: exit 0, no `/dev` route. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+- Task 1 is complete for `main` at 81fdc39: all seven branches have it.
+
+### Task 2, WP-5.1 part 6 done (as far as this sandbox allows)
+
+- Started at 13:53. Chromium runs here with `--no-sandbox --single-process` (night-a's finding), one test per Playwright process, from a temporary config outside the repository. Turbopack's development server stops here (`unable to start FSEvent stream`); `next dev --webpack` with `WATCHPACK_POLLING=true` works, so the gallery ran on that (decision 27).
+- First run, on abf86db: the 17 gallery tests passed; 12 screens committed in 4c41f93. Design review 3 on them: CHANGES REQUIRED (no failure screen, no focus screens, stale description, spacing minors; the stack journey's screens still missing).
+- 621d4aa: heading links laid out at their text height (`-my-2 py-2`), even chapter panel and section spacing. c820910: `e2e/catalog-outage.spec.ts` with a third web server (`next start` on 3102, database address `http://127.0.0.1:1`) for the "Could not load" state, and four focus tests in the gallery spec. 0b9e887: the new and updated screens.
+- Code review 3: CHANGES REQUIRED. MAJOR: both servers share `.next/cache`, so after the stack journey the outage server could serve the cached catalog. Reproduced here with a fake database (200 from the cache), fixed in 9268830 by keying the content cache by the database address (then 500 on all three pages), with three unit tests that failed first. b911903: a layout check for a one-line title (mutation: `Received: 16`), comments.
+- Security review 3: APPROVE, one minor for before WP-5.2's cached queries (owner action 7).
+- Final: 24 e2e tests passed (17 gallery states, 4 focus, 3 outage); `pnpm verify` exit 0, 1213 tests; `next build` exit 0; `check-bundle` and `check-static` exit 0.
+- Not run: the stack journey (`failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`), Firefox, WebKit.
+- Description: `docs/reports/pull-requests/wp/5.1-catalog.md`, part 6 (items 36 to 44, evidence, round 3 reviews, decisions 27 to 29, owner actions 1 and 7). Reports: `docs/reports/reviews/WP-5.1/*-review-3.md` (the reviewers are read-only; saved verbatim).
+- Time: WP-5.1 is at about 3.6 hours of its 3 hour box, under the 4.5 hour stop.
+
+### Owner: run this
+
+1. In your own terminal: `lsof -ti:3102,3302,3303,3304,3305,3306,3307,3399 | xargs kill`. This run left `next start`, `next dev` and a fake database server there, and the sandbox cannot stop them.
+2. With `supabase start`: `pnpm test:e2e --project=stack e2e/catalog-journey.spec.ts`, commit the `home`, `courses` and `course` screens, then ask `design-reviewer` for round 4.
+3. Decide WP-5.1 Deviation 1 (merge order for the Begin action), decision 9, and owner actions 4 to 7 in the description.
+4. When `gh` works: paste the "Up to date with main" sections of `WP-4.2.md`, `wp/4.3-validate-publish.md` and `wp/5.1-catalog.md`, and the whole WP-5.1 description.
+
+### Next
+
+- WP-5.1 waits for the owner's stack run and decisions. Task 1 starts again when `origin/main` moves.
+
+## Session of 2026-11-24 (from about 13:40), in `night-b`, merging the new `main` into the open branches
+
+Same task list as the 23:25 session below. `origin/main` moved from 0efe863 to 81fdc39 (#10: the smoke wait, `public/_runtime` ignored, the CSP e2e fixes), so task 1 starts again: each of the seven branches is 9 commits behind `main`. One branch per task, as the task list says; at most two tasks per session.
+
+`main` now carries its own copy of this file (night-a's sessions). Every merge resolves the add/add conflict the same way: the sections of both copies, night-b's from the newest copy on `wp/5.1-catalog` and night-a's from `main`, with no section dropped. Sections both copies shared were identical.
+
+### Task 1a done: wp/2.1-schema-policies
+
+- Merge commit ff187e9: `origin/main` (81fdc39) into this branch. One conflict: this file (resolved as above).
+- `pnpm verify`: exit 0, 28 files, 718 tests. `next build` with CI's public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.1.md`, "Up to date with main" section rewritten for 81fdc39.
+
+### Task 1b done: wp/2.2-sign-in
+
+- Merge commit 30dbedc: `wp/2.1-schema-policies` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.1's copy, a superset of this branch's).
+- No test failed. `pnpm verify`: exit 0, 42 files, 927 tests. `next build` with CI's public values (including the Turnstile test key): exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.2.md`, a new paragraph at the top of "Up to date with main"; decision A unchanged.
+- `gh` still fails (`tls: failed to verify certificate: x509: OSStatus -26276`), so neither pull request text on GitHub is updated. Owner: paste the "Up to date with main" sections of `WP-2.1.md` and `WP-2.2.md`.
+
+## Session of 2026-11-24 (from about 13:45), in `night-b`, task 1c
+
+### Task 1c done: wp/2.3-admin-gate
+
+- Merge commit d6dfb0c: `wp/2.2-sign-in` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.2's copy; this branch's copy differed only in older lines of the 23:25 session).
+- No test failed. `pnpm verify`: exit 0, 53 files, 1019 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-2.3.md`, a new paragraph at the top of "Up to date with main". `gh` was not tried again; owner: paste that section into the pull request.
+- `pnpm verify` printed `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` for its install-before-run step (the sandbox blocks the store lock); `node_modules` was already in place and every check ran.
+
+### Task 1d done: wp/4.1-courses-chapters
+
+- Started at 13:47, after task 1c took about 2 minutes.
+- Merge commit 00c025d: `wp/2.3-admin-gate` (with `main` at 81fdc39) into this branch. One conflict: this file (took 2.3's copy; this branch's copy differed only in older lines of the 23:25 session).
+- No test failed. `pnpm verify`: exit 0, 62 files, 1112 tests. `next build` with CI's public values: exit 0. `check-bundle` (22 files) and `check-static`: exit 0.
+- Not run: `pnpm test:db` (no Docker), e2e (no browser).
+- Description: `docs/reports/pull-requests/WP-4.1.md`, a new paragraph at the top of "Up to date with main". Owner: paste that section into the pull request.
+- The first `git push` of task 1c was refused by the remote with only `(failed)`; the second, unchanged, went through.
+
+### Next
+
+- Task 1e: `wp/4.2-lesson-editor`, merging `wp/4.1-courses-chapters` (with the new `main`). Done in the 13:49 session below.
+- Then 4.3 and 5.1 in that order, each merging the branch before it as in the 23:25 session.
+- This session did two tasks and stops here.
+- Night-a found that Chromium starts in this sandbox with `--no-sandbox --single-process` (its 03:10 second-run section below). Task 2 (WP-5.1's e2e runs and screenshots) may be possible after task 1.
+
 ## Session of 2026-11-23 (from 23:40), in `night-c`, on `wp/6.3-legal-pages-footer`
 
 Task list: build new work packages that depend only on `origin/main` (0efe863: WP-1.1 to 1.4, 6.1 part 1, 6.2 part 1), in plan order from WP-6.3, then any WP-7.x whose dependencies are all in `main`; one part per run. This file is kept whole; this section is added to the newest copy (from `origin/wp/5.1-catalog` at 23:58).
@@ -107,6 +464,344 @@ WP-5.1's five parts are built and reviewed twice (see the 20:35 session below). 
 
 - Docker: `failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock ... no such file or directory`, so no `supabase start` and no `stack` journey.
 - Chromium: `bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`, so no gallery spec, axe or screenshot.
+
+Checked again in 262 fresh sessions, from 23:52 to 2026-11-24 13:39 (the list of times is shortened to this range; the old list is in git history): `origin/main` still at 0efe863; none of the seven branches is behind `main`; each stacked branch contains the one before it (2.1 in 2.2, 2.2 in 2.3, 2.3 in 4.1, 4.1 in 4.2, 4.2 in 4.3, 4.1 in 5.1); local and remote branches match. Docker fails with the same error each time (at 13:39: `failed to connect to the docker API at unix:///Users/fahad/.docker/run/docker.sock`). Chromium was checked at 13:15 and fails the same way as at 13:13, 13:11, 10:30, 09:36, 09:35, 09:33, 09:31, 09:30, 09:28, 09:26, 09:24, 09:22 and 09:07 (`browserType.launch: Target page, context or browser has been closed`; earlier checks showed `MachPortRendezvousServer... Permission denied (1100)`); it was not checked from 08:25 to 09:06, from 09:08 to 09:21, from 09:37 to 10:29, from 10:31 to 13:10, at 13:12, at 13:14, at 13:16, at 13:18, at 13:19, at 13:21, at 13:22, at 13:24, at 13:26, at 13:27, at 13:29, at 13:31, at 13:32, at 13:34, at 13:36, at 13:37 or at 13:39. Nothing to merge and nothing new to build.
+
+No code was changed for task 2. The run stops here. The owner's steps for WP-5.1 are in the 20:35 session's "Owner: run this" below, and step 1 above.
+
+## Session of 2026-11-24 (from about 03:10, second run), in `night-a`, on `wp/fix-smoke-and-runtime`
+
+Same task list. `origin/main` is still 0efe863 and every branch is 0 commits behind it, so task 2 needed nothing. This run found a way to start Chromium in the sandbox and finished task 1 (c). This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top; the copy on `wp/3.4-statechart` is now older than this one.
+
+### Task 1 (c) done: the cause of the second `e2e/csp.spec.ts` failure, proven and fixed
+
+- Chromium starts in this sandbox with `--no-sandbox --single-process`. A single-process browser dies after its first context, so each test runs in its own Playwright process, through a temporary config outside the repository with no web servers, against `next start` on port 3253.
+- At c5e789b: test 1 passed, test 2 failed in 3 of 3 runs (no violation). The injected script ran.
+- Cause: under `'strict-dynamic'`, a script that is not parser-inserted matches the policy (CSP3 section 6.7.3.3), so Chromium runs an inline script that code inserts. Proven on a test page: with `'strict-dynamic'` such scripts ran with no violation; without it, they were blocked. The earlier code review's reading was wrong.
+- fe08e92 and 33ac7f7: test 2 now injects an inline script without the nonce into the server's HTML (markup injection), keeps the real headers, and expects an `inline` `script-src` violation, the page's scripts running, and the script not run.
+- Both tests passed in each of 3 runs. Mutation: with the page's nonce on the injected script, test 2 fails.
+- Security review round 1 on fe08e92: APPROVE, 3 MINOR, all fixed in 33ac7f7. Report: `docs/reports/reviews/fix-smoke-and-runtime/security-review-1.md`. It notes a residual risk of `'strict-dynamic'` (not a defect, no exposure in `src` today) and suggests follow-ups for the owner.
+- `pnpm verify` on 33ac7f7: exit 0, 27 files, 710 tests. `pnpm build` with CI's fake public values: exit 0.
+- Not run: Firefox and WebKit (not installed).
+- Description: `docs/reports/pull-requests/fix-smoke-and-runtime.md` (part 3, verification, reviews, owner actions, decision 4, Definition of Done).
+- Push: `wp/fix-smoke-and-runtime` with fe08e92, 33ac7f7 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `lsof -ti:3190,3241,3253 | xargs kill` in your own terminal: `next start` servers from these runs may still listen there.
+2. Open the pull request, from the repository root:
+
+   ```sh
+   gh pr create --base main --head wp/fix-smoke-and-runtime \
+     --title "fix: wait for the promoted release in the smoke, ignore public/_runtime, correct the CSP e2e checks" \
+     --body-file docs/reports/pull-requests/fix-smoke-and-runtime.md
+   ```
+
+3. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on that branch, and Firefox and WebKit if installed.
+4. Decide the security review's follow-ups: the residual risk in ADR-0028 and T-06/T-07 (`spec-change`), lint rules against script-creation sinks, an ADR on Trusted Types.
+5. The owner actions of the sections below are still due.
+
+### Next
+
+- The e2e tests of the WP-3.x branches can now run here with the same flags, one test per process. A run of the WP-3.1 worker journeys is the next thing that needs no owner decision.
+
+## Session of 2026-11-24 (from about 03:10), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. Nothing new was left that needs no owner decision, so this run checked the state, tried the one unverified part of task 1, and stopped.
+
+### State checked
+
+- `origin/main` is still 0efe863. `wp/3.1-python-worker` (2af8c6e), `wp/3.3-grader` (c39ddc7), `wp/3.4-statechart` (bc0b142) and `wp/fix-smoke-and-runtime` (c5e789b) are each 0 commits behind it. `wp/3.3-grader` has all of `wp/3.1-python-worker`, and `wp/3.4-statechart` has all of `wp/3.3-grader`. Task 2 needs no new merge.
+- What is still open in the WP-3.x descriptions needs the owner or a later package: ADR-0034, the section 6 spec change, the phone check, the lint rule's bypasses, the `beforeAll` fix for `scripts/repository.test.ts`, Validate's fresh worker (WP-4.3), and the shared restore routine (WP-3.4 or later). The two header misses in WP-3.1 ("Not fixed") stay as they are: closing them means naming each file in the header rules, which goes against the decision recorded in part 10 to keep the file list in one place. No code changed.
+
+### Task 1 (c) tried again: `e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`, blocked
+
+- `pnpm build` at c5e789b with CI's fake public values: exit 0. `next start` on port 3241, then `playwright test` with a temporary config that has no web servers.
+- Both tests failed before any page loaded: Chromium cannot start in this sandbox (`bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer...: Permission denied (1100)`). The cause of test 2 is still not proven by a run.
+- The sandbox cannot stop the server it started (`pkill: Cannot get process list`).
+
+### Owner: run this
+
+1. `lsof -ti:3241 | xargs kill` in your own terminal: the `next start` from this run still listens there.
+2. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`, as in the task 1 section below.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- Nothing on this task list needs no decision from the owner. Decide ADR-0034, the `beforeAll` fix and the section 6 spec change; then the next run can act on them.
+
+## Session of 2026-11-24 (from about 03:00), in `night-a`, on `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 11 were done, and every branch was level with `origin/main` (0efe863), so this run did the first item under "Next" in the section below, then looked for the flaky test WP-3.4 security review 2 saw. This file came to `wp/3.4-statechart` with the merge (the newest copy, from `wp/3.3-grader`) and this section was added on top.
+
+### Task 3, part 12 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 9730a70: `wp/3.3-grader` at c39ddc7 merged (WP-3.1's worker header rule fix e340e4f, its test, security review 6, the docs). No conflict.
+- `scripts/next-config.test.ts` lists the same eleven compiled worker files as `scripts/build-runtime.test.ts` on this branch; the build writes exactly those eleven to `public/_runtime/worker`.
+- `pnpm verify` on 9730a70: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 9730a70 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Task 3, part 13 done: the flaky test WP-3.4 security review 2 saw, found
+
+- Part 12 took about 3 minutes, so the run went on. WP-3.4 security review 2 saw 1 of 1066 tests fail once, unnamed.
+- On 9730a70: six single `vitest run`s, all 1148 passed. Three rounds of four runs at once, with coverage: two rounds failed in all four runs, one passed. All eight failures are one test: `scripts/repository.test.ts > lint for type escapes > [NFR-MAINT-01] fails lint for any`, `Test timed out in 5000ms`.
+- Cause: the test's first `lintText` loads `eslint.config.mjs`. That took 855 ms in a single `pnpm test` and passes 5000 ms when several suites share the machine. Other test runs on the same machine give that load.
+- The test is unchanged from `main` (939f9a0). That the reviewer hit this test is likely, not proven.
+- Decision: no code change. Raising the timeout is banned (CLAUDE.md rule 2), and the test guards the lint rules. Recorded in the WP-3.4 description's Reviews section with a fix for the owner to choose: load the configuration once in a `beforeAll`.
+- Push: `wp/3.4-statechart` with the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+- If the owner chooses the `beforeAll` fix for `scripts/repository.test.ts`, make it on a branch from `main`.
+
+## Session of 2026-11-24 (from about 02:50), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 9 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 10 took about 8 minutes, so the run went on with part 11, which carries this copy to `wp/3.3-grader`. The copy on `wp/3.4-statechart` is now older than this one.
+
+### Task 3, part 10 done: the worker's header rule (WP-3.1 security review 2, MINOR 3)
+
+- e340e4f: the worker's header rule was `/_runtime/worker/:path*`, so a miss under that folder got the worker's policy (no `sandbox`) instead of the runtime's static policy. The rule is now `/_runtime/worker/:path+.js`. `:path*.js` was tried first and rejected: its compiled regex also matches `/_runtime/worker.js`.
+- `scripts/next-config.test.ts` runs `next.config.ts` through Next.js's own `unstable_getResponseFromNextConfig`: the seven compiled worker files get the worker's policy and `no-cache`; six misses get the static policy.
+- Mutants: `:path*` fails 7 of 10; `:path*.js` fails 3 of 11.
+- Security review round 6 (`docs/reports/reviews/WP-3.1/security-review-6.md`): APPROVE, 3 MINOR, two fixed (comment, all seven files tested), one recorded (a miss ending in `.js`, in any case, still gets the worker's policy).
+- `pnpm verify` on e340e4f: exit 0, 37 files, 858 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the build: compiled files 200 with the worker policy and `no-cache`; `no-such-file`, `core.jsx`, `x.js/more`, `/_runtime/worker.js` 404 with the static policy; `missing.js` 404 with the worker policy.
+- Decision: the rule matches by extension, not by naming the seven files, so the file list stays in one place.
+- Not run: the browser tests.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, "Not fixed").
+- Push: `wp/3.1-python-worker` with e340e4f and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 11 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- bc73677: `wp/3.1-python-worker` at 2af8c6e merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict. In the merge, `scripts/next-config.test.ts`'s list of compiled worker files became this branch's eleven (under `runtime/` and `grader/`, as `scripts/build-runtime.test.ts` lists them); the built folder holds exactly those eleven.
+- `pnpm verify` on bc73677: exit 0, 42 files, 1033 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with bc73677 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 pull request with its description, if it is open.
+2. The owner actions of the sections below are still due.
+
+### Next
+
+- Merge `wp/3.3-grader` (with bc73677) into `wp/3.4-statechart`. Check there that `scripts/next-config.test.ts`'s list of compiled worker files matches `scripts/build-runtime.test.ts` on that branch.
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 00:25), in `night-a`, on `wp/3.1-python-worker`, then `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 6 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top. Part 7 took about 15 minutes, so the run went on with parts 8 and 9, which carry this copy to `wp/3.3-grader` and `wp/3.4-statechart`.
+
+### Task 3, part 7 done: the proxy matcher's exclusions (WP-3.1 security review 2, MINOR 7)
+
+- f8af00a: the matcher's exclusions for `_next/static`, `_next/image` and `favicon.ico` were prefixes, so `/favicon.icoX` and `/_next/imageX` skipped the proxy and their not-found page had no policy. Each exclusion now ends at a slash or at the end of the path. The matcher test uses Next.js's own `unstable_doesMiddlewareMatch` instead of a hand-built regular expression.
+- Security review round 1 on f8af00a: CHANGES REQUIRED, 3 MINOR. `/favicon.ico` itself still rendered the not-found page with no policy (there is no icon, ADR-0031); no production-server test; page-prefix mutants survived.
+- c03a7d0: `/favicon.ico` is no longer excluded; the test asserts `/admin`, `/sign-in`, `/courses`, `/learn`, `/profile` and states its no-basePath assumption; `e2e/csp.spec.ts` gains a request-only test that `/favicon.ico`, `/favicon.icoX`, `/_next/imageX` and `/_next/staticX` return 404 with the nonce policy and `frame-ancestors 'none'`.
+- Security review round 2 on c03a7d0: APPROVE. One note: add nested paths when `/admin` and the course routes land. Condensed in `docs/reports/reviews/WP-3.1/security-review-5.md`.
+- Mutants: the old matcher fails the prefix test; the favicon exclusion put back fails the favicon test.
+- `pnpm verify` on c03a7d0: exit 0, 37 files, 845 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0. `next start` on the c03a7d0 build: the four paths above return 404 with the nonce policy; `/_runtime/no-such-file` keeps the runtime's static policy; `/_next/image?url=...` gets no page policy.
+- Not run by me: the new e2e test. `pnpm test:e2e` starts the development server too, and Turbopack fails in the sandbox (`unable to start FSEvent stream`). The reviewer ran it against a `next start` through a temporary config with no web servers: 1 passed.
+- Decision: fixed on `wp/3.1-python-worker`, not on a branch from `main`, because this branch already changes the matcher line.
+- Description: `docs/reports/pull-requests/WP-3.1.md` (the headers row, "How it was verified", the test list, the reviews, owner action 2, "Not fixed").
+- Push: `wp/3.1-python-worker` with f8af00a, c03a7d0 and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 8 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- 9e5ff23: `wp/3.1-python-worker` at d6ab769 merged. One conflict, this file; WP-3.1's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on 9e5ff23: exit 0, 42 files, 1016 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten (7aa4f76).
+- Push: `wp/3.3-grader` with 9e5ff23, 7aa4f76 and the commit that adds these lines.
+
+### Task 3, part 9 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- fff5ece: `wp/3.3-grader` at 44d6425 merged. One conflict, this file; WP-3.3's copy taken, as the newer one. No code conflict.
+- `pnpm verify` on fff5ece: exit 0, 46 files, 1131 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with fff5ece and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`, and the same for the WP-3.3 and WP-3.4 pull requests with their descriptions, if they are open.
+2. Stray servers the sandbox hides from me: a `next start` I launched holds port 3197, and something also answers on port 3100. In your own terminal: `lsof -ti:3197 | xargs kill`, and check `lsof -i:3100` before a local `pnpm test:e2e`, because Playwright reuses a server already on 3100.
+3. The owner actions of the sections below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+- Shared `$TMPDIR`: name logs by worktree (this run used `verify.log` and `build.log`; the counts it recorded match this branch, 842 plus 3 new tests).
+
+## Session of 2026-11-24 (from about 00:20), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 to 4 were done, and every branch was level with `origin/main` (0efe863), so this run took the next open WP-3.x finding that needs no owner decision. This file was copied from `wp/3.4-statechart` (the newest copy), this section added on top, and the copy carried back to `wp/3.4-statechart` by the merge.
+
+### Task 3, part 5 done: a test for the Node runner's harness-version check
+
+- f7261ad on `wp/3.3-grader`: WP-3.3 security review 2 MINOR 7 and code review 2 MINOR 4, the version part, said the runner's harness-version check had no test because a test needed a seam. `createNodeRunner` now takes an optional `threadUrl`, set only by the runner's own test. That test starts `scripts/testing/other-harness-version-thread.ts`, a stand-in thread that answers with a passing result of another version. The new test expects `crashed`, then `not_run`.
+- Mutation: with the version check removed from `runner.ts`, the new test fails (both test cases `passed`).
+- `pnpm verify` on f7261ad: exit 0, 42 files, 1013 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Decision: the stand-in lives in `scripts/testing/`, beside `property.ts`, so it is not counted in `src/grader`'s coverage and no file in `src` exists only for a test.
+- Description: the finding moved from "Not fixed, for you" to a "Fixed later" table; owner action 6 now names f7261ad; evidence added under "How it was verified".
+- Not run: the browser tests.
+- Push: `wp/3.3-grader` with f7261ad and the docs commit (89875fd).
+
+### Task 3, part 6 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 32c642f: `wp/3.3-grader` at 89875fd merged. No conflict.
+- `pnpm verify` on 32c642f: exit 0, 46 files, 1128 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 32c642f and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. The owner actions of the section below are still due.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a, 06c39bb and f7261ad (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 00:15), in `night-a`, on `wp/3.3-grader`, then `wp/3.4-statechart`
+
+Same task list. Tasks 1 and 2 and task 3 parts 1 and 2 were done, so this run did the first item under "Next" in the section below: carry the WP-3.1 round 4 and WP-3.3 round 2 fixes into the later branches. This file was copied from `wp/3.1-python-worker` (the newest copy), this section added on top, and the copy carried to `wp/3.3-grader` and then `wp/3.4-statechart`.
+
+### Task 3, part 3 done: `wp/3.1-python-worker` merged into `wp/3.3-grader`
+
+- f178765: `wp/3.1-python-worker` at c4ca7f1 merged (58128a3 and its docs). One conflict, this file; WP-3.1's copy was taken, as the newer one.
+- `pnpm verify` on f178765: exit 0, 42 files, 1012 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.3.md` rewritten.
+- Push: `wp/3.3-grader` with f178765 and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 4 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- 03102ba: `wp/3.3-grader` at 99f61b4 merged (WP-3.3 round 2 fixes and WP-3.1 round 4 fixes). Two conflicts. `src/runtime/controller.ts`, the `ready` case: both sides kept (this branch sets `interactiveInput`, then WP-3.3's fix sends a pending fresh-worker check before reporting `ready`). This file: WP-3.3's copy taken.
+- `pnpm verify` on 03102ba: exit 0, 46 files, 1127 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: "Up to date with main" and the first line of `docs/reports/pull-requests/WP-3.4.md` rewritten.
+- Push: `wp/3.4-statechart` with 03102ba and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. The owner actions in the WP-3.3 and WP-3.4 descriptions, and those of the sessions below.
+
+### Next
+
+- A review round on 58128a3 (WP-3.1), on 9043a9a and 06c39bb (WP-3.3), and on the controller conflict resolution in 03102ba (WP-3.4), if the owner wants one.
+
+## Session of 2026-11-24 (from about 23:54 on 2026-11-23), in `night-a`, on `wp/3.3-grader`, then `wp/3.1-python-worker`
+
+Same task list. Tasks 1 and 2 were done (task 2 took about 6 minutes), so this run did task 3: the WP-3.x review findings still open. This file was copied from `wp/3.4-statechart` (the newest copy) and this section added on top.
+
+### Task 3, part 1 done: the review rounds the descriptions said were missing, and the WP-3.3 fixes
+
+- Four reviews, each by a fresh reviewer: WP-3.3 round 2 (code and security, on the round-1 fixes 1da8b48..bce0f08) and WP-3.1 round 4 (code and security, on the round-3 fixes be2c7c0..2d94ead and the merges). Reports in `docs/reports/reviews/WP-3.3/*-review-2.md` and `docs/reports/reviews/WP-3.1/*-review-4.md`.
+- WP-3.1 round 4: both APPROVE, five minors in all.
+- WP-3.3 round 2: both CHANGES REQUIRED, no blocker. Both found the same major: during a fresh-worker check the controller reported `ready` before sending the check, so a page acting on `ready` could orphan the check and make Stop end nothing.
+- 9043a9a: the controller sends the pending check before it reports `ready`. Two new tests; the first failed before the fix, the second fails with `used = false` removed.
+- 06c39bb: the harness's fallback clears the hooks first; cut output with no error grades as `output_limit`; tests that pin each guard, the name and test case limits, and the runner's new thread after a memory error; comments corrected. Each new test failed against a mutant of its fix or the code before it.
+- `pnpm verify` on 06c39bb: exit 0, 41 files, 1009 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Decisions, in the WP-3.3 description: cut output grades as `output_limit`; `HARNESS_VERSION` stays "1" with the hash updated; `exit()` during the follow-up code recorded as a deviation for the owner; the lint rule's bypasses, a required `freshWorker`, and the extra Python hooks left for the owner.
+- Not run: the browser tests.
+- Push: `wp/3.3-grader` with 9043a9a, 06c39bb and the docs commit. This line is pushed with the docs commit.
+
+### Task 3, part 2 done: the WP-3.1 round 4 minors
+
+- 58128a3 on `wp/3.1-python-worker`: an error whose attributes raise keeps `input_ended` and `memory` (the new test failed 2 of 3 before); `scripts/next-config.test.ts` checks that `next.config.ts` serves the security headers and then the runtime's rules, worker policy last (both cases fail with the runtime rules removed); the loader test's comment says the request log is its evidence in this build; the memory case has its own test.
+- The WP-3.1 description: round 4 in Reviews, the five passages that said #3 was not merged corrected, the round 4 evidence.
+- `pnpm verify` on 58128a3: exit 0, 37 files, 842 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Push: `wp/3.1-python-worker` with 58128a3 and the docs commit. This line is pushed with the docs commit (this copy of the file is the newest).
+- `wp/3.3-grader` and `wp/3.4-statechart` do not have 58128a3 yet, and `wp/3.4-statechart` does not have the WP-3.3 round 2 fixes yet.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker`.
+2. WP-3.3 owner actions 6 and 7 in its description (a third review round, or accept; the security minors left for you).
+3. Decide whether `wp/3.2-live-input` should also get `main` merged in.
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Merge `wp/3.1-python-worker` into `wp/3.3-grader`, then `wp/3.3-grader` into `wp/3.4-statechart`, so both carry the round 4 and round 2 fixes; verify and build each.
+- A review round on 58128a3 (WP-3.1) and on 9043a9a and 06c39bb (WP-3.3), if the owner wants one.
+
+## Session of 2026-11-23 (from about 23:47), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
+
+Same task list as the session below. Task 1 was done; this run did task 2 for `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`, each in under 20 minutes. This file was copied from `wp/fix-smoke-and-runtime` (the newest copy) and this section added on top.
+
+### Task 2, part 1 done: `main` merged into `wp/3.1-python-worker`
+
+- 5f72072: `origin/main` at 0efe863 merged. One conflict, `playwright.config.ts`: `main`'s `phone` projects kept beside this branch's `runtime-*` projects; the engine projects ignore gallery, runtime and phone tests.
+- `pnpm verify` on 5f72072: exit 0, 36 files, 839 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests (Chromium cannot start in this sandbox).
+- The commit hook's dependency check could not take pnpm's store lock (`ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`); nothing was installed.
+- Description: "Up to date with main" in `docs/reports/pull-requests/WP-3.1.md` rewritten; the `gh pr create` command replaced with `gh pr edit 9`, because the draft is open.
+- Push: `wp/3.1-python-worker` with 5f72072 and the docs commit. This line is pushed with the docs commit.
+
+### Task 2, part 2 done: `wp/3.1-python-worker` (with `main`) merged into `wp/3.3-grader`
+
+- 4e255ef: `wp/3.1-python-worker` at e06e9c3 merged; it carries `main` at 0efe863. No conflict.
+- `pnpm verify` on 4e255ef: exit 0, 41 files, 1002 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.3.md`. No pull request is open for WP-3.3, so its `gh pr create` command stays.
+- Push: `wp/3.3-grader` with 4e255ef and the docs commit. This line is pushed with the docs commit.
+
+### Task 2, part 3 done: `wp/3.3-grader` merged into `wp/3.4-statechart`
+
+- a83b326: `wp/3.3-grader` at 67787b4 merged; it carries `main` at 0efe863 and WP-3.1. No conflict.
+- `pnpm verify` on a83b326: exit 0, 45 files, 1117 tests. `pnpm build` with CI's fake public values: exit 0. `check-bundle` and `check-static`: exit 0.
+- Not run: the browser tests.
+- Decision: `wp/3.2-live-input` was not merged with `main`; it is not in the task list. `wp/3.4-statechart` already holds its tip (6a9c165). Recorded in the WP-3.4 description.
+- Description: a new "Up to date with main" section and the first line in `docs/reports/pull-requests/WP-3.4.md`.
+- Push: `wp/3.4-statechart` with a83b326 and the docs commit. This line is pushed with the docs commit.
+
+### Owner: run this
+
+1. `gh pr edit 9 --body-file docs/reports/pull-requests/WP-3.1.md` on `wp/3.1-python-worker` (`gh` cannot reach GitHub from the sandbox).
+2. Decide whether `wp/3.2-live-input` should also get `main` merged in.
+3. The owner actions of the session below are still due.
+
+### Next
+
+- Task 3: the WP-3.x review findings still open in the WP-3.1, WP-3.3 and WP-3.4 descriptions.
+
+## Session of 2026-11-23 (from about 23:25), in `night-a`, on `wp/fix-smoke-and-runtime`
+
+Task list given by the owner for this run: (1) a new branch `wp/fix-smoke-and-runtime` from `origin/main` with three fixes; (2) merge `origin/main` into `wp/3.1-python-worker`, then `wp/3.3-grader`, then `wp/3.4-statechart`, one per task; (3) help with the WP-3.x review findings still open in those descriptions. This run did task 1. This file was copied from `origin/wp/5.1-catalog` (the newest copy) and this section added on top.
+
+### Task 1 done: `wp/fix-smoke-and-runtime`
+
+- 8ce22ea: `scripts/infra-verify.mjs` with `--release` asks `/api/health` every 5 s for up to 60 s until it names the release, then runs the other checks. Five new tests; four failed before the change.
+- 7f5c85a: `public/_runtime` ignored in `tsconfig.json`, `eslint.config.mjs`, `.prettierignore` and `.gitignore`, with WP-3.1's lines. Three new tests, all failed before. With `main`'s `tsconfig.json`, this checkout's leftover folder put 2 files in the project and 14927 error lines; now 0 files.
+- 714227f: `e2e/csp.spec.ts`. Cause of test 1 found: Next 16's client entry empties `self.__next_f` and replaces its `push` (`node_modules/next/dist/client/app-index.js` lines 124 to 130), so the old wait could pass only if the scripts never ran. The test now counts inline pushes with an init script. Cause of test 2 not proven; the test now injects after the page's scripts ran and listens on the element.
+- `pnpm verify` on 1829ec6: exit 0, 27 files, 710 tests. `pnpm build` with CI's fake public values: exit 0.
+- Not run: the e2e spec. Chromium is installed but cannot start in this sandbox (`bootstrap_check_in ... Permission denied (1100)`).
+- Found on the way: `$TMPDIR` is shared with the `night-b` session. A log named `$TMPDIR/verify.log` was overwritten by `night-b`'s run (it said `RUN v5.1.0 /private/tmp/claude-501/night-b`); `pnpm verify` was run again into a log with a unique name. Later sessions should name logs by worktree.
+- Description: `docs/reports/pull-requests/fix-smoke-and-runtime.md`, with the `gh pr create` command (`--base main`) and four decisions.
+- Code review round 1 on 714227f: CHANGES REQUIRED, no blocker. Both MAJORs fixed in 1829ec6: the CSP test polls the document listener again (the element listener missed the case its comment named), and a new test makes a health check that keeps failing reject after the wait (seen failing by mutation). Minors recorded in the description; the `infra-verify.mjs` conflict with `wp/3.1-python-worker` is for task 2.
+- Push: `wp/fix-smoke-and-runtime` created with 8ce22ea, 7f5c85a and 714227f; then 1829ec6 and the docs commit. This line is pushed with the docs commit.
+
+### Owner: run this
+
+1. `pnpm test:e2e --project=chromium e2e/csp.spec.ts` on `wp/fix-smoke-and-runtime`; if test 2 still fails, paste its message into the pull request.
+2. `lsof -ti:3190 | xargs kill`: a `next start` from this session may still listen there; the sandbox cannot stop it.
+3. Open the pull request with the `gh` command at the end of its description.
+4. The owner actions of the sessions below are still due.
+
+### Next
+
+- Task 2: merge `origin/main` into `wp/3.1-python-worker`, resolve conflicts, `pnpm verify` and `pnpm build`, push, and update "Up to date with main" in its description.
+
 
 Checked once more at 23:52 in a fresh session: `git fetch` shows `origin/main` still at 0efe863 and none of the seven branches behind it, so task 1 needs no new merge. Docker and Chromium fail with the same two errors.
 

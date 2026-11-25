@@ -22,10 +22,10 @@ Check the current Next.js documentation before using an API. The facts this plan
 
 - Server components by default. Add `"use client"` only for state, effects, or browser APIs, and keep client components small.
 - A client component never imports from `src/infrastructure`, from a `server` folder, or from another feature's internals.
-- No `dangerouslySetInnerHTML` anywhere. Lesson Markdown is rendered by the one component in `src/content`.
+- No `dangerouslySetInnerHTML` anywhere. Lesson Markdown is parsed and highlighted by the one renderer in `src/content` and drawn by the one lesson-content component in `src/features/workspace`, which the dashboard preview also uses (approved by the owner on 2026-11-24, proposed in WP-4.2).
 - No user-facing string literal. Copy comes from `src/messages`.
 - Logical CSS properties only (`margin-inline-start`, not `margin-left`).
-- Anything that injects a style or script element at run time, such as the code editor, gets the request's nonce. Read it from the request headers on the server and pass it down.
+- Anything that injects a style or script element at run time, such as the code editor, gets the nonce of the loaded document. A client component reads it from the document's own scripts, and uses the nonce read from the request headers on the server and passed down only when no script carries one: after a move inside the app the request's nonce is not the document's (approved by the owner on 2026-11-24, proposed in WP-4.2).
 
 ## Data and mutations
 
