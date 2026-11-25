@@ -29,9 +29,11 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "admin-new-course-invalid", 1280, { workPackage: "WP-4.1" });
 
-  await page.getByLabel(courseEditor.titleLabel).fill("Structure check");
+  await page.getByLabel(courseEditor.titleLabel, { exact: true }).fill("Structure check");
   await page.getByLabel(courseEditor.slugLabel).fill(slug);
-  await page.getByLabel(courseEditor.summaryLabel).fill("A course made by the journey.");
+  await page
+    .getByLabel(courseEditor.summaryLabel, { exact: true })
+    .fill("A course made by the journey.");
   await page.getByLabel(courseEditor.outcomeLabel(1)).fill("Name the parts of a course");
   await page.getByRole("button", { name: courseEditor.create }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -63,11 +65,13 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
   const other = await browser.newContext({ storageState: await page.context().storageState() });
   const otherPage = await other.newPage();
   await otherPage.goto(page.url());
-  await otherPage.getByLabel(courseEditor.summaryLabel).fill("Saved in the other tab.");
+  await otherPage
+    .getByLabel(courseEditor.summaryLabel, { exact: true })
+    .fill("Saved in the other tab.");
   await otherPage.getByRole("button", { name: courseEditor.save }).click();
   await expect(otherPage.getByRole("status").filter({ hasText: courseEditor.saved })).toBeVisible();
   await other.close();
-  await page.getByLabel(courseEditor.summaryLabel).fill("Saved in this tab.");
+  await page.getByLabel(courseEditor.summaryLabel, { exact: true }).fill("Saved in this tab.");
   await page.getByRole("button", { name: courseEditor.save }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(structure.failure.stale);
   await expect(page.getByRole("button", { name: structure.reload })).toBeVisible();
@@ -79,11 +83,15 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
     void dialog.dismiss();
   });
   await page.getByRole("link", { name: courseEditor.backToCourses }).click();
-  await expect(page.getByLabel(courseEditor.summaryLabel)).toHaveValue("Saved in this tab.");
+  await expect(page.getByLabel(courseEditor.summaryLabel, { exact: true })).toHaveValue(
+    "Saved in this tab.",
+  );
 
   page.once("dialog", (dialog) => void dialog.accept());
   await page.reload();
-  await expect(page.getByLabel(courseEditor.summaryLabel)).toHaveValue("Saved in the other tab.");
+  await expect(page.getByLabel(courseEditor.summaryLabel, { exact: true })).toHaveValue(
+    "Saved in the other tab.",
+  );
 
   // Archive asks first and says what learners will see.
   await page.getByRole("button", { name: courseEditor.statusAction.archived }).click();
