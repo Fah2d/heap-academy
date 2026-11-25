@@ -123,16 +123,38 @@ describe("the catalog reads only through src/content", () => {
     );
   });
 
+  // The lesson page and its development twin compose the workspace (WP-5.2
+  // decision 7): each may take the workspace's client-safe index and the
+  // request's script nonce, which carries no identity, and exactly those.
+  // Any other forbidden import still fails.
+  const WORKSPACE_HOSTS: Record<string, string[]> = {
+    "src/features/catalog/components/lesson-page.tsx": [
+      "@/features/workspace",
+      "@/infrastructure/http/nonce",
+    ],
+    "src/features/catalog/components/workspace-gallery.tsx": [
+      "@/features/workspace",
+      "@/infrastructure/http/nonce",
+    ],
+  };
+
   it.each(files.map((path) => [relative(ROOT, path), path]))(
     "%s imports no database client, identity, request headers or other feature",
-    (_name, path) => {
-      expect(forbiddenImports(path, imports(path))).toEqual([]);
+    (name, path) => {
+      expect(forbiddenImports(path, imports(path))).toEqual(WORKSPACE_HOSTS[name] ?? []);
     },
   );
+
+  it("finds every file that hosts the workspace", () => {
+    for (const name of Object.keys(WORKSPACE_HOSTS)) {
+      expect(files.map((path) => relative(ROOT, path))).toContain(name);
+    }
+  });
 
   it("takes its published content from src/content", () => {
     const readers = files.filter((path) => valueImports(path).includes("@/content"));
     expect(readers.map((path) => relative(ROOT, path)).sort()).toEqual([
+      "src/features/catalog/components/lesson-page.tsx",
       "src/features/catalog/server/reads.ts",
       "src/features/catalog/server/sitemap.ts",
     ]);

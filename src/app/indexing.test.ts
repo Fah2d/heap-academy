@@ -39,8 +39,31 @@ const PUBLISHED_COURSE = {
   ],
 };
 
+const PUBLISHED_LESSON = {
+  id: "5a1c7e2d-0b3f-4c6a-8d9e-1f2a3b4c5d6e",
+  slug: "hello",
+  title: "Say hello",
+  xp: 10,
+  instructionsMarkdown: "Print a line.",
+  hints: [],
+  starterCode: "",
+  tests: [
+    {
+      id: "prints-hello",
+      name: "Prints hello",
+      stdin: "",
+      afterCode: "",
+      expected: "Hello",
+      match: "normalized",
+      hint: "",
+    },
+  ],
+  course: { slug: "python-basics", title: "Python basics" },
+};
+
 // Content that reads, so an indexed page answers as it does with a database.
 vi.mock("@/content", () => ({
+  publishedLesson: () => Promise.resolve({ ok: true, value: PUBLISHED_LESSON }),
   publishedCourses: () =>
     Promise.resolve({
       ok: true,
@@ -53,7 +76,7 @@ const APP = import.meta.dirname;
 
 // docs/spec/03-experience.md section 3. `/admin/courses/new` is not a row of
 // its own there; it is part of the admin dashboard, which is not indexed.
-const INDEXED = new Set(["/", "/courses", "/courses/[course]"]);
+const INDEXED = new Set(["/", "/courses", "/courses/[course]", "/learn/[course]/[lesson]"]);
 const NOT_INDEXED = new Set([
   "/sign-in",
   "/admin",
@@ -101,6 +124,7 @@ const LOADERS: Record<string, () => Promise<unknown>> = {
   "/": () => import("./page"),
   "/courses": () => import("./courses/page"),
   "/courses/[course]": () => import("./courses/[course]/page"),
+  "/learn/[course]/[lesson]": () => import("./learn/[course]/[lesson]/page"),
   "/sign-in": () => import("./sign-in/page"),
   "/admin": () => import("./admin/page"),
   "/admin/courses/new": () => import("./admin/courses/new/page"),
@@ -116,7 +140,7 @@ async function metadataOf(route: string): Promise<Metadata> {
   const page = (await load()) as PageModule;
   if (page.generateMetadata !== undefined) {
     return page.generateMetadata({
-      params: Promise.resolve({ course: "python-basics", id: "1" }),
+      params: Promise.resolve({ course: "python-basics", lesson: "hello", id: "1" }),
     });
   }
   return page.metadata ?? {};
