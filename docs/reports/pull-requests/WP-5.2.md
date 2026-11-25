@@ -1,6 +1,21 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.4-statechart` (WP-3.1 to WP-3.4) and `main` at dffe1a8 (WP-4.1 and WP-4.2 are merged there).** Merges after WP-3.x and WP-5.1 (decision 10). Until then this pull request also shows their commits. On 2026-11-25 `main` at dffe1a8 came in through af95dc4 (one conflict, `src/ui/primitives/button.tsx`: this branch's `aria-keyshortcuts` effect and `main`'s announcement cleanup both kept) and `wp/3.4-statechart` at fd7b9dc through eaac0d7 (this branch's side kept in `playwright.config.ts`, `module-boundaries.mjs` and the workspace's `index.ts`, which already held both sides). On eaac0d7: `pnpm verify` exit 0, `Test Files  106 passed (106)`, `Tests  1951 passed (1951)`; `pnpm build` with CI's fake public values, `check-bundle` and `check-static` exit 0. The browser tests were not run again. The full history of parts 1 to 3 is in git and in `docs/reports/local-build-progress.md`.
+**Base: `wp/3.4-statechart` (WP-3.1 to WP-3.4), which carries `main` at 032246c (WP-4.1 to WP-5.1).** Merges after WP-3.x and WP-5.1 (decision 10). Until then this pull request also shows their commits. On 2026-11-25 `main` at dffe1a8 came in through af95dc4 (one conflict, `src/ui/primitives/button.tsx`: this branch's `aria-keyshortcuts` effect and `main`'s announcement cleanup both kept) and `wp/3.4-statechart` at fd7b9dc through eaac0d7 (this branch's side kept in `playwright.config.ts`, `module-boundaries.mjs` and the workspace's `index.ts`, which already held both sides). On eaac0d7: `pnpm verify` exit 0, `Test Files  106 passed (106)`, `Tests  1951 passed (1951)`; `pnpm build` with CI's fake public values, `check-bundle` and `check-static` exit 0. The browser tests were not run again. The full history of parts 1 to 3 is in git and in `docs/reports/local-build-progress.md`.
+
+
+## Up to date with main and WP-3.4
+
+On 2026-11-26 `wp/3.4-statechart` came in twice: at 6f48e94, which carries `main` at 032246c (#18 and #19, so WP-4.3 and WP-5.1), in 5d6549b, and at 356520e in 485b103. Six files conflicted in 5d6549b:
+
+- `src/content/published.ts`: `main`'s `cachedReader`, whose cache key holds the database address, now also builds the lesson reader (`cachedReader("published-lesson", readPublishedLesson)`); this branch's `PublishedLesson`, `readPublishedLesson`, `isSlug` and `publishedLesson` kept.
+- `src/features/catalog/index.ts`: both sides' exports (the catalog's pages and this branch's `LessonPage`, `lessonMetadata` and `WorkspaceGallery`).
+- `src/features/workspace/index.ts`: this branch's copy, which holds `main`'s exports and adds `Workspace` and `learnPath`.
+- `src/infrastructure/logging/route.ts` and `src/messages/gallery.ts`: both sides kept.
+- `docs/reports/local-build-progress.md`: both sides kept.
+
+WP-5.1's checks then failed on this branch's lesson page, and 08df7cc answers them as `wp/5.4-progress-preview` already does: `src/app/indexing.test.ts` gives `/learn/[course]/[lesson]` its row as indexed (`03-experience.md` section 3), and `src/features/catalog/reads-only-content.test.ts` lets the lesson page and the development workspace page import exactly the workspace's index and the request nonce, and counts the lesson page among the readers of `@/content`.
+
+On 08df7cc: `pnpm verify` exit 0 (`Test Files  122 passed (122)`, `Tests  2221 passed (2221)`). The e2e job of CI ran here against the local stack, freshly reset before each run (`supabase db reset`), with `CI=1` and the stack's publishable key: `pnpm test:e2e --project=chromium --project=stack --project=gallery`. First run: `119 passed`, `1 failed`, `1 skipped`; the failure was the second sign-in of `[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then verify in a new session`, where Cloudflare's Turnstile test widget left `cf-turnstile-response` empty for 15 s (`e2e/sign-in-helpers.ts:38`). No sign-in, header, proxy or journey file differs from `wp/3.4-statechart`, where the same journey passed. Second run, unchanged: `120 passed`, `1 skipped` (`[T-19] repeated wrong codes are limited`, a `test.fixme` that `main` has too), exit 0. Not run: Firefox, WebKit, and the `runtime-*` projects that hold this package's workspace journeys, which CI does not run on a pull request.
 
 ## What
 
