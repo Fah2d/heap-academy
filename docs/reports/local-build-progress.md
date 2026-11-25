@@ -2,6 +2,12 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-25 (from about 04:58), journey fixes carried to 5.1
+
+- `wp/2.2-sign-in` merged into 2.3, then 4.1, 4.2, 4.3 and `wp/5.1-catalog`; the same unscoped `alert` locator fixed in the admin, course structure and lesson editor journeys (scoped to `main`).
+- Sign-in journeys on 2.3 against the fake auth server: 3/3. The admin, course structure and lesson editor journeys need the database and were not run.
+- Next: merge forward into 5.2 and later at their next work. Push: from 05:38.
+
 ## Session of 2026-11-25 (from about 04:40), in `night-b`, second CI fix for #13
 
 - `origin/main` still 428c437: nothing to merge for task 1.
