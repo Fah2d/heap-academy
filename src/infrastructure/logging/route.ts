@@ -28,6 +28,7 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "auth",
   "callback",
   "sign-in",
+  "profile",
   "admin",
   "setup",
   "verify",

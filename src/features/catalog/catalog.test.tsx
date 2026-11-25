@@ -325,6 +325,7 @@ describe("the course page", () => {
     expect(courseAction()).toEqual([catalogCommon.action.begin, "/learn/python-basics/hello"]);
     expect(lessonStates()).toEqual(["", "", ""]);
     expect(screen.queryByText(/completed$/)).toBeNull();
+    expect(screen.queryByText(/XP earned$/)).toBeNull();
   });
 
   it("[FR-CAT-02] [FR-CRS-02] begins with nothing completed: the first lesson is next up", async () => {
@@ -338,9 +339,10 @@ describe("the course page", () => {
       coursePage.lessonState.open,
     ]);
     expect(screen.getByText(catalogCommon.progress(0, 3))).toBeTruthy();
+    expect(screen.getByText(coursePage.xpEarned(0, 40))).toBeTruthy();
   });
 
-  it("[FR-CAT-02] [FR-CRS-02] continues to the next incomplete lesson", async () => {
+  it("[FR-CAT-02] [FR-CRS-02] [FR-CRS-05] continues to the next incomplete lesson", async () => {
     state.course = { ok: true, value: COURSE };
     state.completed = new Set([id(201), id(203)]);
     render(await CoursePage({ params: params("python-basics") }));
@@ -351,6 +353,8 @@ describe("the course page", () => {
       coursePage.lessonState.completed,
     ]);
     expect(screen.getByText(catalogCommon.progress(2, 3))).toBeTruthy();
+    // The 10 XP and 20 XP lessons of 40 (FR-CRS-05).
+    expect(screen.getByText(coursePage.xpEarned(30, 40))).toBeTruthy();
   });
 
   it("[FR-CAT-02] [FR-CRS-02] reviews from the first lesson when every lesson is completed", async () => {
@@ -360,6 +364,7 @@ describe("the course page", () => {
     expect(courseAction()).toEqual([catalogCommon.action.review, "/learn/python-basics/hello"]);
     expect(lessonStates()).toEqual(Array(3).fill(coursePage.lessonState.completed));
     expect(screen.getByText(catalogCommon.progress(3, 3))).toBeTruthy();
+    expect(screen.getByText(coursePage.xpEarned(40, 40))).toBeTruthy();
   });
 
   it("[FR-CRS-02] says each state in words, with its icon hidden from assistive technology", async () => {

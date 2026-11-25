@@ -14,7 +14,12 @@ import {
 import type { LessonId } from "@/domain/ids";
 import type { Neighbours } from "@/domain/workspace/neighbours";
 import { ariaKeyShortcuts, workspaceShortcut } from "@/domain/workspace/shortcuts";
-import { deviceProgress, type Durability, useGuestInvitation } from "@/features/progress";
+import {
+  deviceProgress,
+  type Durability,
+  syncStatus,
+  useGuestInvitation,
+} from "@/features/progress";
 import type { CheckSummary } from "@/grader/grade";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
@@ -151,6 +156,7 @@ export function Workspace({
   const [completion, setCompletion] = useState<{ summary: CheckSummary; first: boolean }>();
   const [durability, setDurability] = useState<Durability>("device");
   const recorded = useRef<CheckSummary | undefined>(undefined);
+  const unsynced = useSyncExternalStore(syncStatus.subscribe, syncStatus.unsynced, () => false);
 
   // The saved code is on the device, so it is read only here. A preview keeps
   // code in memory only, so it never reads or replaces a learner's saved code.
@@ -450,6 +456,11 @@ export function Workspace({
       {durability === "memory" && (
         <Notice kind="warning" kindLabel={words.warningKind}>
           <strong className="font-semibold">{words.memoryTitle}</strong> {words.memoryBody}
+        </Notice>
+      )}
+      {unsynced && (
+        <Notice kind="warning" kindLabel={words.warningKind} announce="polite">
+          <strong className="font-semibold">{words.unsyncedTitle}</strong> {words.unsyncedBody}
         </Notice>
       )}
       {/* Always present, so the words are announced when they appear. */}

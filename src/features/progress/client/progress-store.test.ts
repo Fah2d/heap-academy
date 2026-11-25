@@ -18,6 +18,8 @@ type Behaviour = {
   failOpen?: boolean;
   blockOpen?: boolean;
   failWrites?: boolean;
+  /** The requests succeed, then the commit aborts. */
+  abortCommit?: boolean;
   /** Every request on an open connection throws, as on a closed one. */
   closed?: boolean;
   opens?: number;
@@ -63,12 +65,39 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
       if (behaviour.closed === true) throw new Error("InvalidStateError");
       const rows = disk.stores.get(name);
       if (rows === undefined) throw new Error("NotFoundError");
-      return {
+      let refused = false;
+      const refuse = () => {
+        if (behaviour.failWrites !== true) return;
+        // As in IndexedDB, a failed request aborts its transaction.
+        refused = true;
+        throw new Error("refused");
+      };
+      const transaction = {
+        error: null,
+        onerror: null,
+        onabort: null as (() => void) | null,
+        set oncomplete(done: () => void) {
+          setTimeout(() => {
+            if (refused || behaviour.abortCommit === true) transaction.onabort?.();
+            else done();
+          }, 5);
+        },
         objectStore: () => ({
           getAll: () => request(() => [...rows.values()]),
+          clear: () =>
+            request(() => {
+              refuse();
+              if (behaviour.abortCommit !== true) rows.clear();
+            }),
+          put: (value: unknown, key: string) =>
+            request(() => {
+              refuse();
+              if (behaviour.abortCommit !== true) rows.set(key, value);
+              return key;
+            }),
           add: (value: unknown, key: string) =>
             request(() => {
-              if (behaviour.failWrites === true) throw new Error("refused");
+              refuse();
               if (rows.has(key)) {
                 throw Object.assign(new Error("taken"), { name: "ConstraintError" });
               }
@@ -77,6 +106,7 @@ function fakeIndexedDb(disk: Disk, behaviour: Behaviour = {}): IDBFactory {
             }),
         }),
       };
+      return transaction;
     },
   };
   return {
@@ -142,6 +172,108 @@ describe("the device database", () => {
     const database = await openDeviceDatabase(fakeIndexedDb(newDisk()));
     database.onversionchange?.(new Event("versionchange") as IDBVersionChangeEvent);
     expect(database.close).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the progress store after a sync [FR-PRG-02] [FR-PRG-03] [FR-AUTH-05]", () => {
+  it("keeps the account's list and what is still unsent, across a reload", async () => {
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk));
+    await store.record(pass(HELLO));
+    await store.applySync([pass(SUMS)], [], await store.epoch());
+    const reloaded = createProgressStore(fakeIndexedDb(disk));
+    expect(await reloaded.completions()).toEqual([
+      { ...pass(HELLO), synced: false },
+      { ...pass(SUMS), synced: true },
+    ]);
+    expect(await reloaded.pending()).toEqual([pass(HELLO)]);
+  });
+
+  it("marks a stored lesson and drops a refused one", async () => {
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk));
+    await store.record(pass(HELLO));
+    await store.record(pass(SUMS));
+    await store.markSynced(HELLO, await store.epoch());
+    await store.drop([SUMS], await store.epoch());
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([
+      { ...pass(HELLO), synced: true },
+    ]);
+  });
+
+  it("forgets every completion at sign-out, and a new store finds none", async () => {
+    const disk = newDisk();
+    const store = createProgressStore(fakeIndexedDb(disk));
+    await store.record(pass(HELLO));
+    await store.clear();
+    expect(await store.completions()).toEqual([]);
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([]);
+  });
+
+  it("applies the same changes in memory when the database takes no writes", async () => {
+    const store = createProgressStore(fakeIndexedDb(newDisk(), { failWrites: true }));
+    await store.record(pass(HELLO));
+    await store.markSynced(HELLO, await store.epoch());
+    expect(await store.completions()).toEqual([{ ...pass(HELLO), synced: true }]);
+    await store.clear();
+    expect(await store.completions()).toEqual([]);
+  });
+});
+
+describe("a sign-out is not undone [FR-AUTH-05] [NFR-REL-01]", () => {
+  it("ignores a server answer from before another tab cleared the list", async () => {
+    const disk = newDisk();
+    const syncing = createProgressStore(fakeIndexedDb(disk));
+    await syncing.record(pass(HELLO));
+    const since = await syncing.epoch();
+    await createProgressStore(fakeIndexedDb(disk)).clear();
+    await syncing.applySync([pass(HELLO)], [], since);
+    await syncing.markSynced(HELLO, since);
+    expect(await syncing.completions()).toEqual([]);
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([]);
+  });
+
+  it("forgets another tab's memory-only pass once the list is cleared elsewhere", async () => {
+    const disk = newDisk();
+    const behaviour: Behaviour = { failWrites: true };
+    const stale = createProgressStore(fakeIndexedDb(disk, behaviour));
+    await stale.record(pass(HELLO));
+    await createProgressStore(fakeIndexedDb(disk)).clear();
+    behaviour.failWrites = false;
+    expect(await stale.completions()).toEqual([]);
+  });
+
+  it("keeps passes made before the database first opened, despite an old clearing", async () => {
+    const disk = newDisk();
+    await createProgressStore(fakeIndexedDb(disk)).clear();
+    const behaviour: Behaviour = { failOpen: true };
+    const store = createProgressStore(fakeIndexedDb(disk, behaviour));
+    await store.record(pass(HELLO));
+    behaviour.failOpen = false;
+    expect(await store.completions()).toEqual([{ ...pass(HELLO), synced: false }]);
+  });
+
+  it("does not read rows back when the clear failed, and clears them later", async () => {
+    const disk = newDisk();
+    const behaviour: Behaviour = {};
+    const store = createProgressStore(fakeIndexedDb(disk, behaviour));
+    await store.record(pass(HELLO));
+    behaviour.abortCommit = true;
+    await store.clear();
+    expect(await store.completions()).toEqual([]);
+    behaviour.abortCommit = false;
+    expect(await store.completions()).toEqual([]);
+    expect(await createProgressStore(fakeIndexedDb(disk)).completions()).toEqual([]);
+  });
+
+  it("keeps a memory-only pass when a rewrite's commit aborts", async () => {
+    const behaviour: Behaviour = { failWrites: true };
+    const store = createProgressStore(fakeIndexedDb(newDisk(), behaviour));
+    await store.record(pass(HELLO));
+    behaviour.failWrites = false;
+    behaviour.abortCommit = true;
+    await store.applySync([], [], await store.epoch());
+    expect(await store.completions()).toEqual([{ ...pass(HELLO), synced: false }]);
   });
 });
 

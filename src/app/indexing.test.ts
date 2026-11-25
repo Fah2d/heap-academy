@@ -79,6 +79,7 @@ const APP = import.meta.dirname;
 const INDEXED = new Set(["/", "/courses", "/courses/[course]", "/learn/[course]/[lesson]"]);
 const NOT_INDEXED = new Set([
   "/sign-in",
+  "/profile",
   "/admin",
   "/admin/courses/new",
   "/admin/courses/[id]",
@@ -127,6 +128,7 @@ const LOADERS: Record<string, () => Promise<unknown>> = {
   "/courses/[course]": () => import("./courses/[course]/page"),
   "/learn/[course]/[lesson]": () => import("./learn/[course]/[lesson]/page"),
   "/sign-in": () => import("./sign-in/page"),
+  "/profile": () => import("./profile/page"),
   "/admin": () => import("./admin/page"),
   "/admin/courses/new": () => import("./admin/courses/new/page"),
   "/admin/courses/[id]": () => import("./admin/courses/[id]/page"),
