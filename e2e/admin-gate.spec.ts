@@ -32,7 +32,8 @@ test("[FR-ADM-01] [T-19] a guest gets the standard not-found page at every /admi
     expect(response?.status(), address).toBe(404);
     expect(page.url(), address).toMatch(new RegExp(`${address}$`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(notFound.heading);
-    expect(await page.title(), address).toBe(missingTitle);
+    // The shell gets its title when the browser fills it in, so wait for it.
+    await expect(page, address).toHaveTitle(missingTitle);
     expect(await page.getByRole("main").innerText(), address).toBe(missingMain);
   }
 });

@@ -33,8 +33,12 @@ const engines = [
   ["webkit", devices["Desktop Safari"]],
 ] as const;
 // The servers under test get the fake values of .env.example unless the
-// environment sets real ones. None of them is a secret, and no test reaches
-// Supabase or Resend.
+// environment sets real ones. Playwright also hands each server the whole of
+// its own environment, so in CI's e2e job they get the local stack's secret
+// key and the two notice addresses, and J-10 can delete an account; elsewhere
+// those stay unset and the profile shows no delete control. Only the stack
+// journeys reach the local Supabase, and only J-10's deletion notice reaches
+// Resend, which refuses the fake key.
 const environment = {
   NEXT_PUBLIC_SUPABASE_URL: process.env["NEXT_PUBLIC_SUPABASE_URL"] ?? "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:

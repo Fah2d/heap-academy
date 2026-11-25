@@ -100,17 +100,22 @@ describe("AddLessonForm [FR-ADM-03]", () => {
 
   it("creates a draft at the end of the chapter and opens its editor", async () => {
     const createLesson = vi.fn(() => ok({ id: SECOND }));
-    const onUnsaved = vi.fn();
+    const steps: string[] = [];
+    const onUnsaved = vi.fn((_key: string, unsaved: boolean) => steps.push(`unsaved ${unsaved}`));
+    const onLeaving = vi.fn(() => steps.push("release"));
+    router.push.mockImplementation(() => steps.push("open"));
     render(
       <AddLessonForm
         courseId={COURSE}
         chapter={chapter}
         createLesson={createLesson}
         onUnsavedChange={onUnsaved}
+        onLeaving={onLeaving}
       />,
     );
     await userEvent.type(titleField(), "  Loops ");
     expect(onUnsaved).toHaveBeenLastCalledWith(`lesson-${chapter.id}`, true);
+    steps.length = 0;
     await userEvent.click(screen.getByRole("button", { name: words.addLesson }));
     expect(createLesson).toHaveBeenCalledWith({
       courseId: COURSE,
@@ -118,7 +123,10 @@ describe("AddLessonForm [FR-ADM-03]", () => {
       title: "Loops",
     });
     expect(router.push).toHaveBeenCalledWith(`/admin/lessons/${SECOND}`);
-    expect(onUnsaved).toHaveBeenLastCalledWith(`lesson-${chapter.id}`, false);
+    // The page's question is released before the new lesson opens. Reporting
+    // the text as saved instead would take the leave warning's guard entry
+    // back out of the history, and that Back undoes the move to the lesson.
+    expect(steps).toEqual(["release", "open"]);
   });
 
   it("[FR-ADM-10] asks before leaving other unsaved text on the page, and stays if told to", async () => {

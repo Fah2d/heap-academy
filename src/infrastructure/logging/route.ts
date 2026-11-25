@@ -44,6 +44,7 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "runtime",
   "primitives",
   "workspace",
+  "validation",
   "error",
   "catalog",
   "privacy",
