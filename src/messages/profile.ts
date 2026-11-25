@@ -26,4 +26,17 @@ export const profile = {
   errorLabel: "Error",
   saveFailed: "We could not save your name. Try again.",
   signedOut: "Your sign-in has ended. Sign in again to change your name.",
+  deleteAccount: "Delete my account",
+  deleteTitle: "Delete your account?",
+  deleteWarning:
+    "This erases your account, your completed lessons, your XP, and the code saved with them. It cannot be undone.",
+  deleteWord: "DELETE",
+  confirmLabel: "Type DELETE to confirm",
+  confirmProblem: "Type DELETE in capital letters.",
+  deleting: "Deleting",
+  deleted: "Your account is deleted.",
+  deleteSignInAgain:
+    "To delete your account, sign out, sign in again, and delete it within 5 minutes.",
+  deleteFailed: "We could not delete your account. Try again.",
+  deleteSignedOut: "Your sign-in has ended. Sign in again to delete your account.",
 } as const;

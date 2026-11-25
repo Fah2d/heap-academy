@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { publishedCourses } from "@/content";
-import { SignOutForm } from "@/features/auth";
+import { SignOutForm, signOut } from "@/features/auth";
 import { coursePath } from "@/features/catalog";
 import { pageIdentity } from "@/infrastructure/auth/page-identity";
 import { supabaseProfileStore } from "@/infrastructure/db/profile-store";
 import { createSessionClient } from "@/infrastructure/db/session-client";
-import { updateProfile } from "../server/actions";
+import { deleteAccount, updateProfile } from "../server/actions";
+import { accountDeletionAvailable } from "../server/delete-account";
 import { profileSummary, progressByCourse } from "../server/profile";
+import { DeleteAccount } from "./delete-account";
 import { ProfileView } from "./profile-view";
 import { TimeZoneReporter } from "./time-zone-reporter";
 
@@ -31,6 +33,11 @@ export async function ProfilePage() {
         coursePath={coursePath}
         updateProfile={updateProfile}
         signOut={<SignOutForm />}
+        deleteAccount={
+          accountDeletionAvailable() && (
+            <DeleteAccount deleteAccount={deleteAccount} signOut={signOut} />
+          )
+        }
       />
     </>
   );

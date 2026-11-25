@@ -12,11 +12,14 @@ export function ProfileView({
   coursePath,
   updateProfile,
   signOut,
+  deleteAccount,
 }: {
   summary: ProfileSummary;
   courses: readonly CourseProgressRow[];
   coursePath: (slug: string) => string;
   signOut: ReactNode;
+  /** The delete account control, or nothing when this deployment cannot delete. */
+  deleteAccount?: ReactNode;
   updateProfile: ComponentProps<typeof DisplayName>["updateProfile"];
 }) {
   const numbers = [
@@ -67,6 +70,7 @@ export function ProfileView({
       <section className="flex flex-col items-start gap-3">
         <h2 className="text-lg font-semibold text-text">{words.accountHeading}</h2>
         {signOut}
+        {deleteAccount}
       </section>
     </div>
   );
