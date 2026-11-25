@@ -213,7 +213,7 @@ test("[FR-WSP-07] [FR-WSP-17] output over the limit replaces Python, which says 
   await noAxeViolations(page);
   // Below 768 px the console scrolls inside its 24 rem ceiling, so the error
   // card stays near the output instead of below thousands of lines.
-  await page.setViewportSize({ width: 375, height: 900 });
+  await resize(page, 375, true);
   const consoleBox = await page.getByRole("region", { name: words.consoleLabel }).boundingBox();
   expect(consoleBox?.height).toBeLessThanOrEqual(384);
   await screens(page, "workspace-restarting");
