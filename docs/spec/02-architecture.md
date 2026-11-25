@@ -319,12 +319,15 @@ Enabled on every table. Default deny. Every policy has a test.
 | Object | Purpose |
 |---|---|
 | `private.is_admin()` | Security definer, fixed search path, in a schema the API does not expose. Used by policies. |
+| `private.is_on_admin_list()` | Security definer, fixed search path. Answers one boolean: whether the caller is on the admin list, at any assurance level. A public invoker-rights wrapper exposes it. Grants nothing; the admin gate uses it to choose between not-found and the second step. |
 | `public.save_lesson(...)` | Security invoker, so policies apply. Writes lesson, solution, and wrong answers in one transaction and sets `validated_at` when told the content passed. Refuses when the row is newer than the editor's copy (FR-ADM-10). |
 | Trigger: gradable change | Sets `gradable_changed_at` when starter, test cases, solution, or wrong answers change. |
 | Trigger: publish guard | Enforces section 7.2. Also refuses publishing a course with no published lesson. |
 | Trigger: completion values | Copies `xp` from the lesson, and clamps `completed_at` so it is never in the future. |
 | Trigger: new user | Creates the `profiles` row. |
 | `public.lesson_completion_counts()` | Security definer, admin only inside the function. Returns counts per lesson for the dashboard (FR-ADM-13). |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.3):** `private.is_on_admin_list()` is added. The caller's session cannot read `admins`, and `private.is_admin()` answers false below `aal2`, so the gate needs this one answer about the caller only.
 
 Every function with elevated rights pins its search path and is reviewed by `security-reviewer`.
 
@@ -340,6 +343,7 @@ Every mutation is a server action built with one wrapper. The wrapper provides, 
 |---|---|---|
 | `requestEmailCode`, `verifyEmailCode`, `signOut` | Sign-in with an email code | Anyone |
 | `startGoogleSignIn` | Start Google sign-in: validate the return path, keep it in a cookie, and send the browser to the provider | Anyone |
+| `startSecondStepSetup`, `confirmSecondStepSetup`, `verifySecondStep` | The admin's second sign-in step: a new authenticator factor on a press, its first code, and the code at each admin session. Anyone not on the admin list gets `not_found` | Signed in, on the admin list |
 | `recordCompletion` | Store a completion (idempotent) | Signed in |
 | `mergeProgress` | Merge completions from the device (idempotent) | Signed in |
 | `updateProfile` | Display name, time zone | Signed in |
@@ -350,6 +354,8 @@ Every mutation is a server action built with one wrapper. The wrapper provides, 
 | `exportCourse`, `importLesson` | JSON out and in (FR-ADM-12) | Admin |
 
 > **Approved by the owner on 2026-11-24 (proposed in WP-2.2):** `startGoogleSignIn` is a server action. The provider's allow-list holds the bare `/auth/callback`, so the return path waits in a cookie and not in the callback address.
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.3):** the three second-step actions are server actions. The caller is below `aal2`, so the wrapper's access is signed-in, and each action asks `private.is_on_admin_list()` first.
 
 Rules:
 
