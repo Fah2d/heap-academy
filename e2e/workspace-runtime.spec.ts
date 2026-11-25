@@ -218,7 +218,7 @@ test("[FR-WSP-08] J-3: a program that asks for input twice", async ({ page }) =>
   await expect(page.getByRole("status").filter({ hasText: "Run finished" })).toBeAttached();
 });
 
-test("[FR-WSP-07] J-4: Stop ends a runaway loop, Python comes back, and the next Run works", async ({
+test("[FR-WSP-07] [T-02] J-4: Stop ends a runaway loop, Python comes back, and the next Run works", async ({
   page,
 }) => {
   await ready(page);
