@@ -235,6 +235,7 @@ test("[FR-WSP-07] J-4: Stop ends a runaway loop, Python comes back, and the next
       }),
     }),
   ).toBeVisible();
+  await noAxeViolations(page);
   await screens(page, "workspace-stopped");
   await ready(page);
   await write(page, 'print("again")\n');
@@ -298,6 +299,7 @@ test("[FR-WSP-03] [FR-WSP-12] [NFR-A11Y-03] the keyboard runs code, and Escape t
   await page.keyboard.press("Escape");
   await page.keyboard.press("Tab");
   await expect(editor(page)).not.toBeFocused();
+  await noAxeViolations(page);
 });
 
 test("[T-07] output that looks like markup is shown as text", async ({ page }) => {
@@ -308,6 +310,7 @@ test("[T-07] output that looks like markup is shown as text", async ({ page }) =
   await expect(consoleOutput(page)).toHaveText(`${payload}\n`);
   await expect(consoleOutput(page).locator("img, b")).toHaveCount(0);
   expect(await page.title()).not.toBe("owned");
+  await noAxeViolations(page);
 });
 
 test("[FR-WSP-04] a program over the worker's limit is refused with the reason", async ({
@@ -422,6 +425,7 @@ test("[FR-PRG-01] saved code comes back on the next visit", async ({ page }) => 
   await page.reload();
   await expect(page.getByText(words.restored)).toBeVisible();
   await expect(editor(page)).toHaveText('print("kept")');
+  await noAxeViolations(page);
   await screens(page, "workspace-restored");
 });
 

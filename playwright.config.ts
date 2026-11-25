@@ -25,7 +25,10 @@ const phone = /(?<!workspace-)phone\.spec\.ts$/;
 // The workspace on a phone (WP-5.3) sets its own widths, 320, 375 and 430 px,
 // so it runs once, on the emulated phone, not in each phone project.
 const workspacePhone = /workspace-phone\.spec\.ts$/;
-const notDesktop = [gallery, phone, workspacePhone, stack, runtime];
+// The throttled load profile (WP-7.2) uses the Chrome DevTools Protocol, so
+// it runs once, in Chromium, against the development server.
+const loadProfile = /load-profile\.spec\.ts$/;
+const notDesktop = [gallery, phone, workspacePhone, stack, runtime, loadProfile];
 
 const engines = [
   ["chromium", devices["Desktop Chrome"]],
@@ -85,6 +88,11 @@ export default defineConfig({
       name: "phone-workspace",
       testMatch: workspacePhone,
       use: { ...devices["Pixel 7"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
+    {
+      name: "profile",
+      testMatch: loadProfile,
+      use: { ...devices["Desktop Chrome"], baseURL: `http://127.0.0.1:${developmentPort}` },
     },
   ],
   // In order: the production build must finish before the outage server
