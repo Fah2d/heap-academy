@@ -1,0 +1,77 @@
+# The nightly encrypted backup (ADR-0030, NFR-REL-05; runbook
+# docs/runbooks/restore.md). It dumps the data of public, private and auth as
+# the read-only `backup_reader` role through the session pooler, pipes it
+# straight into age for the committed recipient key, uploads only the
+# ciphertext for 7 days, attests it, and pings the heartbeat monitor last.
+#
+# Rules: .claude/rules/ci.md. The only workflow that may name the
+# `production-backup` environment (scripts/workflows.test.ts). It restores and
+# saves no cache. The restore script accepts only an artifact of a scheduled
+# run of this file on main, with this file's provenance.
+name: Backup
+
+on:
+  schedule:
+    # 02:17 UTC, away from the top of the hour, when GitHub delays most.
+    - cron: "17 2 * * *"
+
+permissions: {}
+
+concurrency:
+  group: backup-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: backup
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production-backup
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Postgres 17 client (the server's major version) from the PostgreSQL
+      # project's own signed apt repository, and age from Ubuntu's.
+      - name: Install pg_dump and age
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17 age
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: Check the recipient key
+        env:
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: scripts/backup.sh recipient
+      - name: Dump and encrypt
+        env:
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_DB_HOST: ${{ vars.BACKUP_DB_HOST }}
+          BACKUP_DB_USER: ${{ vars.BACKUP_DB_USER }}
+          BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
+        run: |
+          mkdir "$RUNNER_TEMP/backup"
+          scripts/backup.sh dump "$RUNNER_TEMP/backup/backup.age"
+      - name: Upload the ciphertext
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backup
+          path: ${{ runner.temp }}/backup/backup.age
+          retention-days: 7
+          if-no-files-found: error
+      - name: Attest the ciphertext
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/backup/backup.age
+      # Last, so the monitor hears only of a backup that was stored and
+      # attested. The address works like a password: a secret, never printed.
+      - name: Ping the heartbeat monitor
+        env:
+          BACKUP_HEARTBEAT_URL: ${{ secrets.BACKUP_HEARTBEAT_URL }}
+        run: curl --fail --silent --show-error --max-time 10 --retry 3 --output /dev/null "$BACKUP_HEARTBEAT_URL"
