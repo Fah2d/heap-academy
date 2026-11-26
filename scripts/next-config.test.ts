@@ -72,12 +72,16 @@ describe("next.config.ts headers", () => {
   it.each([
     // Every file the runtime build compiles (scripts/build-runtime.test.ts).
     WORKER_URL,
-    `${WORKER_DIRECTORY}worker/core.js`,
-    `${WORKER_DIRECTORY}worker/run-support.js`,
-    `${WORKER_DIRECTORY}protocol.js`,
-    `${WORKER_DIRECTORY}output.js`,
-    `${WORKER_DIRECTORY}lockdown.js`,
-    `${WORKER_DIRECTORY}manifest.js`,
+    `${WORKER_DIRECTORY}runtime/worker/core.js`,
+    `${WORKER_DIRECTORY}runtime/worker/run-support.js`,
+    `${WORKER_DIRECTORY}runtime/protocol.js`,
+    `${WORKER_DIRECTORY}runtime/output.js`,
+    `${WORKER_DIRECTORY}runtime/lockdown.js`,
+    `${WORKER_DIRECTORY}runtime/manifest.js`,
+    `${WORKER_DIRECTORY}grader/harness.js`,
+    `${WORKER_DIRECTORY}grader/grade.js`,
+    `${WORKER_DIRECTORY}grader/compare.js`,
+    `${WORKER_DIRECTORY}grader/test-case.js`,
   ])(
     "[T-01] serves the compiled worker file %s with the worker's policy, checked on every load",
     async (path) => {

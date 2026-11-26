@@ -39,10 +39,13 @@ const STATES: { state: string; tags: string; check: (page: Page) => Promise<void
   },
   {
     state: "list-rows",
-    tags: "[FR-CAT-01]",
+    tags: "[FR-CAT-01] [FR-CAT-02]",
     check: async (page) => {
-      await expect(page.getByRole("link", { name: catalogGallery.longCourse })).toBeVisible();
-      await expect(page.getByText(catalogCommon.lessonCount(3))).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: catalogGallery.longCourse, exact: true }),
+      ).toBeVisible();
+      // A new browser has completed nothing on this device (WP-5.4).
+      await expect(page.getByText(catalogCommon.progress(0, 3))).toBeVisible();
       // A one-line title takes the height of its line, not of its 44 px
       // target, so rows with one-line and wrapped titles are spaced alike.
       const title = page.getByRole("heading", { level: 2, name: catalogGallery.sampleCourse });
@@ -107,7 +110,7 @@ for (const { state, tags, check } of STATES) {
 const FOCUS_TARGETS = [
   {
     name: "course-title",
-    link: (page: Page) => page.getByRole("link", { name: catalogGallery.longCourse }),
+    link: (page: Page) => page.getByRole("link", { name: catalogGallery.longCourse, exact: true }),
   },
   {
     name: "courses",
@@ -144,4 +147,93 @@ for (const { name, link } of FOCUS_TARGETS) {
       });
     });
   }
+}
+
+// The learner's progress, read from this device (WP-5.4; FR-CAT-02,
+// FR-CRS-02). The gallery's lessons have fixed IDs, so completions for them
+// are put in the device's real IndexedDB, then the page is loaded again.
+const HELLO = "5eed0000-0000-4000-8000-000000000601";
+const SUMS = "5eed0000-0000-4000-8000-000000000603";
+const FILES = "5eed0000-0000-4000-8000-000000000604";
+
+async function complete(page: Page, lessonIds: string[]) {
+  // Wait until the page's own code has read the device: it opened the
+  // database at the app's version, with its stores, so this open (no version)
+  // cannot create an empty version 1 first.
+  await expect(page.getByText(/ completed$/).first()).toBeVisible();
+  await page.evaluate(async (ids) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const open = indexedDB.open("heap-academy");
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error ?? new Error("open failed"));
+    });
+    const transaction = database.transaction("completions", "readwrite");
+    for (const lessonId of ids) {
+      transaction
+        .objectStore("completions")
+        .put({ lessonId, completedAt: Date.now(), code: "print(1)", synced: false }, lessonId);
+    }
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("write failed"));
+    });
+    database.close();
+  }, lessonIds);
+  await page.reload();
+}
+
+for (const width of [375, 1280]) {
+  test(`[FR-CAT-02] [FR-CRS-02] the course page shows progress from the device at ${String(width)} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/dev/catalog?state=course");
+    const action = page
+      .locator("main header")
+      .getByRole("link", { name: catalogCommon.action.begin });
+    await expect(action).toHaveAttribute("href", "/learn/python-basics/hello");
+    // Nothing completed on this device: the first lesson is next up.
+    await expect(page.getByText(catalogCommon.progress(0, 3))).toBeVisible();
+    const chapters = page.getByRole("list", { name: coursePage.chaptersHeading });
+    await expect(chapters.getByText(coursePage.lessonState.next)).toHaveCount(1);
+    await expect(chapters.getByText(coursePage.lessonState.open)).toHaveCount(2);
+    await complete(page, [HELLO, SUMS]);
+    await expect(page.getByText(catalogCommon.progress(2, 3))).toBeVisible();
+    const lessons = page.getByRole("list", { name: coursePage.chaptersHeading });
+    await expect(
+      page.locator("main header").getByRole("link", { name: catalogCommon.action.continue }),
+    ).toHaveAttribute("href", "/learn/python-basics/names");
+    await expect(lessons.getByText(coursePage.lessonState.completed)).toHaveCount(2);
+    await expect(lessons.getByText(coursePage.lessonState.next)).toHaveCount(1);
+    await expect(lessons.getByText(coursePage.lessonState.open)).toHaveCount(0);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await saveScreen(page, "catalog-course-progress", width, { workPackage: "WP-5.4" });
+  });
+
+  test(`[FR-CAT-02] the course list labels each action by progress at ${String(width)} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/dev/catalog?state=list-rows");
+    await complete(page, [HELLO, FILES]);
+    const rows = page.getByRole("main").getByRole("listitem");
+    await expect(
+      rows.nth(0).getByRole("link", { name: catalogCommon.action.continue }),
+    ).toHaveAttribute("href", "/learn/python-basics/names");
+    await expect(rows.nth(0).getByText(catalogCommon.progress(1, 3))).toBeVisible();
+    await expect(
+      rows.nth(1).getByRole("link", { name: catalogCommon.action.review }),
+    ).toHaveAttribute("href", "/learn/text-files/read-lines");
+    await expect(rows.nth(1).getByText(catalogCommon.progress(1, 1))).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await saveScreen(page, "catalog-list-progress", width, { workPackage: "WP-5.4" });
+  });
 }

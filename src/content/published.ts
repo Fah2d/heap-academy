@@ -25,7 +25,12 @@ const courseRow = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
-  lessons: z.array(z.object({ slug: z.string() })),
+  chapters: z.array(
+    z.object({
+      position: z.number().int(),
+      lessons: z.array(z.object({ id: z.uuid(), slug: z.string(), position: z.number().int() })),
+    }),
+  ),
 });
 
 export type PublishedCourseSummary = {
@@ -33,6 +38,8 @@ export type PublishedCourseSummary = {
   title: string;
   summary: string;
   lessonCount: number;
+  /** Every published lesson in course order, for the learner's progress (FR-CAT-02). */
+  lessons: { id: string; slug: string }[];
 };
 
 const courseDetail = z.object({
@@ -47,7 +54,13 @@ const courseDetail = z.object({
       summary: z.string(),
       position: z.number().int(),
       lessons: z.array(
-        z.object({ slug: z.string(), title: z.string(), position: z.number().int() }),
+        z.object({
+          id: z.uuid(),
+          slug: z.string(),
+          title: z.string(),
+          xp: z.number().int(),
+          position: z.number().int(),
+        }),
       ),
     }),
   ),
@@ -62,8 +75,38 @@ export type PublishedCourse = {
     id: string;
     title: string;
     summary: string;
-    lessons: { slug: string; title: string }[];
+    lessons: { id: string; slug: string; title: string; xp: number }[];
   }[];
+};
+
+const lessonRow = z.object({
+  id: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  xp: z.number().int(),
+  instructions_md: z.string(),
+  hints: z.array(z.string()),
+  starter_code: z.string(),
+  tests: z.array(z.unknown()),
+  courses: z.object({ slug: z.string(), title: z.string() }),
+});
+
+/**
+ * One published lesson as a learner may read it (02-architecture.md section
+ * 7.3): never its solution or wrong answers, which live in an admin-only
+ * table. The test cases are left as stored; the workspace parses them with
+ * the grader's schema, which `content` may not import.
+ */
+export type PublishedLesson = {
+  id: string;
+  slug: string;
+  title: string;
+  xp: number;
+  instructionsMarkdown: string;
+  hints: string[];
+  starterCode: string;
+  tests: unknown[];
+  course: { slug: string; title: string };
 };
 
 export type ContentResult<Value> = { ok: true; value: Value } | { ok: false };
@@ -79,19 +122,27 @@ const byPosition = (a: { position: number }, b: { position: number }) => a.posit
 export async function readPublishedCourses(db: PublicClient): Promise<PublishedCourseSummary[]> {
   const { data, error } = await db
     .from("courses")
-    .select("slug, title, summary, lessons(slug)")
+    .select("slug, title, summary, chapters(position, lessons(id, slug, position))")
     .order("position")
     .order("title");
   if (error !== null) throw new Error(`published courses: ${error.code}`);
   return z
     .array(courseRow)
     .parse(data)
-    .filter((row) => row.lessons.length > 0)
     .map((row) => ({
+      row,
+      lessons: [...row.chapters]
+        .sort(byPosition)
+        .flatMap((chapter) => [...chapter.lessons].sort(byPosition))
+        .map(({ id, slug }) => ({ id, slug })),
+    }))
+    .filter(({ lessons }) => lessons.length > 0)
+    .map(({ row, lessons }) => ({
       slug: row.slug,
       title: row.title,
       summary: row.summary,
-      lessonCount: row.lessons.length,
+      lessonCount: lessons.length,
+      lessons,
     }));
 }
 
@@ -107,7 +158,7 @@ export async function readPublishedCourse(
   const { data, error } = await db
     .from("courses")
     .select(
-      "slug, title, summary, outcomes, chapters(id, title, summary, position, lessons(slug, title, position))",
+      "slug, title, summary, outcomes, chapters(id, title, summary, position, lessons(id, slug, title, xp, position))",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -121,9 +172,11 @@ export async function readPublishedCourse(
       id: chapter.id,
       title: chapter.title,
       summary: chapter.summary,
-      lessons: [...chapter.lessons].sort(byPosition).map(({ slug: lesson, title }) => ({
+      lessons: [...chapter.lessons].sort(byPosition).map(({ id, slug: lesson, title, xp }) => ({
+        id,
         slug: lesson,
         title,
+        xp,
       })),
     }));
   if (chapters.length === 0) return null;
@@ -133,6 +186,36 @@ export async function readPublishedCourse(
     summary: course.summary,
     outcomes: course.outcomes,
     chapters,
+  };
+}
+
+/** One published lesson of a published course, or null. */
+export async function readPublishedLesson(
+  db: PublicClient,
+  courseSlug: string,
+  lessonSlug: string,
+): Promise<PublishedLesson | null> {
+  const { data, error } = await db
+    .from("lessons")
+    .select(
+      "id, slug, title, xp, instructions_md, hints, starter_code, tests, courses!inner(slug, title)",
+    )
+    .eq("slug", lessonSlug)
+    .eq("courses.slug", courseSlug)
+    .maybeSingle();
+  if (error !== null) throw new Error(`published lesson: ${error.code}`);
+  if (data === null) return null;
+  const row = lessonRow.parse(data);
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    xp: row.xp,
+    instructionsMarkdown: row.instructions_md,
+    hints: row.hints,
+    starterCode: row.starter_code,
+    tests: row.tests,
+    course: { slug: row.courses.slug, title: row.courses.title },
   };
 }
 
@@ -159,15 +242,21 @@ export function cachedReader<Args extends unknown[], Value>(
   return (...args: Args) => cached(publicDatabaseAddress(), ...args);
 }
 
-const cachedCourses = cachedReader("published-courses", readPublishedCourses);
+// A key part names the shape of its answer as well as the query: when an
+// answer's shape changes, its key part takes the next number, so an answer
+// cached by an earlier build is never read as the new shape. Version 2: lesson
+// IDs on a course summary, and each lesson's ID and XP on a course (WP-5.4).
+const cachedCourses = cachedReader("published-courses-2", readPublishedCourses);
 
-const cachedCourse = cachedReader("published-course", readPublishedCourse);
+const cachedCourse = cachedReader("published-course-2", readPublishedCourse);
+
+const cachedLesson = cachedReader("published-lesson", readPublishedLesson);
 
 // A failed read throws inside the cache, so it is never kept; the page gets
 // a failure it can show honestly, and the server logs it (02-architecture.md
 // section 13: no silent catch).
 async function settle<Value>(
-  query: "published-courses" | "published-course",
+  query: "published-courses" | "published-course" | "published-lesson",
   read: () => Promise<Value>,
 ): Promise<ContentResult<Value>> {
   try {
@@ -183,8 +272,10 @@ async function settle<Value>(
   }
 }
 
-/** The longest course address (docs/spec/04-content-system.md section 1.1). */
+/** The longest course or lesson address (docs/spec/04-content-system.md section 1.1). */
 const MAX_SLUG = 60;
+
+const isSlug = (slug: string) => slug.length <= MAX_SLUG && SLUG_PATTERN.test(slug);
 
 export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary[]>> {
   return settle("published-courses", () => cachedCourses());
@@ -199,9 +290,23 @@ export function publishedCourses(): Promise<ContentResult<PublishedCourseSummary
 export async function publishedCourse(
   slug: string,
 ): Promise<ContentResult<PublishedCourse | null>> {
-  if (slug.length > MAX_SLUG || !SLUG_PATTERN.test(slug)) return { ok: true, value: null };
+  if (!isSlug(slug)) return { ok: true, value: null };
   const listed = await publishedCourses();
   if (!listed.ok) return listed;
   if (!listed.value.some((course) => course.slug === slug)) return { ok: true, value: null };
   return settle("published-course", () => cachedCourse(slug));
+}
+
+/**
+ * One published lesson by its course's address and its own. An address that
+ * no lesson can have is answered at once, with no query and no cache entry.
+ */
+export function publishedLesson(
+  courseSlug: string,
+  lessonSlug: string,
+): Promise<ContentResult<PublishedLesson | null>> {
+  if (!isSlug(courseSlug) || !isSlug(lessonSlug)) {
+    return Promise.resolve({ ok: true, value: null });
+  }
+  return settle("published-lesson", () => cachedLesson(courseSlug, lessonSlug));
 }

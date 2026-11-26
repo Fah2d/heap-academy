@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { cx } from "../class-names";
-import { CheckmarkFilled, CircleDash, ErrorFilled } from "../icons";
+import { CheckmarkFilled, ChevronRight, CircleDash, ErrorFilled } from "../icons";
 
-export type StatusState = "pass" | "fail" | "not-run";
+/** `next` marks the one item to do next, such as the next lesson of a course. */
+export type StatusState = "pass" | "fail" | "not-run" | "next";
 
 export type StatusProps = {
   state: StatusState;
-  /** The word that names the state: "Passed", "Failed", "Not run". */
+  /** The word that names the state: "Passed", "Failed", "Not run", "Next up". */
   label: string;
 };
 
@@ -15,6 +16,7 @@ const looks: Record<StatusState, { icon: ReactNode; tone: string }> = {
   pass: { icon: <CheckmarkFilled size={16} />, tone: "text-pass" },
   fail: { icon: <ErrorFilled size={16} />, tone: "text-fail" },
   "not-run": { icon: <CircleDash size={16} />, tone: "text-text-muted" },
+  next: { icon: <ChevronRight size={16} />, tone: "text-text" },
 };
 
 export function Status({ state, label }: StatusProps) {

@@ -21,8 +21,11 @@ const stack = /-journey\.spec\.ts$/;
 const runtime = /runtime\.spec\.ts$/;
 // The same development pages on an emulated phone: a mobile viewport, touch,
 // and the phone's pixel density, not a resized desktop window.
-const phone = /phone\.spec\.ts$/;
-const notDesktop = [gallery, phone, stack, runtime];
+const phone = /(?<!workspace-)phone\.spec\.ts$/;
+// The workspace on a phone (WP-5.3) sets its own widths, 320, 375 and 430 px,
+// so it runs once, on the emulated phone, not in each phone project.
+const workspacePhone = /workspace-phone\.spec\.ts$/;
+const notDesktop = [gallery, phone, workspacePhone, stack, runtime];
 
 const engines = [
   ["chromium", devices["Desktop Chrome"]],
@@ -78,6 +81,11 @@ export default defineConfig({
         baseURL: `http://127.0.0.1:${developmentPort}`,
       },
     })),
+    {
+      name: "phone-workspace",
+      testMatch: workspacePhone,
+      use: { ...devices["Pixel 7"], baseURL: `http://127.0.0.1:${developmentPort}` },
+    },
   ],
   // In order: the production build must finish before the outage server
   // serves it and before the development server starts writing beside it.

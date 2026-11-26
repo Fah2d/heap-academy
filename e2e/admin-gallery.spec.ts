@@ -209,6 +209,16 @@ test("[FR-ADM-04] [FR-ADM-10] the lesson editor's states, at 1280 px", async ({ 
     "/dev/admin/lessons?example=gallery-lesson-editor",
     adminGallery.lessonEditor,
   );
+  // The top bar's link to the lesson in the real workspace (FR-ADM-08).
+  await expect(editing.getByRole("link", { name: lessonEditor.previewLesson })).toHaveAttribute(
+    "href",
+    /^\/admin\/lessons\/[^/]+\/preview$/,
+  );
+  await editing.getByRole("heading", { level: 2 }).first().scrollIntoViewIfNeeded();
+  await saveScreen(page, "admin-lesson-editor-preview-link", 1280, {
+    workPackage: "WP-5.4",
+    fullPage: false,
+  });
   await expect(editing.getByTestId("instructions-preview").getByRole("heading")).toHaveText(
     adminGallery.previewHeading,
   );

@@ -28,7 +28,7 @@ async function runProgram(page: Page, source: string, stdin = "") {
   });
   await page.getByLabel(runtimeDev.program).fill(source);
   await page.getByLabel(runtimeDev.input).fill(stdin);
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
 }
 
 const outcome = (page: Page) => page.locator("[data-outcome]");
@@ -90,7 +90,7 @@ test.describe("Python runtime", () => {
   test("[FR-RUN-02] Stop ends a run at once", async ({ page }) => {
     await runProgram(page, "while True: pass");
     await expect(page.getByRole("status")).toHaveAttribute("data-status", "running");
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
     await expect(outcome(page)).toHaveAttribute("data-outcome", "stopped");
   });
 
@@ -298,7 +298,7 @@ test.describe("Python runtime", () => {
         }),
     );
     expect(longestGap).toBeLessThan(50);
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
   });
 
   test("[NFR-SEC-01] drops nothing in a normal session", async ({ page }) => {

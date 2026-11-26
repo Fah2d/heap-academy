@@ -20,6 +20,21 @@
     font-weight: var(--font-weight-normal);
   }
 
+  /*
+   * From 768 px the workspace fills the window and each pane scrolls on its
+   * own; the page itself does not scroll (FR-WSP-01).
+   */
+  @media (width >= 48rem) {
+    body:has([data-workspace]) {
+      block-size: 100dvh;
+      overflow: hidden;
+    }
+
+    body:has([data-workspace]) > main {
+      min-block-size: 0;
+    }
+  }
+
   ::selection {
     background-color: var(--color-selection);
     color: var(--color-text);

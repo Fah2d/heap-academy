@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
-import { AccountControl } from "@/features/auth";
+import { AccountControl, guestInvitation } from "@/features/auth";
 import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
+import { GuestInvitationProvider } from "@/features/progress";
 import { fontVariables, SiteShell } from "@/features/shell";
 import { CspNonceMeta } from "@/features/system";
 import { documentAttributes, LOCALE } from "@/messages/locale";
@@ -23,18 +24,25 @@ export const viewport: Viewport = {
 // only at request time and a prerendered page carries none
 // (docs/spec/06-security-privacy.md section 5.2). scripts/check-static.mjs
 // fails the build on any page that is still prerendered.
+//
+// The invitation to save progress goes to a guest only (FR-AUTH-07). The
+// layout already reads the visitor for the header, once per request, so the
+// pages below it never read identity themselves.
 export default async function RootLayout({ children }: { children: ReactNode }) {
   await connection();
   const { lang, dir } = documentAttributes(LOCALE);
+  const invitation = await guestInvitation();
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
       <head>
         <CspNonceMeta />
       </head>
       <body className="flex flex-col">
-        <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>
-          {children}
-        </SiteShell>
+        <GuestInvitationProvider invitation={invitation}>
+          <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>
+            {children}
+          </SiteShell>
+        </GuestInvitationProvider>
       </body>
     </html>
   );

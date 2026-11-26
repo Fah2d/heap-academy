@@ -14,6 +14,7 @@ const SCREENSHOT_PROJECTS = new Set([
   "phone",
   "phone-375",
   "phone-360",
+  "phone-workspace",
 ]);
 
 // A state with a fixed overlay, such as an open dialog, is saved at the size
