@@ -32,13 +32,16 @@ export const ROUTE_SEGMENTS: ReadonlySet<string> = new Set([
   "setup",
   "verify",
   "courses",
+  "learn",
   "new",
   "lessons",
+  "preview",
   "csp-report",
   "health",
   "dev",
   "runtime",
   "primitives",
+  "workspace",
   "validation",
   "error",
   "catalog",
@@ -62,7 +65,9 @@ export function logRoute(method: string, pathname: string): LogRoute {
  * The `route` field for a read of public content, which runs inside the data
  * cache with no request: `GET /content/published-course`.
  */
-export function contentLogRoute(query: "published-courses" | "published-course"): LogRoute {
+export function contentLogRoute(
+  query: "published-courses" | "published-course" | "published-lesson",
+): LogRoute {
   return `GET /content/${query}` as LogRoute;
 }
 

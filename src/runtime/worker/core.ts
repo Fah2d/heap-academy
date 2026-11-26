@@ -180,14 +180,24 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       imported("pyodide.asm.mjs");
       if (!isRuntime(loaded)) return die("load_failed");
       if (loaded.version !== manifest.version) return die("version_mismatch");
-      const run: unknown = loaded.runPython(RUN_SUPPORT_SOURCE);
+      // The functions are taken now, before any program runs. A program can
+      // reach this object as `pyodide_js` and replace a setter, which every
+      // later run would then call (WP-3.1 security review 8, round 4, MAJOR 2).
+      const bound: Runtime = Object.freeze({
+        version: loaded.version,
+        setStdout: loaded.setStdout.bind(loaded),
+        setStderr: loaded.setStderr.bind(loaded),
+        setStdin: loaded.setStdin.bind(loaded),
+        runPython: loaded.runPython.bind(loaded),
+      });
+      const run: unknown = bound.runPython(RUN_SUPPORT_SOURCE);
       if (typeof run !== "function") return die("load_failed");
-      const checker: unknown = loaded.runPython(HARNESS_SOURCE);
+      const checker: unknown = bound.runPython(HARNESS_SOURCE);
       if (typeof checker !== "function") return die("load_failed");
-      runtime = loaded;
+      runtime = bound;
       runner = {
         run: (source) => Reflect.apply(run, undefined, [source]) as unknown,
-        runInteractive: await detectInteractive(loaded, run),
+        runInteractive: await detectInteractive(bound, run),
       };
       check = (source, stdin, afterCode) =>
         Reflect.apply(checker, undefined, [source, stdin, afterCode]) as unknown;
@@ -246,14 +256,6 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
     // An interactive run reads through the run support's reader; anything
     // that reads the runtime's own stream directly finds it empty.
     const lines = message.mode === "batch" ? [...(message.stdin ?? [])] : [];
-    runtime.setStdout(stdout.handler);
-    runtime.setStderr(stderr.handler);
-    runtime.setStdin({
-      stdin: () => {
-        const line = lines.shift();
-        return line === undefined ? undefined : `${line}\n`;
-      },
-    });
 
     // One request at a time: a second call while one waits gets the end of
     // input and posts nothing. The request is posted from a task of its own,
@@ -292,14 +294,29 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
 
     let reportText: unknown;
     try {
+      // Setting the handlers reopens file descriptors 0, 1 and 2 by path. A
+      // program that removed or locked those files makes this throw, which
+      // is the runtime failing like any other (WP-3.1 security review 8,
+      // round 3, MINOR 5).
+      runtime.setStdout(stdout.handler);
+      runtime.setStderr(stderr.handler);
+      runtime.setStdin({
+        stdin: () => {
+          const line = lines.shift();
+          return line === undefined ? undefined : `${line}\n`;
+        },
+      });
       reportText =
         message.mode === "interactive" && runner.runInteractive !== undefined
           ? await runner.runInteractive(message.source, requestLine)
           : runner.run(message.source);
     } catch {
       // The run support catches what the program raises and guards what it
-      // reads from the error afterwards, so this is the runtime itself
-      // failing. The worker cannot be trusted any more.
+      // reads from the error afterwards. What still reaches here is the
+      // runtime failing, or a program that changed the interpreter's state in
+      // a way the run support could not put back (NotRestored, a monitoring
+      // callback that raises on every call). The worker cannot be trusted
+      // any more.
       output.flush();
       return die("runtime_crashed");
     }
@@ -351,7 +368,7 @@ export function createWorkerCore(host: WorkerHost): { receive: (data: unknown) =
       try {
         text = check(message.source, testCase.stdin, testCase.afterCode);
       } catch {
-        // The harness never raises; the runtime itself failed.
+        // The runtime failed, or learner code made the harness raise (harness.ts, check).
         return die("runtime_crashed");
       }
       const parsed = parseHarnessResult(text);

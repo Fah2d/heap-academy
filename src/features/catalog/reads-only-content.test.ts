@@ -123,16 +123,46 @@ describe("the catalog reads only through src/content", () => {
     );
   });
 
+  // The lesson page and its development twin compose the workspace (WP-5.2
+  // decision 7): each may take the workspace's client-safe index and the
+  // request's script nonce, which carries no identity, and exactly those.
+  // Any other forbidden import still fails.
+  const WORKSPACE_HOSTS: Record<string, string[]> = {
+    "src/features/catalog/components/lesson-page.tsx": [
+      "@/features/workspace",
+      "@/infrastructure/http/nonce",
+    ],
+    "src/features/catalog/components/workspace-gallery.tsx": [
+      "@/features/workspace",
+      "@/infrastructure/http/nonce",
+    ],
+  };
+
+  // The course list and the course page show the learner's progress from the
+  // device (WP-5.4; 02-architecture.md section 10): one client file may take
+  // the progress feature's client-safe index, which reads only IndexedDB.
+  const PROGRESS_READERS: Record<string, string[]> = {
+    "src/features/catalog/components/course-progress.tsx": ["@/features/progress"],
+  };
+  const allowed = { ...WORKSPACE_HOSTS, ...PROGRESS_READERS };
+
   it.each(files.map((path) => [relative(ROOT, path), path]))(
     "%s imports no database client, identity, request headers or other feature",
-    (_name, path) => {
-      expect(forbiddenImports(path, imports(path))).toEqual([]);
+    (name, path) => {
+      expect(forbiddenImports(path, imports(path))).toEqual(allowed[name] ?? []);
     },
   );
+
+  it("finds every file that hosts the workspace or reads progress", () => {
+    for (const name of Object.keys(allowed)) {
+      expect(files.map((path) => relative(ROOT, path))).toContain(name);
+    }
+  });
 
   it("takes its published content from src/content", () => {
     const readers = files.filter((path) => valueImports(path).includes("@/content"));
     expect(readers.map((path) => relative(ROOT, path)).sort()).toEqual([
+      "src/features/catalog/components/lesson-page.tsx",
       "src/features/catalog/server/reads.ts",
       "src/features/catalog/server/sitemap.ts",
     ]);

@@ -150,7 +150,8 @@ async function expectRowsMatchDatabase(page: Page, heading: string) {
     const row = list
       .getByRole("listitem")
       .filter({ has: page.getByRole("link", { name: title, exact: true }) });
-    await expect(row.getByText(catalogCommon.lessonCount(count), { exact: true })).toBeVisible();
+    // A new browser has completed nothing on this device (WP-5.4, FR-CAT-02).
+    await expect(row.getByText(catalogCommon.progress(0, count), { exact: true })).toBeVisible();
   }
 }
 
@@ -295,9 +296,11 @@ test("[FR-CRS-01] [FR-SEO-01] the course page shows the published chapters and l
   const lessons = page
     .getByRole("list", { name: coursePage.chapterLessonsLabel(COURSE.publishedChapter) })
     .getByRole("listitem");
+  // Each row: its number, its title, its XP (10 in the seed) and its state;
+  // a new browser has completed nothing, so the first is next up (WP-5.4).
   await expect(lessons).toHaveText([
-    `${coursePage.lessonNumber(1, 1)} ${COURSE.lessons[0] ?? ""}`,
-    `${coursePage.lessonNumber(1, 2)} ${COURSE.lessons[1] ?? ""}`,
+    `${coursePage.lessonNumber(1, 1)} ${COURSE.lessons[0] ?? ""} ${coursePage.lessonXp(10)}${coursePage.lessonState.next}`,
+    `${coursePage.lessonNumber(1, 2)} ${COURSE.lessons[1] ?? ""} ${coursePage.lessonXp(10)}${coursePage.lessonState.open}`,
   ]);
   await expect(page.getByText(COURSE.draftLesson)).toHaveCount(0);
   await expect(page.getByText(COURSE.draftChapter)).toHaveCount(0);

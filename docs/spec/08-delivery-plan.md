@@ -154,7 +154,8 @@ Day 3 is done when: Python runs, takes input, is stopped, and is graded in three
 - Time box: 3.5 hours. Depends on: WP-4.1, WP-4.2, WP-3.4.
 - Covers: FR-ADM-05, FR-ADM-06, FR-ADM-07, FR-ADM-09, FR-GRD-05; T-22.
 - Builds: the test case list with add, edit, duplicate, reorder, delete; running the solution with a verdict per test case; "Fill from solution"; the checklist of `03-experience.md` section 7.6; publish, unpublish, archive; cache invalidation on change; the runbook for a published lesson that is wrong.
-- Done when: J-13 passes; the publish path passes end to end; changing the test cases of a published lesson without a passing validation is refused by the database in a test that bypasses the interface; the limits of `04-content-system.md` section 2 give clear messages.
+- Done when: J-13 passes; the publish path passes end to end; changing the test cases of a published lesson without a passing validation is refused by the database in a test that bypasses the interface; the limits of `04-content-system.md` section 2 give clear messages; Validate uses `check(..., { freshWorker: true })` for every program it validates, with a test that a tampering program in one validation does not change the next one's verdict.
+  - **Approved by the owner on 2026-11-24 (proposed in WP-3.3):** a fresh worker for each Validate. A program can rewrite the harness's closure, and the change lasts until the worker is replaced.
 - Owner: create one real lesson on the preview and publish it.
 
 Day 4 is done when: the owner can create a course, a chapter, and a validated, published lesson; a broken lesson cannot be published.

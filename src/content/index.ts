@@ -7,6 +7,8 @@ export {
   type ContentResult,
   type PublishedCourse,
   type PublishedCourseSummary,
+  type PublishedLesson,
   publishedCourse,
   publishedCourses,
+  publishedLesson,
 } from "./published";

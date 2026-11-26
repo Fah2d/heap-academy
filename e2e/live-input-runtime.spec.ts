@@ -28,13 +28,13 @@ async function open(page: Page) {
 
 async function start(page: Page, source: string) {
   await page.getByLabel(runtimeDev.program).fill(source);
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
 }
 
 async function answer(page: Page, line: string) {
   await expect(status(page)).toHaveAttribute("data-status", "awaitingInput");
-  await page.getByLabel(runtimeDev.answer).fill(line);
-  await page.getByRole("button", { name: runtimeDev.send }).click();
+  await page.getByLabel(runtimeDev.answer, { exact: true }).fill(line);
+  await page.getByRole("button", { name: runtimeDev.send, exact: true }).click();
 }
 
 test.describe("live input", () => {
@@ -80,7 +80,7 @@ test.describe("live input", () => {
     await open(page);
     await start(page, PROGRAM);
     await expect(status(page)).toHaveAttribute("data-status", "awaitingInput");
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
     await expect(outcome(page)).toHaveAttribute("data-outcome", "stopped");
     await expect(status(page)).toHaveAttribute("data-status", "ready", { timeout: READY_MS });
   });

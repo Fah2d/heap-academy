@@ -58,6 +58,10 @@ export type RestartReason =
 
 export type ControllerEvent =
   | { type: "progress"; loadedBytes: number; totalBytes: number }
+  /**
+   * A worker finished loading. After an isolation restart the controller may
+   * already be `checking` when this arrives: read `status`, not this event.
+   */
   | { type: "ready"; runtimeVersion: string; interactiveInput: boolean }
   | { type: "output"; runId: RunId; stream: OutputStream; text: string }
   /** The program is waiting for a line (interactive runs only). */
@@ -129,7 +133,8 @@ export type RuntimeController = {
    * Runs the test cases against the program (architecture section 5.2,
    * `check`). With `freshWorker`, on a worker that has run anything, a new
    * worker starts first: a program can change what later checks on its
-   * worker report, so Validate uses this for every program (T-22, T-23).
+   * worker report (T-22, T-23). Validate (WP-4.3) must use it for every
+   * program; the spec text for that is an open owner decision.
    */
   check: (source: string, tests: readonly TestCase[], options?: CheckOptions) => RunRequest;
   /** Answers the program's request for a line, and its clock starts again. */
@@ -279,18 +284,31 @@ export function createRuntimeController({
     worker = undefined;
   }
 
+  /**
+   * The `onEvent` and `report` listeners may call `dispose`; after that no
+   * worker is started and the status stays `disposed`. A function, because
+   * TypeScript's narrowing of `status` does not see a listener change it.
+   */
+  function isDisposed(): boolean {
+    return status === "disposed";
+  }
+
   function restart(reason: RestartReason): void {
+    if (isDisposed()) return;
     end();
     status = "restarting";
     onEvent({ type: "restarting", reason });
+    if (isDisposed()) return;
     spawn();
   }
 
   /** The worker died or gave up. What follows depends on what it was doing. */
   function crashed(): void {
+    if (isDisposed()) return;
     if (pending !== undefined) {
       pending = undefined;
       endCheck("crashed");
+      if (isDisposed()) return;
     }
     if (status === "running" || status === "awaitingInput") {
       finish({ kind: "crashed" });
@@ -324,19 +342,22 @@ export function createRuntimeController({
         return;
       case "ready":
         if (status !== "loading" && status !== "restarting") return unexpected();
-        status = "ready";
         interactiveInput = message.capabilities.interactiveInput;
+        // A check that asked for a new worker goes to it before anything is
+        // reported, so a page that acts on "ready" finds the controller
+        // checking, and cannot start a run or a second check in between.
+        if (pending !== undefined && current?.kind === "check") {
+          const check = pending;
+          pending = undefined;
+          send(current, check);
+        } else {
+          status = "ready";
+        }
         onEvent({
           type: "ready",
           runtimeVersion: message.runtimeVersion,
           interactiveInput: message.capabilities.interactiveInput,
         });
-        // A check that asked for a new worker goes to it now.
-        if (pending !== undefined && current?.kind === "check") {
-          const check = pending;
-          pending = undefined;
-          send(current, check);
-        }
         return;
       case "output":
         if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
@@ -361,6 +382,7 @@ export function createRuntimeController({
       case "run_done":
         if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
         finishReported(message.outcome, message.truncated, message.durationMs);
+        if (isDisposed()) return;
         // A program that ran out of memory may leave the runtime's memory
         // grown; a new worker gives it back. One stopped at the output cap may
         // leave text in Python's stream buffers, which the next run would
@@ -379,6 +401,7 @@ export function createRuntimeController({
         }
         check.results.push(message.result);
         onEvent({ type: "test_result", runId: check.runId, result: message.result });
+        if (isDisposed()) return;
         if (check.results.length < check.tests.length) startCaseClock(check);
         return;
       }
@@ -395,6 +418,7 @@ export function createRuntimeController({
         }
         const results = check.results;
         completeCheck(results, summary);
+        if (isDisposed()) return;
         // As after a run: a memory error may leave the runtime's memory grown.
         const memory = results.some(
           (result) => result.status === "failed" && result.error?.kind === "memory",
@@ -503,6 +527,8 @@ export function createRuntimeController({
       if (options.freshWorker === true && used) {
         pending = message;
         restart("isolation");
+        // A `restarting` listener that disposed the controller gets no check.
+        if (isDisposed()) return { ok: false, error: "not_ready" };
       } else {
         send(check, message);
       }

@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useId } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from "react-aria-components";
 import { cx } from "../class-names";
 
@@ -16,11 +16,16 @@ export type ButtonProps = Omit<AriaButtonProps, "className" | "style" | "childre
   icon?: ReactNode;
   /** Full width, as a view's main action is on a phone (03-experience.md section 6.8). */
   block?: boolean;
+  /**
+   * The keys that press it, as `aria-keyshortcuts` reads them ("Control+Enter").
+   * React Aria passes no such attribute on, so it is set on the element.
+   */
+  keyShortcuts?: string;
   children: ReactNode;
 };
 
 const shared =
-  "inline-flex min-h-target min-w-target items-center justify-center gap-2 rounded-control border px-4 text-base font-medium transition-colors data-pressed:translate-y-(--press-shift) data-disabled:border-border data-disabled:bg-transparent data-disabled:text-text-muted";
+  "inline-flex min-h-target min-w-target items-center justify-center gap-2 rounded-control border px-4 text-base font-medium transition-colors data-pressed:translate-y-(--press-shift) data-disabled:border-border data-disabled:bg-transparent data-disabled:text-text-muted data-pending:border-border data-pending:bg-transparent data-pending:text-text-muted data-pending:translate-y-0";
 
 const hover: Record<ButtonSurface, string> = {
   base: "data-hovered:bg-surface-raised",
@@ -103,9 +108,17 @@ export function Button({
   surface = "base",
   icon,
   block = false,
+  keyShortcuts,
   children,
   ...props
 }: ButtonProps) {
+  const element = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const button = element.current;
+    if (button === null) return;
+    if (keyShortcuts === undefined) button.removeAttribute("aria-keyshortcuts");
+    else button.setAttribute("aria-keyshortcuts", keyShortcuts);
+  }, [keyShortcuts]);
   const ownId = useId();
   const id = props.id ?? ownId;
   useEffect(() => {
@@ -114,6 +127,7 @@ export function Button({
   }, [id]);
   return (
     <AriaButton
+      ref={element}
       {...props}
       id={id}
       className={cx(shared, variantClasses(variant, surface), block && "w-full")}

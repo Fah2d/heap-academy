@@ -113,8 +113,11 @@ describe("parseTestCases", () => {
     Array.from({ length: count }, (_, index) => ({ ...valid, id: `case-${String(index)}` }));
 
   it("[FR-GRD-01] accepts 1 to the limit of test cases", () => {
+    // Twelve, from docs/spec/04-content-system.md section 1.3.
+    expect(CHECK_TEST_LIMIT).toBe(12);
     expect(parseTestCases(many(1)).ok).toBe(true);
-    expect(parseTestCases(many(CHECK_TEST_LIMIT)).ok).toBe(true);
+    expect(parseTestCases(many(12)).ok).toBe(true);
+    expect(parseTestCases(many(13)).ok).toBe(false);
   });
 
   it("[FR-GRD-01] refuses none, too many, or something that is not a list", () => {

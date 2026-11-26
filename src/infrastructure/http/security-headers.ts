@@ -147,8 +147,12 @@ export const IMMUTABLE = "public, max-age=31536000, immutable";
 /**
  * Headers for the runtime's files (section 5.1): everything under the
  * runtime's path gets a static policy, the Pyodide files are immutable, and
- * the worker script carries its own policy and is checked again on every
- * load, because its path does not change between releases.
+ * the worker's compiled `.js` files carry its own policy and are checked
+ * again on every load, because their paths do not change between releases.
+ * A path under the worker's folder that does not end in `.js`, such as most
+ * misses, keeps the static policy (WP-3.1 security review 2, MINOR 3). A miss
+ * that ends in `.js` gets the worker's policy: no `sandbox`, but no inline
+ * script and no framing either.
  *
  * Order matters: when two rules set the same header, Next.js uses the later
  * one ("the last header key will override the first", headers docs), so the
@@ -168,7 +172,7 @@ export function runtimeHeaders({
     headers: [{ key: "Content-Security-Policy", value: RUNTIME_STATIC_POLICY }],
   };
   const worker = {
-    source: `${workerDirectory}:path*`,
+    source: `${workerDirectory}:path+.js`,
     headers: [
       { key: "Content-Security-Policy", value: workerContentSecurityPolicy(runtimeAssetBase) },
       { key: "Cache-Control", value: "no-cache" },

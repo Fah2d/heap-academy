@@ -5,10 +5,17 @@ import {
   type ControllerEvent,
   type ControllerReport,
   createRuntimeController,
+  type RuntimeController,
   TIME_LIMIT_MS,
   type WorkerLike,
 } from "./controller.ts";
-import { createRunId, OUTPUT_LIMIT, type PageMessage } from "./protocol.ts";
+import {
+  createRunId,
+  OUTPUT_LIMIT,
+  type PageMessage,
+  type RunId,
+  type WorkerOutcome,
+} from "./protocol.ts";
 
 // The controller with a fake worker and a fake clock. The real worker and
 // the real clock are in the browser tests (e2e/runtime.spec.ts).
@@ -38,7 +45,13 @@ function fakeWorker(): FakeWorker {
   return worker;
 }
 
-function setUp() {
+/** Listeners that run after the event or report is recorded, with the controller. */
+type Listeners = {
+  onEvent?: (event: ControllerEvent, controller: RuntimeController) => void;
+  report?: (report: ControllerReport, controller: RuntimeController) => void;
+};
+
+function setUp(listen: Listeners = {}) {
   const workers: FakeWorker[] = [];
   const events: ControllerEvent[] = [];
   const reports: ControllerReport[] = [];
@@ -60,8 +73,14 @@ function setUp() {
       clearTimeout: (handle) => timers.delete(handle as number),
     },
     now: () => time,
-    onEvent: (event) => events.push(event),
-    report: (report) => reports.push(report),
+    onEvent: (event) => {
+      events.push(event);
+      listen.onEvent?.(event, controller);
+    },
+    report: (report) => {
+      reports.push(report);
+      listen.report?.(report, controller);
+    },
   });
   const advance = (ms: number) => {
     time += ms;
@@ -79,11 +98,20 @@ function setUp() {
       runtimeVersion: "314.0.7",
       capabilities: { interactiveInput },
     });
-  return { controller, workers, events, reports, advance, latest, makeReady, timers };
+  return {
+    controller,
+    workers,
+    events,
+    reports,
+    advance,
+    latest,
+    makeReady,
+    timers,
+  };
 }
 
-function started() {
-  const setup = setUp();
+function started(listen: Listeners = {}) {
+  const setup = setUp(listen);
   setup.controller.start();
   setup.makeReady();
   setup.events.length = 0;
@@ -338,6 +366,132 @@ describe("runtime controller", () => {
     expect(setup.timers.size).toBe(0);
     expect(setup.controller.status).toBe("disposed");
   });
+
+  type Setup = ReturnType<typeof setUp>;
+  const runDone = (setup: Setup, runId: RunId | undefined, outcome: WorkerOutcome) =>
+    setup.latest().send({ type: "run_done", runId, outcome, truncated: false, durationMs: 1 });
+
+  // Every way a run or a ready worker ends in a restart.
+  const restarts: [string, boolean, (setup: Setup, runId: RunId | undefined) => void][] = [
+    ["the time limit", true, (setup) => setup.advance(TIME_LIMIT_MS)],
+    ["stop", true, (setup) => setup.controller.stop()],
+    ["a worker error during a run", true, (setup) => setup.latest().fail()],
+    [
+      "a fatal message during a run",
+      true,
+      (setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
+    [
+      "a memory error",
+      true,
+      (setup, runId) => runDone(setup, runId, { kind: "memory", message: "", line: 1 }),
+    ],
+    [
+      "the output limit",
+      true,
+      (setup, runId) => runDone(setup, runId, { kind: "output_limit", message: "" }),
+    ],
+    ["a worker error while ready", false, (setup) => setup.latest().fail()],
+    [
+      "a fatal message while ready",
+      false,
+      (setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
+  ];
+
+  /** Starts a run if asked, ends it with the trigger, and checks the controller stays disposed. */
+  function expectDisposed(
+    setup: Setup,
+    withRun: boolean,
+    trigger: (setup: Setup, runId: RunId | undefined) => void,
+    lastEvent: ControllerEvent["type"] | undefined,
+  ) {
+    let runId: RunId | undefined;
+    if (withRun) {
+      const request = setup.controller.run("while True: pass");
+      if (!request.ok) throw new Error("run refused");
+      runId = request.runId;
+    }
+    trigger(setup, runId);
+    expect(setup.events.at(-1)?.type).toBe(lastEvent);
+    expect(setup.workers).toHaveLength(1);
+    expect(setup.workers[0]?.terminated).toBe(true);
+    expect(setup.timers.size).toBe(0);
+    expect(setup.controller.status).toBe("disposed");
+    setup.controller.start();
+    expect(setup.workers).toHaveLength(1);
+  }
+
+  it.each(restarts)(
+    "[FR-RUN-01] dispose from the restarting event after %s starts no new worker",
+    (_name, withRun, trigger) => {
+      const setup = started({
+        onEvent: (event, controller) => {
+          if (event.type === "restarting") controller.dispose();
+        },
+      });
+      expectDisposed(setup, withRun, trigger, "restarting");
+    },
+  );
+
+  it.each(restarts.filter(([, withRun]) => withRun))(
+    "[FR-RUN-01] dispose from the run_done event after %s starts no new worker",
+    (_name, withRun, trigger) => {
+      const setup = started({
+        onEvent: (event, controller) => {
+          if (event.type === "run_done") controller.dispose();
+        },
+      });
+      expectDisposed(setup, withRun, trigger, "run_done");
+    },
+  );
+
+  it("[FR-RUN-01] dispose from the run_done event of a finished run keeps the status disposed", () => {
+    const setup = started({
+      onEvent: (event, controller) => {
+        if (event.type === "run_done") controller.dispose();
+      },
+    });
+    expectDisposed(setup, true, (s, runId) => runDone(s, runId, { kind: "ok" }), "run_done");
+    expect(setup.controller.run("print(1)")).toEqual({ ok: false, error: "not_ready" });
+  });
+
+  it.each([
+    ["a worker error", (setup: Setup) => setup.latest().fail()],
+    [
+      "a fatal message",
+      (setup: Setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
+  ])(
+    "[FR-RUN-01] dispose from the report of %s sends no failed and allows no start",
+    (_name, trigger) => {
+      const setup = started({ report: (_report, controller) => controller.dispose() });
+      expectDisposed(setup, true, trigger, undefined);
+    },
+  );
+
+  it.each([
+    ["a worker error", (setup: Setup) => setup.latest().fail()],
+    [
+      "a fatal message",
+      (setup: Setup) => setup.latest().send({ type: "fatal", reason: "load_failed" }),
+    ],
+  ])(
+    "[FR-RUN-01] dispose from the report of %s while loading sends no failed and allows no start",
+    (_name, trigger) => {
+      const setup = setUp({ report: (_report, controller) => controller.dispose() });
+      setup.controller.start();
+      trigger(setup);
+      expect(setup.events).toEqual([]);
+      expect(setup.workers).toHaveLength(1);
+      expect(setup.workers[0]?.terminated).toBe(true);
+      expect(setup.controller.status).toBe("disposed");
+      setup.controller.start();
+      setup.makeReady();
+      expect(setup.workers).toHaveLength(1);
+      expect(setup.controller.status).toBe("disposed");
+    },
+  );
 });
 
 describe("runtime controller: checks", () => {
@@ -359,8 +513,8 @@ describe("runtime controller: checks", () => {
     harnessVersion: HARNESS_VERSION,
   });
 
-  function checking() {
-    const setup = started();
+  function checking(listen: Listeners = {}) {
+    const setup = started(listen);
     const request = setup.controller.check("print(1)", tests);
     if (!request.ok) throw new Error("check refused");
     return { ...setup, runId: request.runId };
@@ -580,6 +734,64 @@ describe("runtime controller: checks", () => {
     });
   });
 
+  it("[T-22] [T-23] [FR-RUN-02] a fresh check reaches the new worker before its ready is reported, so a run or check started then is refused and Stop ends the check", () => {
+    const seen: { status: string; run: unknown; check: unknown }[] = [];
+    let watching = false;
+    const setup = started({
+      onEvent: (event, controller) => {
+        if (!watching || event.type !== "ready") return;
+        seen.push({
+          status: controller.status,
+          run: controller.run("print(2)"),
+          check: controller.check("print(3)", tests, { freshWorker: true }),
+        });
+      },
+    });
+    const run = setup.controller.run("print(1)");
+    if (!run.ok) throw new Error("run refused");
+    setup.latest().send({
+      type: "run_done",
+      runId: run.runId,
+      outcome: { kind: "ok" },
+      truncated: false,
+      durationMs: 4,
+    });
+    const request = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!request.ok) throw new Error("check refused");
+    watching = true;
+    setup.makeReady();
+    expect(seen).toEqual([
+      {
+        status: "checking",
+        run: { ok: false, error: "not_ready" },
+        check: { ok: false, error: "not_ready" },
+      },
+    ]);
+    expect(setup.workers).toHaveLength(2);
+    expect(setup.latest().received).toEqual([
+      { type: "init", assetBase: "/_runtime/pyodide/314.0.7/", harnessVersion: HARNESS_VERSION },
+      { type: "check", runId: request.runId, source: "print(1)", tests },
+    ]);
+    setup.controller.stop();
+    expect(setup.events.filter((event) => event.type === "check_done").at(-1)).toMatchObject({
+      runId: request.runId,
+    });
+    expect(setup.latest().terminated).toBe(false);
+    expect(setup.workers[1]?.terminated).toBe(true);
+    expect(setup.controller.status).toBe("restarting");
+  });
+
+  it("[T-22] a worker started after a time limit is new, so a fresh check uses it as it is", () => {
+    const setup = started();
+    expect(setup.controller.run("while True: pass").ok).toBe(true);
+    setup.advance(5_000);
+    expect(setup.workers).toHaveLength(2);
+    setup.makeReady();
+    expect(setup.controller.check("print(1)", tests, { freshWorker: true }).ok).toBe(true);
+    expect(setup.workers).toHaveLength(2);
+    expect(setup.controller.status).toBe("checking");
+  });
+
   it("[T-22] with freshWorker, a worker that has only loaded is used as it is", () => {
     const setup = started();
     expect(setup.controller.check("print(1)", tests, { freshWorker: true }).ok).toBe(true);
@@ -648,6 +860,130 @@ describe("runtime controller: checks", () => {
         { status: "not_run" },
       ],
     });
+  });
+
+  type CheckSetup = ReturnType<typeof checking>;
+  const sendAll = (setup: CheckSetup, error?: { kind: "memory"; message: string }) => {
+    for (const id of ["first", "second", "third"]) {
+      const result =
+        error !== undefined && id === "first"
+          ? { ...passed(id), status: "failed", reason: "program_error", actual: "", error }
+          : passed(id);
+      setup.latest().send({ type: "test_result", runId: setup.runId, result });
+    }
+    const failed = error === undefined ? 0 : 1;
+    setup.latest().send({
+      type: "check_done",
+      runId: setup.runId,
+      summary: {
+        total: 3,
+        passed: 3 - failed,
+        failed,
+        notRun: 0,
+        allPassed: failed === 0,
+        timeLimit: false,
+      },
+    });
+  };
+
+  /** The controller stays disposed: no worker alive, no timer, no new worker, no start. */
+  function expectCheckDisposed(setup: CheckSetup, workers: number) {
+    expect(setup.workers).toHaveLength(workers);
+    expect(setup.workers.every((worker) => worker.terminated)).toBe(true);
+    expect(setup.timers.size).toBe(0);
+    expect(setup.controller.status).toBe("disposed");
+    setup.controller.start();
+    expect(setup.workers).toHaveLength(workers);
+    expect(setup.controller.check("print(1)", tests)).toEqual({ ok: false, error: "not_ready" });
+  }
+
+  // Every way a check ends.
+  const checkEnds: [string, (setup: CheckSetup) => void][] = [
+    ["the time limit", (setup) => setup.advance(TIME_LIMIT_MS)],
+    ["stop", (setup) => setup.controller.stop()],
+    ["a worker error", (setup) => setup.latest().fail()],
+    [
+      "a fatal message",
+      (setup) => setup.latest().send({ type: "fatal", reason: "runtime_crashed" }),
+    ],
+    ["a memory error", (setup) => sendAll(setup, { kind: "memory", message: "MemoryError" })],
+    ["a finished check", (setup) => sendAll(setup)],
+  ];
+
+  it.each(checkEnds)(
+    "[FR-RUN-01] dispose from the check_done event after %s keeps the controller disposed",
+    (_name, trigger) => {
+      const setup = checking({
+        onEvent: (event, controller) => {
+          if (event.type === "check_done") controller.dispose();
+        },
+      });
+      trigger(setup);
+      expect(setup.events.at(-1)?.type).toBe("check_done");
+      expectCheckDisposed(setup, 1);
+    },
+  );
+
+  it("[FR-RUN-01] dispose from a test_result event starts no clock for the next test case", () => {
+    const setup = checking({
+      onEvent: (event, controller) => {
+        if (event.type === "test_result") controller.dispose();
+      },
+    });
+    setup.latest().send({ type: "test_result", runId: setup.runId, result: passed("first") });
+    expect(setup.events.at(-1)?.type).toBe("test_result");
+    expectCheckDisposed(setup, 1);
+  });
+
+  /** A used worker, then a fresh check that waits for a new worker. */
+  function waiting(listen: Listeners) {
+    const setup = checking(listen);
+    sendAll(setup);
+    const request = setup.controller.check("print(1)", tests, { freshWorker: true });
+    if (!request.ok) throw new Error("check refused");
+    return setup;
+  }
+
+  it("[FR-RUN-01] dispose from the restarting event of a fresh check starts no new worker and refuses the check", () => {
+    const setup = checking({
+      onEvent: (event, controller) => {
+        if (event.type === "restarting") controller.dispose();
+      },
+    });
+    sendAll(setup);
+    expect(setup.controller.check("print(1)", tests, { freshWorker: true })).toEqual({
+      ok: false,
+      error: "not_ready",
+    });
+    expect(setup.events.at(-1)).toEqual({ type: "restarting", reason: "isolation" });
+    expectCheckDisposed(setup, 1);
+  });
+
+  it("[FR-RUN-01] dispose from the ready event that sent a waiting check stops its clock", () => {
+    let dispose = false;
+    const setup = waiting({
+      onEvent: (event, controller) => {
+        if (dispose && event.type === "ready") controller.dispose();
+      },
+    });
+    dispose = true;
+    setup.makeReady();
+    expect(setup.latest().received.map((message) => message.type)).toEqual(["init", "check"]);
+    expect(setup.events.at(-1)?.type).toBe("ready");
+    expectCheckDisposed(setup, 2);
+  });
+
+  it("[FR-RUN-01] dispose from the check_done event of a waiting check whose new worker fails sends no failed", () => {
+    let dispose = false;
+    const setup = waiting({
+      onEvent: (event, controller) => {
+        if (dispose && event.type === "check_done") controller.dispose();
+      },
+    });
+    dispose = true;
+    setup.latest().fail();
+    expect(setup.events.at(-1)?.type).toBe("check_done");
+    expectCheckDisposed(setup, 2);
   });
 });
 

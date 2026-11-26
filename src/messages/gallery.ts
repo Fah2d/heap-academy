@@ -87,6 +87,8 @@ export const gallery = {
 
 // The development-only page that shows the admin area's states the J-12
 // journey cannot reach on the local stack (WP-2.3).
+export const adminPreviewGallery = { title: "Admin preview" };
+
 export const adminGallery = {
   // One page per part of the admin area (/dev/admin, /dev/admin/lessons,
   // /dev/admin/validation).
@@ -214,6 +216,18 @@ export const adminGallery = {
   previewCode: "input()",
   previewTail: ", then greet that person.",
 } as const;
+
+// The development-only workspace page (WP-5.2): the example lesson of
+// docs/spec/04-content-system.md section 7 in the real workspace, with no
+// database, for the browser journeys J-2, J-3 and J-4.
+export const workspaceGallery = {
+  title: "Workspace",
+  courseSlug: "python-basics",
+  courseTitle: "Python basics",
+  lessonSlug: "say-hello",
+  previous: { slug: "print-a-line", title: "Print a line" },
+  next: { slug: "add-two-numbers", title: "Add two numbers" },
+};
 
 // The development-only page that shows the catalog's states that the local
 // stack cannot show on demand: no course, and sample content (WP-5.1).
