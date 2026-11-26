@@ -166,7 +166,7 @@ export function CourseTransfer({
   }
 
   return (
-    <section aria-labelledby={headingId} className="flex max-w-prose flex-col gap-5">
+    <div role="group" aria-labelledby={headingId} className="flex max-w-prose flex-col gap-5">
       <h2 id={headingId} className="text-lg font-semibold text-text">
         {words.heading}
       </h2>
@@ -190,7 +190,7 @@ export function CourseTransfer({
           </Button>
         </div>
       </div>
-      <section aria-labelledby={importHeadingId} className="flex flex-col gap-4">
+      <div role="group" aria-labelledby={importHeadingId} className="flex flex-col gap-4">
         <h3 id={importHeadingId} className="text-base font-semibold text-text">
           {words.importHeading}
         </h3>
@@ -253,7 +253,7 @@ export function CourseTransfer({
             </div>
           </form>
         )}
-      </section>
-    </section>
+      </div>
+    </div>
   );
 }
