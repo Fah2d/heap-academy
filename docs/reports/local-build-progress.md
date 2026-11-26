@@ -2,6 +2,12 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (evening), on `wp/7.2-a11y-perf`: `main` at 23cfb4b merged in
+
+- `main` merged in (37d9677). Then: the public pages stop downloading the lesson workspace (6c5c98b, 491b23a), the unsynced completion state is tested with axe (9fb2a21), Lighthouse on a local production build (`day-7-quality.md` section 5), and the fixes of code review 4 (fc02b22, 1086dee, `reviews/WP-7.2/code-review-4.md`).
+- `pnpm verify` exit 0, 153 files, 2737 tests. e2e as CI runs it: 222 passed, 1 skipped, exit 0. Not run: `pnpm test:db`.
+- Push: `wp/7.2-a11y-perf`, once.
+
 ## Session of 2026-11-26 (late afternoon), on `wp/6.4-export-import`: `wp/6.3-stack-legal` at b6fa870 merged in
 
 - `main` (89362a5) does not hold WP-6.3 yet, so `wp/6.3-stack-legal`, which holds `main` at 89362a5, was merged instead (9074058). Conflicts: this file (union of both copies' sections; where one section differed, the longer copy was kept), `course-editor-page.tsx` (6.3's layout with 6.4's `exportCourse` and `importLesson`), `e2e/admin-gallery.spec.ts` (both sides' imports) and `e2e/admin-gate-journey.spec.ts` (6.3's copy; this branch's side was an older `main`).
