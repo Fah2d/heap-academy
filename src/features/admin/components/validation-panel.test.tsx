@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { ReactElement } from "react";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -55,14 +56,10 @@ const done = (rules: RuleState[], passed = false): ValidationState => ({
   checked,
 });
 
-function renderPanel(props: Partial<ValidationPanelProps> = {}) {
-  const handlers = {
-    onValidate: vi.fn(),
-    onStop: vi.fn(),
-    onRetry: vi.fn(),
-    onOpenTestCase: vi.fn(),
-  };
-  render(
+type Handlers = Pick<ValidationPanelProps, "onValidate" | "onStop" | "onRetry" | "onOpenTestCase">;
+
+function panel(props: Partial<ValidationPanelProps>, handlers: Handlers) {
+  return (
     <ValidationPanel
       state={{ kind: "idle" }}
       python="ready"
@@ -70,9 +67,27 @@ function renderPanel(props: Partial<ValidationPanelProps> = {}) {
       testCases={checked.testCases}
       {...handlers}
       {...props}
-    />,
+    />
   );
+}
+
+let rerender: ((ui: ReactElement) => void) | undefined;
+
+function renderPanel(props: Partial<ValidationPanelProps> = {}) {
+  const handlers = {
+    onValidate: vi.fn(),
+    onStop: vi.fn(),
+    onRetry: vi.fn(),
+    onOpenTestCase: vi.fn(),
+  };
+  rerender = render(panel(props, handlers)).rerender;
   return handlers;
+}
+
+/** The same panel with new props, as the editor gives it after a state change. */
+function rerenderPanel(props: Partial<ValidationPanelProps>, handlers: Handlers) {
+  if (rerender === undefined) throw new Error("renderPanel first");
+  rerender(panel(props, handlers));
 }
 
 const items = () =>
@@ -129,6 +144,38 @@ describe("ValidationPanel [FR-ADM-07]", () => {
     expect(onValidate).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: words.stop }));
     expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("after Stop, focus goes back to Validate, and Stop is never pending", async () => {
+    const handlers = renderPanel({ state: { kind: "running", stopping: false } });
+    const stop = screen.getByRole("button", { name: words.stop });
+    await userEvent.click(stop);
+    expect(handlers.onStop).toHaveBeenCalledTimes(1);
+    rerenderPanel({ state: { kind: "running", stopping: true } }, handlers);
+    expect(screen.getByRole("status").textContent).toBe(words.status.stopping);
+    expect(screen.getByRole("button", { name: words.stop }).getAttribute("data-pending")).toBe(
+      null,
+    );
+    rerenderPanel({ state: { kind: "stopped" } }, handlers);
+    expect(screen.queryByRole("button", { name: words.stop })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: words.validate }));
+  });
+
+  it("after Stop, focus the owner moved elsewhere stays there", async () => {
+    const handlers = renderPanel({ state: { kind: "running", stopping: false } });
+    await userEvent.click(screen.getByRole("button", { name: words.stop }));
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    rerenderPanel({ state: { kind: "stopped" } }, handlers);
+    expect(document.activeElement).toBe(elsewhere);
+    elsewhere.remove();
+  });
+
+  it("after a run ends on its own, focus stays where it was", () => {
+    const handlers = renderPanel({ state: { kind: "running", stopping: false } });
+    rerenderPanel({ state: { kind: "stopped" } }, handlers);
+    expect(document.activeElement).toBe(document.body);
   });
 
   it("says a stopped validation decided nothing", () => {

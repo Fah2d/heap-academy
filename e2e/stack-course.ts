@@ -19,7 +19,7 @@ export const LESSON_XP = 10;
 // The cached course list's minute (CONTENT_REVALIDATE_SECONDS), and one more
 // read: the first read after the minute is answered from the old list while
 // the list is read again.
-const ON_SITE_MS = 75_000;
+export const ON_SITE_MS = 75_000;
 
 export type StackCourse = {
   title: string;

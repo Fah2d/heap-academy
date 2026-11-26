@@ -24,6 +24,28 @@ describe("Button", () => {
     expect(onPress).toHaveBeenCalledOnce();
   });
 
+  it("takes React Aria's announcement of its pending state with it when it leaves the page", () => {
+    const announced = () =>
+      [...document.querySelectorAll('[role="log"] > [role="img"][aria-labelledby]')].map((node) =>
+        node.getAttribute("aria-labelledby"),
+      );
+    const view = render(
+      <Button variant="primary" onPress={() => undefined}>
+        Publish
+      </Button>,
+    );
+    const button = screen.getByRole("button", { name: "Publish" });
+    button.focus();
+    view.rerender(
+      <Button variant="primary" isPending onPress={() => undefined}>
+        Publish
+      </Button>,
+    );
+    expect(announced()).toContain(button.id);
+    view.unmount();
+    expect(announced()).not.toContain(button.id);
+  });
+
   it("[ADR-0014] does nothing when disabled and says so to assistive technology", async () => {
     const onPress = vi.fn();
     render(
