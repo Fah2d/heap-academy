@@ -116,7 +116,7 @@ No credential is a repository-level secret (ADR-0029, ADR-0030). Each lives in e
    - **Required reviewers**: yourself. Tick **Prevent self-review** off (you are the only reviewer). See the note under "Choices" in the WP-1.3 pull request: every production deploy waits for your approval, not only those with a migration.
    - **Environment secrets**: `SUPABASE_DB_URL` = `production database URL`; `VERCEL_TOKEN` = `Vercel token`.
    - **Environment variables** (not secrets): `VERCEL_ORG_ID` = `orgId`; `VERCEL_PROJECT_ID` = `projectId`; `PRODUCTION_URL` = `https://<domain>`.
-3. [ ] **New environment** `production-backup`. Deployment branches: `main` only. Leave it empty; WP-7.3 fills it (ADR-0030).
+3. [ ] **New environment** `production-backup`. Deployment branches: `main` only. Its variables and secrets are added by `restore.md` section 2 step 7, once the backup key and the role's password exist (ADR-0030).
 4. [ ] Repository **Settings → Secrets and variables → Actions → Repository secrets** stays empty.
 5. [ ] Last, once steps 1 to 4 of this section and sections 1 to 6 are done: set DEPLOY_ENABLED=true. **Settings → Secrets and variables → Actions → Variables → New repository variable**, name `DEPLOY_ENABLED`, value `true`. It is a variable, not a secret. Until it exists, the deploy workflow skips both of its jobs on every push to `main`.
 
@@ -132,6 +132,9 @@ Where every secret lives, in one table:
 | Google client secret (one client for both projects for now) | Supabase production and staging, Google provider (step 10) | Vercel, GitHub |
 | Turnstile secret key | Supabase production and staging, Attack Protection (step 10) | Vercel, GitHub |
 | Vercel token | GitHub `production` environment | Anywhere else |
+| Backup role's password (`BACKUP_DB_PASSWORD`) | GitHub `production-backup` environment; your password manager | Any other environment, any file |
+| Heartbeat ping address (`BACKUP_HEARTBEAT_URL`) | GitHub `production-backup` environment | Any file, any log |
+| Backup private key (age identity) | Offline: a USB stick and a paper copy (`restore.md` section 1) | Any machine with Claude Code, CI, a synced password manager, any file in the repository |
 | GitHub fine-grained token (step 8) | The implementer's `gh` login on your machine | Any file, any environment |
 
 ## 8. A fine-grained token for the implementer

@@ -36,6 +36,15 @@ Use this when production is broken and the cause is the latest deploy (an S1 in 
 6. [ ] While rolled back, Vercel turns off the automatic domain assignment: a plain `vercel deploy --prod` would stay staged. The deploy workflow promotes each deployment explicitly, so the next merge's deploy ends the rollback. To undo the rollback by hand: open that deployment's menu in the dashboard → **Promote**.
 7. [ ] S1 and S2 get a short write-up in `docs/reports/incidents/` (`07-operations.md` section 8).
 
+## The rollback drill
+
+NFR-REL-04 needs one rollback drill before launch, on production once it serves at least two deployments. Do "Roll back the app" steps 1 to 6 on a healthy site: roll back, check, then **Promote** the newer deployment again. Note both times; the minutes from step 1 to step 4 must be 5 or fewer. Record the drill here, by a pull request. Newest first.
+
+| Date | Rolled back to (deployment, not its address) | Minutes, steps 1 to 4 | Promoted again | Result |
+|---|---|---|---|---|
+
+No drill has been done yet.
+
 ## The database is not rolled back
 
 Migrations go forward only, and each is written so the previous app version still works with it (expand, then contract, `07-operations.md` section 3.1). After an app rollback the old app runs against the new schema. A bad migration is fixed by a new migration, through a pull request and this same workflow.

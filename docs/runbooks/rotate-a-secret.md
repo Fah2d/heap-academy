@@ -197,11 +197,43 @@ Someone signed in to your GitHub, Vercel, Supabase, Resend, Google, or registrar
    - Registrar: the domain's DNS records against `infrastructure-setup.md` sections 3 and 6, the registrar lock, and the contact email.
 4. [ ] It is an S1. Write the incident report.
 
-## 10. A secret that is not listed here
+## 10. The backup role's password (`BACKUP_DB_PASSWORD`)
+
+The password of `backup_reader`, the read-only role the nightly backup connects as (ADR-0030, `restore.md` section 2). It reads every row of `public`, `private` and `auth`, past row level security, so it is a production secret. It changes nothing. Routine and exposure use the same order: the change is the removal.
+
+Where it lives: the GitHub environment `production-backup`, secret `BACKUP_DB_PASSWORD`, and your password manager entry `production backup_reader password`.
+
+1. [ ] Do it away from 02:17 UTC, when the backup runs. A run that connects during the change fails, and GitHub emails you; the next night's run is the check.
+2. [ ] Generate a new password in the password manager entry, in place of the old one.
+3. [ ] Production Supabase → **SQL Editor**: `alter role backup_reader with password '<the new password>';`. The old password stops working at once.
+4. [ ] GitHub → **Settings → Environments →** `production-backup` **→ Environment secrets →** `BACKUP_DB_PASSWORD` → edit → paste → **Update secret**.
+5. [ ] Check: the next morning, **Actions → Backup** shows a green scheduled run.
+
+After an exposure, also:
+
+6. [ ] Supabase production → **Logs**, the connection pooler source, for the window: connections as `backup_reader` at any time other than the nightly runs. Each one could have read every learner's email address and every solution: it is an S1, and section 0 step 6 applies.
+7. [ ] If the role should not log in until you know more: `alter role backup_reader with nologin;`. The nightly backup fails until you turn login on again with step 3.
+
+## 11. The heartbeat ping address (`BACKUP_HEARTBEAT_URL`)
+
+The address the nightly backup pings last, so the monitor knows the backup ran (ADR-0030). Anyone who has it can make a dead backup look alive. It reads nothing.
+
+Where it lives: the GitHub environment `production-backup`, secret `BACKUP_HEARTBEAT_URL`, and the check on Healthchecks.io.
+
+1. [ ] Healthchecks.io → the check → **Settings**: create a new ping address for it if the plan offers that; otherwise create a new check with the schedule of `restore.md` section 2 step 6 and delete the old check. The old address stops counting.
+2. [ ] GitHub → `production-backup` → `BACKUP_HEARTBEAT_URL` → edit → paste the new address → **Update secret**.
+3. [ ] Check: the next morning, the check shows a ping from that night's run.
+
+After an exposure, also:
+
+4. [ ] **Actions → Backup**: each night of the window has a green scheduled run. A ping the monitor recorded with no run behind it was someone else; if a night has no green run, the backup may have been dead for that long. Run `restore.md` section 3 on the newest backup.
+
+The backup encryption key is not a secret of an environment: its rotation is in `restore.md` section 6, because rotating it changes which backups you can read.
+
+## 12. A secret that is not listed here
 
 Each work package that adds a secret adds its section here, with both orders. Still to come:
 
-- WP-7.3, later parts: the `backup_reader` password and the heartbeat ping address in `production-backup` (ADR-0030). WP-7.3 is not done until they have their sections. The backup encryption key goes in the restore runbook, because rotating it changes which backups you can read.
 - Account deletion (WP-6.3 part 2): the Supabase secret key. That work package writes its section with this exposure order, from Supabase's leaked-key guide ("If someone is actively using the leaked key, retire it right away"): (1) delete the old key in **Settings → API Keys**, which cannot be undone; (2) create a new one; (3) put it in Vercel and make a new deployment; until then account deletion fails.
 - WP-2.2: the bot challenge's secret key. WP-7.1: the rate-limit HMAC secret.
 
