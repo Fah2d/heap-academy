@@ -139,18 +139,29 @@ export const pipeRestore = (key, file, target) =>
   );
 
 /**
- * Whether a connection string carries a password, as a URL
- * (`postgresql://user:password@host`) or as keywords (`password=...`).
+ * Whether a connection string carries a password: in a URL's user part
+ * (`postgresql://user:password@host`, also with several hosts), as a query
+ * parameter (`?password=`), or as a keyword (`password=...`), with libpq's
+ * percent-decoding. A URL whose escapes do not decode is refused as if it
+ * held one. An empty password (`user:@host`) makes psql ask, so it passes.
  * @param {string} target
  */
 export function holdsPassword(target) {
-  if (/(^|\s)password\s*=/i.test(target)) return true;
+  let decoded;
   try {
-    return new URL(target).password !== "";
+    decoded = decodeURIComponent(target);
   } catch {
-    // Not a URL: a keyword string, whose password the test above looked for.
-    return false;
+    // libpq would not read it either; refusing costs nothing.
+    return true;
   }
+  if (/(^|[\s?&])password\s*=/i.test(decoded)) return true;
+  if (!/^postgres(ql)?:\/\//i.test(target)) return false;
+  const authority = target.slice(target.indexOf("//") + 2).split(/[/?]/)[0] ?? "";
+  const at = authority.lastIndexOf("@");
+  if (at === -1) return false;
+  const user = authority.slice(0, at);
+  const colon = user.indexOf(":");
+  return colon !== -1 && colon < user.length - 1;
 }
 
 /** @type {Tools} */

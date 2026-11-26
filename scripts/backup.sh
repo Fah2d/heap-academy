@@ -47,6 +47,14 @@ dump() {
     [[ -n "${!name:-}" ]] || fail "$name is not set"
   done
   [[ ! -e "$out" ]] || fail "the output file already exists"
+  # From 17.6, pg_dump writes \restrict, which stops psql from running any
+  # meta-command a compromised server put in the dump (CVE-2025-8714).
+  local version
+  version="$(pg_dump --version 2>/dev/null)" || fail "pg_dump did not run"
+  [[ "$version" =~ ([0-9]+)\.([0-9]+) ]] || fail "pg_dump printed no version"
+  local major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}"
+  ((major > 17 || (major == 17 && minor >= 6))) ||
+    fail "pg_dump $major.$minor is older than 17.6"
   local key
   key="$(recipient)"
   # The host, the user and the password are all secrets of the
@@ -77,6 +85,10 @@ dump() {
     --exclude-table-data=auth.one_time_tokens \
     --exclude-table-data=auth.flow_state \
     --exclude-table-data=auth.saml_relay_states \
+    --exclude-table-data=auth.oauth_authorizations \
+    --exclude-table-data=auth.oauth_client_states \
+    --exclude-table-data=auth.webauthn_challenges \
+    --exclude-table-data=auth.scim_tokens \
     --exclude-table-data=auth.audit_log_entries \
     2>/dev/null | age --encrypt --recipient "$key" --output "$out" || status=$?
   if [[ "$status" -ne 0 ]]; then

@@ -5,7 +5,7 @@
 -- switch to it (NFR-REL-05, T-24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(20);
 
 select has_role('backup_reader', '[T-24] the backup_reader role exists');
 
@@ -27,6 +27,27 @@ select is(
   '[T-24] no migration lets backup_reader sign in: the owner sets its password outside the repository'
 );
 
+-- Every table of auth is either dumped or left out on purpose, so a table
+-- the auth service adds fails here until someone decides which. The second
+-- list must equal scripts/backup.sh's --exclude-table-data list
+-- (scripts/backup.test.ts checks).
+select is(
+  (select coalesce(array_agg(c.relname::text order by c.relname), '{}')
+   from pg_class as c join pg_namespace as n on n.oid = c.relnamespace
+   where n.nspname = 'auth' and c.relkind in ('r', 'p')),
+  (select array_agg(t order by t) from unnest(
+    -- Dumped: accounts, their sign-in methods and second steps, and settings.
+    array['custom_oauth_providers', 'identities', 'instances', 'mfa_factors',
+      'mfa_recovery_code_sets', 'mfa_recovery_codes', 'oauth_clients', 'oauth_consents',
+      'saml_providers', 'scim_users', 'sso_domains', 'sso_providers', 'users',
+      'webauthn_credentials']
+    -- Left out by scripts/backup.sh:
+    || array['audit_log_entries', 'flow_state', 'mfa_amr_claims', 'mfa_challenges',
+      'oauth_authorizations', 'oauth_client_states', 'one_time_tokens', 'refresh_tokens',
+      'saml_relay_states', 'schema_migrations', 'scim_tokens', 'sessions',
+      'webauthn_challenges']) as t),
+  '[NFR-REL-05] [T-24] every auth table is either dumped or left out on purpose'
+);
 -- Reads: every table, view and sequence of the three schemas a restore needs.
 -- A grant on a table is not enough: pg_dump must also use its schema, or it
 -- stops with "permission denied for schema auth" (the local rehearsal of

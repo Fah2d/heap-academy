@@ -50,7 +50,8 @@ beforeEach(() => {
   // fails the way a refused login does, naming the host and the user.
   tool(
     "pg_dump",
-    `printf '%s\\n' "$@" > "${"$"}{FAKE_DIR}/pg_dump.args"
+    `if [[ "$1" == "--version" ]]; then echo "pg_dump (PostgreSQL) ${"$"}{FAKE_PG_VERSION:-17.12}"; exit 0; fi
+printf '%s\\n' "$@" > "${"$"}{FAKE_DIR}/pg_dump.args"
 env > "${"$"}{FAKE_DIR}/pg_dump.env"
 if [[ -n "${"$"}{FAKE_FAIL:-}" ]]; then
   echo "pg_dump: error: connection to server at \\"$PGHOST\\", port 5432 failed: FATAL: password authentication failed for user \\"$PGUSER\\" ($PGPASSWORD)" >&2
@@ -136,6 +137,10 @@ describe("backup.sh dump", () => {
           "one_time_tokens",
           "flow_state",
           "saml_relay_states",
+          "oauth_authorizations",
+          "oauth_client_states",
+          "webauthn_challenges",
+          "scim_tokens",
           "audit_log_entries",
         ].map((table) => `--exclude-table-data=auth.${table}`),
       ),
@@ -171,6 +176,31 @@ describe("backup.sh dump", () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain("is not age ciphertext");
     expect(existsSync(join(dir, "backup.age"))).toBe(false);
+  });
+
+  it("[T-24] refuses a pg_dump older than 17.6, which writes no \\restrict", () => {
+    const result = run(["dump", "backup.age"], { ...fake(), FAKE_PG_VERSION: "17.5" });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("pg_dump 17.5 is older than 17.6");
+    expect(existsSync(join(dir, "pg_dump.args"))).toBe(false);
+    expect(run(["dump", "backup.age"], { ...fake(), FAKE_PG_VERSION: "18.1" }).status).toBe(0);
+  });
+
+  it("[NFR-REL-05] [T-24] leaves out exactly the auth tables the database test lists as left out", () => {
+    const pinned = readFileSync(
+      join(process.cwd(), "supabase", "tests", "database", "06_backup_reader.test.sql"),
+      "utf8",
+    );
+    const listed = /-- Left out by scripts\/backup\.sh:\n\s*\|\|\s*array\[([^\]]+)\]/.exec(
+      pinned,
+    )?.[1];
+    expect(listed).toBeDefined();
+    const fromTest = [...(listed ?? "").matchAll(/'([a-z_]+)'/g)].map((match) => match[1]).sort();
+    const script = readFileSync(SCRIPT, "utf8");
+    const fromScript = [...script.matchAll(/--exclude-table-data=auth\.([a-z_]+)/g)]
+      .map((match) => match[1])
+      .sort();
+    expect(fromScript).toEqual(fromTest);
   });
 
   it("[T-24] refuses to run without the connection's parts, or over an existing file", () => {

@@ -292,7 +292,14 @@ describe("restore.mjs target", () => {
   it.each([
     ["postgresql://postgres:secret@host:5432/postgres", true],
     ["host=db user=postgres password=secret", true],
+    ["postgresql://u@h/db?password=secret", true],
+    ["postgresql://u@h/db?sslmode=require&password=secret", true],
+    ["postgresql://u@h/db?pass%77ord=secret", true],
+    ["postgresql://u:secret@h1:5432,h2:5432/db", true],
+    ["postgresql://u:s%65cret@h/db", true],
+    ["postgresql://u@h/db?x=%E0%A4%A", true],
     ["postgresql://postgres@host:5432/postgres?sslmode=require", false],
+    ["postgresql://u:@h/db", false],
     ["host=db user=postgres", false],
   ])("[T-12] %s holds a password: %s", (target, expected) => {
     expect(holdsPassword(target)).toBe(expected);

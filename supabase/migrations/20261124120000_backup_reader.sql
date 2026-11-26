@@ -3,9 +3,10 @@
 -- accounts and the admin's second step, and it can change nothing.
 --
 -- Created without login. Its password is a secret of the `production-backup`
--- environment, so it never enters a migration: the owner turns login on in
--- the SQL editor with `alter role backup_reader with login password ...`
--- when the backup workflow is built. A role with no password cannot sign in.
+-- environment, so it never enters a migration: the owner turns login on and
+-- sets it with psql's \password from the drill machine, never in the SQL
+-- editor (docs/runbooks/restore.md section 2 step 4). A role with no
+-- password cannot sign in.
 --
 -- Roles belong to the whole database cluster, not one database, so the role
 -- may already exist (a local stack whose database was reset). A new role has
