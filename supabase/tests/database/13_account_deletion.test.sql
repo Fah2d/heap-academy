@@ -2,7 +2,7 @@
 -- names a user, and nothing of anyone else's (FR-PRF-03, J-10, T-17).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(13);
 
 delete from public.lessons;
 delete from public.chapters;
@@ -51,6 +51,11 @@ select is(
   'every reference to a user from public cascades'
 );
 
+-- The auth service's sign-in flow records name a user with no foreign key.
+insert into auth.flow_state (id, user_id, provider_type, authentication_method) values
+  ('40000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000001', 'email', 'email/signup'),
+  ('40000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000002', 'email', 'email/signup');
+
 select lives_ok(
   $$ delete from auth.users where id = '00000000-0000-4000-8000-000000000001' $$,
   'a user with a profile, a completion and an admin row can be deleted'
@@ -75,6 +80,14 @@ select isnt_empty(
 select isnt_empty(
   $$ select 1 from public.completions where user_id = '00000000-0000-4000-8000-000000000002' $$,
   'another completion stays'
+);
+select is_empty(
+  $$ select 1 from auth.flow_state where user_id = '00000000-0000-4000-8000-000000000001' $$,
+  'the sign-in flow records are gone'
+);
+select isnt_empty(
+  $$ select 1 from auth.flow_state where user_id = '00000000-0000-4000-8000-000000000002' $$,
+  'another user''s sign-in flow record stays'
 );
 select isnt_empty($$ select 1 from public.courses $$, 'the course stays');
 select isnt_empty($$ select 1 from public.chapters $$, 'the chapter stays');
