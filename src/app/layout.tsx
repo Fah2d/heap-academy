@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
-import { AccountControl, guestInvitation } from "@/features/auth";
+import { AccountControl, accountLessons, guestInvitation } from "@/features/auth";
 import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
-import { GuestInvitationProvider } from "@/features/progress";
+import { AccountLessonsProvider, GuestInvitationProvider } from "@/features/progress";
 import { fontVariables, SiteShell } from "@/features/shell";
 import { CspNonceMeta } from "@/features/system";
 import { documentAttributes, LOCALE } from "@/messages/locale";
@@ -27,22 +27,26 @@ export const viewport: Viewport = {
 //
 // The invitation to save progress goes to a guest only (FR-AUTH-07). The
 // layout already reads the visitor for the header, once per request, so the
-// pages below it never read identity themselves.
+// pages below it never read identity themselves. For the same reason it reads
+// a signed-in learner's completed lessons, so pages are rendered with their
+// progress (02-architecture.md section 10).
 export default async function RootLayout({ children }: { children: ReactNode }) {
   await connection();
   const { lang, dir } = documentAttributes(LOCALE);
-  const invitation = await guestInvitation();
+  const [invitation, lessonIds] = await Promise.all([guestInvitation(), accountLessons()]);
   return (
     <html lang={lang} dir={dir} className={fontVariables}>
       <head>
         <CspNonceMeta />
       </head>
       <body className="flex flex-col">
-        <GuestInvitationProvider invitation={invitation}>
-          <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>
-            {children}
-          </SiteShell>
-        </GuestInvitationProvider>
+        <AccountLessonsProvider lessonIds={lessonIds}>
+          <GuestInvitationProvider invitation={invitation}>
+            <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>
+              {children}
+            </SiteShell>
+          </GuestInvitationProvider>
+        </AccountLessonsProvider>
       </body>
     </html>
   );

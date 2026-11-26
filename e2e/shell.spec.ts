@@ -17,6 +17,7 @@ test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async
   await expect(page.getByRole("link", { name: notFound.homeLink })).toHaveAttribute("href", "/");
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toBeVisible();
 });
 
 test("[WP-1.4] the development-only pages are absent from the production build", async ({

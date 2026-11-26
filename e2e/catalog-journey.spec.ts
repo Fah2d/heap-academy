@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -7,6 +6,7 @@ import { catalogCommon, courseList, coursePage, home } from "../src/messages/cat
 import { shell } from "../src/messages/shell";
 import { removeAdmin, signInAsAdmin, sql, sqlRows } from "./admin-helpers";
 import { saveScreen } from "./screens";
+import { noAxeViolations } from "./journeys";
 
 // WP-5.1 against the local stack: the home page, the course list and a course
 // page show only published content, with the counts the database holds
@@ -249,7 +249,7 @@ test("[FR-CAT-01] [FR-CAT-04] the course list shows only published courses, with
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await noAxeViolations(page);
     if (SHOT_WIDTHS.includes(width)) {
       await saveScreen(page, "courses", width, { workPackage: "WP-5.1" });
     }
@@ -270,7 +270,7 @@ test("[FR-LND-02] [FR-LND-03] the home page says what this is and lists the publ
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await noAxeViolations(page);
     if (SHOT_WIDTHS.includes(width)) {
       await saveScreen(page, "home", width, { workPackage: "WP-5.1" });
     }
@@ -318,7 +318,7 @@ test("[FR-CRS-01] [FR-SEO-01] the course page shows the published chapters and l
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await noAxeViolations(page);
     if (SHOT_WIDTHS.includes(width)) {
       await saveScreen(page, "course", width, { workPackage: "WP-5.1" });
     }

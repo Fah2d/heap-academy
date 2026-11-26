@@ -13,7 +13,12 @@ import { COURSES_PATH, coursePath, HOME_PATH } from "../paths";
 export async function catalogSitemap(): Promise<MetadataRoute.Sitemap> {
   const courses = await publishedCourses();
   if (!courses.ok) throw new Error("sitemap: the published courses could not be read");
-  return [HOME_PATH, COURSES_PATH, ...courses.value.map((course) => coursePath(course.slug))].map(
-    (path) => ({ url: new URL(path, SITE_ORIGIN).href }),
-  );
+  const paths = [
+    HOME_PATH,
+    COURSES_PATH,
+    ...courses.value.map((course) => coursePath(course.slug)),
+    "/privacy",
+    "/terms",
+  ];
+  return paths.map((path) => ({ url: new URL(path, SITE_ORIGIN).href }));
 }

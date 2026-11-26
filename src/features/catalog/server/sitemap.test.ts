@@ -29,13 +29,17 @@ describe("the sitemap [FR-SEO-01]", () => {
       { url: "https://heapacademy.dev/courses" },
       { url: "https://heapacademy.dev/courses/python-basics" },
       { url: "https://heapacademy.dev/courses/loops" },
+      { url: "https://heapacademy.dev/privacy" },
+      { url: "https://heapacademy.dev/terms" },
     ]);
   });
 
-  it("lists the two fixed pages when nothing is published", async () => {
+  it("lists the fixed pages when nothing is published", async () => {
     expect(await catalogSitemap()).toEqual([
       { url: "https://heapacademy.dev/" },
       { url: "https://heapacademy.dev/courses" },
+      { url: "https://heapacademy.dev/privacy" },
+      { url: "https://heapacademy.dev/terms" },
     ]);
   });
 

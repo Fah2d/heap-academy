@@ -1,11 +1,11 @@
 import NextLink from "next/link";
 import type { ReactNode } from "react";
 import { shell } from "@/messages/shell";
+import { SiteFooter } from "./site-footer";
 
 // The frame every page shares (docs/spec/03-experience.md section 4). The
-// header shows only destinations that exist. The footer arrives with the
-// privacy and terms pages (WP-6.3); until then it has no link to show, so it
-// does not render (antislop R-24).
+// header shows only destinations that exist. The footer links to the privacy
+// and terms pages (WP-6.3).
 //
 // The layout passes in `navigation` (the site's own pages, from the catalog)
 // and `account` (the account control), so this frame depends on neither.
@@ -43,6 +43,7 @@ export function SiteShell({
       <main id="main" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
+      <SiteFooter />
     </>
   );
 }
