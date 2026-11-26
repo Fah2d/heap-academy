@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   DISABLED_FEATURES as HEADER_FEATURES,
@@ -15,6 +16,8 @@ import {
   policyProblems,
   scriptsWithoutNonce,
   securityHeaderChecks,
+  redirectProblems,
+  verifyAuth,
   verifyDeployment,
   verifyRepository,
 } from "./infra-verify.mjs";
@@ -571,5 +574,130 @@ describe("verifyRepository", () => {
         },
       }),
     ).toEqual(["environment production needs the owner's approval"]);
+  });
+});
+
+const SITE = "https://heapacademy.dev";
+const TEMPLATE = readFileSync("supabase/templates/sign-in-code.html", "utf8");
+// The runbook's production settings, with the secrets the API also returns.
+const GOOD_AUTH = {
+  site_url: SITE,
+  uri_allow_list: `${SITE}/auth/callback`,
+  mailer_otp_exp: 600,
+  mailer_otp_length: 6,
+  rate_limit_email_sent: 20,
+  security_captcha_enabled: true,
+  security_captcha_provider: "turnstile",
+  security_captcha_secret: "captcha-secret-value",
+  external_email_enabled: true,
+  disable_signup: false,
+  mailer_autoconfirm: false,
+  smtp_host: "smtp.resend.com",
+  smtp_port: "465",
+  smtp_admin_email: "signin@heapacademy.dev",
+  smtp_pass: "smtp-secret-value",
+  external_google_enabled: true,
+  external_google_secret: "google-secret-value",
+  mfa_totp_enroll_enabled: true,
+  mfa_totp_verify_enabled: true,
+  mfa_phone_enroll_enabled: false,
+  mailer_subjects_magic_link: "Your Heap Academy sign-in code",
+  mailer_subjects_confirmation: "Your Heap Academy sign-in code",
+  mailer_templates_magic_link_content: TEMPLATE,
+  mailer_templates_confirmation_content: TEMPLATE,
+};
+
+const authFailures = (changes: Record<string, unknown>) =>
+  verifyAuth({ ...GOOD_AUTH, ...changes }, SITE)
+    .filter((item) => item.status === "fail")
+    .map((item) => item.name);
+
+describe("verifyAuth", () => {
+  it("[T-11] passes the runbook's settings, and prints none of the secrets", () => {
+    const checks = verifyAuth(GOOD_AUTH, SITE);
+    expect(checks.filter((item) => item.status === "fail")).toEqual([]);
+    const printed = JSON.stringify(checks);
+    for (const secret of ["captcha-secret-value", "smtp-secret-value", "google-secret-value"]) {
+      expect(printed).not.toContain(secret);
+    }
+  });
+
+  it("[T-11] fails when the configuration cannot be read", () => {
+    expect(verifyAuth(undefined, SITE)).toEqual([
+      { name: "the auth configuration can be read", status: "fail", detail: "could not be read" },
+    ]);
+  });
+
+  it("[T-11] fails the bot challenge turned off", () => {
+    expect(authFailures({ security_captcha_enabled: false })).toEqual(["bot challenge on"]);
+  });
+
+  it("[T-11] [FR-AUTH-02] fails a code lifetime, a length or an email limit other than the runbook's", () => {
+    expect(authFailures({ mailer_otp_exp: 3600 })).toEqual(["email code lifetime 600 s"]);
+    expect(authFailures({ mailer_otp_length: 8 })).toEqual(["email code length 6"]);
+    expect(authFailures({ rate_limit_email_sent: 30 })).toEqual([
+      "email sends per hour 20 (ADR-0029)",
+    ]);
+  });
+
+  it("[T-11] fails closed sign-up and turned-off email confirmation", () => {
+    expect(authFailures({ disable_signup: true })).toEqual([
+      "new users may sign up (T-11: one answer for every address)",
+    ]);
+    expect(authFailures({ mailer_autoconfirm: true })).toEqual(["confirm email on"]);
+  });
+
+  it("[FR-AUTH-02] fails a template with a link or without the code", () => {
+    expect(
+      authFailures({
+        mailer_templates_magic_link_content: '<a href="{{ .ConfirmationURL }}">x</a>',
+      }),
+    ).toEqual(["magic link email shows the code and no link (FR-AUTH-02)"]);
+    expect(authFailures({ mailer_templates_confirmation_content: "<p>Hello</p>" })).toEqual([
+      "confirm signup email shows the code and no link (FR-AUTH-02)",
+    ]);
+  });
+
+  it("[T-11] fails a redirect list without this site's callback, or with a wildcard over vercel.app", () => {
+    const name = "redirect addresses: this site's callback, no wildcard over vercel.app";
+    expect(authFailures({ uri_allow_list: "" })).toEqual([name]);
+    expect(
+      authFailures({ uri_allow_list: `${SITE}/auth/callback,https://*.vercel.app/auth/callback` }),
+    ).toEqual([name]);
+    expect(authFailures({ site_url: "http://localhost:3000" })).toEqual(["site URL is this site"]);
+  });
+
+  it("[NFR-SEC-04] accepts the runbook's preview pattern for one account, and nothing wider", () => {
+    expect(
+      redirectProblems(
+        `${SITE}/auth/callback, https://heap-academy-*-fahads-projects.vercel.app/auth/callback`,
+        SITE,
+      ),
+    ).toEqual([]);
+    expect(
+      redirectProblems(
+        [
+          "https://*.vercel.app/auth/callback",
+          "https://heap-academy-*.vercel.app/auth/callback",
+          "https://**",
+          `${SITE}/**`,
+          "http://heapacademy.dev/auth/callback",
+        ].join(","),
+        SITE,
+      ),
+    ).toEqual([
+      "https://*.vercel.app/auth/callback",
+      "https://heap-academy-*.vercel.app/auth/callback",
+      "https://**",
+      `${SITE}/**`,
+      "http://heapacademy.dev/auth/callback",
+    ]);
+  });
+
+  it("[T-11] fails the second step without the authenticator app, or with phone codes on", () => {
+    expect(authFailures({ mfa_totp_verify_enabled: false })).toEqual([
+      "authenticator app verification on",
+    ]);
+    expect(authFailures({ mfa_phone_enroll_enabled: true })).toEqual(["phone second step off"]);
   });
 });
