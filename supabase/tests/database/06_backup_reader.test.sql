@@ -5,7 +5,7 @@
 -- switch to it (NFR-REL-05, T-24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(19);
 
 select has_role('backup_reader', '[T-24] the backup_reader role exists');
 
@@ -28,6 +28,17 @@ select is(
 );
 
 -- Reads: every table, view and sequence of the three schemas a restore needs.
+-- A grant on a table is not enough: pg_dump must also use its schema, or it
+-- stops with "permission denied for schema auth" (the local rehearsal of
+-- 2026-11-26). auth belongs to supabase_admin, and postgres, which runs the
+-- migrations, holds USAGE on it without the right to grant it.
+select is(
+  (select coalesce(array_agg(n order by n), '{}')
+   from unnest(array['auth', 'private', 'public']) as n
+   where not has_schema_privilege('backup_reader', n, 'usage')),
+  '{}'::text[],
+  '[NFR-REL-05] backup_reader can use public, private and auth, as pg_dump needs'
+);
 select is(
   (select coalesce(array_agg(name order by name), '{}')
    from (select format('%I.%I', n.nspname, c.relname) as name
@@ -44,7 +55,9 @@ select is(
    from pg_class as c join pg_namespace as n on n.oid = c.relnamespace
    where n.nspname in ('public', 'private', 'auth')
      and c.relkind = 'S'
-     and not has_sequence_privilege('backup_reader', c.oid, 'select')) as found),
+     -- In a case, so the planner cannot call it on a table first.
+     and case when c.relkind = 'S'
+       then not has_sequence_privilege('backup_reader', c.oid, 'select') end) as found),
   '{}'::text[],
   '[NFR-REL-05] backup_reader can read every sequence in public, private and auth'
 );
@@ -90,6 +103,9 @@ select is(
    where c.relkind in ('r', 'p', 'v', 'm', 'f')
      and has_schema_privilege('backup_reader', n.oid, 'usage')
      and n.nspname !~ '^pg_(toast_)?temp_'
+     -- Postgres grants UPDATE on this view to every role: it changes only the
+     -- session's own settings, as SET does, and writes no row.
+     and (n.nspname, c.relname) <> ('pg_catalog', 'pg_settings')
      and (has_table_privilege('backup_reader', c.oid, 'insert')
        or has_table_privilege('backup_reader', c.oid, 'update')
        or has_table_privilege('backup_reader', c.oid, 'delete')
@@ -110,8 +126,9 @@ select is(
    where c.relkind = 'S'
      and has_schema_privilege('backup_reader', n.oid, 'usage')
      and n.nspname !~ '^pg_(toast_)?temp_'
-     and (has_sequence_privilege('backup_reader', c.oid, 'update')
-       or has_sequence_privilege('backup_reader', c.oid, 'usage'))) as found),
+     and case when c.relkind = 'S'
+       then has_sequence_privilege('backup_reader', c.oid, 'update')
+         or has_sequence_privilege('backup_reader', c.oid, 'usage') end) as found),
   '{}'::text[],
   '[T-24] backup_reader cannot move any sequence it can reach'
 );
