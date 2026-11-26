@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 
 // WP-7.2, NFR-PERF-01: the public pages that are not a lesson download no
 // code editor. The root layout imports feature indexes that also re-export
@@ -14,9 +14,10 @@ const EDITOR_MARKER = "cm-editor";
 
 async function scriptsOf(page: Page, path: string): Promise<string[]> {
   const bodies: Promise<string>[] = [];
-  page.on("response", (response) => {
+  const listen = (response: Response) => {
     if (response.request().resourceType() === "script") bodies.push(response.text());
-  });
+  };
+  page.on("response", listen);
   // The load event waits for every script the page's HTML names, the
   // framework's chunks included. Then every script the browser fetched must
   // have reached the listener, so none is missed by reading too early.
@@ -33,6 +34,9 @@ async function scriptsOf(page: Page, path: string): Promise<string[]> {
       ),
     )
     .toBeLessThanOrEqual(bodies.length);
+  // The lesson page goes on fetching (Python's worker and its files); a body
+  // read after the test ends fails as the page closes, so stop reading here.
+  page.off("response", listen);
   return Promise.all(bodies);
 }
 
