@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (late afternoon), on `wp/6.4-export-import`: `wp/6.3-stack-legal` at b6fa870 merged in
+
+- `main` (89362a5) does not hold WP-6.3 yet, so `wp/6.3-stack-legal`, which holds `main` at 89362a5, was merged instead (9074058). Conflicts: this file (union of both copies' sections; where one section differed, the longer copy was kept), `course-editor-page.tsx` (6.3's layout with 6.4's `exportCourse` and `importLesson`), `e2e/admin-gallery.spec.ts` (both sides' imports) and `e2e/admin-gate-journey.spec.ts` (6.3's copy; this branch's side was an older `main`).
+- Fixed: axe `landmark-unique` on three gallery tests. The export and import sections are now groups, as 6.3 did for the course details (c0c7af5).
+- `pnpm verify` exit 0, 153 files, 2731 tests. e2e as CI runs it, after `supabase db reset`: before the fix 154 passed, 3 failed, 1 skipped; after it 157 passed, 1 skipped, exit 0. Not run: `pnpm test:db`.
+- Push: `wp/6.4-export-import`, once.
+
 ## Session of 2026-11-26 (afternoon), on `wp/6.3-stack-legal`: `main` at 89362a5 merged in (PR #22)
 
 - Merge 7ff6d80. Conflicts: this file (union of both copies' sections; where one section differed, the longer copy was kept) and a comment in `course-status.test.tsx`.
