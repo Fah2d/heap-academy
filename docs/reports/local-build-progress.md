@@ -2,6 +2,15 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (morning), on `wp/5.4-progress-preview`: `main` at e1fa11c (#9, WP-3.1) merged in
+
+- The merge produced 5 conflicts: this file, `docs/spec/02-architecture.md`, `playwright.config.ts`, `src/features/workspace/client/runtime-view.ts` and `src/features/workspace/index.ts`. `scripts/next-config.test.ts` and `docs/reports/pull-requests/WP-3.1.md` merged without conflicts.
+- This file: `main`'s side was empty in all 6 hunks, so this branch's sections were kept. ADR index: both ADR files say Accepted after the merge, so both rows say Accepted. In the three code files, this branch's side extends `main`'s: the `workspace-phone` project, the `ended` field and the WP-5.2 exports. `main`'s worker changes (`run-support.ts`, `core.ts`) came in without conflicts.
+- `pnpm verify`: exit 0, `Test Files  131 passed (131)`, `Tests  2391 passed (2391)`.
+- e2e as CI runs it (`CI=1`, CI's public values, the local stack's publishable key, `--project=chromium --project=stack --project=gallery`). First run: 122 passed, 2 failed, 1 skipped, 1 did not run. The local database held rows left by an earlier run (two "Structure check" courses), which made `course-structure-journey.spec.ts` find two matching rows. J-13 failed axe `color-contrast` once, after Publish: the button measured `#b58916` behind `#3b3a39`, 3.54:1, and that colour is not a design token. After `supabase db reset` (migrations and seed, as CI starts): 125 passed, 1 skipped (`[T-19]`, an existing `test.fixme`), exit 0.
+- Owner: the J-13 contrast failure passed on the second run. It may be a measurement taken while the button's colour was still changing. The cause is not established, and this branch's merge did not touch that code. Per `.claude/rules/testing.md` it counts as a flaky test to fix.
+- Push: `wp/5.4-progress-preview`, once.
+
 ## Session of 2026-11-26 (from about 01:40), in `night-a`, on `wp/3.1-python-worker`, `wp/3.3-grader` and `wp/3.4-statechart`
 
 Same task list, owner decisions and speed mode. `git fetch`: `origin/main` is at 032246c (#18, `wp/4.3-validate-publish`, then #19, `wp/5.1-catalog`). #18 brings WP-3.2, WP-3.3 and WP-3.4 to `main`, in older copies than these branches. Found on arrival: a merge of `main` at aae2b9d (#18) into `wp/3.1-python-worker`, with all 12 conflicts resolved but not committed, and 7 `.gitkeep` files deleted in the working tree only (restored).
