@@ -93,7 +93,7 @@ test("[J-8] [FR-ADM-08] [FR-ADM-11] the owner adds a lesson, previews it, publis
     "Hello, Ada!\n",
   );
   await page.getByRole("button", { name: validation.validate }).click();
-  await expect(page.getByText(validation.status.passed)).toBeVisible();
+  await expect(page.getByText(validation.status.passed)).toBeVisible({ timeout: PYTHON_READY_MS });
   await page.getByRole("button", { name: lessonEditor.save }).click();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
 
