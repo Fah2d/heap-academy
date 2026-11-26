@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import type { RuleState, TimedOutProgram, ValidationRule } from "@/grader/validation";
 import { validation as words } from "@/messages/admin";
@@ -130,6 +131,19 @@ export function ValidationPanel({
       : RULES.map((rule) => ({ rule, state: "not_run", why: undefined, open: [] }));
   const running = state.kind === "running";
   const live = liveText(state);
+  const actions = useRef<HTMLDivElement>(null);
+  const stopPressed = useRef(false);
+  // Stop leaves the page when the run ends. If it took focus with it, focus
+  // goes back to Validate instead of the start of the page.
+  // Before paint: the run ends on the runtime's callback, not on a press.
+  useLayoutEffect(() => {
+    if (running || !stopPressed.current) return;
+    stopPressed.current = false;
+    const focused = document.activeElement;
+    if (focused === null || focused === document.body) {
+      actions.current?.querySelector<HTMLElement>("[data-validate]")?.focus();
+    }
+  }, [running]);
 
   return (
     <div className="flex max-w-prose flex-col gap-5">
@@ -186,8 +200,8 @@ export function ValidationPanel({
           {words.unavailable}
         </Notice>
       )}
-      <div className="flex flex-wrap gap-3">
-        <Button variant="secondary" isPending={running} onPress={onValidate}>
+      <div ref={actions} className="flex flex-wrap gap-3">
+        <Button variant="secondary" data-validate isPending={running} onPress={onValidate}>
           {!running
             ? words.validate
             : python === "loading"
@@ -195,7 +209,15 @@ export function ValidationPanel({
               : words.validating}
         </Button>
         {running && (
-          <Button variant="secondary" isPending={state.stopping} onPress={onStop}>
+          // Not pending while it stops: the status line says so, and a pending
+          // button's announcement would name this button after it has gone.
+          <Button
+            variant="secondary"
+            onPress={() => {
+              stopPressed.current = true;
+              onStop();
+            }}
+          >
             {words.stop}
           </Button>
         )}

@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { errorPage } from "../src/messages/system";
+import { expectEveryControlReached } from "./keyboard";
 import { saveScreen } from "./screens";
 
 // The catalog's "Could not load" state (docs/spec/03-experience.md section 8;
@@ -52,3 +53,15 @@ for (const { path, name, offersHome } of PAGES) {
     }
   });
 }
+
+// WP-7.2 (NFR-A11Y-03): the shared error page by keyboard, with its two ways on.
+test("[NFR-A11Y-03] [FR-SYS-01] the keyboard reaches every control on the error page, in order", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/courses");
+  await expect(page.getByRole("button", { name: errorPage.retry })).toBeVisible();
+  await expectEveryControlReached(page);
+  await page.setViewportSize({ width: 375, height: 900 });
+  await expectEveryControlReached(page);
+});

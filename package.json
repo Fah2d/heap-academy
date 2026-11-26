@@ -2,6 +2,10 @@
   "name": "heap-academy",
   "version": "0.0.0",
   "private": true,
+  "sideEffects": [
+    "*.css",
+    "./src/domain/schema.ts"
+  ],
   "type": "module",
   "packageManager": "pnpm@12.21.0",
   "engines": {

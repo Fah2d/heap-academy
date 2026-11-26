@@ -108,6 +108,8 @@ describe("ChapterList [FR-ADM-03]", () => {
     // The rename field takes focus, with a name apart from the new chapter's field.
     const opened = screen.getByLabelText<HTMLInputElement>(words.renameTitleLabel("Loops"));
     expect(document.activeElement).toBe(opened);
+    // The chapter keeps its heading while it is renamed (axe heading-order).
+    expect(screen.getByRole("heading", { level: 3, name: "Loops" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: words.cancel }));
     expect(all.saveChapter).not.toHaveBeenCalled();
     // Focus goes back to Rename.
@@ -174,6 +176,10 @@ describe("ChapterList [FR-ADM-03]", () => {
     await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
     await user.type(screen.getByLabelText(words.renameTitleLabel("Loops")), "!");
     await user.click(screen.getByRole("button", { name: words.addChapter }));
+    // The add answers after the click; once it has, its field is empty.
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>(words.newChapterTitleLabel).value).toBe("");
+    });
     // The rename still holds text.
     expect(reported.at(-1)).toBe(true);
     await user.click(screen.getByRole("button", { name: words.cancel }));
