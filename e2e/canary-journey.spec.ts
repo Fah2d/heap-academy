@@ -5,6 +5,7 @@ import { expect, test, type APIRequestContext, type Page, type Response } from "
 import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
 import { PUBLISHABLE_KEY, SUPABASE, accessToken, sql, sqlRows } from "./admin-helpers";
 import { signInWithCode } from "./sign-in-helpers";
+import { ON_SITE_MS } from "./stack-course";
 
 // WP-7.1, the canary test of T-21 (docs/spec/06-security-privacy.md section 4):
 // solutions, wrong answers and unpublished content never reach a guest or a
@@ -162,6 +163,25 @@ begin
   ${hiddenLesson(DRAFT, TOKENS.draftCourse, 0, DRAFT)}
 end;
 $canary$;`);
+  });
+
+  // The cached course list lacks the new course for up to a minute, and the
+  // course and lesson answer not-found until it has it (e2e/stack-course.ts).
+  test.beforeAll(async ({ playwright }) => {
+    const { baseURL } = test.info().project.use;
+    const request = await playwright.request.newContext(baseURL === undefined ? {} : { baseURL });
+    await expect
+      .poll(
+        () =>
+          Promise.all(
+            [SHOWN_COURSE(), SHOWN_LESSON()].map(async (path) =>
+              (await request.get(path)).status(),
+            ),
+          ),
+        { timeout: ON_SITE_MS, intervals: [1_000] },
+      )
+      .toEqual([200, 200]);
+    await request.dispose();
   });
 
   test.afterAll(() => {
