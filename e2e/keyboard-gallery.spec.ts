@@ -45,12 +45,34 @@ const ADMIN_PAGES = [
   { part: "ValidationStates", path: "/dev/admin/validation" },
 ] as const;
 
-function examplesOf(part: string): string[] {
-  const start = GALLERY_SOURCE.indexOf(`function ${part}(`);
-  const next = GALLERY_SOURCE.indexOf("\nfunction ", start + 1);
-  const body = GALLERY_SOURCE.slice(start, next === -1 ? undefined : next);
-  return [...body.matchAll(/<Example id="([^"]+)"/g)].map((match) => match[1] ?? "");
+/** The source of each top-level function of the gallery, by name. */
+const FUNCTIONS = new Map(
+  [...GALLERY_SOURCE.matchAll(/^(?:export )?function (\w+)\(/gm)].map((match, index, all) => [
+    match[1] ?? "",
+    GALLERY_SOURCE.slice(match.index, all[index + 1]?.index),
+  ]),
+);
+
+/**
+ * The ids of the examples a part shows: its own, and those of the gallery's
+ * components it renders (such as EmptyLessonExample, in two parts).
+ */
+function examplesOf(part: string, seen = new Set<string>()): string[] {
+  if (seen.has(part)) return [];
+  seen.add(part);
+  const body = FUNCTIONS.get(part) ?? "";
+  const own = [...body.matchAll(/<Example id="([^"]+)"/g)].map((match) => match[1] ?? "");
+  const rendered = [...body.matchAll(/<(\w+)[\s/>]/g)]
+    .map((match) => match[1] ?? "")
+    .filter((name) => name !== part && name !== "Example" && FUNCTIONS.has(name));
+  return [...own, ...rendered.flatMap((name) => examplesOf(name, seen))];
 }
+
+test("[NFR-A11Y-03] the walked examples are every example in the admin gallery", () => {
+  const all = [...GALLERY_SOURCE.matchAll(/<Example id="([^"]+)"/g)].map((match) => match[1]);
+  const walked = new Set(ADMIN_PAGES.flatMap(({ part }) => examplesOf(part)));
+  expect([...walked].sort()).toEqual([...new Set(all)].sort());
+});
 
 for (const { part, path } of ADMIN_PAGES) {
   const examples = examplesOf(part);
@@ -58,7 +80,7 @@ for (const { part, path } of ADMIN_PAGES) {
     expect(examples.length).toBeGreaterThan(0);
   });
   for (const example of examples) {
-    test(`[NFR-A11Y-03] the keyboard reaches every control in the admin example "${example}", in order, at 1280 px`, async ({
+    test(`[NFR-A11Y-03] the keyboard reaches every control in the admin example "${example}" on ${path}, in order, at 1280 px`, async ({
       page,
     }) => {
       await page.setViewportSize({ width: 1280, height: 900 });

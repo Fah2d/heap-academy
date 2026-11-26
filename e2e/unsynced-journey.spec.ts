@@ -12,7 +12,8 @@ import { stackCourse } from "./stack-course";
 // reached the account can see, so it needs the local stack (the `stack`
 // project). Every server action the page sends is refused while the learner
 // passes a lesson, so the pass stays on the device; then the actions are let
-// through and the page is shown again, which makes the sync try at once.
+// through and the test sends the page a visibilitychange event. The tab is
+// never really hidden; the event is what the sync listens for to try at once.
 
 const stamp = String(Date.now());
 const course = stackCourse(

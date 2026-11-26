@@ -17,9 +17,22 @@ async function scriptsOf(page: Page, path: string): Promise<string[]> {
   page.on("response", (response) => {
     if (response.request().resourceType() === "script") bodies.push(response.text());
   });
-  const response = await page.goto(path);
+  // The load event waits for every script the page's HTML names, the
+  // framework's chunks included. Then every script the browser fetched must
+  // have reached the listener, so none is missed by reading too early.
+  const response = await page.goto(path, { waitUntil: "load" });
   expect(response?.status(), path).toBe(200);
-  await page.waitForLoadState("networkidle");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          performance
+            .getEntriesByType("resource")
+            .filter((entry) => (entry as PerformanceResourceTiming).initiatorType === "script")
+            .length,
+      ),
+    )
+    .toBeLessThanOrEqual(bodies.length);
   return Promise.all(bodies);
 }
 
