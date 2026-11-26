@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (afternoon), on `wp/6.3-stack-legal`: `main` at 89362a5 merged in (PR #22)
+
+- Merge 7ff6d80. Conflicts: this file (union of both copies' sections; where one section differed, the longer copy was kept) and a comment in `course-status.test.tsx`.
+- Fixed: `auth.flow_state` rows left after an account deletion (new migration, security review APPROVE); J-5/J-6 and J-10 meeting the cached course list's minute; axe measuring buttons mid-transition in the stack journeys.
+- `pnpm verify` exit 0, 150 files, 2673 tests. `pnpm test:db` PASS, 378 tests. e2e as CI runs it: 156 passed, 1 skipped, exit 0; a second run failed `[T-11]` once on `net::ERR_NETWORK_CHANGED` loading Turnstile (not rerun).
+- Push: `wp/6.3-stack-legal`, once.
+
 ## Session of 2026-11-26 (morning), on `wp/5.4-progress-preview`: `main` at e1fa11c (#9, WP-3.1) merged in
 
 - The merge produced 5 conflicts: this file, `docs/spec/02-architecture.md`, `playwright.config.ts`, `src/features/workspace/client/runtime-view.ts` and `src/features/workspace/index.ts`. `scripts/next-config.test.ts` and `docs/reports/pull-requests/WP-3.1.md` merged without conflicts.
