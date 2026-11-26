@@ -9,12 +9,13 @@ import {
   type LessonField,
   type LessonFields,
 } from "@/domain/admin/lesson-details";
+import { adminLessonPreviewPath } from "@/domain/admin/gate";
 import type { ContentStatus } from "@/domain/admin/structure";
 import { CodeEditor } from "@/features/workspace";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import { testCaseProblems, type TestCaseProblem } from "@/grader/test-case-list";
 import { lessonStatus, lessonEditor as words, structure } from "@/messages/admin";
-import { Button, FieldErrorMessage, Notice, SelectField, TextArea, TextField } from "@/ui";
+import { Button, FieldErrorMessage, Link, Notice, SelectField, TextArea, TextField } from "@/ui";
 import { validateLessonContent, type ValidationContent } from "../client/validate-lesson";
 import {
   openBrowserValidationRuntime,
@@ -481,14 +482,20 @@ export function LessonEditor({
             {unsaved ? words.unsaved : words.allSaved}
           </span>
         </p>
-        <Button
-          type="submit"
-          variant="primary"
-          isPending={saving || saveWaits}
-          isDisabled={statusPending && !publishing}
-        >
-          {saving ? words.saving : words.save}
-        </Button>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* The preview shows the last saved version (section 7.7). */}
+          <Link href={adminLessonPreviewPath(lesson.id)} variant="standalone">
+            {words.previewLesson}
+          </Link>
+          <Button
+            type="submit"
+            variant="primary"
+            isPending={saving || saveWaits}
+            isDisabled={statusPending && !publishing}
+          >
+            {saving ? words.saving : words.save}
+          </Button>
+        </div>
       </div>
 
       {/* A taken address is said once, under its field. */}
@@ -511,7 +518,11 @@ export function LessonEditor({
       </p>
 
       <div className="flex gap-8">
-        <nav aria-label={words.sectionsLabel} className="sticky inset-bs-20 shrink-0 self-start">
+        <div
+          role="group"
+          aria-label={words.sectionsLabel}
+          className="sticky inset-bs-20 shrink-0 self-start"
+        >
           <ul className="flex flex-col gap-1">
             {LESSON_SECTIONS.map((section) => (
               <li key={section.key}>
@@ -524,10 +535,11 @@ export function LessonEditor({
               </li>
             ))}
           </ul>
-        </nav>
+        </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
-          <section
+          <div
+            role="group"
             aria-labelledby={sectionId("details")}
             className="flex max-w-prose flex-col gap-5"
           >
@@ -573,9 +585,13 @@ export function LessonEditor({
               isInvalid={isInvalid("xp")}
               errorMessage={words.fieldInvalid.xp}
             />
-          </section>
+          </div>
 
-          <section aria-labelledby={sectionId("instructions")} className="flex flex-col gap-5">
+          <div
+            role="group"
+            aria-labelledby={sectionId("instructions")}
+            className="flex flex-col gap-5"
+          >
             <h2
               id={sectionId("instructions")}
               className="scroll-mbs-20 text-lg font-semibold text-text"
@@ -622,9 +638,9 @@ export function LessonEditor({
                 />
               ))}
             </fieldset>
-          </section>
+          </div>
 
-          <section aria-labelledby={sectionId("code")} className="flex flex-col gap-5">
+          <div role="group" aria-labelledby={sectionId("code")} className="flex flex-col gap-5">
             <h2 id={sectionId("code")} className="scroll-mbs-20 text-lg font-semibold text-text">
               {words.codeHeading}
             </h2>
@@ -696,9 +712,13 @@ export function LessonEditor({
                 </div>
               )}
             </fieldset>
-          </section>
+          </div>
 
-          <section aria-labelledby={sectionId("testCases")} className="flex flex-col gap-5">
+          <div
+            role="group"
+            aria-labelledby={sectionId("testCases")}
+            className="flex flex-col gap-5"
+          >
             <h2
               id={sectionId("testCases")}
               className="scroll-mbs-20 text-lg font-semibold text-text"
@@ -721,9 +741,9 @@ export function LessonEditor({
               }
               newId={newTestCaseId}
             />
-          </section>
+          </div>
 
-          <section aria-labelledby={sectionId("publish")} className="flex flex-col gap-5">
+          <div role="group" aria-labelledby={sectionId("publish")} className="flex flex-col gap-5">
             <h2 id={sectionId("publish")} className="scroll-mbs-20 text-lg font-semibold text-text">
               {words.publishHeading}
             </h2>
@@ -751,7 +771,7 @@ export function LessonEditor({
               changed={statusChanged}
               onMove={moveStatus}
             />
-          </section>
+          </div>
         </div>
       </div>
     </form>

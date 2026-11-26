@@ -32,22 +32,43 @@ const NOT_READY: RunRequest = { ok: false, error: "not_ready" };
  * closes. The workspace statechart decides what each control does; this hook
  * carries out its effects on the controller (architecture section 6).
  */
-export function useRuntime(program: (interactiveInput: boolean) => Program): {
+export function useRuntime(
+  program: (interactiveInput: boolean) => Program,
+  {
+    enabled = true,
+    onComplete,
+  }: {
+    /** False in a browser below the support floor: no worker is started (FR-SYS-02). */
+    enabled?: boolean;
+    /** The first passing check of the lesson (the chart's `completeLesson`). */
+    onComplete?: () => void;
+  } = {},
+): {
   view: RuntimeView;
   chart: WorkspaceState;
   dispatch: (event: WorkspaceEvent) => void;
   sendInput: (line: string) => InputRequest;
   endInput: () => void;
+  /** The source the last check started with, undefined before any. */
+  lastCheckedSource: () => string | undefined;
 } {
   const [view, setView] = useState<RuntimeView>(INITIAL_VIEW);
   const [chart, setChart] = useState<WorkspaceState>(INITIAL_STATE);
   const chartRef = useRef<WorkspaceState>(INITIAL_STATE);
   const controller = useRef<RuntimeController | undefined>(undefined);
   const programRef = useRef(program);
+  const completeRef = useRef(onComplete);
+  // The source the last check really started with: a check pressed while
+  // Python loads starts later, with the code as it is then.
+  const checkedSource = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     programRef.current = program;
   }, [program]);
+
+  useEffect(() => {
+    completeRef.current = onComplete;
+  }, [onComplete]);
 
   const dispatch = useCallback((event: WorkspaceEvent) => {
     const refused = dispatchEvent(
@@ -73,17 +94,21 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
           if (current === undefined) return NOT_READY;
           const { source, tests } = programRef.current(current.interactiveInput);
           const request = current.check(source, tests);
-          if (request.ok) setView((previous) => startCheck(previous, current.status));
+          if (request.ok) {
+            checkedSource.current = source;
+            setView((previous) => startCheck(previous, current.status));
+          }
           return request;
         },
-        // The development page has no lesson to record; the chart shows `passed`.
-        complete: () => undefined,
+        // The development page passes no callback: it has no lesson to record.
+        complete: () => completeRef.current?.(),
       },
     );
     if (refused.length > 0) setView((previous) => addRefusal(previous, refused.length));
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     const created = createRuntimeController({
       createWorker: createPythonWorker,
       assetBase: runtimeAssetBase,
@@ -101,8 +126,8 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
         const chartEvent = chartEventFor(event, chartRef.current);
         if (chartEvent !== undefined) dispatch(chartEvent);
       },
-      report: (report) => {
-        setView((current) => addReport(current, report));
+      report: () => {
+        setView(addReport);
       },
     });
     controller.current = created;
@@ -112,7 +137,7 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
       controller.current = undefined;
       chartRef.current = INITIAL_STATE;
     };
-  }, [dispatch]);
+  }, [dispatch, enabled]);
 
   const sendInput = useCallback(
     (line: string): InputRequest =>
@@ -124,5 +149,7 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
     controller.current?.endInput();
   }, []);
 
-  return { view, chart, dispatch, sendInput, endInput };
+  const lastCheckedSource = useCallback(() => checkedSource.current, []);
+
+  return { view, chart, dispatch, sendInput, endInput, lastCheckedSource };
 }

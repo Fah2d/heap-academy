@@ -28,7 +28,7 @@ async function runProgram(page: Page, source: string, stdin = "") {
   });
   await page.getByLabel(runtimeDev.program).fill(source);
   await page.getByLabel(runtimeDev.input).fill(stdin);
-  await page.getByRole("button", { name: runtimeDev.run }).click();
+  await page.getByRole("button", { name: runtimeDev.run, exact: true }).click();
 }
 
 const outcome = (page: Page) => page.locator("[data-outcome]");
@@ -90,7 +90,7 @@ test.describe("Python runtime", () => {
   test("[FR-RUN-02] Stop ends a run at once", async ({ page }) => {
     await runProgram(page, "while True: pass");
     await expect(page.getByRole("status")).toHaveAttribute("data-status", "running");
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
     await expect(outcome(page)).toHaveAttribute("data-outcome", "stopped");
   });
 
@@ -179,22 +179,25 @@ test.describe("Python runtime", () => {
     });
     expect(requests.some((url) => url.endsWith("/manifest.json"))).toBe(true);
     // The loaders answer with promises, which settle after the run; the
-    // second run reads what they settled with.
+    // second run reads what they settled with. The worker clears a run's
+    // globals when it ends, so the callbacks take what they use as defaults.
+    // Under the lock-down both settle before the second run starts. If one
+    // ever settles later, the count below is short and the test fails.
     await outputOf(
       page,
       [
         "import sys, pyodide_js",
         "from pyodide.ffi import create_proxy",
         "sys._heap_probe = []",
-        "def note(value):",
-        "    sys._heap_probe.append(str(value))",
+        "def note(value, probe=sys._heap_probe):",
+        "    probe.append(str(value))",
         "attempts = (",
         '    lambda: pyodide_js.loadPackage("micropip"),',
         '    lambda: pyodide_js._api.loadBinaryFile("/api/health"),',
         ")",
         // loadPackage resolves with the packages it loaded, so a resolved
         // value is noted with its length: 0 means nothing arrived.
-        "def settled(value):",
+        "def settled(value, note=note):",
         "    try:",
         '        note("resolved %d" % len(value))',
         "    except Exception:",
@@ -216,7 +219,10 @@ test.describe("Python runtime", () => {
       ].join("\n"),
     );
     // Both settled, neither with anything loaded, micropip is not installed,
-    // and nothing was requested.
+    // and nothing was requested. This build serves no package wheel, so a
+    // load would also end with nothing loaded without the lock-down: here the
+    // request log is the evidence. The Python checks guard a build that
+    // serves wheels.
     expect(probe).toMatch(/^2 True /);
     expect(probe).not.toMatch(/resolved [1-9]/);
     expect(probe).not.toMatch(/'resolved'/);
@@ -232,9 +238,11 @@ test.describe("Python runtime", () => {
         "import js, sys",
         "from pyodide.ffi import create_proxy",
         "from pyodide.code import run_js",
+        // The event may come after the run, when its globals are cleared,
+        // so the listener takes the list as a default.
         "sys._heap_policies = []",
         'js.self.addEventListener("securitypolicyviolation", create_proxy(',
-        "    lambda event: sys._heap_policies.append(event.originalPolicy)))",
+        "    lambda event, policies=sys._heap_policies: policies.append(event.originalPolicy)))",
         "attempts = (lambda: js.eval('1 + 1'), lambda: js.Function('return 1')(), lambda: run_js('1 + 1'))",
         "for attempt in attempts:",
         "    try:",
@@ -290,7 +298,7 @@ test.describe("Python runtime", () => {
         }),
     );
     expect(longestGap).toBeLessThan(50);
-    await page.getByRole("button", { name: runtimeDev.stop }).click();
+    await page.getByRole("button", { name: runtimeDev.stop, exact: true }).click();
   });
 
   test("[NFR-SEC-01] drops nothing in a normal session", async ({ page }) => {

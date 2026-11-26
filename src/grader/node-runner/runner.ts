@@ -32,8 +32,10 @@ function isMessage(value: unknown, type: string): value is Record<string, unknow
   return typeof value === "object" && value !== null && Reflect.get(value, "type") === type;
 }
 
-function startThread(): Promise<Worker> {
-  const worker = new Worker(new URL("./thread.ts", import.meta.url));
+const THREAD_URL = new URL("./thread.ts", import.meta.url);
+
+function startThread(threadUrl: URL): Promise<Worker> {
+  const worker = new Worker(threadUrl);
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       worker.off("message", onMessage);
@@ -89,7 +91,14 @@ function runCase(
   });
 }
 
-export function createNodeRunner({ timeLimitMs = TEST_CASE_TIME_LIMIT_MS } = {}): NodeRunner {
+/**
+ * `threadUrl` replaces the thread's module. Only the runner's own tests set
+ * it, to stand in a thread that answers with another harness version.
+ */
+export function createNodeRunner({
+  timeLimitMs = TEST_CASE_TIME_LIMIT_MS,
+  threadUrl = THREAD_URL,
+}: { timeLimitMs?: number; threadUrl?: URL } = {}): NodeRunner {
   let thread: Promise<Worker> | undefined;
 
   async function discard(): Promise<void> {
@@ -101,7 +110,7 @@ export function createNodeRunner({ timeLimitMs = TEST_CASE_TIME_LIMIT_MS } = {})
   async function check(source: string, testCases: readonly TestCase[]): Promise<CheckReport> {
     const results: TestResult[] = [];
     for (const [index, testCase] of testCases.entries()) {
-      thread ??= startThread();
+      thread ??= startThread(threadUrl);
       const outcome = await runCase(await thread, source, testCase, timeLimitMs);
       const parsed = outcome.kind === "text" ? parseHarnessResult(outcome.text) : undefined;
       // As in the worker: a result of another harness version is a broken runtime.

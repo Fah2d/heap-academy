@@ -1,0 +1,36 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Print a message",
+  "slug": "print-a-message",
+  "xp": 10,
+  "instructions_md": "## Show text on the screen\n\n`print()` shows a line of text. The text goes inside quotes. Python calls text in quotes a **string**.\n\n```python\nprint(\"Good morning!\")\n```\n\n```text\nGood morning!\n```\n\n## Your task\n\nPrint this line:\n\n`I am learning Python.`\n",
+  "hints": [
+    "You need one line of code.",
+    "Use `print()` and put the sentence inside quotes.",
+    "Write `print(\"...\")` and replace the three dots with the sentence."
+  ],
+  "starter_code": "# Write your code below this line.\n",
+  "solution_code": "print(\"I am learning Python.\")\n",
+  "wrong_answers": [
+    {
+      "label": "leaves out the full stop",
+      "code": "print(\"I am learning Python\")\n"
+    },
+    {
+      "label": "prints the example text",
+      "code": "print(\"Good morning!\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "prints-sentence",
+      "name": "Prints `I am learning Python.`",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "I am learning Python.",
+      "match": "normalized",
+      "hint": "Check capital letters and the full stop."
+    }
+  ]
+}

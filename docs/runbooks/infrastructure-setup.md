@@ -34,7 +34,7 @@ The Free plan allows two active projects (E-11, E-24). Both are needed: previews
    - The project reference (the `<ref>` in `https://<ref>.supabase.co`, shown in **Project Settings → General**).
    - **Project URL** and the **publishable key** (`sb_publishable_...`) from **Project Settings → API Keys**. Neither is secret; both go to the browser.
    - The **Session pooler** connection string from the project's **Connect** dialog (it is IPv4; the direct connection on Free is IPv6 only, E-24). Put the project's password into it, and add `?sslmode=require` at the end: `scripts/apply-migrations.sh` refuses a connection without TLS. The whole string is **secret**: `production database URL` and `staging database URL`.
-5. [ ] Do not create a secret key (`sb_secret_...`) yet. Only account deletion uses one (WP-6.2), and only in production.
+5. [ ] Account deletion (WP-6.3) needs a secret key (`sb_secret_...`). In the **production** project only, **Project Settings → API Keys → Create secret key**, saved as **secret** `production secret key`. It bypasses row level security: it goes into Vercel Production and nowhere else.
 
 Not yet: the auth settings (Google, the email sender, redirect addresses). They come in step 10 once the pieces they point at exist.
 
@@ -81,6 +81,11 @@ A Hobby project cannot connect to a repository owned by a GitHub organization (E
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | production publishable key | staging publishable key |
    | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | the Turnstile site key of section 10 step 7 | `1x00000000000000000000AA` (Cloudflare's test key, section 10 step 7) |
    | `RESEND_API_KEY` (mark **Sensitive**) | production Resend key | staging Resend key |
+   | `SUPABASE_SECRET_KEY` (mark **Sensitive**) | the production secret key of section 2 step 5 | leave unset |
+   | `DELETION_NOTICE_FROM` | a sender on your verified Resend domain | leave unset |
+   | `DELETION_NOTICE_TO` | your own address | leave unset |
+
+   Set the last three together: with some and not others, the server does not start. With none, the profile has no "Delete my account", so check for it on the live site before launch. Do not delete your own account while you are the only admin: the admin row goes with it, and `docs/runbooks/admin-access.md` is then the only way back. Each deletion emails you the deleted user ID; delete that email after 8 days (ADR-0030). If a log line shows `POST /actions/delete-account` with `error:deletion-unclear` or `error:deletion-notice`, note its time: a restore from before then must be checked by hand.
 
    Do not tick **Development**; local development uses the local stack.
 4. [ ] **Settings → Deployment Protection → Vercel Authentication**: on, **Standard Protection** (available on all plans). Previews then need a Vercel sign-in.
@@ -120,6 +125,7 @@ Where every secret lives, in one table:
 |---|---|---|
 | Production database URL and password | GitHub `production` environment; your password manager | Vercel, staging, any file |
 | Staging database URL and password | GitHub `staging` environment; your password manager | production, any file |
+| Production secret key (`sb_secret_...`) | Vercel Production variables | Preview, GitHub, any file |
 | Production Resend key | Vercel Production variables; Supabase production SMTP (step 10) | Preview, GitHub |
 | Staging Resend key | Vercel Preview variables; Supabase staging SMTP (step 10) | Production, GitHub |
 | Google client secret (one client for both projects for now) | Supabase production and staging, Google provider (step 10) | Vercel, GitHub |

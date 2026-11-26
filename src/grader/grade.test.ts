@@ -94,9 +94,11 @@ describe("grade", () => {
       reason: "output_limit",
       truncated: true,
     });
+    // Output cut with no error: the program wrote past the limit around the
+    // capture, or caught the limit's exception. Still the output limit.
     expect(
       grade({ ...testCase, match: "contains" }, harness({ output: "12\n", truncated: true })),
-    ).toMatchObject({ status: "failed", reason: "mismatch" });
+    ).toMatchObject({ status: "failed", reason: "output_limit", truncated: true });
   });
 
   it("[FR-GRD-03] uses the test case's comparison mode", () => {

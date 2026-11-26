@@ -1,0 +1,41 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Say hello by name",
+  "slug": "ask-a-question",
+  "xp": 10,
+  "instructions_md": "## Ask, then answer\n\n`input()` waits for the person to type something, and gives you what they typed. The text inside the brackets is the question.\n\nYou can join strings with `+`.\n\n```python\ncolor = input(\"Favorite color? \")\nprint(\"You chose \" + color + \".\")\n```\n\nIf the person types `green`, the screen shows this. The typed answer is not repeated after the question.\n\n```text\nFavorite color? You chose green.\n```\n\n## Your task\n\nAsk `What is your name? ` and then greet the person. For the name `Sara`, print `Hello, Sara!`.\n",
+  "hints": [
+    "Store the answer before you greet.",
+    "Join three strings: the greeting, the name and `!`.",
+    "Put `input(...)` into `name`, then print `\"Hello, \" + name + \"!\"`."
+  ],
+  "starter_code": "# Ask for a name, then greet that person.\n",
+  "solution_code": "name = input(\"What is your name? \")\nprint(\"Hello, \" + name + \"!\")\n",
+  "wrong_answers": [
+    {
+      "label": "prints a fixed name",
+      "code": "input(\"What is your name? \")\nprint(\"Hello, Sara!\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "greets-sara",
+      "name": "Greets Sara by name",
+      "stdin": "Sara\n",
+      "afterCode": "",
+      "expected": "What is your name? Hello, Sara!",
+      "match": "normalized",
+      "hint": "Check the spaces and punctuation in both strings."
+    },
+    {
+      "id": "greets-omar",
+      "name": "Works for a different name",
+      "stdin": "Omar\n",
+      "afterCode": "",
+      "expected": "What is your name? Hello, Omar!",
+      "match": "normalized",
+      "hint": "Use the typed name, not a fixed one."
+    }
+  ]
+}

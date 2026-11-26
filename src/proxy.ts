@@ -92,6 +92,10 @@ export const config = {
   // Built files under _next/static are immutable and run no code of ours;
   // next.config.ts gives them the static security headers. The runtime's
   // files under _runtime are static too, and the worker script there carries
-  // its own policy, which the page policy must not replace.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|_runtime/).*)"],
+  // its own policy, which the page policy must not replace. Each exclusion
+  // ends at a slash or at the end of the path, so a path that only starts
+  // with one of these names (/_next/imageX) still gets the page policy.
+  // /favicon.ico is not excluded: there is no icon (ADR-0031), so that path
+  // renders the not-found page, which needs the page policy like any page.
+  matcher: ["/((?!_next/static/|_next/image$|_runtime/).*)"],
 };

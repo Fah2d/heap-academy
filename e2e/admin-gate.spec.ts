@@ -10,7 +10,14 @@ import { notFound } from "../src/messages/system";
 // byte for byte: Next.js renders a notFound() thrown by a layout as an error
 // shell that the browser fills in (decision 1 in the WP-2.3 description).
 
-const ADMIN_ADDRESSES = ["/admin", "/admin/setup", "/admin/verify", "/admin/courses/anything"];
+const ADMIN_ADDRESSES = [
+  "/admin",
+  "/admin/setup",
+  "/admin/verify",
+  "/admin/courses/anything",
+  "/admin/lessons/00000000-0000-4000-8000-000000000000",
+  "/admin/lessons/00000000-0000-4000-8000-000000000000/preview",
+];
 
 test("[FR-ADM-01] [T-19] a guest gets the standard not-found page at every /admin address", async ({
   page,
@@ -25,7 +32,8 @@ test("[FR-ADM-01] [T-19] a guest gets the standard not-found page at every /admi
     expect(response?.status(), address).toBe(404);
     expect(page.url(), address).toMatch(new RegExp(`${address}$`));
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(notFound.heading);
-    expect(await page.title(), address).toBe(missingTitle);
+    // The shell gets its title when the browser fills it in, so wait for it.
+    await expect(page, address).toHaveTitle(missingTitle);
     expect(await page.getByRole("main").innerText(), address).toBe(missingMain);
   }
 });

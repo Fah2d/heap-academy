@@ -207,7 +207,10 @@ export function grade(testCase: TestCase, result: HarnessResult): TestResult {
     const reason = result.stage === "after_code" ? "after_code_error" : "program_error";
     return { ...base, status: "failed", reason, error };
   }
-  if (!result.truncated && matches(result.output, testCase.expected, testCase.match)) {
+  // Output cut with no error: the program wrote around the capture or caught
+  // the limit's exception. It is still the output limit, as for a run.
+  if (result.truncated) return { ...base, status: "failed", reason: "output_limit" };
+  if (matches(result.output, testCase.expected, testCase.match)) {
     return { ...base, status: "passed", truncated: false };
   }
   return { ...base, status: "failed", reason: "mismatch" };

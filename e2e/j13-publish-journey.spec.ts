@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import {
   courseEditor,
@@ -9,7 +8,9 @@ import {
   testCaseList,
   validation,
 } from "../src/messages/admin";
+import { TIME_LIMIT_MS } from "../src/runtime/controller";
 import { removeAdmin, signInAsAdmin } from "./admin-helpers";
+import { noAxeViolations } from "./journeys";
 
 // J-13 against the local stack (FR-GRD-05, FR-ADM-06, FR-ADM-07, FR-ADM-09):
 // an admin at aal2 writes a lesson whose solution fails its test case, then one
@@ -20,6 +21,9 @@ import { removeAdmin, signInAsAdmin } from "./admin-helpers";
 // load.
 
 const PYTHON_READY_MS = 60_000;
+// Once Python is loaded, a validation here runs the solution and the starter,
+// and the runtime lets each run for up to the time limit before it stops it.
+const VALIDATION_MS = 2 * TIME_LIMIT_MS;
 const TEST_NAME = "Greets Ada";
 
 /** Replaces the whole content of one code editor with `code`. */
@@ -87,13 +91,13 @@ test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson can
   );
   await expect(publishButton(page)).toHaveCount(0);
   await expect(page.getByText(lessonStatus.publishWaits)).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
 
   // 2. The starter already passes: refused, because a learner has nothing to do.
   await setCode(page, lessonEditor.solutionLabel, 'print("Hello, Ada!")');
   await setCode(page, lessonEditor.starterLabel, 'print("Hello, Ada!")');
   await page.getByRole("button", { name: validation.validate }).click();
-  await expect(page.getByText(validation.status.failed(1))).toBeVisible();
+  await expect(page.getByText(validation.status.failed(1))).toBeVisible({ timeout: VALIDATION_MS });
   await expect(rule(page, validation.rule.solution_passes)).toContainText(validation.state.passed);
   await expect(rule(page, validation.rule.starter_fails)).toContainText(validation.state.failed);
   await expect(rule(page, validation.rule.starter_fails)).toContainText(validation.starterPasses);
@@ -102,13 +106,13 @@ test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson can
   // 3. Every rule passes: Publish appears, saves, and puts the lesson on the site.
   await setCode(page, lessonEditor.starterLabel, 'print("Hello")');
   await page.getByRole("button", { name: validation.validate }).click();
-  await expect(page.getByText(validation.status.passed)).toBeVisible();
+  await expect(page.getByText(validation.status.passed)).toBeVisible({ timeout: VALIDATION_MS });
   await publishButton(page).click();
   // Read out by the live region; the focused status line shows it.
   await expect(page.getByText(lessonStatus.changed(lessonStatus.name.published))).toBeAttached();
   await expect(page.getByText(statusLine("published"), { exact: true })).toBeVisible();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
 
   // The database holds the status: it survives a reload.
   await page.reload();
@@ -118,7 +122,7 @@ test("[J-13] [FR-GRD-05] [FR-ADM-06] [FR-ADM-07] [FR-ADM-09] a broken lesson can
   await page.getByRole("button", { name: lessonStatus.action.draft, exact: true }).click();
   const dialog = page.getByRole("dialog", { name: lessonStatus.confirmTitle.draft });
   await expect(dialog).toContainText(lessonStatus.confirmBody.draft);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await dialog.getByRole("button", { name: lessonStatus.action.draft, exact: true }).click();
   await expect(page.getByText(statusLine("draft"), { exact: true })).toBeVisible();
 

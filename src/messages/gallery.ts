@@ -20,6 +20,8 @@ export const gallery = {
   inlineAfter: "further down.",
   standaloneVariant: "Standalone link",
   standaloneLink: "Go to the notices",
+  headingVariant: "Heading link, such as a course title in a list",
+  headingLink: "Go to the dialog",
   navVariant: "Navigation, the first link current",
   navCurrent: "Buttons",
   navOther: "Links",
@@ -85,10 +87,28 @@ export const gallery = {
 
 // The development-only page that shows the admin area's states the J-12
 // journey cannot reach on the local stack (WP-2.3).
+export const adminPreviewGallery = { title: "Admin preview" };
+
 export const adminGallery = {
-  title: "Admin states",
-  intro:
-    "The dashboard's and the second step's states that the sign-in journey cannot reach. The actions here are fakes that answer at once, or never.",
+  // One page per part of the admin area (/dev/admin, /dev/admin/lessons,
+  // /dev/admin/validation).
+  pages: {
+    course: {
+      title: "Admin states",
+      intro:
+        "The dashboard's, the course editor's and the second step's states that the journeys cannot reach. The actions here are fakes that answer at once, or never.",
+    },
+    lesson: {
+      title: "Lesson editor states",
+      intro:
+        "The lesson editor's states that the journeys cannot reach: saves, previews, limits and test cases. The actions here are fakes that answer at once, or never.",
+    },
+    validation: {
+      title: "Validation states",
+      intro:
+        "Validate and the Save that validates first, with Python loading, failing, stuck or answering. The runtimes here are fakes.",
+    },
+  },
   courseListEmpty: "Course list with no course",
   courseListFailed: "Course list that could not load",
   courseListRows: "Course list with courses",
@@ -200,4 +220,39 @@ export const adminGallery = {
   previewText: "Ask for a name with ",
   previewCode: "input()",
   previewTail: ", then greet that person.",
+} as const;
+
+// The development-only workspace page (WP-5.2): the example lesson of
+// docs/spec/04-content-system.md section 7 in the real workspace, with no
+// database, for the browser journeys J-2, J-3 and J-4.
+export const workspaceGallery = {
+  title: "Workspace",
+  courseSlug: "python-basics",
+  courseTitle: "Python basics",
+  lessonSlug: "say-hello",
+  previous: { slug: "print-a-line", title: "Print a line" },
+  next: { slug: "add-two-numbers", title: "Add two numbers" },
+};
+
+// The development-only page that shows the catalog's states that the local
+// stack cannot show on demand: no course, and sample content (WP-5.1).
+export const catalogGallery = {
+  title: "Catalog states",
+  intro:
+    "The home page's, the course list's and the course page's states that need an empty database or content the local stack does not have. Each link opens one state as its whole page. The courses are sample content, not published ones. A read that fails ends on the error page, shown at /dev/error.",
+  homeEmpty: "Home page with no course",
+  listEmpty: "Course list with no course",
+  listRows: "Course list with courses, one with the longest title the dashboard allows",
+  courseNoOutcomes: "Course page with no outcomes, one chapter with no summary",
+  sampleCourse: "Python basics",
+  sampleSummary: "Print text, keep values in names, and do sums.",
+  longCourse: "Reading and writing text files, one careful line at a time",
+  longSummary:
+    "Open a file, read it line by line, and write what you found to a new file without losing a word.",
+  firstChapter: "First steps",
+  firstChapterSummary: "Your first program, and what print does.",
+  secondChapter: "Numbers and the arithmetic you already know from school",
+  lessonHello: "Say hello",
+  lessonNames: "Keep a value in a name",
+  lessonSums: "Add two numbers that someone typed",
 } as const;

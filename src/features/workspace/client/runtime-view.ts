@@ -1,9 +1,4 @@
-import type {
-  ControllerEvent,
-  ControllerReport,
-  ControllerStatus,
-  RunResult,
-} from "@/runtime/controller";
+import type { ControllerEvent, ControllerStatus, RunResult } from "@/runtime/controller";
 import type { CheckSummary, TestResult } from "@/grader/grade";
 import type { OutputStream } from "@/runtime/protocol";
 
@@ -24,9 +19,13 @@ export type RuntimeView = {
   tests: TestResult[];
   summary: CheckSummary | undefined;
   restarts: number;
-  dropped: ControllerReport["code"][];
+  /** How many messages the controller dropped or acted on. A count, not a
+   * list, so a late timer that prints for ever cannot grow it without limit. */
+  dropped: number;
   /** Runs and checks the controller refused although the chart sent them. */
   refused: number;
+  /** What ended last, so the workspace says the right outcome; undefined while one runs. */
+  ended: "run" | "check" | undefined;
 };
 
 export const INITIAL_VIEW: RuntimeView = {
@@ -38,8 +37,9 @@ export const INITIAL_VIEW: RuntimeView = {
   tests: [],
   summary: undefined,
   restarts: 0,
-  dropped: [],
+  dropped: 0,
   refused: 0,
+  ended: undefined,
 };
 
 export function reduceView(
@@ -65,13 +65,19 @@ export function reduceView(
     // status it shows at this moment is still the busy one. A worker
     // replacement that follows arrives as `restarting` and corrects it.
     case "run_done":
-      return { ...view, status: "ready", result: event.result };
+      return { ...view, status: "ready", result: event.result, ended: "run" };
     case "restarting":
       return { ...view, status, restarts: view.restarts + 1, progress: undefined };
     case "test_result":
       return { ...view, status, tests: [...view.tests, event.result] };
     case "check_done":
-      return { ...view, status: "ready", tests: event.results, summary: event.summary };
+      return {
+        ...view,
+        status: "ready",
+        tests: event.results,
+        summary: event.summary,
+        ended: "check",
+      };
     default: {
       const unreachable: never = event;
       return unreachable;
@@ -92,18 +98,19 @@ function append(
 
 /** A new run starts with empty output and no result. */
 export function startRun(view: RuntimeView, status: ControllerStatus): RuntimeView {
-  return { ...view, status, output: [], result: undefined };
+  return { ...view, status, output: [], result: undefined, ended: undefined };
 }
 
 /** A new check starts with no results. */
 export function startCheck(view: RuntimeView, status: ControllerStatus): RuntimeView {
-  return { ...view, status, tests: [], summary: undefined };
+  return { ...view, status, tests: [], summary: undefined, ended: undefined };
 }
 
 export function addRefusal(view: RuntimeView, count: number): RuntimeView {
   return { ...view, refused: view.refused + count };
 }
 
-export function addReport(view: RuntimeView, report: ControllerReport): RuntimeView {
-  return { ...view, dropped: [...view.dropped, report.code] };
+/** Counts one message the controller dropped or acted on. */
+export function addReport(view: RuntimeView): RuntimeView {
+  return { ...view, dropped: view.dropped + 1 };
 }

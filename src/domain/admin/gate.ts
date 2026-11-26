@@ -55,6 +55,11 @@ export function adminLessonPath(lessonId: string): string {
   return `/admin/lessons/${encodeURIComponent(lessonId)}`;
 }
 
+/** One lesson in the real workspace, recording nothing (section 7.7). */
+export function adminLessonPreviewPath(lessonId: string): string {
+  return `${adminLessonPath(lessonId)}/preview`;
+}
+
 /** The editor of one course (docs/spec/03-experience.md section 7.3). */
 export function adminCoursePath(courseId: string): string {
   return `/admin/courses/${encodeURIComponent(courseId)}`;

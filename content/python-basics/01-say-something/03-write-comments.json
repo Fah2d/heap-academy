@@ -1,0 +1,32 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Leave a comment",
+  "slug": "write-comments",
+  "xp": 10,
+  "instructions_md": "## Notes for people\n\nA line that starts with `#` is a **comment**. Python skips it. People use comments to explain code.\n\n```python\n# Greet the reader.\nprint(\"Welcome!\")\n# print(\"This line does not run.\")\n```\n\n```text\nWelcome!\n```\n\nTo stop a line of code from running, put `#` in front of it.\n\n## Your task\n\nThe program prints three lines. Change it so that it prints only `Open the book.` and `Close the book.`. Do not delete the middle line. Turn it into a comment.\n",
+  "hints": [
+    "Find the line that must not run.",
+    "A comment starts with one special character.",
+    "Put `#` at the start of the second `print()` line."
+  ],
+  "starter_code": "print(\"Open the book.\")\nprint(\"Draw on the page.\")\nprint(\"Close the book.\")\n",
+  "solution_code": "print(\"Open the book.\")\n# print(\"Draw on the page.\")\nprint(\"Close the book.\")\n",
+  "wrong_answers": [
+    {
+      "label": "comments out the wrong line",
+      "code": "# print(\"Open the book.\")\nprint(\"Draw on the page.\")\nprint(\"Close the book.\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "two-lines",
+      "name": "Prints only the opening and closing lines",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "Open the book.\nClose the book.",
+      "match": "normalized",
+      "hint": "Only the middle line should be a comment."
+    }
+  ]
+}

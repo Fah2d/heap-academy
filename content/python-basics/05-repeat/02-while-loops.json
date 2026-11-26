@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Repeat with while",
+  "slug": "while-loops",
+  "xp": 15,
+  "instructions_md": "## While something is true\n\nA `while` loop repeats as long as its condition is `True`. Change something inside the loop, or it never ends.\n\n```python\nwater = 3\nwhile water > 0:\n    print(f\"Cups left: {water}\")\n    water = water - 1\nprint(\"Empty\")\n```\n\n```text\nCups left: 3\nCups left: 2\nCups left: 1\nEmpty\n```\n\n## Your task\n\nAsk `Start: `. Count down from that number to 1, one number on each line. Then print `Lift off!`.\n",
+  "hints": [
+    "Keep a number that gets smaller each time.",
+    "Loop while the number is greater than 0, and subtract 1 inside the loop.",
+    "Read the start with `int()`, loop and print, then print the last line after the loop."
+  ],
+  "starter_code": "# Ask for the start number, then count down.\n",
+  "solution_code": "number = int(input(\"Start: \"))\nwhile number > 0:\n    print(number)\n    number = number - 1\nprint(\"Lift off!\")\n",
+  "wrong_answers": [
+    {
+      "label": "counts down to zero",
+      "code": "number = int(input(\"Start: \"))\nwhile number >= 0:\n    print(number)\n    number = number - 1\nprint(\"Lift off!\")\n"
+    },
+    {
+      "label": "prints a fixed countdown",
+      "code": "input(\"Start: \")\nprint(3)\nprint(2)\nprint(1)\nprint(\"Lift off!\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "from-three",
+      "name": "Counts down from 3",
+      "stdin": "3\n",
+      "afterCode": "",
+      "expected": "Start: 3\n2\n1\nLift off!",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "from-five",
+      "name": "Counts down from 5",
+      "stdin": "5\n",
+      "afterCode": "",
+      "expected": "Start: 5\n4\n3\n2\n1\nLift off!",
+      "match": "normalized",
+      "hint": "The last number before `Lift off!` is 1."
+    }
+  ]
+}

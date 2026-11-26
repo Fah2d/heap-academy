@@ -40,10 +40,13 @@ The owner named Codedex as the reference for how a course platform works. It was
 | `/profile` | Progress and account | No |
 | `/privacy`, `/terms` | Legal | Yes |
 | `/admin` | Dashboard: courses | No |
+| `/admin/courses/new` | New course | No |
 | `/admin/courses/[id]` | Course editor | No |
 | `/admin/lessons/[id]` | Lesson editor | No |
 | `/admin/lessons/[id]/preview` | A draft in the real workspace | No |
 | `/admin/setup`, `/admin/verify` | Second sign-in step | No |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-5.1):** `/admin/courses/new` is an admin page and is not indexed.
 
 Navigation shows only destinations that exist: Courses, and either Sign in or the learner's menu (Profile, Sign out). Nothing in the learner interface links to `/admin`; the owner opens it by address.
 
@@ -158,6 +161,8 @@ One component renders every learner error with the same shape: a heading in plai
 | `stopped` | You stopped the program | |
 | `crashed` | Python stopped unexpectedly | Restarting. Includes a reference once `/api/client-error` exists (WP-7.3). |
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-5.2, decision 6):** the `syntax` body shows the message and the line, with no caret under the column, because protocol version 1 (`02-architecture.md` section 5.2) carries a line and no column. A caret needs a protocol change, which is a later spec change.
+
 ### 6.6 Completion moment
 
 When every test case passes: the tests list shows each one passed, one line states "Lesson complete" and the XP earned, and the primary action becomes "Next" with the next lesson's title. The acknowledgement is the 160 ms state change defined in `DESIGN.md` section 7, with no animation beyond it. No modal, no confetti, no sound.
@@ -255,6 +260,8 @@ Every data-bearing view implements all applicable states.
 | Dashboard: courses | Server-rendered | No course yet | Could not load | |
 | Dashboard: lesson editor | Python loading | No test case yet | Save failed; newer version exists; validation failed | Unsaved changes; saving; validating |
 | Dashboard: second step | Verifying | | Wrong code; too many attempts | |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-5.1):** on the home page, the course list and the course page, "Could not load" is the shared error page "This page could not open" with Try again and the reference, answered with status 500, so a crawler that visits during an outage does not drop the pages. It is drawn in the browser from Next.js's error document, so without JavaScript the 500 page is blank.
 
 > **Approved by the owner on 2026-11-24 (proposed in WP-2.2):** a wrong code and an expired code on the sign-in screen are one state, "code not accepted", with one message. The auth service reports both as `otp_expired`, so the screen cannot tell them apart.
 

@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { secondStep, dashboard } from "../src/messages/admin";
 import { account } from "../src/messages/sign-in";
@@ -6,6 +5,7 @@ import { notFound } from "../src/messages/system";
 import { accessToken, nextStep, PUBLISHABLE_KEY, sql, SUPABASE, totp } from "./admin-helpers";
 import { saveScreen } from "./screens";
 import { signInWithCode } from "./sign-in-helpers";
+import { noAxeViolations } from "./journeys";
 
 // J-12 against the local stack (WP-2.3; FR-ADM-01, FR-ADM-02, NFR-SEC-06,
 // T-19, T-20). A learner gets the not-found page at every /admin address and
@@ -17,7 +17,14 @@ import { signInWithCode } from "./sign-in-helpers";
 
 test.describe.configure({ mode: "serial" });
 
-const ADMIN_ADDRESSES = ["/admin", "/admin/setup", "/admin/verify", "/admin/courses/anything"];
+const ADMIN_ADDRESSES = [
+  "/admin",
+  "/admin/setup",
+  "/admin/verify",
+  "/admin/courses/anything",
+  "/admin/lessons/00000000-0000-4000-8000-000000000000",
+  "/admin/lessons/00000000-0000-4000-8000-000000000000/preview",
+];
 
 /** A direct write through the database interface with this page's session. */
 async function directWrites(page: Page) {
@@ -76,9 +83,9 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   await signInWithCode(page, request, address);
   sql(`insert into public.admins (user_id) select id from auth.users where email = '${address}'`);
 
-  // On the list, with no app: every admin address leads to setup,
-  // the course editor's too, before it reads its address.
-  for (const start of ["/admin/courses/anything", "/admin", "/admin/verify"]) {
+  // On the list, with no app: every admin address leads to setup, the
+  // course editor's too, before it reads its address.
+  for (const start of ["/admin", "/admin/verify", "/admin/courses/anything"]) {
     await page.goto(start);
     await expect(page).toHaveURL(/\/admin\/setup$/);
   }
@@ -89,7 +96,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   expect(setupResponse?.headers()["cache-control"]).toContain("no-store");
   await page.getByRole("button", { name: secondStep.start }).click();
   await expect(page.getByRole("img", { name: secondStep.qrAlt })).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-setup", 1280, { workPackage: "WP-2.3" });
 
   // At aal1 the database refuses every write.
@@ -101,7 +108,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   await field.fill(wrong);
   await page.getByRole("button", { name: secondStep.confirm }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(secondStep.codeRejected);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-setup-code-rejected", 1280, { workPackage: "WP-2.3" });
 
   await field.fill(totp(secret));
@@ -109,7 +116,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(dashboard.title);
   await expect(page.getByRole("rowheader", { name: "Sample course" })).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-dashboard", 1280, { workPackage: "WP-2.3" });
 
   // At aal2, setup and verify lead back to the dashboard.
@@ -125,7 +132,7 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/verify$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(secondStep.verifyTitle);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-verify", 1280, { workPackage: "WP-2.3" });
   await expectRefused(page);
 

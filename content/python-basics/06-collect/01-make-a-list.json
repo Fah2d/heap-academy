@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Make a list",
+  "slug": "make-a-list",
+  "xp": 15,
+  "instructions_md": "## Many values, one name\n\nA **list** holds values in order. Write them inside `[]` with commas. Each place has a number called an **index**. The first index is `0`.\n\n```python\ncolors = [\"red\", \"green\", \"blue\"]\nprint(colors[0])\nprint(colors[2])\n```\n\n```text\nred\nblue\n```\n\n## Your task\n\nMake a list called `fruits` with `apple`, `banana` and `date`, in that order. Print the first fruit, then the last fruit.\n",
+  "hints": [
+    "Store all three strings in one list.",
+    "Indexes start at 0, not 1.",
+    "Print `fruits` at index 0 and then at index 2."
+  ],
+  "starter_code": "# Make the list, then print two of its fruits.\n",
+  "solution_code": "fruits = [\"apple\", \"banana\", \"date\"]\nprint(fruits[0])\nprint(fruits[2])\n",
+  "wrong_answers": [
+    {
+      "label": "counts from one",
+      "code": "fruits = [\"apple\", \"banana\", \"date\"]\nprint(fruits[1])\nprint(fruits[2])\n"
+    },
+    {
+      "label": "prints the words without a list",
+      "code": "print(\"apple\")\nprint(\"date\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "first-and-last",
+      "name": "Prints the first and last fruit",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "apple\ndate",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "list-contents",
+      "name": "`fruits` holds the three fruits in order",
+      "stdin": "",
+      "afterCode": "print(fruits)",
+      "expected": "apple\ndate\n['apple', 'banana', 'date']",
+      "match": "normalized",
+      "hint": "Check the order and the spelling."
+    }
+  ]
+}

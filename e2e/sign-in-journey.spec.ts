@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { account, signIn } from "../src/messages/sign-in";
+import { noAxeViolations } from "./journeys";
 import { saveScreen } from "./screens";
 import { latestCode, requestCode } from "./sign-in-helpers";
 
@@ -47,7 +47,7 @@ test("[FR-AUTH-02] a wrong code is refused and the learner stays on the code ste
   await requestCode(page, address);
   const code = await latestCode(request, address);
   const wrong = code === "000000" ? "111111" : "000000";
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "sign-in-code", 1280, { workPackage: "WP-2.2" });
   await page.getByRole("textbox", { name: signIn.codeLabel }).fill(wrong);
   await page.getByRole("button", { name: signIn.verify, exact: true }).click();
@@ -55,7 +55,7 @@ test("[FR-AUTH-02] a wrong code is refused and the learner stays on the code ste
   const step = page.getByRole("region", { name: signIn.codeHeading });
   await expect(step.getByRole("alert")).toContainText(signIn.codeRejected);
   await expect(page.getByRole("textbox", { name: signIn.codeLabel })).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "sign-in-code-rejected", 1280, { workPackage: "WP-2.2" });
 });
 

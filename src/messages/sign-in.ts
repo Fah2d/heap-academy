@@ -50,4 +50,16 @@ export const account = {
   signIn: "Sign in",
   signOut: "Sign out",
   signingOut: "Signing out",
+  profile: "Profile",
+} as const;
+
+/**
+ * The invitation to save progress, shown to a guest below a new completion
+ * (FR-AUTH-07, FR-PRG-01; docs/spec/03-experience.md section 6.6).
+ */
+export const invitation = {
+  label: "Save your progress",
+  body: "Your progress is saved on this device only. Sign in to keep it on every device.",
+  signIn: "Sign in to save your progress",
+  dismiss: "Hide",
 } as const;

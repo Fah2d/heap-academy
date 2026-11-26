@@ -159,6 +159,11 @@ export function editorAttributes({
   invalid = false,
 }: Pick<EditorOptions, "labelledBy" | "describedBy" | "invalid">): Extension {
   return EditorView.contentAttributes.of({
+    // The text area is in the tab order already, as an editable element. Said
+    // outright, so a checker that does not count editable elements sees that
+    // the scrolling box around a long program can be reached by keyboard
+    // (axe `scrollable-region-focusable`, WP-5.2).
+    tabindex: "0",
     "aria-labelledby": labelledBy,
     "aria-describedby": describedBy,
     "aria-multiline": "true",
@@ -187,6 +192,13 @@ export function editorExtensions(
     // Tab indents. Escape, then Tab, leaves the editor: CodeMirror turns on
     // its tab focus mode after Escape (03-experience.md section 6.2, "Esc then Tab").
     keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+    // Below 768 px the workspace's action bar is fixed over the end of the
+    // screen (--action-bar-size, 0 elsewhere), so the cursor is scrolled to
+    // stay above it while typing.
+    EditorView.scrollMargins.of((view) => ({
+      bottom:
+        Number.parseFloat(getComputedStyle(view.dom).getPropertyValue("--action-bar-size")) || 0,
+    })),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) onChange(update.state.doc.toString());
     }),

@@ -240,6 +240,11 @@ export const lessonEditor = {
   instructionsHint:
     "Headings of level two and three, emphasis, code, fenced code blocks, lists, tables, quotes and https links. Anything else is dropped. Needed before publishing.",
   previewHeading: "Preview",
+  /** The top bar's link to the draft in the real workspace (section 7.7). */
+  previewLesson: "Preview the lesson",
+  previewMetaTitle: "Lesson preview",
+  backToEditor: "Back to the lesson editor",
+  previewLoadFailed: "The preview could not be loaded. Reload the page to try again.",
   previewDescription: "Exactly as learners will see it.",
   previewEmpty: "Nothing to preview yet. Write the instructions in the Markdown field.",
   previewUpdating: "Updating the preview",

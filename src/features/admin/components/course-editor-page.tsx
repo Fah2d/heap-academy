@@ -29,6 +29,7 @@ export async function CourseEditorPage({ params }: { params: Promise<{ id: strin
   if (!id.success) notFound();
   const result = await courseForEditor(await createSessionClient("read-only"), id.data);
   if (result.ok && result.course === null) notFound();
+  const course = result.ok ? result.course : null;
   return (
     <section aria-labelledby="admin-course" className="flex flex-col gap-5">
       <div>
@@ -36,25 +37,23 @@ export async function CourseEditorPage({ params }: { params: Promise<{ id: strin
           {words.backToCourses}
         </Link>
       </div>
-      {result.ok && result.course !== null ? (
-        <>
-          <h1 id="admin-course" className="text-xl font-semibold text-text">
-            {words.editTitle(result.course.title)}
-          </h1>
-          <CourseEditor
-            course={result.course}
-            saveCourse={saveCourse}
-            setStatus={setCourseStatus}
-            saveChapter={saveChapter}
-            deleteChapter={deleteChapter}
-            reorder={reorder}
-            createLesson={createLesson}
-            exportCourse={exportCourse}
-            importLesson={importLesson}
-          />
-        </>
+      <h1 id="admin-course" className="text-xl font-semibold text-text">
+        {course === null ? words.metaTitle : words.editTitle(course.title)}
+      </h1>
+      {course === null ? (
+        <CourseEditorFailed />
       ) : (
-        <CourseEditorFailed headingId="admin-course" />
+        <CourseEditor
+          course={course}
+          saveCourse={saveCourse}
+          setStatus={setCourseStatus}
+          saveChapter={saveChapter}
+          deleteChapter={deleteChapter}
+          reorder={reorder}
+          createLesson={createLesson}
+          exportCourse={exportCourse}
+          importLesson={importLesson}
+        />
       )}
     </section>
   );

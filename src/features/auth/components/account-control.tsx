@@ -1,19 +1,24 @@
-import { pageIdentity } from "@/infrastructure/auth/page-identity";
+import { SignedInProgressSync } from "@/features/progress";
 import { account } from "@/messages/sign-in";
-import { signOut } from "../server/actions";
-import { SignInLink, SignOutButton } from "./account-buttons";
+import { viewer } from "../server/viewer";
+import { SignInLink } from "./account-buttons";
+import { ProfileNavLink } from "./profile-nav-link";
+import { SignOutForm } from "./sign-out-form";
 
 /**
  * The account control at the end of the header (docs/spec/03-experience.md
  * section 4): "Sign in" for a visitor, "Sign out" for a signed-in learner.
- * The profile page joins it in WP-6.3.
+ * A signed-in learner also gets "Profile". Being on every page, it also starts
+ * the progress sync for a signed-in learner (FR-PRG-02).
  */
 export async function AccountControl() {
-  const identity = await pageIdentity();
+  const identity = await viewer();
   if (identity === null) return <SignInLink label={account.signIn} />;
   return (
-    <form action={signOut}>
-      <SignOutButton label={account.signOut} pendingLabel={account.signingOut} />
-    </form>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <SignedInProgressSync />
+      <ProfileNavLink />
+      <SignOutForm />
+    </div>
   );
 }

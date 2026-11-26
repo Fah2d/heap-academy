@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
 import type { LessonDocument } from "@/content/markdown";
@@ -23,7 +23,12 @@ import { SetupFlow } from "./setup-flow";
 // views that the J-12 journey cannot reach, with fake actions, so the e2e
 // gallery spec can check and photograph them (WP-2.3 design review 1).
 
+/** The one example a page shows when its address names it (`?example=<id>`). */
+const ShownExample = createContext<string | undefined>(undefined);
+
 function Example({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const shown = useContext(ShownExample);
+  if (shown !== undefined && shown !== id) return null;
   // As wide as the real pages, so a screenshot shows the layout they have.
   return (
     <section aria-labelledby={id} className="flex max-w-page flex-col gap-4">
@@ -330,13 +335,54 @@ const oddRuntime = fixedResultsRuntime((source, tests) => {
   });
 });
 
-export function AdminStateGallery({ nonce }: { nonce: string }) {
+export type AdminGalleryPart = "course" | "lesson" | "validation";
+
+/**
+ * One page per part, so that no page holds every editor at once. A page can
+ * also show one example by itself, so that an axe run or a screenshot of it
+ * costs the same however many examples the part has.
+ */
+export function AdminStateGallery({
+  nonce,
+  part,
+  example,
+}: {
+  nonce: string;
+  part: AdminGalleryPart;
+  example?: string | undefined;
+}) {
+  const heading = m.pages[part];
   return (
     <div className="flex flex-col gap-7">
       <div className="flex flex-col gap-3">
-        <h1 className="text-xl font-semibold text-text">{m.title}</h1>
-        <p className="max-w-prose text-base text-text-muted">{m.intro}</p>
+        <h1 className="text-xl font-semibold text-text">{heading.title}</h1>
+        <p className="max-w-prose text-base text-text-muted">{heading.intro}</p>
       </div>
+      <ShownExample value={example}>
+        <GalleryPart nonce={nonce} part={part} />
+      </ShownExample>
+    </div>
+  );
+}
+
+function GalleryPart({ nonce, part }: { nonce: string; part: AdminGalleryPart }) {
+  switch (part) {
+    case "course":
+      return <CourseStates />;
+    case "lesson":
+      return <LessonStates nonce={nonce} />;
+    case "validation":
+      return <ValidationStates nonce={nonce} />;
+    default: {
+      const unreachable: never = part;
+      return unreachable;
+    }
+  }
+}
+
+function CourseStates() {
+  return (
+    <>
       <Example id="gallery-empty" title={m.courseListEmpty}>
         <CourseList result={{ ok: true, courses: [] }} reorder={never} refresh={stay} />
       </Example>
@@ -457,7 +503,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
         />
       </Example>
       <Example id="gallery-editor-failed" title={m.editorFailed}>
-        <CourseEditorFailed headingId="gallery-editor-failed-heading" />
+        <CourseEditorFailed />
       </Example>
       <Example id="gallery-new-course" title={m.newCourse}>
         <NewCourseForm saveCourse={never} navigate={stay} />
@@ -482,6 +528,30 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
       <Example id="gallery-checking" title={m.codeChecking}>
         <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
       </Example>
+    </>
+  );
+}
+
+/** The empty lesson, which both the lesson part and the validation part show. */
+function EmptyLessonExample({ nonce }: { nonce: string }) {
+  return (
+    <Example id="gallery-lesson-empty" title={m.lessonEmpty}>
+      <LessonEditor
+        lesson={emptyLesson}
+        initialPreview={{ blocks: [] }}
+        nonce={nonce}
+        save={succeed({ updatedAt: SAVED_AT })}
+        setStatus={succeed({ updatedAt: SAVED_AT })}
+        renderPreview={succeed({ blocks: [] })}
+        openRuntime={sampleRuntime}
+      />
+    </Example>
+  );
+}
+
+function LessonStates({ nonce }: { nonce: string }) {
+  return (
+    <>
       <Example id="gallery-lesson-editor" title={m.lessonEditor}>
         <LessonEditor
           lesson={sampleLesson}
@@ -586,17 +656,14 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           <LessonContent document={learnerContent} topHeadingLevel={3} />
         </div>
       </Example>
-      <Example id="gallery-lesson-empty" title={m.lessonEmpty}>
-        <LessonEditor
-          lesson={emptyLesson}
-          initialPreview={{ blocks: [] }}
-          nonce={nonce}
-          save={succeed({ updatedAt: SAVED_AT })}
-          setStatus={succeed({ updatedAt: SAVED_AT })}
-          renderPreview={succeed({ blocks: [] })}
-          openRuntime={sampleRuntime}
-        />
-      </Example>
+      <EmptyLessonExample nonce={nonce} />
+    </>
+  );
+}
+
+function ValidationStates({ nonce }: { nonce: string }) {
+  return (
+    <>
       <Example id="gallery-lesson-python-loading" title={m.lessonPythonLoading}>
         <LessonEditor
           lesson={sampleLesson}
@@ -707,6 +774,7 @@ export function AdminStateGallery({ nonce }: { nonce: string }) {
           openRuntime={sampleRuntime}
         />
       </Example>
-    </div>
+      <EmptyLessonExample nonce={nonce} />
+    </>
   );
 }
