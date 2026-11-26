@@ -586,6 +586,10 @@ const GOOD_AUTH = {
   mailer_otp_exp: 600,
   mailer_otp_length: 6,
   rate_limit_email_sent: 20,
+  rate_limit_verify: 30,
+  rate_limit_otp: 30,
+  rate_limit_token_refresh: 150,
+  external_anonymous_users_enabled: false,
   security_captcha_enabled: true,
   security_captcha_provider: "turnstile",
   security_captcha_secret: "captcha-secret-value",
@@ -637,6 +641,30 @@ describe("verifyAuth", () => {
     expect(authFailures({ mailer_otp_length: 8 })).toEqual(["email code length 6"]);
     expect(authFailures({ rate_limit_email_sent: 30 })).toEqual([
       "email sends per hour 20 (ADR-0029)",
+    ]);
+  });
+
+  it("[T-11] [FR-AUTH-06] fails code-check, sign-in and token limits above the provider's defaults, and accepts lower ones", () => {
+    expect(authFailures({ rate_limit_verify: 31 })).toEqual([
+      "code checks at most 30 per 5 minutes",
+    ]);
+    expect(authFailures({ rate_limit_otp: 1000 })).toEqual([
+      "code and sign-in requests at most 30 per 5 minutes",
+    ]);
+    expect(authFailures({ rate_limit_token_refresh: 151 })).toEqual([
+      "token requests at most 150 per 5 minutes",
+    ]);
+    expect(authFailures({ rate_limit_verify: undefined })).toEqual([
+      "code checks at most 30 per 5 minutes",
+    ]);
+    expect(
+      authFailures({ rate_limit_verify: 10, rate_limit_otp: 10, rate_limit_token_refresh: 60 }),
+    ).toEqual([]);
+  });
+
+  it("[T-11] [T-08] fails anonymous sign-ins turned on", () => {
+    expect(authFailures({ external_anonymous_users_enabled: true })).toEqual([
+      "anonymous sign-ins off",
     ]);
   });
 

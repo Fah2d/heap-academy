@@ -658,6 +658,12 @@ export const AUTH_SETTINGS = {
   otpSeconds: 600,
   otpLength: 6,
   emailsPerHour: 20,
+  // The provider's defaults, which the runbook keeps (Supabase "Rate limits",
+  // read 2026-11-26): per address and 5 minutes, code checks 30, code and
+  // sign-in requests 30, token requests 150. Lower is stricter, so it passes.
+  verifiesPerWindow: 30,
+  signInsPerWindow: 30,
+  tokensPerWindow: 150,
   smtpHost: "smtp.resend.com",
   smtpPort: "465",
   sender: "signin@heapacademy.dev",
@@ -734,6 +740,14 @@ export function verifyAuth(config, origin) {
     /** @type {unknown} */ expected,
     /** @type {string} */ name,
   ) => check(name, value[key] === expected, shown(key));
+  const atMost = (
+    /** @type {string} */ key,
+    /** @type {number} */ limit,
+    /** @type {string} */ name,
+  ) => {
+    const item = value[key];
+    return check(name, typeof item === "number" && item >= 1 && item <= limit, shown(key));
+  };
   const list = typeof value["uri_allow_list"] === "string" ? value["uri_allow_list"] : "";
   const entries = list
     .split(",")
@@ -755,6 +769,22 @@ export function verifyAuth(config, origin) {
     is("mailer_otp_exp", AUTH_SETTINGS.otpSeconds, "email code lifetime 600 s"),
     is("mailer_otp_length", AUTH_SETTINGS.otpLength, "email code length 6"),
     is("rate_limit_email_sent", AUTH_SETTINGS.emailsPerHour, "email sends per hour 20 (ADR-0029)"),
+    atMost(
+      "rate_limit_verify",
+      AUTH_SETTINGS.verifiesPerWindow,
+      "code checks at most 30 per 5 minutes",
+    ),
+    atMost(
+      "rate_limit_otp",
+      AUTH_SETTINGS.signInsPerWindow,
+      "code and sign-in requests at most 30 per 5 minutes",
+    ),
+    atMost(
+      "rate_limit_token_refresh",
+      AUTH_SETTINGS.tokensPerWindow,
+      "token requests at most 150 per 5 minutes",
+    ),
+    is("external_anonymous_users_enabled", false, "anonymous sign-ins off"),
     is("security_captcha_enabled", true, "bot challenge on"),
     is("security_captcha_provider", "turnstile", "bot challenge is Turnstile"),
     is("external_email_enabled", true, "email sign-in on"),
