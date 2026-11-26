@@ -114,12 +114,17 @@ delete from public.chapters where course_id in ${ids};
 delete from public.courses where slug in ${slugs};`);
 }
 
-/** The published courses with their published lesson counts, as the database holds them. */
+// The seed's course and this spec's own. Other stack journeys write and
+// delete published courses while this one runs, and the course list is cached
+// for up to a minute, so the whole list matches the database only by chance.
+const KNOWN_SLUGS = `('sample-course', '${SLUG}', '${DRAFT_SLUG}')`;
+
+/** The known published courses with their published lesson counts, as the database holds them. */
 function publishedCounts(): Map<string, number> {
   const rows = sqlRows(`select c.title, count(l.id)
 from public.courses c
 join public.lessons l on l.course_id = c.id and l.status = 'published'
-where c.status = 'published'
+where c.status = 'published' and c.slug in ${KNOWN_SLUGS}
 group by c.id, c.title`);
   return new Map(rows.map(([title, count]) => [title ?? "", Number(count)]));
 }
@@ -139,17 +144,22 @@ async function indexableAt(page: Page, path: string) {
   await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 }
 
-/** Every row of the course list under `heading` shows the database's count, and only those rows. */
+/**
+ * Each known published course has one row under `heading` with the
+ * database's count, and the known draft course has none.
+ */
 async function expectRowsMatchDatabase(page: Page, heading: string) {
   const counts = publishedCounts();
   expect(counts.get(COURSE.title)).toBe(COURSE.lessons.length);
   expect(counts.has(COURSE.draftCourse)).toBe(false);
+  expect(counts.size, "the seed's course and this spec's").toBe(2);
   const list = page.getByRole("list", { name: heading });
-  await expect(list.getByRole("listitem")).toHaveCount(counts.size);
+  await expect(list.getByRole("listitem").filter({ hasText: COURSE.draftCourse })).toHaveCount(0);
   for (const [title, count] of counts) {
     const row = list
       .getByRole("listitem")
       .filter({ has: page.getByRole("link", { name: title, exact: true }) });
+    await expect(row).toHaveCount(1);
     // A new browser has completed nothing on this device (WP-5.4, FR-CAT-02).
     await expect(row.getByText(catalogCommon.progress(0, count), { exact: true })).toBeVisible();
   }

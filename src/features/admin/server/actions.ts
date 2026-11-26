@@ -1,6 +1,7 @@
 "use server";
 
 import "server-only";
+import { SIGN_IN_PER_MINUTE } from "@/infrastructure/actions/action-counter";
 import { defineAction } from "@/infrastructure/actions/server-action";
 import { secondStep as words } from "@/messages/admin";
 import { forListedAdmin } from "./admin-list";
@@ -26,6 +27,7 @@ export const startSetup = defineAction({
   access: "signed-in",
   input: startSetupInput,
   maxBytes: MAX_START_SETUP_BYTES,
+  perMinute: SIGN_IN_PER_MINUTE,
   run: (_input, { services }) =>
     forListedAdmin(services.db, () => startSetupUseCase(words.issuer, services.secondStep)),
 });
@@ -35,6 +37,7 @@ export const confirmSetup = defineAction({
   access: "signed-in",
   input: secondStepInput,
   maxBytes: MAX_SECOND_STEP_BYTES,
+  perMinute: SIGN_IN_PER_MINUTE,
   run: (input, { services }) =>
     forListedAdmin(services.db, () => confirmSetupUseCase(input, services.secondStep)),
 });
@@ -44,6 +47,7 @@ export const verifySecondStep = defineAction({
   access: "signed-in",
   input: secondStepInput,
   maxBytes: MAX_SECOND_STEP_BYTES,
+  perMinute: SIGN_IN_PER_MINUTE,
   run: (input, { services }) =>
     forListedAdmin(services.db, () => verifySecondStepUseCase(input, services.secondStep)),
 });

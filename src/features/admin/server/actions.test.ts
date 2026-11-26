@@ -31,6 +31,7 @@ vi.mock("@/infrastructure/actions/server-action", async () => {
           requestId: "00000000-0000-4000-8000-0000000000aa" as RequestId,
           identify: () => Promise.resolve(state.caller),
           isAdmin: () => Promise.resolve(false),
+          count: () => Promise.resolve("allowed" as const),
           services: {
             db: {
               rpc: (name: string) => {

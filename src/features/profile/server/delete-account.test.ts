@@ -117,6 +117,7 @@ describe("[FR-PRF-03] the real ports and the privileged client", () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_example");
     vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "1x00000000000000000000AA");
     vi.stubEnv("RESEND_API_KEY", "re_example");
+    vi.stubEnv("ACTION_COUNTER_KEY", "local-only-action-counter-key-not-a-secret");
     vi.stubEnv("SUPABASE_SECRET_KEY", secretKey);
     vi.stubEnv("DELETION_NOTICE_FROM", secretKey && "notices@example.com");
     vi.stubEnv("DELETION_NOTICE_TO", secretKey && "owner@example.com");

@@ -3,6 +3,7 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { SIGN_IN_PER_MINUTE } from "@/infrastructure/actions/action-counter";
 import { defineAction } from "@/infrastructure/actions/server-action";
 import {
   MAX_REQUEST_BYTES,
@@ -34,6 +35,7 @@ export const requestEmailCode = defineAction({
   access: "anyone",
   input: requestEmailCodeInput,
   maxBytes: MAX_REQUEST_BYTES,
+  perMinute: SIGN_IN_PER_MINUTE,
   run: (input, { services }) => requestEmailCodeUseCase(input, services.signIn),
 });
 
@@ -42,6 +44,7 @@ export const verifyEmailCode = defineAction({
   access: "anyone",
   input: verifyEmailCodeInput,
   maxBytes: MAX_VERIFY_BYTES,
+  perMinute: SIGN_IN_PER_MINUTE,
   run: (input, { services }) => verifyEmailCodeUseCase(input, services.signIn),
 });
 
@@ -50,6 +53,7 @@ const signOutAction = defineAction({
   access: "anyone",
   input: signOutInput,
   maxBytes: MAX_SIGN_OUT_BYTES,
+  perMinute: "uncounted",
   run: (_input, { services }) => signOutUseCase(services.signIn),
 });
 
@@ -68,6 +72,7 @@ const startGoogleAction = defineAction({
   access: "anyone",
   input: startGoogleSignInInput,
   maxBytes: MAX_START_GOOGLE_BYTES,
+  perMinute: SIGN_IN_PER_MINUTE,
   run: async (input, { services }) => {
     const origin = await requestOrigin();
     return startGoogleSignInUseCase(input, origin, services.signIn);
