@@ -1,9 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { MALICIOUS } from "../src/content/markdown/malicious-fixtures";
 import { courseEditor, dashboard, lessonEditor, lessonRows } from "../src/messages/admin";
 import { removeAdmin, signInAsAdmin } from "./admin-helpers";
 import { saveScreen } from "./screens";
+import { noAxeViolations } from "./journeys";
 
 // WP-4.2 against the local stack (FR-ADM-04, FR-ADM-10, NFR-SEC-07, T-06): an
 // admin at aal2 adds a lesson to a new chapter, writes its instructions while
@@ -96,7 +96,7 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await page.getByRole("button", { name: lessonEditor.save }).click();
   await expect(page.getByRole("status").filter({ hasText: lessonEditor.saved })).toBeVisible();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-lesson-editor", 1280, { workPackage: "WP-4.2" });
 
   // A second tab saves first; this tab's save is refused with a prompt.

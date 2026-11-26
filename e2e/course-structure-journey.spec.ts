@@ -1,8 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { courseEditor, dashboard, structure } from "../src/messages/admin";
 import { removeAdmin, signInAsAdmin } from "./admin-helpers";
 import { saveScreen } from "./screens";
+import { noAxeViolations } from "./journeys";
 
 // WP-4.1 against the local stack (FR-ADM-03, FR-ADM-09, FR-ADM-10,
 // FR-ADM-11): an admin at aal2 creates a course, adds and reorders chapters,
@@ -26,7 +26,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(courseEditor.newTitle);
   await page.getByRole("button", { name: courseEditor.create }).click();
   await expect(page.getByText(courseEditor.fieldInvalid.title)).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-new-course-invalid", 1280, { workPackage: "WP-4.1" });
 
   await page.getByLabel(courseEditor.titleLabel, { exact: true }).fill("Structure check");
@@ -57,7 +57,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
   await page.getByRole("button", { name: courseEditor.statusAction.published }).click();
   const statusGroup = page.getByRole("group", { name: courseEditor.statusHeading, exact: true });
   await expect(statusGroup.getByRole("alert")).toContainText(structure.failure.no_published_lesson);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-course-editor-publish-refused", 1280, { workPackage: "WP-4.1" });
 
   // A second tab saves first; this tab's save is refused with a prompt.
@@ -106,7 +106,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] create, edit, reorder, and archive a c
   await page.getByRole("link", { name: courseEditor.backToCourses }).click();
   const row = page.getByRole("row", { name: /Structure check/ });
   await expect(row).toContainText(dashboard.status.archived);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-courses", 1280, { workPackage: "WP-4.1" });
 
   removeAdmin(address);
