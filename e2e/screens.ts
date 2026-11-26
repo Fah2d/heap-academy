@@ -19,6 +19,11 @@ const SCREENSHOT_PROJECTS = new Set([
 
 // A state with a fixed overlay, such as an open dialog, is saved at the size
 // of the viewport: a full-page capture paints the overlay as a band across it.
+/** Whether a project saves the review screens; the others leave them as committed. */
+export function savesScreens(project: string): boolean {
+  return SCREENSHOT_PROJECTS.has(project);
+}
+
 export async function saveScreen(
   page: Page,
   name: string,
@@ -28,7 +33,7 @@ export async function saveScreen(
     workPackage = DEFAULT_PACKAGE,
   }: { fullPage?: boolean; workPackage?: string } = {},
 ): Promise<void> {
-  if (!SCREENSHOT_PROJECTS.has(test.info().project.name)) return;
+  if (!savesScreens(test.info().project.name)) return;
   // The development server's indicator and overlay are not part of the
   // product, and the indicator covers content in the corner it sits in.
   await page.evaluate(() => {

@@ -189,7 +189,7 @@ describe("the Node runner", () => {
   );
 
   it(
-    "[FR-RUN-04] what a timer callback does between test cases is undone and collected before the next one",
+    "[FR-RUN-04] what a JavaScript callback a test case queued does between test cases is undone and collected before the next one",
     async () => {
       // WP-3.3 security review 6, round 2, not checked there: the thread runs
       // one test case per message, so a JavaScript timer the first case set
@@ -198,6 +198,12 @@ describe("the Node runner", () => {
       // the next case's own collection wrote INJECTED into that case's
       // output. json keeps the callback's mark (ADR-0004), which shows that
       // it ran before the second case.
+      //
+      // The callback is queued as a microtask, not with setTimeout(0): the
+      // thread answers each case in one synchronous message handler, so a
+      // microtask runs after the answer and before the next case's message,
+      // every time. A timer of 0 ms raced that message; on loaded CI runners
+      // the second case sometimes came first and saw `False True`.
       const source = [
         "import sys, json, builtins",
         "if input() == 'first':",
@@ -214,7 +220,7 @@ describe("the Node runner", () => {
         "        Link()",
         '        b.print = lambda *a, **k: sys.stdout.write("HIJACK ")',
         "    json.heap_keep = (create_proxy(later), Link)",
-        "    js.setTimeout(json.heap_keep[0], 0)",
+        "    js.queueMicrotask(json.heap_keep[0])",
         "else:",
         "    import gc",
         '    print(getattr(json, "heap_fired", False), gc.isenabled())',

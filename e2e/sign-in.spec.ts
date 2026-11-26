@@ -80,7 +80,9 @@ test.describe("in an in-app browser", () => {
   test("[FR-AUTH-03] leads with the email code, says why, and can show Google", async ({
     page,
   }) => {
-    await page.goto("/sign-in");
+    // The button is in the server's HTML; a click before the page's code runs
+    // does nothing.
+    await openWithStandIn(page, "/sign-in");
     await expect(page.getByText(signIn.inAppBrowser)).toBeVisible();
     await expect(page.getByRole("button", { name: signIn.google })).toHaveCount(0);
     await page.getByRole("button", { name: signIn.showGoogle }).click();

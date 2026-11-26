@@ -5,7 +5,7 @@ import { courseEditor } from "../src/messages/admin";
 import { catalogCommon, courseList, coursePage, home } from "../src/messages/catalog";
 import { shell } from "../src/messages/shell";
 import { removeAdmin, signInAsAdmin, sql, sqlRows } from "./admin-helpers";
-import { saveScreen } from "./screens";
+import { saveScreen, savesScreens } from "./screens";
 import { noAxeViolations } from "./journeys";
 
 // WP-5.1 against the local stack: the home page, the course list and a course
@@ -365,13 +365,15 @@ test("[T-21] no public response carries a draft, a solution or a wrong answer", 
   }
 });
 
-test("the three pages' screens are saved for the design review", () => {
+test("the three pages' screens are saved for the design review, by the screenshot project only", () => {
+  const saves = savesScreens(test.info().project.name);
   for (const name of ["home", "courses", "course"]) {
     for (const width of SHOT_WIDTHS) {
       const file = join("docs", "reports", "screens", "WP-5.1", `${name}-${String(width)}.png`);
       expect(existsSync(file), file).toBe(true);
-      // Saved by this run, not left from an earlier one.
-      expect(statSync(file).mtimeMs, file).toBeGreaterThanOrEqual(stamp);
+      // Saved by this run, not left from an earlier one. Firefox and WebKit
+      // save none (e2e/screens.ts), so there only the committed ones count.
+      if (saves) expect(statSync(file).mtimeMs, file).toBeGreaterThanOrEqual(stamp);
     }
   }
 });

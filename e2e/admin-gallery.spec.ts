@@ -15,7 +15,7 @@ import {
   validation,
 } from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
-import { lessonContent } from "../src/messages/lesson";
+import { codeEditor, lessonContent } from "../src/messages/lesson";
 import { TIME_LIMIT_MS } from "../src/runtime/controller";
 import { fileText, lessonFile } from "../src/features/admin/lesson-file";
 import { saveScreen } from "./screens";
@@ -40,6 +40,13 @@ async function openExample(page: Page, address: string, name: string) {
   await page.goto(address);
   const example = page.getByRole("region", { name });
   await expect(example).toBeVisible();
+  // The example is in the server's HTML before its code runs, and a field
+  // filled then is filled again by the page (the lesson editor's
+  // instructions read "## Changed## Ask, then answer"). Each code editor is
+  // built by an effect, beside its hint, so once every one is built the
+  // page's code has run.
+  const editors = await example.getByText(codeEditor.leaveHint, { exact: true }).count();
+  await expect(example.locator(".cm-editor")).toHaveCount(editors);
   return example;
 }
 

@@ -2,6 +2,18 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (night), on `wp/7.4-journeys`: `main` at 23cfb4b, `wp/7.2-a11y-perf` at 376fba2 and `wp/7.4-journeys-part-2b` merged in
+
+- Fixed the two CI flakes, the admin gallery's fill before hydration and FR-RUN-04's 0 ms timer. Also fixed the page-weight and chapter-list races found on the way. Added `stack-firefox` and `stack-webkit` (`pull-requests/WP-7.4-part-3.md`).
+- `pnpm verify` exit 0, 153 files, 2737 tests. e2e as CI runs it: 232 passed, 1 skipped, exit 0. WebKit stack journeys: all passed. Firefox: 14 failed, `Page crashed`; reported.
+- Push: `wp/7.4-journeys`, once.
+
+## Session of 2026-11-26 (evening), on `wp/7.2-a11y-perf`: `main` at 23cfb4b merged in
+
+- `main` merged in (37d9677). Then: the public pages stop downloading the lesson workspace (6c5c98b, 491b23a), the unsynced completion state is tested with axe (9fb2a21), Lighthouse on a local production build (`day-7-quality.md` section 5), and the fixes of code review 4 (fc02b22, 1086dee, `reviews/WP-7.2/code-review-4.md`).
+- `pnpm verify` exit 0, 153 files, 2737 tests. e2e as CI runs it: 222 passed, 1 skipped, exit 0. Not run: `pnpm test:db`.
+- Push: `wp/7.2-a11y-perf`, once.
+
 ## Session of 2026-11-26 (evening), on `wp/7.1-security-canary`: `main` at 23cfb4b and `wp/7.1-rate-limits` merged in; WP-7.1 part 4
 
 Owner's order for phase 7: 7.1, 7.2, 7.3, 7.4 (with 7.4 part 2b), each with `main` merged first, e2e as CI runs it, `pnpm verify`, one push. Work in worktrees under `.claude/worktrees/` (git rerere on), so the main checkout's unstaged screenshots stayed as they were.

@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/5.4-progress-preview` at a15f858.** That branch holds the 2.2 to 5.4 line and the runtime branches, which WP-7.2 checks. This pull request merges after them; until then review the commits after a15f858. WP-7.2 parts 1 to 3 of the accessibility and performance pass. The numbers are in `docs/reports/day-7-quality.md`.
+**Base: `main` at 23cfb4b, merged in (37d9677).** WP-7.2 parts 1 to 4 of the accessibility and performance pass. The numbers are in `docs/reports/day-7-quality.md`.
 
 ## What
 
@@ -20,7 +20,22 @@ Part 3, the keyboard elsewhere (4aa6d03, 9b49a74):
 - Walked: the catalog states and all 34 admin states (`gallery`), sign-in with its in-app browser state, the not-found page and the shared error page (production build), the admin preview, and the three phone views with the arrow keys between them.
 - **The development server's pages were never hydrated at 127.0.0.1**, which is how every development-server project opens them. `next.config.ts` now sets `allowedDevOrigins: ["127.0.0.1"]`, in development only.
 
+Part 4, after `main` was merged in (37d9677):
+- **Every page downloaded the lesson workspace and CodeMirror** (6c5c98b, 491b23a). The root layout's feature indexes re-export the lesson page, and Next.js takes a layout's client components from its whole import graph. `"sideEffects": ["*.css", "./src/domain/schema.ts"]` in `package.json` lets the bundler drop the unused re-exports; the home page's transfer fell from 474 to 274 KiB. `e2e/page-weight-journey.spec.ts` guards it. The first version listed only the style sheets, which dropped the Zod setting in `schema.ts`; the lesson editor's script policy test caught it, and `scripts/repository.test.ts` now guards the list.
+- The "Unsynced completion" state (FR-PRG-06) gets its test, axe and screenshot (9fb2a21: `e2e/unsynced-journey.spec.ts`, `docs/reports/screens/WP-7.2/workspace-unsynced-1280.png`).
+- Lighthouse 12.8.2, mobile, on a local production build: performance 95, 96, 96 and accessibility 100 on `/`, `/courses` and the course page. LCP 2.8 to 2.9 s misses the 2.5 s target; see the owner list.
+- The keyboard walk now covers every admin example, including the one a shared component renders (fc02b22), and the in-app sign-in test no longer clicks before hydration (1086dee).
+
 ## How it was verified
+
+Part 4, on 740a8f0 plus this description:
+- `pnpm verify`: exit 0, `Test Files  153 passed (153)`, `Tests  2737 passed (2737)`.
+- e2e as CI runs it (`--project=chromium --project=stack --project=gallery`, after `supabase db reset`, `CI=true`): `222 passed`, `1 skipped` (a `test.fixme` from `main`), exit 0. The run before the Zod fix failed `e2e/lesson-editor-journey.spec.ts:128` on `script-src eval`; the run after it failed once on `e2e/sign-in.spec.ts:80`, fixed in 1086dee (then 120 of 120 with `--repeat-each=5`).
+- Mutations: with no `sideEffects`, the three public page-weight tests fail and the lesson-page control passes; with only `*.css`, the new repository test fails.
+- Lighthouse: the figures of `day-7-quality.md` section 5, measured again on the corrected build.
+- Not run: `pnpm test:db` (no database change in part 4), Firefox and WebKit, Lighthouse on the preview.
+
+Parts 1 to 3:
 
 - `pnpm verify` on 9b49a74: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
 - `pnpm build` on 3b6df36 (part 2 changes tests only): exit 0. `check-bundle`: `No server variable (RESEND_API_KEY, HEAP_RELEASE) in 23 files under .next/static.` `check-static`: exit 0.
@@ -30,7 +45,7 @@ Part 3, the keyboard elsewhere (4aa6d03, 9b49a74):
 
 ## Reviews
 
-Code review 1 (part 1): CHANGES REQUIRED, 1 BLOCKER, 6 MINOR; fixed or answered (`docs/reports/reviews/WP-7.2/code-review-1.md`). Code review 2 (part 2): CHANGES REQUIRED, 3 MAJOR, 7 MINOR; all fixed in 30b720b (`code-review-2.md`). Code review 3 (part 3): CHANGES REQUIRED, 2 MAJOR, 6 MINOR; all fixed or answered in 9b49a74 (`code-review-3.md`). No security review: no sign-in, database, runtime or header change; `allowedDevOrigins` affects only the development server and names only the loopback address.
+Code review 1 (part 1): CHANGES REQUIRED, 1 BLOCKER, 6 MINOR; fixed or answered (`docs/reports/reviews/WP-7.2/code-review-1.md`). Code review 2 (part 2): CHANGES REQUIRED, 3 MAJOR, 7 MINOR; all fixed in 30b720b (`code-review-2.md`). Code review 3 (part 3): CHANGES REQUIRED, 2 MAJOR, 6 MINOR; all fixed or answered in 9b49a74 (`code-review-3.md`). Code review 4 (part 4): CHANGES REQUIRED, 1 BLOCKER, 1 MAJOR, 3 MINOR; all fixed (`code-review-4.md`). No security review: no sign-in, database, runtime or header change; `allowedDevOrigins` affects only the development server and names only the loopback address.
 
 ## antislop Delivery Gate report
 
@@ -40,7 +55,8 @@ antislop active: during (session override, CLAUDE.md rule 5). No visible change 
 
 1. **CI does not run the workspace's browser checks.** `.github/workflows/ci.yml` line 226 runs `--project=chromium --project=stack --project=gallery`; `runtime-chromium`, `phone-workspace` and `profile` never run, so NFR-A11Y-02's required check misses the workspace. Recommended: add `--project=runtime-chromium --project=phone-workspace` there. Default: CI is left unchanged; this branch does not edit it.
 2. Lighthouse on the preview for the home, course list and course pages (NFR-PERF-01), or a written waiver.
-3. a28300c fixes WP-4.1's course editor. If WP-4.1 merges first, cherry-pick it there.
+3. **LCP is 2.8 to 2.9 s against 2.5 s** on the local build. Recommended: preload only the 400 font weight, then measure on the preview (it changes how headings first paint, a `DESIGN.md` question). Default: no change; a written waiver if the preview misses too.
+4. **`wp/7.1-security-canary` carries the keyboard walk's gap** that code review 4 found (`gallery-lesson-empty` never walked). Its copy of `e2e/keyboard-gallery.spec.ts` is replaced by this branch's when both merge; merge 7.1 first, then this branch, and take this branch's file in the conflict.
 
 ## Decisions (safe defaults)
 

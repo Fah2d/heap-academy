@@ -176,6 +176,10 @@ describe("ChapterList [FR-ADM-03]", () => {
     await user.click(screen.getByRole("button", { name: words.renameChapter("Loops") }));
     await user.type(screen.getByLabelText(words.renameTitleLabel("Loops")), "!");
     await user.click(screen.getByRole("button", { name: words.addChapter }));
+    // The add answers after the click; once it has, its field is empty.
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLInputElement>(words.newChapterTitleLabel).value).toBe("");
+    });
     // The rename still holds text.
     expect(reported.at(-1)).toBe(true);
     await user.click(screen.getByRole("button", { name: words.cancel }));
