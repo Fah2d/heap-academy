@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Identity, UserId } from "@/domain/auth/identity";
 import type { RequestId } from "@/infrastructure/http/request-id";
 import type { LogEntry } from "@/infrastructure/logging/logger";
+import type { CountResult } from "./action-counter";
 import { createActionFactory, type ActionContext } from "./define-action";
 
 vi.mock("server-only", () => ({}));
@@ -18,18 +19,22 @@ function setup(context: Partial<ActionContext<Services>> = {}) {
   let clock = 1000;
   const isAdmin = vi.fn(async () => false);
   const identify = vi.fn(async (): Promise<Identity | null> => null);
+  const count = vi.fn(
+    async (_action: string, _perMinute: number): Promise<CountResult> => "allowed",
+  );
   const defineAction = createActionFactory<Services>({
     context: async () => ({
       requestId: REQUEST_ID,
       identify,
       isAdmin,
+      count,
       services: SERVICES,
       ...context,
     }),
     log: (entry) => lines.push(entry),
     now: () => (clock += 5),
   });
-  return { defineAction, lines, isAdmin, identify };
+  return { defineAction, lines, isAdmin, identify, count };
 }
 
 const input = z.strictObject({ name: z.string().max(10) });
@@ -345,6 +350,7 @@ describe("defineAction", () => {
         requestId: REQUEST_ID,
         identify: async () => null,
         isAdmin: async () => false,
+        count: async () => "allowed" as const,
         services: SERVICES,
       }),
       log,
@@ -362,5 +368,112 @@ describe("defineAction", () => {
     expect(() =>
       defineAction({ name: "Say Name", access: "anyone", input, maxBytes: 100, run: ok }),
     ).toThrow("lower-case words");
+  });
+
+  it("[T-14] counts every call under the action's name, at 120 a minute unless it sets its own", async () => {
+    const { defineAction, count } = setup();
+    const plain = defineAction({
+      name: "say-name",
+      access: "anyone",
+      input,
+      maxBytes: 100,
+      run: ok,
+    });
+    const signIn = defineAction({
+      name: "request-code",
+      access: "anyone",
+      input,
+      maxBytes: 100,
+      perMinute: 30,
+      run: ok,
+    });
+
+    await plain({ name: "Sara" });
+    await signIn({ name: "Sara" });
+    expect(count.mock.calls).toEqual([
+      ["say-name", 120],
+      ["request-code", 30],
+    ]);
+  });
+
+  it("[T-14] refuses a call over the limit before identity, parsing or the use case, and logs a warning", async () => {
+    const { defineAction, lines, identify } = setup({ count: async () => "refused" });
+    const run = vi.fn(ok);
+    const action = defineAction({
+      name: "say-name",
+      access: "signed-in",
+      input,
+      maxBytes: 100,
+      run,
+    });
+
+    await expect(action({ name: "Sara" })).resolves.toEqual({ ok: false, error: "rate_limited" });
+    expect(identify).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(lines).toEqual([
+      expect.objectContaining({ level: "warn", outcome: "error:rate-limited" }),
+    ]);
+  });
+
+  it("[T-14] counts a call with a bad or large input too", async () => {
+    const { defineAction, count } = setup();
+    const action = defineAction({
+      name: "say-name",
+      access: "anyone",
+      input,
+      maxBytes: 20,
+      run: ok,
+    });
+
+    await action({ name: "x".repeat(50) });
+    await action({ wrong: true });
+    expect(count).toHaveBeenCalledTimes(2);
+  });
+
+  it("[T-14] runs nothing when the counter does not answer, and logs an error", async () => {
+    const { defineAction, lines, identify } = setup({ count: async () => "unavailable" });
+    const run = vi.fn(ok);
+    const action = defineAction({ name: "say-name", access: "anyone", input, maxBytes: 100, run });
+
+    await expect(action({ name: "Sara" })).resolves.toEqual({ ok: false, error: "unavailable" });
+    expect(identify).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(lines).toEqual([
+      expect.objectContaining({ level: "error", outcome: "error:counter-unavailable" }),
+    ]);
+  });
+
+  it("[FR-AUTH-05] runs an uncounted action without asking the counter, even when it is down", async () => {
+    const count = vi.fn(async (): Promise<CountResult> => "unavailable");
+    const { defineAction } = setup({ count });
+    const run = vi.fn(ok);
+    const action = defineAction({
+      name: "sign-out",
+      access: "anyone",
+      input,
+      maxBytes: 100,
+      perMinute: "uncounted",
+      run,
+    });
+
+    await expect(action({ name: "x" })).resolves.toEqual({ ok: true, value: "ok" });
+    expect(run).toHaveBeenCalledOnce();
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it("[T-14] refuses a limit the counter would not accept", () => {
+    const { defineAction } = setup();
+    for (const perMinute of [0, -1, 1.5, 10_001, Number.NaN]) {
+      expect(() =>
+        defineAction({
+          name: "say-name",
+          access: "anyone",
+          input,
+          maxBytes: 100,
+          perMinute,
+          run: ok,
+        }),
+      ).toThrow(/perMinute/);
+    }
   });
 });

@@ -49,6 +49,8 @@ const environment = {
   NEXT_PUBLIC_TURNSTILE_SITE_KEY:
     process.env["NEXT_PUBLIC_TURNSTILE_SITE_KEY"] ?? "1x00000000000000000000AA",
   RESEND_API_KEY: process.env["RESEND_API_KEY"] ?? "re_example_not_a_real_key",
+  ACTION_COUNTER_KEY:
+    process.env["ACTION_COUNTER_KEY"] ?? "local-only-action-counter-key-not-a-secret",
 };
 
 export default defineConfig({

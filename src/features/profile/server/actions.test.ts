@@ -18,6 +18,7 @@ vi.mock("@/infrastructure/actions/server-action", async () => {
         requestId: "req-1" as never,
         identify: mocks.identify,
         isAdmin: async () => false,
+        count: async () => "allowed" as const,
         services: { db: { auth: { getClaims: mocks.getClaims } } },
       }),
       log: () => {},

@@ -12,6 +12,13 @@ extra_search_path = ["public", "extensions"]
 enabled = true
 sql_paths = ["./seed.sql"]
 
+# The key of the per-action rate limit counters (T-14), stored in Vault when
+# the stack starts. Export ACTION_COUNTER_KEY first, with the value in
+# .env.example; without it no action runs. Staging and production get their
+# own random key by hand (docs/runbooks/rate-limits.md).
+[db.vault]
+action_counter_key = "env(ACTION_COUNTER_KEY)"
+
 # Sign-in on the local stack (docs/spec/02-architecture.md section 11.1).
 # Staging and production take the same values in their dashboards
 # (docs/runbooks/infrastructure-setup.md section 10). Google stays off here:
