@@ -97,7 +97,7 @@ for (const width of WIDTHS) {
       await expect(page.getByText(errorPage.referenceHint)).toBeVisible();
       expect(await sidewaysScroll(page)).toBe(0);
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-      await saveScreen(page, "error-browser", width, { folder: "WP-7.3" });
+      await saveScreen(page, "error-browser", width, { workPackage: "WP-7.3" });
     });
 
     test("[FR-SYS-01] [NFR-A11Y-02] a browser error whose report failed shows no reference", async ({
@@ -113,7 +113,7 @@ for (const width of WIDTHS) {
       await expect(page.getByText(errorPage.referenceLabel, { exact: false })).toHaveCount(0);
       await expect(page.getByText(errorPage.referenceHint)).toHaveCount(0);
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-      await saveScreen(page, "error-browser-unreported", width, { folder: "WP-7.3" });
+      await saveScreen(page, "error-browser-unreported", width, { workPackage: "WP-7.3" });
     });
   });
 }

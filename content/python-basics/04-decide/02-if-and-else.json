@@ -1,0 +1,54 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Choose with if and else",
+  "slug": "if-and-else",
+  "xp": 15,
+  "instructions_md": "## Two paths\n\n`if` runs its block only when the condition is `True`. `else` runs when it is not. A **block** is the lines moved in by four spaces. End the `if` and `else` lines with `:`.\n\n```python\nbattery = 15\nif battery < 20:\n    print(\"Charge now.\")\nelse:\n    print(\"Battery is fine.\")\n```\n\n```text\nCharge now.\n```\n\n## Your task\n\nAsk `Score: `. If the score is `50` or more, print `Pass`. If not, print `Try again`.\n",
+  "hints": [
+    "Turn the answer into a number first.",
+    "Use `if` with `>=`, then `else`.",
+    "Read the score with `int(input(...))`, then print inside each of the two blocks."
+  ],
+  "starter_code": "# Ask for the score, then decide.\n",
+  "solution_code": "score = int(input(\"Score: \"))\nif score >= 50:\n    print(\"Pass\")\nelse:\n    print(\"Try again\")\n",
+  "wrong_answers": [
+    {
+      "label": "leaves out the equal case",
+      "code": "score = int(input(\"Score: \"))\nif score > 50:\n    print(\"Pass\")\nelse:\n    print(\"Try again\")\n"
+    },
+    {
+      "label": "always passes",
+      "code": "input(\"Score: \")\nprint(\"Pass\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "high-score",
+      "name": "A score of 72 passes",
+      "stdin": "72\n",
+      "afterCode": "",
+      "expected": "Score: Pass",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "border-score",
+      "name": "A score of 50 passes",
+      "stdin": "50\n",
+      "afterCode": "",
+      "expected": "Score: Pass",
+      "match": "normalized",
+      "hint": "Check what happens when the score is exactly 50."
+    },
+    {
+      "id": "low-score",
+      "name": "A score of 31 says `Try again`",
+      "stdin": "31\n",
+      "afterCode": "",
+      "expected": "Score: Try again",
+      "match": "normalized",
+      "hint": ""
+    }
+  ]
+}

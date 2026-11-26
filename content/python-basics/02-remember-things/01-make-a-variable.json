@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Make a variable",
+  "slug": "make-a-variable",
+  "xp": 10,
+  "instructions_md": "## Give a value a name\n\nA **variable** is a name for a value. Use `=` to store a value in it. After that, use the name to get the value back.\n\n```python\ncity = \"Muscat\"\nprint(city)\n```\n\n```text\nMuscat\n```\n\nThe name `city` has no quotes. With quotes, Python would print the word `city`.\n\n## Your task\n\nMake a variable called `animal` that holds `falcon`. Then print the variable.\n",
+  "hints": [
+    "First store the value, then print it.",
+    "Use `=` with the name on the left and the string on the right.",
+    "Line one stores the string in `animal`. Line two prints `animal` without quotes."
+  ],
+  "starter_code": "# Make your variable, then print it.\n",
+  "solution_code": "animal = \"falcon\"\nprint(animal)\n",
+  "wrong_answers": [
+    {
+      "label": "prints the word without a variable",
+      "code": "print(\"falcon\")\n"
+    },
+    {
+      "label": "puts quotes around the name",
+      "code": "animal = \"falcon\"\nprint(\"animal\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "prints-falcon",
+      "name": "Prints `falcon`",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "falcon",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "animal-holds-falcon",
+      "name": "`animal` holds `falcon`",
+      "stdin": "",
+      "afterCode": "print(animal)",
+      "expected": "falcon\nfalcon",
+      "match": "normalized",
+      "hint": "The variable must be named `animal`, in small letters."
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+<!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
+
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29) and is now in `main` through #18. `wp/3.3-grader`, which carries `main` at 032246c, is merged (last in 704fd8e, at bb8022b). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
+
+## What and why
+
+The workspace statechart of `02-architecture.md` section 6, the driver that connects it to the runtime controller, and the development page on Vercel previews where the owner runs Python on real phones.
+
+1. **The statechart** (FR-WSP-07, FR-WSP-17): `src/runtime/workspace-chart.ts`, a typed reducer with no library (ADR-0020 left the choice to this package). Two regions: the runtime, transition for transition as the architecture diagram draws it, and the lesson (`untouched`, `inProgress`, `passed`). A Run or Check pressed while Python loads or restarts is kept as the one pending intent and fires on ready.
+2. **The driver**: `src/runtime/workspace-driver.ts`. Maps controller events to chart events and chart effects to controller calls. `dispatchEvent` applies an event, performs its effects, and when the controller refuses the Run or Check a transition started (a program over 100,000 characters, more than 1,000 batch lines, an input line over 10,000 characters), brings the chart back to `ready` by the diagram's own `RUN_DONE` or `CHECK_DONE` edge (review 1, BLOCKER 1).
+3. **The development page** `/dev/runtime` runs through the chart: a program with input, the example lesson's check, and a runaway loop. It is a page only on the development server and on Vercel previews (`.preview.tsx`, built when `VERCEL_ENV` is exactly `preview`), never in production.
+4. **The spike report** `docs/reports/spikes/runtime-devices.md`: the phone check's method and an empty results table for the owner.
+
+## Work package
+
+- Work package: WP-3.4 The statechart and the phone check.
+- Requirements: FR-WSP-07, FR-WSP-17; NFR-COMPAT-01 and NFR-COMPAT-02 wait for the phone check.
+- Time box 2 hours. Over the box: the work ran across four sessions, first commit 2026-11-21 05:56, last 2026-11-22 07:00, with the WP-3.2 merge inside it. Hours of work not measured. Reported here as the handbook section 3.4 asks. Nothing was cut to fit.
+
+## Up to date with main
+
+`main` at 032246c (#18, `wp/4.3-validate-publish`, and #19, `wp/5.1-catalog`) is merged in 1a79bcc, and `wp/3.3-grader` with the same merge in 704fd8e. #18 already holds an older copy of this branch. Five files conflicted besides `docs/reports/local-build-progress.md`: `scripts/eslint/module-boundaries.mjs`, `src/features/workspace/index.ts`, `src/infrastructure/http/security-headers.test.ts` and `src/proxy.test.ts` take `wp/3.3-grader`'s resolution (bb8022b); `playwright.config.ts` takes `main`'s copy.
+
+On 704fd8e, on 2026-11-26: `pnpm verify` exit 0 (`Test Files  110 passed (110)`, `Tests  2130 passed (2130)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Not run: the browser tests and `pnpm test:db`. No reviewer has seen the merges.
+
+`wp/3.3-grader` at 3075cea (its e2e note only) is merged in 093ec76. On 093ec76, on 2026-11-26: `pnpm verify` exit 0 (`Test Files  110 passed (110)`, `Tests  2130 passed (2130)`). The e2e job of CI ran here against the local stack, freshly reset (`supabase db reset`), with `CI=1` and the stack's publishable key: `pnpm test:e2e --project=chromium --project=stack --project=gallery`, `120 passed`, `1 skipped` (`[T-19] repeated wrong codes are limited`, a `test.fixme` that `main` has too), exit 0. Not run: Firefox, WebKit and the runtime projects, which CI does not run on a pull request.
+
+Before that: `main` at dffe1a8 (#17, `wp/4.2-lesson-editor`) is merged in 3abe4d9, and `wp/3.3-grader` with the same merge in 8b91c4f. Two files conflicted besides `docs/reports/local-build-progress.md`: `src/features/workspace/index.ts` (this branch's `RuntimeConsole` export and `main`'s `LessonContent` and `CodeEditor` exports all kept) and `src/infrastructure/http/security-headers.test.ts` (both sides' tests kept). #17's CodeMirror packages were already installed. On 8b91c4f, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  94 passed (94)`, `Tests  1867 passed (1867)`); `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+`main` at 739eacd (#16, `wp/4.1-courses-chapters`) is merged in a3265aa, and then `wp/3.3-grader` at 05cd6d8 in fcbdda7 (it adds only WP-3.3's description). Two files conflicted in a3265aa: `docs/reports/local-build-progress.md` (both sides' sections kept) and `scripts/eslint/module-boundaries.mjs`, resolved exactly as `wp/3.3-grader` did (its `nodeRunner`, `testImport` and `computedImport` rules and `main`'s `contentSession` rule all kept). On a3265aa, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  82 passed (82)`, `Tests  1648 passed (1648)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 77e5be9.
+
+`wp/3.3-grader` at 68a69d2 is merged in 818c111. It brings `main` at 428c437 (#14, `wp/db-types`: one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses), merged into `wp/3.3-grader` in bbd6d31, and WP-3.3's notes on WP-3.1 security review 8 (881e51a). One conflict, `docs/reports/local-build-progress.md`: `wp/5.2-workspace-laptop`'s copy, which holds every line of both sides, was taken. On 818c111: `pnpm verify` exit 0 (`Test Files  47 passed (47)`, `Tests  1247 passed (1247)`); `pnpm build` with CI's fake public values exit 0, and the built harness has `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `wp/3.3-grader` at f3c806d is merged in 014adf3. It brings `main` at 7875ee2 (#12, `wp/2.1-schema-policies`), which `wp/3.3-grader` merged in 7d62414, and WP-3.3's spec changes approved on 2026-11-24. One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. WP-3.1's run fixes and WP-3.1's approved spec changes are still not on `wp/3.3-grader`, so they are not here either; they arrive with WP-3.1.
+
+`pnpm verify` on 014adf3, exit 0:
+
+```
+ Test Files  47 passed (47)
+      Tests  1247 passed (1247)
+```
+
+`pnpm build` with CI's fake public values on 014adf3, exit 0 (`runtime: worker compiled`); the built harness has `HARNESS_VERSION = "7"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run: the browser tests and `pnpm test:db`. No reviewer has seen 014adf3 (a merge with no code conflict).
+
+The merge before: `wp/3.3-grader` at 6ce4a4d is merged in 89eede2. It brings `main` at 81fdc39 (#10, `wp/fix-smoke-and-runtime`), which `wp/3.3-grader` merged in 0f8a64c. The merge had no conflicts. WP-3.1's run fixes that wait on its security review 8, round 3, are not on `wp/3.3-grader`, so they are not here either.
+
+Before that, `wp/3.3-grader` at d7633c7 was merged in a8a2e94. Since the last merge (68595de, at 6aafe2b) it adds WP-3.3 security review 7, round 2, and its fix be9375c: a harness test that reads the interpreter after `check()` returns, so it fails without `state = None`, and two comments inside the Python text. `HARNESS_VERSION` is now "7". One conflict, `docs/reports/local-build-progress.md`: `wp/3.3-grader`'s copy holds every line of this branch's copy, so it was taken. `src/grader/harness.ts` and its tests merged with no conflict.
+
+This branch has no code that depends on the harness version: `grade.ts` and the Node runner read `HARNESS_VERSION` from the harness, and no test or browser test expects "6". No reviewer has seen a8a2e94 (a clean code merge).
+
+`main` is still 0efe863, which `wp/3.3-grader` carries.
+
+`pnpm verify` on a8a2e94, exit 0:
+
+```
+ Test Files  46 passed (46)
+      Tests  1230 passed (1230)
+```
+
+`pnpm build` with CI's fake public values on a8a2e94, exit 0 (`runtime: pyodide 314.0.7, 13531207 bytes, 5464072 with Brotli (budget 6500000)`, `runtime: worker compiled`); the built harness (`public/_runtime/worker/grader/harness.js`) has `HARNESS_VERSION = "7"`. `node scripts/check-bundle.mjs .next/static` and `node scripts/check-static.mjs .next`: exit 0. Not run on the merge: the browser tests.
+
+Earlier merge, 68595de (`wp/3.3-grader` at 6aafe2b, WP-3.3 security review 7, round 1: 3ab21e9, d757f11): `pnpm verify` exit 0 (46 files, 1229 tests); `pnpm build` exit 0 with `HARNESS_VERSION = "6"`; both checks exit 0.
+
+## How it was verified
+
+`pnpm verify` on the last commit (round 2 fixes), exit 0:
+
+```
+ Test Files  41 passed (41)
+      Tests  1066 passed (1066)
+```
+
+`pnpm build` with CI's values (`VERCEL_ENV` unset), then the two checks, on a884853:
+
+```
+build=0
+bundle=0
+static=0
+┌ ƒ /_not-found
+├ ƒ /api/csp-report
+└ ƒ /api/health
+```
+
+The same build with `VERCEL_ENV=preview`:
+
+```
+build=0
+No prerendered page in .next, apart from /_global-error, which Next.js always prerenders.
+┌ ƒ /_not-found
+├ ƒ /api/csp-report
+├ ƒ /api/health
+└ ƒ /dev/runtime
+```
+
+Mutants run after the review fixes: dropping the refusal event in `dispatchEvent` fails 3 tests; dropping `ended` from a check the page ended (`completeCheck(results, summarize(results))`, review 1 MAJOR 2) fails 1; running the effects before storing the state fails 1.
+
+**Tests added**, each title carrying its requirement:
+
+- `src/runtime/workspace-chart.test.ts`: every transition of the table; every unlisted pair a no-op with no effect; the diagram in `02-architecture.md` parsed and compared to the table; the restart reason; the pending intent (kept, replaced, fired on ready, forgotten after a stop); the lesson region (edit, Run and Check mark it in progress; a passing check completes it once; a failing check or a stray `CHECK_DONE` does not; a pass is never taken back; a Run or Check from `idle`, `failed`, `running`, `awaitingInput` or `checking` leaves an untouched lesson untouched; a Run kept as the pending intent marks it in progress); generated paths reach every state and fire every transition; the controls.
+- `src/runtime/workspace-driver.test.ts`: every controller event mapped; how a check ended read only from the controller; a new worker read as CRASH only at rest; effects in order, Stop only for the learner's STOP; the refusal events. With the real controller, a fake worker and a fake clock: Run kept while loading; input; a runaway loop to the time limit and the next run; Stop; a passing check completes once; memory; a check pressed during a restart; a refused Run and a refused Check back to ready; a refused pending Run; a check that asks for a new worker seen as checking, never as a crash; a check at the time limit; a crash during a check; a crash at rest; a failed load, Retry, and a run.
+- `e2e/statechart-runtime.spec.ts` (passed in Chromium on 64bb6c3): Run pressed while Python loads (Python's files held by a context route until the click; the test fails if the route never sees them), the example solution passes, a runaway loop is stopped by the time limit and the next run works.
+- `e2e/shell.spec.ts` (passed in Chromium on 64bb6c3): `/dev/runtime` answers 404 in the production build.
+
+**Browser tests in Chromium, on 9414a88 and 64bb6c3.** Chromium 159.0.8154.6 with `--no-sandbox --single-process`, one test per Playwright process, through a temporary configuration outside the repository with no web servers. The runtime tests ran against `next dev --webpack` (with `WATCHPACK_POLLING=true`) on port 3257, after `node scripts/build-runtime.mjs`; `e2e/shell.spec.ts` ran against `next start` of a `pnpm build` with CI's fake public values on port 3258.
+
+- On 9414a88: `e2e/grader-parity-runtime.spec.ts` 13 of 13 passed. `e2e/statechart-runtime.spec.ts` 1 of 4 passed and `e2e/live-input-runtime.spec.ts` 0 of 7 passed, each failure a strict mode violation: `getByRole('button', { name: 'Run' }) resolved to 2 elements` (the other is **Runs forever**, added by this package in dc12bd3), and, once that was fixed, `getByLabel('Answer') resolved to 2 elements` (the other is the field **Input, one line per answer**).
+- 64bb6c3: the Run button and the Answer field are matched with `exact: true` in `e2e/runtime.spec.ts`, `e2e/live-input-runtime.spec.ts` and `e2e/statechart-runtime.spec.ts`. No product code changed.
+- On 64bb6c3: `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4 passed. `e2e/shell.spec.ts` 16 of 16 passed, twice, including `/dev/runtime` answering 404 in the production build.
+- `pnpm verify` on 64bb6c3: exit 0, 46 files, 1148 tests. `pnpm build` with CI's fake public values: exit 0.
+- deca401 (code review 3, MINOR): the Send, Check and Stop buttons are matched with `exact: true` as well, in the same three specs. Each button's accessible name is exactly its message (`runtime-console.tsx` renders the text with no hint or `aria-label`). On deca401, the same way (`next dev --webpack` on port 3262): `e2e/runtime.spec.ts` 15 of 15, `e2e/live-input-runtime.spec.ts` 7 of 7, `e2e/statechart-runtime.spec.ts` 4 of 4 passed. `pnpm verify` on deca401: exit 0, 46 files, 1229 tests. No product code changed. Code review 4 approved deca401 (see Reviews).
+
+**Not run, owner to run:** Firefox and WebKit (not installed here), and Chromium through `pnpm test:e2e` with its own servers:
+
+```sh
+pnpm test:e2e e2e/statechart-runtime.spec.ts e2e/live-input-runtime.spec.ts e2e/grader-parity-runtime.spec.ts e2e/runtime.spec.ts e2e/shell.spec.ts
+```
+
+## Screens
+
+The development page is not a learner screen and is not in `DESIGN.md`'s scope; no screenshots.
+
+## Reviews
+
+Round 1 of 36f4372, condensed in `docs/reports/reviews/WP-3.4/`:
+
+- code-reviewer: CHANGES REQUIRED. BLOCKER 1 fixed (`dispatchEvent`, tests through the real controller). MAJOR 2 and 3 fixed (tests above; both mutants now fail). MINOR 4 answered under Deviations. MINOR 5 fixed (the spike report cites ADR-0004, ADR-0005, ADR-0020). MINOR 6 fixed (the route gate). MINOR 7 answered under Risks. MINOR 8 fixed (every edit on the page sends `CODE_EDITED`). MINOR 9 fixed (the sample is named by what it is).
+- security-reviewer: CHANGES REQUIRED. MAJOR 1 (T-02, a program that yields once computes while the page waits for its input) answered by ADR-0034, accepted by the owner on 2026-11-24: the reviewer's liveness ping is defeated by a program that yields briefly every half second, so the ADR accepts the risk with Stop as the control and the false comment and test name are corrected. MINOR 2 fixed (`/dev/runtime` in the 404 test; `deploy.yml` fails if the production output has a `dev` route). MINOR 3 fixed (`VERCEL_ENV: production` on the deploy Build step). The note on the example lesson's solution in the preview bundle: `example-lesson.ts` is in no seed.
+
+Round 2 of a884853, condensed in the same folder:
+
+- code-reviewer: APPROVE. Three minors, all fixed in the last commit: the deploy check narrowed to the route folders; a test that the chart's state is stored before the effects run (the order mutant now fails); a second way to compute during a wait added to ADR-0034.
+- security-reviewer: APPROVE, on the condition that the owner accepts ADR-0034. Its minors fixed: "not verified" on the untested claim, the `js.setInterval` note under Consequences, the narrowed deploy check. Its first `pnpm verify` failed 1 of 1066 tests without naming it; four more runs passed. A flaky test is possible and not identified. Found later (on 9730a70): `scripts/repository.test.ts > lint for type escapes > [NFR-MAINT-01] fails lint for any` times out at 5000 ms when several suites run on the machine at once. Its first `lintText` loads `eslint.config.mjs`, which took 855 ms in a single `pnpm test`. Six single runs: all 1148 passed. Three rounds of four runs at once, with coverage: two rounds failed in all four runs, each with this test alone, one round passed. The reviewer's failing test was not named, so that it was this one is likely, not proven. The test is unchanged from `main` (939f9a0) and not specific to this branch. Not changed: its timeout stays (CLAUDE.md rule 2). A fix for the owner to choose: load the configuration once in a `beforeAll`, so the test case times only the lint.
+
+Round 3 of 64bb6c3 (the browser test selector fix), `docs/reports/reviews/WP-3.4/code-review-3.md`:
+
+- code-reviewer: APPROVE. The fix is correct and complete and weakens no check. One optional MINOR: the Send, Check and Stop buttons were still matched by substring (unique on the page today). Fixed in deca401 with `exact: true`; reviewed in round 4.
+
+Round 4 of deca401 (the Send, Check and Stop selectors), `docs/reports/reviews/WP-3.4/code-review-4.md`:
+
+- code-reviewer: APPROVE. Each button's accessible name is exactly its message in every state the tests click it in, and no check is weakened. One optional MINOR: the end-input button, the two sample buttons and the Program and Input fields are still matched by substring (each unique today). Not changed: nothing fails today, and the reviewer marked it optional.
+
+Open MAJOR findings for the owner to waive: none open; ADR-0034 was accepted on 2026-11-24.
+
+## Try it on the preview
+
+1. Open the pull request's preview through its shareable link, at `/dev/runtime`.
+2. Press **Run** before Python is ready: the page says Run waits for Python, then runs.
+3. Press **The example lesson's solution**, then **Check**: both test cases pass and the lesson shows passed.
+4. Press **Runs forever**, then **Run**: after 5 seconds the page explains the time limit and Python restarts; Run works again.
+5. On phones: `docs/reports/spikes/runtime-devices.md`, "Method".
+
+## Owner decisions of 2026-11-24
+
+Every recommended default in this description was approved. Written into this branch:
+
+- `docs/adr/0034-a-program-that-yields-can-compute-while-the-page-waits-for-its-input.md`: status Accepted; its row in `02-architecture.md` section 15 too.
+- `02-architecture.md` section 6, the proposed spec change below: `CRASH` also covers a worker the controller replaces after a memory error or the output cap, with a `reason`. Decision, taken as the safe default: the description proposed two options (name the edge `CRASH or REPLACED`, or a `REPLACED` event); the text written is the one that changes neither the diagram nor the code, since `workspace-chart.test.ts` parses the diagram and compares it to the table. If you prefer a `REPLACED` event, that is a code change for a later package.
+
+Each change carries the note "approved by the owner on 2026-11-24".
+
+## Owner actions now due
+
+1. The phone check: `docs/reports/spikes/runtime-devices.md`, on a real iPhone and a real Android phone, in the browser and inside the TikTok and Instagram in-app browsers, then fill its table.
+2. Done: ADR-0034 accepted on 2026-11-24 (see "Owner decisions of 2026-11-24").
+3. Run the browser tests above in Firefox and WebKit, and in Chromium through `pnpm test:e2e`.
+
+## Deviations from the plan or the spec
+
+- **Spec change, section 6, approved by the owner on 2026-11-24 and written into the spec (see above).** A worker the controller replaced on purpose after a memory error or the output cap reaches the chart as `CRASH` with a `reason` (`memory` or `output_limit`), because the diagram draws only `ready --> restarting: CRASH`. Section 6 defines CRASH as the worker dying unasked. Proposed: name the edge `CRASH or REPLACED` in the diagram, or add a `REPLACED` event. Until the owner decides, the reason keeps the learner's explanation true.
+- **The phone check** is the owner's; the spike report's table is empty until then. The Done-when line on phones is not met by this pull request.
+
+## Risks and rollback
+
+- CI builds only the production page set; a build failure that only the preview page set has shows first on the Vercel preview (review 1 MINOR 7). The preview build above passed locally. Rollback: revert the merge; nothing persists.
+
+## Definition of Done
+
+- [x] Every transition is tested (`workspace-chart.test.ts`).
+- [ ] The phone check: the owner's.
+- [x] Every cited Must requirement has a passing test that names its ID.
+- [ ] `pnpm verify` passes; the browser checks pass in Chromium here, not run in Firefox or WebKit.
+- [x] No stub, dead control, placeholder, commented-out code, or invented number.
+- [x] Every reviewer blocker is fixed.
+- [x] No AI attribution in any commit or in this description.
+
+```sh
+gh pr create --draft --base wp/3.3-grader --head wp/3.4-statechart --title "WP-3.4 The statechart and the phone check" --body-file docs/reports/pull-requests/WP-3.4.md
+```

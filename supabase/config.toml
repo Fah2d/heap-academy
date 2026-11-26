@@ -11,3 +11,60 @@ extra_search_path = ["public", "extensions"]
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]
+
+# Sign-in on the local stack (docs/spec/02-architecture.md section 11.1).
+# Staging and production take the same values in their dashboards
+# (docs/runbooks/infrastructure-setup.md section 10). Google stays off here:
+# it needs a client from outside the repository.
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+# On, so a password sign-up through the public auth endpoint stays
+# unconfirmed and cannot sign in, and the database clears its password when
+# the address's owner confirms it by signing in
+# (20261121030000_clear_password_on_confirm.sql, T-11). Refusing every
+# password outright would break code sign-in: the auth service gives each new
+# code account a random password (internal/api/magic_link.go, read
+# 2026-11-21).
+enable_confirmations = true
+otp_length = 6
+# Ten minutes, in seconds; the email says so.
+otp_expiry = 600
+max_frequency = "1m"
+
+# A new address gets the confirmation email and a known one the magic link
+# email (internal/api/magic_link.go), so both show the code.
+[auth.email.template.magic_link]
+subject = "Your Heap Academy sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Heap Academy sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"
+
+# The bot challenge (FR-AUTH-06) with Cloudflare's published Turnstile test
+# secret, which accepts the test site key's tokens. It is public, not a
+# secret; staging and production use their own keys from the dashboard.
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "1x0000000000000000000000000000000AA"
+
+# The admin's second sign-in step: an authenticator app (TOTP) through the
+# multi-factor API (docs/spec/02-architecture.md section 11.2, FR-ADM-02,
+# ADR-0025). The local defaults are off. Hosted projects have TOTP on by
+# default; docs/runbooks/infrastructure-setup.md checks it. Challenge and
+# verify are limited by the provider to 15 requests a minute per address,
+# with bursts up to 30, which is not configurable (Supabase "Rate limits",
+# read 2026-11-21). The address it sees is the app server's.
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true

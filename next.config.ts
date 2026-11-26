@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 import { z } from "zod";
-import { SECURITY_HEADERS } from "./src/infrastructure/http/security-headers";
+import { runtimeHeaders, SECURITY_HEADERS } from "./src/infrastructure/http/security-headers";
 import {
   parsePublicEnvironment,
   RELEASE_LOCAL,
   serverEnvironmentSchema,
 } from "./src/infrastructure/env/schema";
+import { pageExtensions } from "./src/infrastructure/env/page-extensions";
+import { RUNTIME_ASSET_BASE_URL, RUNTIME_ROOT, WORKER_DIRECTORY } from "./src/runtime/assets";
 
 // The variables the browser bundle needs are validated at build; server
 // variables are validated when the server starts, in src/instrumentation.ts
@@ -20,8 +22,6 @@ parsePublicEnvironment(process.env);
 // secret: /api/health returns it.
 const release =
   serverEnvironmentSchema.shape.HEAP_RELEASE.parse(process.env.HEAP_RELEASE) ?? RELEASE_LOCAL;
-
-const PAGE_EXTENSIONS = ["tsx", "ts", "jsx", "js"];
 
 // Where the file system cannot push change events, such as an agent's
 // sandbox that denies macOS FSEvents, the development server can poll
@@ -41,16 +41,23 @@ export default function config(phase: string): NextConfig {
     agentRules: false,
     reactStrictMode: true,
     env: { HEAP_RELEASE: release, NEXT_PUBLIC_HEAP_RELEASE: release },
-    // Development-only pages end in `.dev.tsx`. Only the development server
-    // treats that as a page extension, so `next build` leaves them out
-    // entirely: no route, no bundle (WP-1.4).
-    pageExtensions:
-      phase === PHASE_DEVELOPMENT_SERVER ? ["dev.tsx", ...PAGE_EXTENSIONS] : PAGE_EXTENSIONS,
+    // Development-only pages end in `.dev.tsx` (WP-1.4); pages also built for
+    // Vercel previews end in `.preview.tsx` (WP-3.4). A production build
+    // leaves both out entirely: no route, no bundle.
+    pageExtensions: pageExtensions(phase === PHASE_DEVELOPMENT_SERVER, process.env["VERCEL_ENV"]),
     ...(pollIntervalMs !== undefined && { watchOptions: { pollIntervalMs } }),
     // Every response, static files included (docs/spec/06-security-privacy.md
-    // section 5.1). The script policy is per request, in src/proxy.ts.
+    // section 5.1). The page policy is per request, in src/proxy.ts; the Python
+    // worker's own policy and the runtime files' caching are set here.
     headers() {
-      return Promise.resolve([{ source: "/:path*", headers: [...SECURITY_HEADERS] }]);
+      return Promise.resolve([
+        { source: "/:path*", headers: [...SECURITY_HEADERS] },
+        ...runtimeHeaders({
+          runtimeRoot: RUNTIME_ROOT,
+          runtimeAssetBase: RUNTIME_ASSET_BASE_URL,
+          workerDirectory: WORKER_DIRECTORY,
+        }),
+      ]);
     },
   };
 }

@@ -177,7 +177,7 @@ The triggers that move a vendor to its paid plan are in ADR-0029. Within the fre
 
 | When | Do |
 |---|---|
-| Runtime transfer passes 50 GB in a month | Point `RUNTIME_ASSET_BASE_URL` at an object store with no egress fees behind a CDN. No code change. |
+| Runtime transfer passes 50 GB in a month | Point `RUNTIME_ASSET_BASE_URL` at an object store with no egress fees behind a CDN. One line: the constant in `src/runtime/assets.ts` (approved by the owner on 2026-11-24, proposed in WP-3.1, pull request #9). |
 | Function invocations or active CPU pass half of the Hobby amount | Move public pages to static rendering with a hash-based script policy (ADR-0028 describes the route), or move to Vercel Pro (ADR-0029). |
 | Monthly active users pass 40,000, the database passes 400 MB, or production pauses | Move production to Supabase Pro (ADR-0029). |
 | Email sends pass 80 in a day | Move to a paid email plan before the next campaign. |

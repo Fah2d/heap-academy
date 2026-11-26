@@ -17,12 +17,13 @@ test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async
   await expect(page.getByRole("link", { name: notFound.homeLink })).toHaveAttribute("href", "/");
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toBeVisible();
 });
 
 test("[WP-1.4] the development-only pages are absent from the production build", async ({
   request,
 }) => {
-  for (const path of ["/dev/primitives", "/dev/error", "/dev/client-error"]) {
+  for (const path of ["/dev/primitives", "/dev/error", "/dev/runtime", "/dev/client-error"]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(404);
   }

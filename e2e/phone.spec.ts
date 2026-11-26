@@ -97,5 +97,5 @@ test("[FR-SYS-01] [NFR-A11Y-02] a browser error's reference fits the phone and h
   );
   expect(overflow).toBe(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await saveScreen(page, "phone-error-browser", width(page), { folder: "WP-7.3" });
+  await saveScreen(page, "phone-error-browser", width(page), { workPackage: "WP-7.3" });
 });

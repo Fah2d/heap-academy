@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { type ErrorReporter, reportedRoute } from "@/domain/client-error";
 import { errorPage } from "@/messages/system";
@@ -87,14 +88,18 @@ export function ErrorView({
   report?: ErrorReporter;
 }) {
   const reference = useReference(error, report);
+  // On the home page itself, the home link would lead back to what failed.
+  const onHome = usePathname() === "/";
   return (
     <SystemPage heading={errorPage.heading} body={errorPage.body}>
       <Button variant="primary" onPress={retry}>
         {errorPage.retry}
       </Button>
-      <Link href="/" variant="standalone">
-        {errorPage.homeLink}
-      </Link>
+      {!onHome && (
+        <Link href="/" variant="standalone">
+          {errorPage.homeLink}
+        </Link>
+      )}
       {reference !== undefined && (
         <div className="flex basis-full flex-col gap-1 text-sm text-text-muted">
           <p>{errorPage.referenceHint}</p>

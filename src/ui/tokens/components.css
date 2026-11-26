@@ -29,6 +29,15 @@
   /* A pressed button moves 1 px down (DESIGN.md section 4.5). */
   --press-shift: 1px;
 
+  /* The bot challenge's widget is 65 px tall; its space is kept so nothing
+     moves when it appears (antislop R-40). */
+  --challenge-height: 4.0625rem;
+
+  /* The QR code of the admin's authenticator setup: dark modules on a light
+     square, which authenticator apps read best, at 200 px. */
+  --qr-background: var(--gray-50);
+  --qr-size: 12.5rem;
+
   /* Links in running text (DESIGN.md section 4.2). */
   --link-underline-offset: 0.15em;
 
@@ -37,6 +46,34 @@
 
   /* Hairline borders, the 1 px dividers and outlines. */
   --hairline: 1px;
+
+  /* The workspace from 768 px (FR-WSP-01): the instructions keep at least
+     320 px beside the work. Rows: the title; the editor, three parts of the
+     work column's height; the actions; the output, two parts; previous and
+     next. The instructions span the editor, actions and output rows. */
+  --workspace-columns: minmax(20rem, 2fr) 3fr;
+  --workspace-rows: auto minmax(0, 3fr) auto minmax(0, 2fr) auto;
+  /* Below 768 px the editor and the output stack, each with a floor so neither
+     collapses (16 rem and 18 rem). At every width the console keeps four lines
+     (6 rem) above an error card; the panel around it scrolls instead. */
+  --workspace-editor-min: 16rem;
+  --workspace-output-min: 18rem;
+  --workspace-console-min: 6rem;
+  /* Below 768 px the page scrolls, so the console scrolls inside a ceiling
+     (24 rem) and an error card under it stays near the output. */
+  --workspace-console-max: 24rem;
+  /* The console's answer field keeps room for an answer; on a phone, Send and
+     End input wrap to the next line instead of squeezing it. */
+  --console-answer-min: 10rem;
+  /* Below 768 px: how far the on-screen keyboard reaches up, and the fixed
+     action bar's height. 0 until the workspace measures them in the browser
+     and sets them on its own element (FR-WSP-13). */
+  --keyboard-inset: 0px;
+  --action-bar-size: 0px;
+  /* A code editor that does not fill its box, as in the admin's lesson editor. */
+  --code-editor-min: 10rem;
+  /* The loading bar beside Python's status. */
+  --python-progress-width: 12rem;
 }
 
 @media (width >= 48rem) {

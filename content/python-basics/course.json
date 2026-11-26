@@ -1,0 +1,77 @@
+{
+  "title": "Python basics",
+  "slug": "python-basics",
+  "summary": "Write your first Python programs: text, numbers, choices, loops, lists, and functions.",
+  "outcomes": [
+    "Print text and numbers",
+    "Read what a person types and calculate with it",
+    "Choose between actions with conditions",
+    "Repeat work with loops and lists",
+    "Write functions that return values"
+  ],
+  "chapters": [
+    {
+      "title": "Say something",
+      "summary": "Print text on the screen and leave notes in your code.",
+      "lessons": [
+        "01-say-something/01-print-a-message.json",
+        "01-say-something/02-print-several-lines.json",
+        "01-say-something/03-write-comments.json"
+      ]
+    },
+    {
+      "title": "Remember things",
+      "summary": "Store text and numbers in variables.",
+      "lessons": [
+        "02-remember-things/01-make-a-variable.json",
+        "02-remember-things/02-work-with-numbers.json",
+        "02-remember-things/03-know-your-types.json"
+      ]
+    },
+    {
+      "title": "Ask and calculate",
+      "summary": "Read what a person types and answer with a result.",
+      "lessons": [
+        "03-ask-and-calculate/01-ask-a-question.json",
+        "03-ask-and-calculate/02-calculate-with-input.json",
+        "03-ask-and-calculate/03-use-f-strings.json"
+      ]
+    },
+    {
+      "title": "Decide",
+      "summary": "Make your program choose what to do.",
+      "lessons": [
+        "04-decide/01-compare-values.json",
+        "04-decide/02-if-and-else.json",
+        "04-decide/03-more-choices-with-elif.json"
+      ]
+    },
+    {
+      "title": "Repeat",
+      "summary": "Run the same lines many times with loops.",
+      "lessons": [
+        "05-repeat/01-for-loops.json",
+        "05-repeat/02-while-loops.json",
+        "05-repeat/03-stop-with-break.json"
+      ]
+    },
+    {
+      "title": "Collect",
+      "summary": "Keep many values together in a list.",
+      "lessons": [
+        "06-collect/01-make-a-list.json",
+        "06-collect/02-add-to-a-list.json",
+        "06-collect/03-loop-over-a-list.json"
+      ]
+    },
+    {
+      "title": "Reuse",
+      "summary": "Write your own functions and use them again.",
+      "lessons": [
+        "07-reuse/01-define-a-function.json",
+        "07-reuse/02-function-parameters.json",
+        "07-reuse/03-return-a-value.json"
+      ]
+    }
+  ]
+}

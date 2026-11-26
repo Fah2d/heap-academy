@@ -42,8 +42,9 @@ select set_eq(
   $$select n.nspname || '.' || p.proname from pg_proc as p
     join pg_namespace as n on n.oid = p.pronamespace
     where n.nspname in ('public', 'private') and p.prosecdef$$,
-  array['private.is_admin', 'private.create_profile', 'public.lesson_completion_counts'],
-  '[T-20] only is_admin, create_profile and lesson_completion_counts run with the owner''s rights'
+  array['private.is_admin', 'private.is_on_admin_list', 'private.create_profile',
+        'public.lesson_completion_counts'],
+  '[T-20] only is_admin, is_on_admin_list, create_profile and lesson_completion_counts run with the owner''s rights'
 );
 select ok(
   (select bool_and(p.proconfig @> array['search_path=""']) from pg_proc as p

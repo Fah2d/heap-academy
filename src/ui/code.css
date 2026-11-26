@@ -1,0 +1,53 @@
+/*
+ * Code on the editor surface (DESIGN.md section 4.4): the highlighted code
+ * blocks of lesson instructions and the code editor. Highlighting is by
+ * class, so the editor and a code block share one palette, and keywords are
+ * set apart by weight, not hue.
+ */
+@layer components {
+  .code-surface {
+    background-color: var(--color-surface-editor);
+    color: var(--syntax-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-code);
+    line-height: var(--text-code--line-height);
+  }
+
+  .code-surface ::selection {
+    background-color: var(--editor-selection);
+  }
+
+  /* An editor that fills its box scrolls inside it (the workspace, FR-WSP-01). */
+  .code-fill .cm-editor {
+    block-size: 100%;
+  }
+
+  .syntax-keyword {
+    color: var(--syntax-keyword);
+    font-weight: var(--syntax-keyword-weight);
+  }
+
+  .syntax-string {
+    color: var(--syntax-string);
+  }
+
+  .syntax-number {
+    color: var(--syntax-number);
+  }
+
+  .syntax-function {
+    color: var(--syntax-function);
+  }
+
+  .syntax-builtin {
+    color: var(--syntax-builtin);
+  }
+
+  .syntax-comment {
+    color: var(--syntax-comment);
+  }
+
+  /* The code editor's own chrome is a CodeMirror theme in
+     src/features/workspace/components/code-editor-extensions.ts: rules here
+     would lose to CodeMirror's base theme, which sits outside every layer. */
+}

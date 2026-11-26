@@ -45,7 +45,7 @@ describe("client error reports", () => {
       {
         level: "error",
         requestId: REQUEST_ID,
-        route: "GET /:param/:param/:param/:param",
+        route: "GET /courses/:param/lessons/:param",
         outcome: "client-error:worker-crashed",
         clientRelease: OLDER_RELEASE,
       },

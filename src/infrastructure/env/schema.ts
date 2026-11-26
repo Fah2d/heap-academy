@@ -29,9 +29,17 @@ const publishableKey = required.startsWith("sb_publishable_", {
   error: "must be a publishable key (sb_publishable_...), never a secret key",
 });
 
+// The bot challenge's site key is public by design: the widget sends it from
+// the browser. Cloudflare's keys start with 0x; its published test keys,
+// used on the local stack and in CI, start with 1x, 2x or 3x.
+const challengeSiteKey = z
+  .string()
+  .regex(/^[0-3]x[A-Za-z0-9_-]{10,}$/, "must be a Turnstile site key (0x...)");
+
 export const publicEnvironmentSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: challengeSiteKey,
 });
 
 // The release in log lines and in the health answer: the commit SHA, which
@@ -44,7 +52,21 @@ const release = z.string().regex(RELEASE_PATTERN, "must be a full commit SHA or 
 export const serverEnvironmentSchema = z.object({
   RESEND_API_KEY: required,
   HEAP_RELEASE: release,
+  // Account deletion (FR-PRF-03). All three or none: with none, the profile
+  // offers no deletion. The key bypasses row level security.
+  SUPABASE_SECRET_KEY: z
+    .string()
+    .startsWith("sb_secret_", { error: "must be a secret key (sb_secret_...)" })
+    .optional(),
+  DELETION_NOTICE_FROM: z.email().optional(),
+  DELETION_NOTICE_TO: z.email().optional(),
 });
+
+const DELETION_NAMES = [
+  "SUPABASE_SECRET_KEY",
+  "DELETION_NOTICE_FROM",
+  "DELETION_NOTICE_TO",
+] as const;
 
 export type PublicEnvironment = z.infer<typeof publicEnvironmentSchema>;
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;
@@ -74,15 +96,49 @@ export function parseEnvironment(source: Source): {
     ...serverEnvironmentSchema.shape,
   });
   const all = parseWith(schema, source);
+  const missing = DELETION_NAMES.filter((name) => all[name] === undefined);
+  if (missing.length > 0 && missing.length < DELETION_NAMES.length) {
+    throw new EnvironmentError(
+      `Invalid environment. See .env.example.\n${missing
+        .map((name) => `  ${name}: required with the other account deletion variables`)
+        .join("\n")}`,
+    );
+  }
   return {
     public: {
       NEXT_PUBLIC_SUPABASE_URL: all.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: all.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: all.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
     },
     server: {
       RESEND_API_KEY: all.RESEND_API_KEY,
       HEAP_RELEASE: all.HEAP_RELEASE ?? RELEASE_LOCAL,
+      SUPABASE_SECRET_KEY: all.SUPABASE_SECRET_KEY,
+      DELETION_NOTICE_FROM: all.DELETION_NOTICE_FROM,
+      DELETION_NOTICE_TO: all.DELETION_NOTICE_TO,
     },
+  };
+}
+
+export type DeletionEnvironment = {
+  supabaseUrl: string;
+  secretKey: string;
+  resendKey: string;
+  noticeFrom: string;
+  noticeTo: string;
+};
+
+/** What account deletion needs, or null when this deployment has none of it. */
+export function deletionEnvironment(source: Source): DeletionEnvironment | null {
+  const { public: shared, server } = parseEnvironment(source);
+  const { SUPABASE_SECRET_KEY, DELETION_NOTICE_FROM, DELETION_NOTICE_TO } = server;
+  if (!SUPABASE_SECRET_KEY || !DELETION_NOTICE_FROM || !DELETION_NOTICE_TO) return null;
+  return {
+    supabaseUrl: shared.NEXT_PUBLIC_SUPABASE_URL,
+    secretKey: SUPABASE_SECRET_KEY,
+    resendKey: server.RESEND_API_KEY,
+    noticeFrom: DELETION_NOTICE_FROM,
+    noticeTo: DELETION_NOTICE_TO,
   };
 }
 

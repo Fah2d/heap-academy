@@ -4,12 +4,18 @@ import { test, type Page } from "@playwright/test";
 // Every state the axe checks pass through is also saved as a screenshot, so the
 // design review looks at what was measured (docs/spec/05-engineering-handbook.md
 // section 3.3). The folder is the work package that last changed the screen.
-const FOLDERS = {
-  "WP-1.4": join("docs", "reports", "screens", "WP-1.4"),
-  "WP-7.3": join("docs", "reports", "screens", "WP-7.3"),
-};
+const DEFAULT_PACKAGE = "WP-1.4";
 // One engine's pictures, so Firefox and WebKit runs do not overwrite them.
-const SCREENSHOT_PROJECTS = new Set(["chromium", "gallery", "phone", "phone-375", "phone-360"]);
+// `stack` runs the journeys against the local stack in Desktop Chrome too.
+const SCREENSHOT_PROJECTS = new Set([
+  "chromium",
+  "gallery",
+  "stack",
+  "phone",
+  "phone-375",
+  "phone-360",
+  "phone-workspace",
+]);
 
 // A state with a fixed overlay, such as an open dialog, is saved at the size
 // of the viewport: a full-page capture paints the overlay as a band across it.
@@ -19,8 +25,8 @@ export async function saveScreen(
   width: number,
   {
     fullPage = true,
-    folder = "WP-1.4",
-  }: { fullPage?: boolean; folder?: keyof typeof FOLDERS } = {},
+    workPackage = DEFAULT_PACKAGE,
+  }: { fullPage?: boolean; workPackage?: string } = {},
 ): Promise<void> {
   if (!SCREENSHOT_PROJECTS.has(test.info().project.name)) return;
   // The development server's indicator and overlay are not part of the
@@ -30,5 +36,8 @@ export async function saveScreen(
       element.remove();
     });
   });
-  await page.screenshot({ path: join(FOLDERS[folder], `${name}-${width}.png`), fullPage });
+  await page.screenshot({
+    path: join("docs", "reports", "screens", workPackage, `${name}-${width}.png`),
+    fullPage,
+  });
 }

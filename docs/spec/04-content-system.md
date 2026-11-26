@@ -50,10 +50,12 @@ One model covers every lesson (ADR-0026).
 | `id` | Generated. Stable inside the lesson. |
 | `name` | What the learner reads, written as a requirement: "Prints the total on one line". 1 to 80 characters. |
 | `stdin` | What the program is given as input, one answer per line. May be empty. At most 2,000 characters. |
-| `after_code` | Optional Python that runs after the learner's program, in the same namespace. At most 2,000 characters. |
+| `afterCode` | Optional Python that runs after the learner's program, in the same namespace. At most 2,000 characters. |
 | `expected` | The output the program must print. At most 5,000 characters. |
 | `match` | `normalized` (default), `exact`, or `contains`. |
 | `hint` | Optional. Shown when this test case fails. Says what to look at, never the answer. At most 200 characters. |
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-2.1, pull request #12):** the follow-up code field is named `afterCode`, as the database and the test case parser store it, here and in the import format of section 8. It was `after_code`.
 
 Every test case is visible to the learner, including its follow-up code. Because grading runs in the browser, nothing about a test case could be kept secret anyway (ADR-0007).
 
@@ -62,11 +64,13 @@ Every test case is visible to the learner, including its follow-up code. Because
 1. A fresh namespace and restored builtins (`02-architecture.md` section 5.5).
 2. Standard input is the test case's `stdin`.
 3. The learner's program runs.
-4. If it finished without an error, `after_code` runs in the same namespace.
+4. If it finished without an error, `afterCode` runs in the same namespace.
 5. Everything written to standard output by both steps is the actual output. Standard error is not compared.
 6. The actual output is compared with `expected` under the `match` mode.
 
 A test case fails when the comparison fails, when the learner's program raises an error, when it reaches the 5 second limit, or when the follow-up code raises an error. The last case is reported in learner language: follow-up code that fails with a missing name means "This test needs something named `area`."
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-3.3):** each test case has its own 5 second clock. After a time limit, Stop or a crash, the remaining test cases are `not_run`, so a learner whose program loops does not wait for a new worker per test case; validation is unaffected, because such a lesson already fails rule 5. Output cut at the cap with no error fails with `output_limit`.
 
 A prompt passed to `input()` is part of the output. The typed answer is not echoed, and no line break follows the prompt. So a program that asks "What is your name? " and then prints a greeting produces one line: `What is your name? Hello, Sara!`. The dashboard's "Fill from solution" action captures this exactly, which is why it exists.
 
@@ -91,13 +95,13 @@ When FR-GRD-07 is built, a failed comparison is classified so the message can be
 
 **A variable.** The lesson asks for a variable. Follow-up code prints it.
 
-| name | after_code | expected |
+| name | afterCode | expected |
 |---|---|---|
 | `age` is a whole number | `print(type(age).__name__)` | `int` |
 
 **A function.** The lesson asks for a function. Follow-up code calls it.
 
-| name | after_code | expected |
+| name | afterCode | expected |
 |---|---|---|
 | `area(3, 4)` gives 12 | `print(area(3, 4))` | `12` |
 | `area(5, 5)` gives 25 | `print(area(5, 5))` | `25` |
@@ -109,6 +113,7 @@ When FR-GRD-07 is built, a failed comparison is classified so the message can be
 - Lives in `src/grader`. Pure Python, standard library only. The same file runs in Pyodide under Node in the test suite and in Pyodide in browsers. The prototype ran one harness file unchanged on CPython and inside Pyodide (E-06).
 - Implements section 2.2 and the isolation in `02-architecture.md` section 5.5.
 - Returns structured results only. It never raises to the caller.
+  - **Approved by the owner on 2026-11-24 (proposed in WP-3.3):** the harness returns each test case's output and error; the comparison and the verdict are decided in TypeScript by `grade` in `src/grader/grade.ts`. The same function decides in the worker and in the Node runner, so parity holds.
 - Versioned. The version is included in every result.
 - It is trusted code that runs next to untrusted code, so it is small, dependency-free, and heavily tested.
 
@@ -161,6 +166,8 @@ flowchart LR
 - Changing the starter, solution, wrong answers, or test cases requires a passing validation in the same save. The lesson is never live in a half-edited state.
 - If a change could fail code that used to pass, earlier completions still stand. They are a record of what the learner passed at the time.
 
+> **Approved by the owner on 2026-11-24 (proposed in WP-4.3):** in this release, Save on a published lesson always validates first, as `03-experience.md` section 7.6 says, even when only the title, instructions, hints, or XP changed. So a title fix needs Python to load and the checklist to pass, and a published lesson that fails the checklist is never saved. "Saves at once" above means no further step after that save.
+
 ## 5. Markdown
 
 Instructions are plain Markdown.
@@ -200,20 +207,22 @@ This section is for the owner. The dashboard shows the short form of these rules
 
 **Title**: Say hello by name. **XP**: 10.
 
-**Instructions**
+**Instructions** (the code block is fenced, because section 5 allows fenced blocks only; approved by the owner on 2026-11-24)
 
-```markdown
+````markdown
 ## Ask, then answer
 
 `input()` waits for the person to type something, and gives you what they typed.
 
-    name = input("What is your name? ")
-    print("Hello, " + name + "!")
+```python
+name = input("What is your name? ")
+print("Hello, " + name + "!")
+```
 
 ## Your task
 
 Ask for a name. Then print a greeting that uses it.
-```
+````
 
 **Starter**
 
@@ -258,7 +267,7 @@ A lesson exports to one JSON object:
   "solution_code": "...",
   "wrong_answers": [{ "label": "prints a fixed name", "code": "..." }],
   "tests": [
-    { "name": "Greets Sara by name", "stdin": "Sara\n", "after_code": "", "expected": "What is your name? Hello, Sara!", "match": "normalized", "hint": "" }
+    { "name": "Greets Sara by name", "stdin": "Sara\n", "afterCode": "", "expected": "What is your name? Hello, Sara!", "match": "normalized", "hint": "" }
   ]
 }
 ```

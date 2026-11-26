@@ -1,0 +1,25 @@
+{
+  // Compiles the Python worker to public/_runtime/worker/ as plain ES modules
+  // (ADR-0033). Turbopack would build a classic worker, and Pyodide 314 loads
+  // only in a module worker (E-03). Only the worker and what it imports are
+  // compiled; each import keeps its own file, with .ts rewritten to .js.
+  // The root is src, because the worker imports the grader (WP-3.3).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2023", "webworker"],
+    "types": [],
+    "noEmit": false,
+    "noEmitOnError": true,
+    "incremental": false,
+    "declaration": false,
+    "sourceMap": false,
+    "allowJs": false,
+    "checkJs": false,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "./src",
+    "outDir": "./public/_runtime/worker",
+    "plugins": []
+  },
+  "include": ["src/runtime/worker/python-worker.ts"],
+  "exclude": ["**/*.test.ts"]
+}

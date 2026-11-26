@@ -93,7 +93,8 @@ Day 1 is done when: the production address serves the shell through the pipeline
 **WP-2.2 Sign-in**
 - Time box: 3.5 hours. Depends on: WP-1.4. Needs the `profiles` trigger of WP-2.1 before its pull request opens.
 - Covers: FR-AUTH-01 to FR-AUTH-06, NFR-COMPAT-02; T-11.
-- Builds: the server and browser database clients; session refresh in `proxy.ts` that fails open; the verified-claims helper; the server action wrapper with its tests; Google sign-in with the callback and return path validation; email code request and verification with the bot challenge; sign-out; in-app browser detection; the sign-in screen with every state; the account control in the header; the `e2e` job with the email code journey against the local mail catcher; the runbook for a sign-in or email outage.
+- Builds: the server database client (no browser database client: nothing in the browser needs one, and mutations are server actions, ADR-0027); session refresh in `proxy.ts` that fails open; the verified-claims helper; the server action wrapper with its tests; Google sign-in with the callback and return path validation; email code request and verification with the bot challenge; sign-out; in-app browser detection; the sign-in screen with every state; the account control in the header; the `e2e` job with the email code journey against the local mail catcher; the runbook for a sign-in or email outage.
+- **Approved by the owner on 2026-11-24 (proposed in WP-2.2):** no browser database client. ADR-0027 outranks the plan's "server and browser database clients".
 - Done when: both methods work on the preview against staging; open redirect tests pass; the response is identical for a known and an unknown email; the learner returns to the page they came from; a request without a session cookie causes no call to the auth service (test).
 - Owner: enter the Google client and the email sender in the auth provider's settings; set the email template to show a code; create the bot challenge keys; try the email code inside the TikTok and Instagram in-app browsers on production after the merge, because previews require a Vercel sign-in (ADR-0029).
 
@@ -153,7 +154,8 @@ Day 3 is done when: Python runs, takes input, is stopped, and is graded in three
 - Time box: 3.5 hours. Depends on: WP-4.1, WP-4.2, WP-3.4.
 - Covers: FR-ADM-05, FR-ADM-06, FR-ADM-07, FR-ADM-09, FR-GRD-05; T-22.
 - Builds: the test case list with add, edit, duplicate, reorder, delete; running the solution with a verdict per test case; "Fill from solution"; the checklist of `03-experience.md` section 7.6; publish, unpublish, archive; cache invalidation on change; the runbook for a published lesson that is wrong.
-- Done when: J-13 passes; the publish path passes end to end; changing the test cases of a published lesson without a passing validation is refused by the database in a test that bypasses the interface; the limits of `04-content-system.md` section 2 give clear messages.
+- Done when: J-13 passes; the publish path passes end to end; changing the test cases of a published lesson without a passing validation is refused by the database in a test that bypasses the interface; the limits of `04-content-system.md` section 2 give clear messages; Validate uses `check(..., { freshWorker: true })` for every program it validates, with a test that a tampering program in one validation does not change the next one's verdict.
+  - **Approved by the owner on 2026-11-24 (proposed in WP-3.3):** a fresh worker for each Validate. A program can rewrite the harness's closure, and the change lasts until the worker is replaced.
 - Owner: create one real lesson on the preview and publish it.
 
 Day 4 is done when: the owner can create a course, a chapter, and a validated, published lesson; a broken lesson cannot be published.

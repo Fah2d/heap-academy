@@ -1,0 +1,36 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Repeat with for and range",
+  "slug": "for-loops",
+  "xp": 15,
+  "instructions_md": "## Do it again\n\nA `for` loop repeats a block. `range(1, 4)` gives the numbers 1, 2 and 3. It stops before the last number.\n\n```python\nfor number in range(1, 4):\n    print(f\"Lap {number}\")\n```\n\n```text\nLap 1\nLap 2\nLap 3\n```\n\n## Your task\n\nPrint the 5 times table from 1 to 10. Each line looks like `5 x 1 = 5`. The last line is `5 x 10 = 50`.\n",
+  "hints": [
+    "A loop can write all ten lines for you.",
+    "The range must reach 10, so think about where it stops.",
+    "Loop over `range(1, 11)` and print an f-string that multiplies by 5."
+  ],
+  "starter_code": "# Write a loop that prints the table.\n",
+  "solution_code": "for number in range(1, 11):\n    print(f\"5 x {number} = {5 * number}\")\n",
+  "wrong_answers": [
+    {
+      "label": "stops one line early",
+      "code": "for number in range(1, 10):\n    print(f\"5 x {number} = {5 * number}\")\n"
+    },
+    {
+      "label": "starts at zero",
+      "code": "for number in range(11):\n    print(f\"5 x {number} = {5 * number}\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "table",
+      "name": "Prints ten lines from `5 x 1 = 5` to `5 x 10 = 50`",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "5 x 1 = 5\n5 x 2 = 10\n5 x 3 = 15\n5 x 4 = 20\n5 x 5 = 25\n5 x 6 = 30\n5 x 7 = 35\n5 x 8 = 40\n5 x 9 = 45\n5 x 10 = 50",
+      "match": "normalized",
+      "hint": "Check the first line and the last line."
+    }
+  ]
+}
