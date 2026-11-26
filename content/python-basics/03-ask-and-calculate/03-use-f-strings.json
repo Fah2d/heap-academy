@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Build a sentence with an f-string",
+  "slug": "use-f-strings",
+  "xp": 15,
+  "instructions_md": "## Values inside text\n\nAn **f-string** starts with `f` before the first quote. Python replaces each `{...}` with a value.\n\n```python\nfruit = \"mangoes\"\ncount = 5\nprint(f\"We have {count} {fruit}.\")\n```\n\n```text\nWe have 5 mangoes.\n```\n\n## Your task\n\nAsk `Item: ` and then `How many: `. Print one sentence. For `pens` and `4`, print:\n\n`You packed 4 pens.`\n",
+  "hints": [
+    "Ask the two questions in the order given.",
+    "Start the string with `f` and put each variable in `{}`.",
+    "Store both answers, then print the count first and the item second."
+  ],
+  "starter_code": "# Ask for an item and a number, then print the sentence.\n",
+  "solution_code": "item = input(\"Item: \")\ncount = input(\"How many: \")\nprint(f\"You packed {count} {item}.\")\n",
+  "wrong_answers": [
+    {
+      "label": "forgets the f",
+      "code": "item = input(\"Item: \")\ncount = input(\"How many: \")\nprint(\"You packed {count} {item}.\")\n"
+    },
+    {
+      "label": "prints a fixed sentence",
+      "code": "input(\"Item: \")\ninput(\"How many: \")\nprint(\"You packed 4 pens.\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "four-pens",
+      "name": "Says `You packed 4 pens.`",
+      "stdin": "pens\n4\n",
+      "afterCode": "",
+      "expected": "Item: How many: You packed 4 pens.",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "two-books",
+      "name": "Works for 2 books",
+      "stdin": "books\n2\n",
+      "afterCode": "",
+      "expected": "Item: How many: You packed 2 books.",
+      "match": "normalized",
+      "hint": "If you see curly brackets, check for `f` before the quote."
+    }
+  ]
+}

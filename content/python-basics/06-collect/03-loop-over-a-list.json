@@ -1,0 +1,36 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Loop over a list",
+  "slug": "loop-over-a-list",
+  "xp": 15,
+  "instructions_md": "## Visit every value\n\nA `for` loop can take each value of a list in turn. You can build a total as you go.\n\n```python\nprices = [3, 5, 2]\ntotal = 0\nfor price in prices:\n    total = total + price\nprint(total)\n```\n\n```text\n10\n```\n\n## Your task\n\nThe starter has a list called `steps`. Print each number of steps on its own line. Then print `Total: ` followed by the sum.\n",
+  "hints": [
+    "Start a total at 0 before the loop.",
+    "Inside the loop, print the value and add it to the total.",
+    "Loop over `steps`, then print the total once, after the loop."
+  ],
+  "starter_code": "steps = [400, 250, 350]\n# Print each number, then the total.\n",
+  "solution_code": "steps = [400, 250, 350]\ntotal = 0\nfor count in steps:\n    print(count)\n    total = total + count\nprint(f\"Total: {total}\")\n",
+  "wrong_answers": [
+    {
+      "label": "prints the total inside the loop",
+      "code": "steps = [400, 250, 350]\ntotal = 0\nfor count in steps:\n    print(count)\n    total = total + count\n    print(f\"Total: {total}\")\n"
+    },
+    {
+      "label": "forgets the single lines",
+      "code": "steps = [400, 250, 350]\nprint(\"Total: 1000\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "steps-and-total",
+      "name": "Prints each number and then `Total: 1000`",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "400\n250\n350\nTotal: 1000",
+      "match": "normalized",
+      "hint": "The total line appears once, at the end."
+    }
+  ]
+}

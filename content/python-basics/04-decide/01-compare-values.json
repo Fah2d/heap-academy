@@ -1,0 +1,63 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Compare values",
+  "slug": "compare-values",
+  "xp": 10,
+  "instructions_md": "## True or False\n\nA comparison gives `True` or `False`. These values have the type `bool`.\n\n- `==` is equal to\n- `!=` is not equal to\n- `>` and `<` are greater than and less than\n- `>=` and `<=` also allow equal values\n\n```python\nspeed = 40\nprint(speed > 30)\nprint(speed == 30)\n```\n\n```text\nTrue\nFalse\n```\n\nOne `=` stores a value. Two, `==`, compare values.\n\n## Your task\n\nThe starter asks `Temperature: ` and stores the number in `temperature`. `int()` and `input()` work as in the last chapter. Make a variable `is_hot` that is `True` when `temperature` is `35` or more. Then print `is_hot`.\n",
+  "hints": [
+    "A comparison can be stored in a variable.",
+    "You need the sign that means greater than or equal.",
+    "Store the comparison of `temperature` with 35 in `is_hot`, then print it."
+  ],
+  "starter_code": "temperature = int(input(\"Temperature: \"))\n# Make is_hot below, then print it.\n",
+  "solution_code": "temperature = int(input(\"Temperature: \"))\nis_hot = temperature >= 35\nprint(is_hot)\n",
+  "wrong_answers": [
+    {
+      "label": "leaves out the equal case",
+      "code": "temperature = int(input(\"Temperature: \"))\nis_hot = temperature > 35\nprint(is_hot)\n"
+    },
+    {
+      "label": "always says True",
+      "code": "temperature = int(input(\"Temperature: \"))\nis_hot = True\nprint(is_hot)\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "hot-day",
+      "name": "Prints `True` for 38 degrees",
+      "stdin": "38\n",
+      "afterCode": "",
+      "expected": "Temperature: True",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "border-day",
+      "name": "35 degrees counts as hot",
+      "stdin": "35\n",
+      "afterCode": "",
+      "expected": "Temperature: True",
+      "match": "normalized",
+      "hint": "Check what happens when the temperature is exactly 35."
+    },
+    {
+      "id": "mild-day",
+      "name": "Prints `False` for 22 degrees",
+      "stdin": "22\n",
+      "afterCode": "",
+      "expected": "Temperature: False",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "stored",
+      "name": "`is_hot` holds the answer",
+      "stdin": "40\n",
+      "afterCode": "print(type(is_hot).__name__)",
+      "expected": "Temperature: True\nbool",
+      "match": "normalized",
+      "hint": "Store the comparison in a variable named `is_hot`."
+    }
+  ]
+}

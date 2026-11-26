@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Add to a list",
+  "slug": "add-to-a-list",
+  "xp": 15,
+  "instructions_md": "## A list can grow\n\n`append()` adds a value to the end of a list. `len()` counts the values.\n\n```python\nguests = [\"Huda\"]\nguests.append(\"Yusuf\")\nprint(guests)\nprint(len(guests))\n```\n\n```text\n['Huda', 'Yusuf']\n2\n```\n\n## Your task\n\nThe starter has a list called `bag`. Ask `Add: ` and add the answer to the end of the list. Then print the list, and on the next line print how many things it holds.\n",
+  "hints": [
+    "Read the answer before you add it.",
+    "Use `bag.append()` and `len(bag)`.",
+    "Store the answer, append it, print `bag`, then print its length."
+  ],
+  "starter_code": "bag = [\"book\", \"pencil\"]\n# Ask for one more thing and add it.\n",
+  "solution_code": "bag = [\"book\", \"pencil\"]\nthing = input(\"Add: \")\nbag.append(thing)\nprint(bag)\nprint(len(bag))\n",
+  "wrong_answers": [
+    {
+      "label": "never adds the answer",
+      "code": "bag = [\"book\", \"pencil\"]\ninput(\"Add: \")\nprint(bag)\nprint(len(bag))\n"
+    },
+    {
+      "label": "adds a fixed thing",
+      "code": "bag = [\"book\", \"pencil\"]\ninput(\"Add: \")\nbag.append(\"ruler\")\nprint(bag)\nprint(len(bag))\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "adds-ruler",
+      "name": "Adds `ruler` and counts 3",
+      "stdin": "ruler\n",
+      "afterCode": "",
+      "expected": "Add: ['book', 'pencil', 'ruler']\n3",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "adds-apple",
+      "name": "Works for a different thing",
+      "stdin": "apple\n",
+      "afterCode": "",
+      "expected": "Add: ['book', 'pencil', 'apple']\n3",
+      "match": "normalized",
+      "hint": "Add what the person typed."
+    }
+  ]
+}
