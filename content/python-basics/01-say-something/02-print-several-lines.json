@@ -1,0 +1,36 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Print several lines",
+  "slug": "print-several-lines",
+  "xp": 10,
+  "instructions_md": "## One call, one line\n\nPython runs your program from top to bottom. Each `print()` starts a new line.\n\n```python\nprint(\"Breakfast\")\nprint(\"Lunch\")\n```\n\n```text\nBreakfast\nLunch\n```\n\n## Your task\n\nPrint a countdown. Show `3`, `2`, `1` and then `Go!`, each on its own line.\n",
+  "hints": [
+    "Count how many lines the screen must show.",
+    "Use one `print()` for each line.",
+    "Write four calls to `print()`, from `3` down to `Go!`."
+  ],
+  "starter_code": "# Write your countdown below this line.\n",
+  "solution_code": "print(\"3\")\nprint(\"2\")\nprint(\"1\")\nprint(\"Go!\")\n",
+  "wrong_answers": [
+    {
+      "label": "puts everything on one line",
+      "code": "print(\"3 2 1 Go!\")\n"
+    },
+    {
+      "label": "counts up",
+      "code": "print(\"1\")\nprint(\"2\")\nprint(\"3\")\nprint(\"Go!\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "countdown",
+      "name": "Prints `3`, `2`, `1`, `Go!` on four lines",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "3\n2\n1\nGo!",
+      "match": "normalized",
+      "hint": "Each item needs its own line, in this order."
+    }
+  ]
+}

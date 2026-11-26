@@ -4,6 +4,7 @@ import { freeSlug, type LessonDraft, slugFromTitle } from "@/domain/admin/lesson
 import type { ContentStatus } from "@/domain/admin/structure";
 import type { TestCase } from "@/grader/test-case";
 import type { SessionClient } from "@/infrastructure/db/session-client";
+import type { LessonFile } from "../lesson-file";
 
 // Lessons through the admin's own session (docs/spec/02-architecture.md
 // sections 8.3 and 9.1): row level security lets only an admin at aal2 read
@@ -30,6 +31,8 @@ export type LessonFailure =
   | "slug_needed"
   /** The status cannot move this way (docs/spec/04-content-system.md section 4.3). */
   | "status_not_allowed"
+  /** An import's fill failed and its empty draft could not be deleted again. */
+  | "import_left_draft"
   | "not_found"
   | "unavailable";
 
@@ -150,6 +153,45 @@ export async function setLessonStatus(
   return { ok: true, value: { updatedAt: data.updated_at } };
 }
 
+type Placement = { taken: ReadonlySet<string>; position: number };
+
+/**
+ * Where a new lesson goes: the chapter must be one of the course's, and the
+ * lesson goes last in it. Also every address the course's lessons use.
+ */
+async function placeNewLesson(
+  db: SessionClient,
+  courseId: string,
+  chapterId: string,
+): Promise<Outcome<Placement>> {
+  const { data: chapter, error: chapterError } = await db
+    .from("chapters")
+    .select("id")
+    .eq("id", chapterId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (chapterError !== null) return { ok: false, error: lessonFailure(chapterError) };
+  if (chapter === null) return { ok: false, error: "chapter_not_found" };
+  const { data: siblings, error: listError } = await db
+    .from("lessons")
+    .select("slug, chapter_id, position")
+    .eq("course_id", courseId);
+  if (listError !== null || !Array.isArray(siblings)) {
+    return { ok: false, error: lessonFailure(listError) };
+  }
+  const rows = siblings as { slug: unknown; chapter_id: unknown; position: unknown }[];
+  const positions = rows
+    .filter((row) => row.chapter_id === chapterId && typeof row.position === "number")
+    .map((row) => row.position as number);
+  return {
+    ok: true,
+    value: {
+      taken: new Set(rows.map((row) => String(row.slug))),
+      position: positions.length === 0 ? 0 : Math.max(...positions) + 1,
+    },
+  };
+}
+
 /**
  * A new draft lesson at the end of a chapter, with an address made from its
  * title (docs/spec/03-experience.md section 7.3: "add a lesson creates a
@@ -161,34 +203,16 @@ export async function createLesson(
 ): Promise<Outcome<{ id: string }>> {
   const base = slugFromTitle(lesson.title);
   if (base === undefined) return { ok: false, error: "slug_needed" };
-  const { data: chapter, error: chapterError } = await db
-    .from("chapters")
-    .select("id")
-    .eq("id", lesson.chapterId)
-    .eq("course_id", lesson.courseId)
-    .maybeSingle();
-  if (chapterError !== null) return { ok: false, error: lessonFailure(chapterError) };
-  if (chapter === null) return { ok: false, error: "chapter_not_found" };
-  const { data: siblings, error: listError } = await db
-    .from("lessons")
-    .select("slug, chapter_id, position")
-    .eq("course_id", lesson.courseId);
-  if (listError !== null || !Array.isArray(siblings)) {
-    return { ok: false, error: lessonFailure(listError) };
-  }
-  const rows = siblings as { slug: unknown; chapter_id: unknown; position: unknown }[];
-  const taken = new Set(rows.map((row) => String(row.slug)));
-  const positions = rows
-    .filter((row) => row.chapter_id === lesson.chapterId && typeof row.position === "number")
-    .map((row) => row.position as number);
+  const place = await placeNewLesson(db, lesson.courseId, lesson.chapterId);
+  if (!place.ok) return place;
   const { data, error } = await db
     .from("lessons")
     .insert({
       course_id: lesson.courseId,
       chapter_id: lesson.chapterId,
       title: lesson.title,
-      slug: freeSlug(base, taken),
-      position: positions.length === 0 ? 0 : Math.max(...positions) + 1,
+      slug: freeSlug(base, place.value.taken),
+      position: place.value.position,
     })
     .select("id")
     .single();
@@ -199,4 +223,66 @@ export async function createLesson(
     return { ok: false, error: failure === "slug_taken" ? "unavailable" : failure };
   }
   return { ok: true, value: { id: data.id } };
+}
+
+/**
+ * An imported lesson (docs/spec/04-content-system.md section 8; FR-ADM-12,
+ * T-23): a new draft at the end of the chapter holding exactly the file's
+ * content, never marked validated, so it is published like any other lesson,
+ * through a passing validation. Nothing runs here. When another lesson of the
+ * course has the file's address, the draft gets the next free one, as an
+ * added lesson does. The row is created, then filled through save_lesson, so
+ * the solution is written by the same function as every save; if the fill
+ * fails, the empty row is deleted again, and a failed delete is reported.
+ */
+export async function importLesson(
+  db: SessionClient,
+  target: { courseId: string; chapterId: string },
+  lesson: LessonFile,
+): Promise<Outcome<{ id: string; slug: string }>> {
+  const place = await placeNewLesson(db, target.courseId, target.chapterId);
+  if (!place.ok) return place;
+  const slug = freeSlug(lesson.slug, place.value.taken);
+  const { data: created, error: createError } = await db
+    .from("lessons")
+    .insert({
+      course_id: target.courseId,
+      chapter_id: target.chapterId,
+      title: lesson.title,
+      slug,
+      position: place.value.position,
+    })
+    .select("id, updated_at")
+    .single();
+  if (
+    createError !== null ||
+    typeof created?.id !== "string" ||
+    typeof created.updated_at !== "string"
+  ) {
+    const failure = lessonFailure(createError);
+    return { ok: false, error: failure === "slug_taken" ? "unavailable" : failure };
+  }
+  const { data: saved, error: saveError } = await db.rpc("save_lesson", {
+    p_lesson_id: created.id,
+    p_loaded_updated_at: created.updated_at,
+    p_chapter_id: target.chapterId,
+    p_slug: slug,
+    p_title: lesson.title,
+    p_position: place.value.position,
+    p_xp: lesson.xp,
+    p_instructions_md: lesson.instructions_md,
+    p_hints: lesson.hints,
+    p_starter_code: lesson.starter_code,
+    p_tests: lesson.tests,
+    p_solution_code: lesson.solution_code,
+    p_wrong_answers: lesson.wrong_answers,
+    p_validated: false,
+  });
+  if (saveError !== null || typeof saved !== "string") {
+    const { error: deleteError } = await db.from("lessons").delete().eq("id", created.id);
+    // The action wrapper logs the code, so a draft left behind is on record.
+    if (deleteError !== null) return { ok: false, error: "import_left_draft" };
+    return { ok: false, error: saveError === null ? "unavailable" : lessonFailure(saveError) };
+  }
+  return { ok: true, value: { id: created.id, slug } };
 }

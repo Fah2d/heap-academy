@@ -8,6 +8,7 @@ import type { EditorCourse } from "../types";
 import { type ChapterActions, ChapterList } from "./chapter-list";
 import { CourseDetailsForm, type SaveCourse } from "./course-details-form";
 import { CourseStatusPanel, type SetCourseStatus } from "./course-status";
+import { CourseTransfer, type ExportCourse, type ImportLesson } from "./course-transfer";
 import { useLeaveWarning } from "./leave-warning";
 
 // The course editor (docs/spec/03-experience.md section 7.3): Details,
@@ -20,6 +21,8 @@ export type CourseEditorProps = ChapterActions & {
   course: EditorCourse;
   saveCourse: SaveCourse;
   setStatus: SetCourseStatus;
+  exportCourse: ExportCourse;
+  importLesson: ImportLesson;
   /** Reads the course again. The router's refresh by default. */
   refresh?: () => void;
 };
@@ -32,6 +35,8 @@ export function CourseEditor({
   deleteChapter,
   reorder,
   createLesson,
+  exportCourse,
+  importLesson,
   refresh,
 }: CourseEditorProps) {
   const router = useRouter();
@@ -42,13 +47,13 @@ export function CourseEditor({
   const courseDetailsId = useId();
   const [detailsUnsaved, setDetailsUnsaved] = useState(false);
   const [chaptersUnsaved, setChaptersUnsaved] = useState(false);
-  useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
+  const leave = useLeaveWarning(detailsUnsaved || chaptersUnsaved, words.unsavedWarning);
   const onDetailsUnsaved = useCallback((unsaved: boolean) => setDetailsUnsaved(unsaved), []);
   const onChaptersUnsaved = useCallback((unsaved: boolean) => setChaptersUnsaved(unsaved), []);
 
   return (
     <div className="flex flex-col gap-7">
-      <section aria-labelledby={courseDetailsId} className="flex flex-col gap-4">
+      <div role="group" aria-labelledby={courseDetailsId} className="flex flex-col gap-4">
         <h2 id={courseDetailsId} className="text-lg font-semibold text-text">
           {words.detailsHeading}
         </h2>
@@ -62,7 +67,7 @@ export function CourseEditor({
             reread();
           }}
         />
-      </section>
+      </div>
       <CourseStatusPanel
         courseId={course.id}
         status={status}
@@ -84,6 +89,14 @@ export function CourseEditor({
         refresh={reread}
         onUnsavedChange={onChaptersUnsaved}
         otherUnsaved={detailsUnsaved}
+        onLeaving={leave.release}
+      />
+      <CourseTransfer
+        courseId={course.id}
+        chapters={course.chapters}
+        exportCourse={exportCourse}
+        importLesson={importLesson}
+        refresh={reread}
       />
     </div>
   );

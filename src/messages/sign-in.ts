@@ -50,6 +50,7 @@ export const account = {
   signIn: "Sign in",
   signOut: "Sign out",
   signingOut: "Signing out",
+  profile: "Profile",
 } as const;
 
 /**

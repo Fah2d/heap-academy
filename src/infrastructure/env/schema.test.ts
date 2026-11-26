@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   EnvironmentError,
+  deletionEnvironment,
   parseEnvironment,
   parsePublicEnvironment,
   publicEnvironmentSchema,
@@ -115,5 +116,40 @@ describe("environment schema", () => {
     for (const { index } of declared) {
       expect(lines[index - 1]?.startsWith("# ")).toBe(true);
     }
+  });
+});
+
+describe("[FR-PRF-03] [NFR-SEC-04] the account deletion variables", () => {
+  const deletion = {
+    SUPABASE_SECRET_KEY: "sb_secret_example",
+    DELETION_NOTICE_FROM: "notices@example.com",
+    DELETION_NOTICE_TO: "owner@example.com",
+  };
+
+  it("are optional together", () => {
+    expect(deletionEnvironment(valid)).toBeNull();
+  });
+
+  it("give the deletion use case what it needs", () => {
+    expect(deletionEnvironment({ ...valid, ...deletion })).toEqual({
+      supabaseUrl: valid.NEXT_PUBLIC_SUPABASE_URL,
+      secretKey: deletion.SUPABASE_SECRET_KEY,
+      resendKey: valid.RESEND_API_KEY,
+      noticeFrom: deletion.DELETION_NOTICE_FROM,
+      noticeTo: deletion.DELETION_NOTICE_TO,
+    });
+  });
+
+  it.each(Object.keys(deletion))("refuse to start without %s when the others are set", (name) => {
+    expect(() => parseEnvironment({ ...valid, ...deletion, [name]: "" })).toThrow(
+      new RegExp(`${name}: required with`),
+    );
+  });
+
+  it("refuse a key that is not a secret key, without repeating it", () => {
+    const attempt = () =>
+      parseEnvironment({ ...valid, ...deletion, SUPABASE_SECRET_KEY: "sb_publishable_oops" });
+    expect(attempt).toThrow(/SUPABASE_SECRET_KEY/);
+    expect(attempt).not.toThrow(/oops/);
   });
 });

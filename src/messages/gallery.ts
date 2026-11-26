@@ -90,9 +90,25 @@ export const gallery = {
 export const adminPreviewGallery = { title: "Admin preview" };
 
 export const adminGallery = {
-  title: "Admin states",
-  intro:
-    "The dashboard's, the editors' and the second step's states that the journeys cannot reach. Each link opens one state on its own page. The actions here are fakes that answer at once, or never.",
+  // One page per part of the admin area (/dev/admin, /dev/admin/lessons,
+  // /dev/admin/validation).
+  pages: {
+    course: {
+      title: "Admin states",
+      intro:
+        "The dashboard's, the course editor's and the second step's states that the journeys cannot reach. The actions here are fakes that answer at once, or never.",
+    },
+    lesson: {
+      title: "Lesson editor states",
+      intro:
+        "The lesson editor's states that the journeys cannot reach: saves, previews, limits and test cases. The actions here are fakes that answer at once, or never.",
+    },
+    validation: {
+      title: "Validation states",
+      intro:
+        "Validate and the Save that validates first, with Python loading, failing, stuck or answering. The runtimes here are fakes.",
+    },
+  },
   courseListEmpty: "Course list with no course",
   courseListFailed: "Course list that could not load",
   courseListRows: "Course list with courses",
@@ -111,6 +127,11 @@ export const adminGallery = {
     "Course editor of a published course whose saves never answer: the saving and changing states, rename, and the questions before archiving and deleting",
   editorSaving: "Course editor whose saves succeed",
   editorFailed: "Course editor whose course could not load",
+  transferSucceeding:
+    "Export and import whose actions succeed; the imported lesson gets another address",
+  transferPending: "Export and import whose actions never answer",
+  transferFailing:
+    "Export and import whose actions fail: a lesson that cannot be read, and a draft left behind",
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",

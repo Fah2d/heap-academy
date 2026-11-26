@@ -1,0 +1,63 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Add more choices with elif",
+  "slug": "more-choices-with-elif",
+  "xp": 15,
+  "instructions_md": "## Several paths\n\n`elif` means \"else if\". Python checks the conditions from top to bottom and runs the first block that is `True`.\n\n```python\nhour = 14\nif hour < 12:\n    print(\"Morning\")\nelif hour < 18:\n    print(\"Afternoon\")\nelse:\n    print(\"Evening\")\n```\n\n```text\nAfternoon\n```\n\n## Your task\n\nAsk `Temperature: ` and print one word:\n\n- `Hot` for 35 or more\n- `Warm` for 20 to 34\n- `Cool` for less than 20\n",
+  "hints": [
+    "There are three outcomes, so you need three blocks.",
+    "Check the highest range first.",
+    "Use `if` for 35 and up, `elif` for 20 and up, and `else` for the rest."
+  ],
+  "starter_code": "# Ask for the temperature, then print one word.\n",
+  "solution_code": "temperature = int(input(\"Temperature: \"))\nif temperature >= 35:\n    print(\"Hot\")\nelif temperature >= 20:\n    print(\"Warm\")\nelse:\n    print(\"Cool\")\n",
+  "wrong_answers": [
+    {
+      "label": "uses two separate if blocks",
+      "code": "temperature = int(input(\"Temperature: \"))\nif temperature >= 35:\n    print(\"Hot\")\nif temperature >= 20:\n    print(\"Warm\")\nelse:\n    print(\"Cool\")\n"
+    },
+    {
+      "label": "leaves out the equal cases",
+      "code": "temperature = int(input(\"Temperature: \"))\nif temperature > 35:\n    print(\"Hot\")\nelif temperature > 20:\n    print(\"Warm\")\nelse:\n    print(\"Cool\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "hot",
+      "name": "41 is `Hot`",
+      "stdin": "41\n",
+      "afterCode": "",
+      "expected": "Temperature: Hot",
+      "match": "normalized",
+      "hint": "Print one word only."
+    },
+    {
+      "id": "hot-border",
+      "name": "35 is `Hot`",
+      "stdin": "35\n",
+      "afterCode": "",
+      "expected": "Temperature: Hot",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "warm-border",
+      "name": "20 is `Warm`",
+      "stdin": "20\n",
+      "afterCode": "",
+      "expected": "Temperature: Warm",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "cool",
+      "name": "12 is `Cool`",
+      "stdin": "12\n",
+      "afterCode": "",
+      "expected": "Temperature: Cool",
+      "match": "normalized",
+      "hint": ""
+    }
+  ]
+}
