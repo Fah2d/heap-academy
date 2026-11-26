@@ -121,6 +121,25 @@ describe("backup.sh dump", () => {
         "--exclude-table-data=auth.schema_migrations",
       ]),
     );
+  });
+
+  it("[T-12] [T-24] leaves out what a restore must not bring back: sessions, tokens, codes, challenges and the audit log", () => {
+    run(["dump", "backup.age"], fake());
+    const args = readFileSync(join(dir, "pg_dump.args"), "utf8").split("\n");
+    expect(args).toEqual(
+      expect.arrayContaining(
+        [
+          "sessions",
+          "refresh_tokens",
+          "mfa_amr_claims",
+          "mfa_challenges",
+          "one_time_tokens",
+          "flow_state",
+          "saml_relay_states",
+          "audit_log_entries",
+        ].map((table) => `--exclude-table-data=auth.${table}`),
+      ),
+    );
     const env = readFileSync(join(dir, "pg_dump.env"), "utf8");
     expect(env).toContain(`PGUSER=${USER}`);
     expect(env).toContain("PGSSLMODE=require");
@@ -140,10 +159,11 @@ describe("backup.sh dump", () => {
     expect(readFileSync(join(dir, "pg_dump.env"), "utf8")).toContain(`PGPASSWORD=${PASSWORD}`);
   });
 
-  it("[T-24] in GitHub Actions masks the host and the user, and never prints the password", () => {
+  it("[T-24] prints no add-mask line: the host, the user and the password are secrets the runner hides", () => {
     const result = run(["dump", "backup.age"], { ...fake(), GITHUB_ACTIONS: "true" });
-    expect(result.output).toContain(`::add-mask::${HOST}\n::add-mask::${USER}\n`);
-    expect(result.output).not.toContain(PASSWORD);
+    expect(result.status).toBe(0);
+    expect(result.output).not.toContain("::add-mask::");
+    for (const secret of [PASSWORD, HOST, USER]) expect(result.output).not.toContain(secret);
   });
 
   it("[T-24] fails, and removes the file, when the output is not age ciphertext", () => {

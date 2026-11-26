@@ -52,8 +52,10 @@ jobs:
       - name: Dump and encrypt
         env:
           BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
-          BACKUP_DB_HOST: ${{ vars.BACKUP_DB_HOST }}
-          BACKUP_DB_USER: ${{ vars.BACKUP_DB_USER }}
+          # Secrets, all three: a step's environment is printed in its log
+          # header, and only secrets show there as ***.
+          BACKUP_DB_HOST: ${{ secrets.BACKUP_DB_HOST }}
+          BACKUP_DB_USER: ${{ secrets.BACKUP_DB_USER }}
           BACKUP_DB_PASSWORD: ${{ secrets.BACKUP_DB_PASSWORD }}
         run: |
           mkdir "$RUNNER_TEMP/backup"

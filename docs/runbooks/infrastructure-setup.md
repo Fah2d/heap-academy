@@ -133,6 +133,7 @@ Where every secret lives, in one table:
 | Turnstile secret key | Supabase production and staging, Attack Protection (step 10) | Vercel, GitHub |
 | Vercel token | GitHub `production` environment | Anywhere else |
 | Backup role's password (`BACKUP_DB_PASSWORD`) | GitHub `production-backup` environment; your password manager | Any other environment, any file |
+| Backup connection host and user (`BACKUP_DB_HOST`, `BACKUP_DB_USER`) | GitHub `production-backup` environment, as secrets so the log hides them | Variables, any log |
 | Heartbeat ping address (`BACKUP_HEARTBEAT_URL`) | GitHub `production-backup` environment | Any file, any log |
 | Backup private key (age identity) | Offline: a USB stick and a paper copy (`restore.md` section 1) | Any machine with Claude Code, CI, a synced password manager, any file in the repository |
 | GitHub fine-grained token (step 8) | The implementer's `gh` login on your machine | Any file, any environment |

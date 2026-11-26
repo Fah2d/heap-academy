@@ -12,13 +12,16 @@
 //   3. The file's provenance passes `gh attestation verify`, signed by that
 //      workflow on refs/heads/main, on a GitHub-hosted runner.
 //   4. The identity file is readable by its owner alone (mode 0600).
-//   5. `age -d` is piped straight into `psql -v ON_ERROR_STOP=1
-//      --single-transaction`, so no plaintext is written and a cut-off stream
-//      restores nothing.
+//   5. `age -d` is piped straight into `psql -v ON_ERROR_STOP=1`, between a
+//      BEGIN this script writes first and a COMMIT it writes only after age
+//      finished cleanly. No plaintext is written, and a cut-off stream, a
+//      failed decryption or this script dying restores nothing.
 //
 // Needs gh (signed in), age and psql on the PATH. The target URL is a
-// database whose migrations ran and which holds no rows yet; this script
-// prints it nowhere.
+// database whose migrations ran and which holds no rows yet. It must hold no
+// password, which a command line leaves in the shell's history and in the
+// process list: psql asks for it on the terminal. This script prints the URL
+// nowhere.
 //
 // Exit codes: 0 restored, 1 a check or the restore failed, 2 usage error.
 
@@ -82,23 +85,30 @@ export function attestationArgs(/** @type {string} */ file, /** @type {string} *
  */
 
 /**
- * Joins a running `age -d` to a running psql. psql commits when its input
- * ends, and a SQL stream cut between two statements is still valid SQL, so
- * psql hears the end only after age finished cleanly; age refuses cut-off
- * ciphertext. A failed decryption kills psql while its transaction is still
- * open, and the server rolls it back. Resolves with age's exit code if it
- * failed, else psql's.
- * @param {{ stdout: import("node:stream").Readable, on: (event: "close", listener: (code: number | null) => void) => unknown }} age
+ * Joins a running `age -d` to a running psql. psql runs with no
+ * --single-transaction, which would commit whenever its input ends, also
+ * when this process dies and the pipe closes. Instead psql gets BEGIN
+ * first, then age's output, and COMMIT only after age finished cleanly; age
+ * refuses cut-off ciphertext. In every other case psql's input ends, or psql
+ * is killed, inside the open transaction, and the server rolls it back.
+ * Resolves with age's exit code if it failed, else psql's.
+ * @param {{ stdout: import("node:stream").Readable, kill: (signal: NodeJS.Signals) => unknown, on: (event: "close", listener: (code: number | null) => void) => unknown }} age
  * @param {{ stdin: import("node:stream").Writable, kill: (signal: NodeJS.Signals) => unknown, on: (event: "close", listener: (code: number | null) => void) => unknown }} psql
  * @returns {Promise<number>}
  */
 export const pipeInto = (age, psql) =>
   new Promise((resolve) => {
+    // psql stopped reading (it failed, or was stopped): stop decrypting too.
+    // Its own exit code is then the answer.
+    psql.stdin.on("error", () => {
+      age.kill("SIGTERM");
+    });
+    psql.stdin.write("BEGIN;\n");
     age.stdout.pipe(psql.stdin, { end: false });
     let ageStatus = 0;
     age.on("close", (code) => {
       ageStatus = code ?? 1;
-      if (ageStatus === 0) psql.stdin.end();
+      if (ageStatus === 0) psql.stdin.end("COMMIT;\n");
       else psql.kill("SIGTERM");
     });
     psql.on("close", (code) => {
@@ -119,7 +129,7 @@ export const pipeRestore = (key, file, target) =>
     spawn("age", ["--decrypt", "--identity", key, file], {
       stdio: ["ignore", "pipe", "inherit"],
     }),
-    spawn("psql", ["-v", "ON_ERROR_STOP=1", "--single-transaction", "--quiet", target], {
+    spawn("psql", ["-v", "ON_ERROR_STOP=1", "--quiet", target], {
       stdio: ["pipe", "inherit", "inherit"],
       // The dump holds data only, for tables the migrations made. With
       // replica, triggers such as the profile a new account gets do not
@@ -127,6 +137,21 @@ export const pipeRestore = (key, file, target) =>
       env: { ...process.env, PGOPTIONS: "-c session_replication_role=replica" },
     }),
   );
+
+/**
+ * Whether a connection string carries a password, as a URL
+ * (`postgresql://user:password@host`) or as keywords (`password=...`).
+ * @param {string} target
+ */
+export function holdsPassword(target) {
+  if (/(^|\s)password\s*=/i.test(target)) return true;
+  try {
+    return new URL(target).password !== "";
+  } catch {
+    // Not a URL: a keyword string, whose password the test above looked for.
+    return false;
+  }
+}
 
 /** @type {Tools} */
 const realTools = {
@@ -208,6 +233,12 @@ export async function main(argv, tools = realTools) {
     options[flag.slice(2)] = value;
   }
   const { repo, run, key, target } = options;
+  if (target !== undefined && holdsPassword(target)) {
+    process.stderr.write(
+      "restore: refused: the target holds a password; leave it out, and psql asks for it\n",
+    );
+    return 2;
+  }
   if (
     repo === undefined ||
     !/^[\w.-]+\/[\w.-]+$/.test(repo) ||

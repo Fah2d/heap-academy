@@ -49,17 +49,17 @@ dump() {
   [[ ! -e "$out" ]] || fail "the output file already exists"
   local key
   key="$(recipient)"
-  # The host and the user are environment variables, not secrets, so the
-  # runner does not hide them by itself. The password is a secret, which it
-  # hides already, so it is never printed here, not even to mask it.
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    printf '::add-mask::%s\n' "$BACKUP_DB_HOST" "$BACKUP_DB_USER"
-  fi
+  # The host, the user and the password are all secrets of the
+  # production-backup environment: the runner prints a step's environment
+  # in its log header before the step runs, and only secrets show as ***.
   local status=0
   # Data only: a restore goes into a database whose migrations made the
   # schema; it runs with session_replication_role=replica, so triggers do not
   # fire twice (docs/runbooks/restore.md). auth.schema_migrations belongs to
-  # the auth service of the target, so its rows stay out.
+  # the auth service of the target, so its rows stay out. So do sessions,
+  # refresh tokens, codes and challenges, which a restore must not bring back
+  # to life after they were revoked, and the audit log, which holds addresses
+  # and IP addresses a restore does not need.
   PGHOST="$BACKUP_DB_HOST" \
     PGPORT="${BACKUP_DB_PORT:-5432}" \
     PGDATABASE="${BACKUP_DB_NAME:-postgres}" \
@@ -70,6 +70,14 @@ dump() {
     pg_dump --data-only --no-owner --no-privileges \
     --schema=public --schema=private --schema=auth \
     --exclude-table-data=auth.schema_migrations \
+    --exclude-table-data=auth.sessions \
+    --exclude-table-data=auth.refresh_tokens \
+    --exclude-table-data=auth.mfa_amr_claims \
+    --exclude-table-data=auth.mfa_challenges \
+    --exclude-table-data=auth.one_time_tokens \
+    --exclude-table-data=auth.flow_state \
+    --exclude-table-data=auth.saml_relay_states \
+    --exclude-table-data=auth.audit_log_entries \
     2>/dev/null | age --encrypt --recipient "$key" --output "$out" || status=$?
   if [[ "$status" -ne 0 ]]; then
     rm -f "$out"

@@ -29,14 +29,13 @@ Do these in order. Until all are done, each nightly run fails at its first missi
 1. [ ] On the drill machine, install age (`brew install age` on macOS, `apt install age` on Ubuntu). Then run `age-keygen -o backup.key`. It prints `Public key: age1...`.
 2. [ ] Copy `backup.key` to the USB stick, print it, and delete it from the drill machine. Keep the two copies as section 1 says.
 3. [ ] Send the public key line to the development machine by any route (it is not secret). Open a pull request that adds it as the only line of `ops/backup-recipient.age.pub`, and merge it.
-4. [ ] Production Supabase → **SQL Editor**. Generate a long random password in your password manager, saved as `production backup_reader password`. Then run, with that password pasted in the dashboard only, never in a terminal:
-   `alter role backup_reader with login password '<the password>';`
-   The role exists from the migration `20261124120000_backup_reader.sql`, without login until now.
+4. [ ] Generate a long random password in your password manager, saved as `production backup_reader password`. Production Supabase → **SQL Editor**: `alter role backup_reader with login;` (the role exists from the migration `20261124120000_backup_reader.sql`, without login until now). Then set its password from the drill machine, never in the SQL Editor, which keeps what you run in its history:
+   `psql "postgresql://postgres.<prod-ref>@<pooler host>:5432/postgres?sslmode=require"` (psql asks for the `postgres` password; paste it from the password manager), then `\password backup_reader` and paste the new password twice. psql turns it into a hash on your machine before it sends it, and echoes nothing. `\q` to leave.
 5. [ ] Production Supabase → **Connect** → **Session pooler**. Note the host (`aws-0-<region>.pooler.supabase.com`, or what the dialog shows) and the user's form, `postgres.<prod-ref>`. The backup's user is the same with the role's name: `backup_reader.<prod-ref>`.
 6. [ ] Create the heartbeat check on Healthchecks.io's free plan. Use **Simple** schedule, period **1 day**, grace time **2 hours**: 26 hours of silence then emails you. Copy its ping address.
 7. [ ] GitHub → **Settings → Environments →** `production-backup`. Deployment branches: `main` only (from `infrastructure-setup.md` section 7 step 3). Then add:
-   - **Environment variables**: `BACKUP_AGE_RECIPIENT` = the public key line; `BACKUP_DB_HOST` = the pooler host; `BACKUP_DB_USER` = `backup_reader.<prod-ref>`.
-   - **Environment secrets**: `BACKUP_DB_PASSWORD` = the password of step 4; `BACKUP_HEARTBEAT_URL` = the ping address of step 6. The ping address works like a password: anyone who has it can make a dead backup look alive.
+   - **Environment variables**: `BACKUP_AGE_RECIPIENT` = the public key line. It is public, and the run prints it.
+   - **Environment secrets**: `BACKUP_DB_HOST` = the pooler host; `BACKUP_DB_USER` = `backup_reader.<prod-ref>`; `BACKUP_DB_PASSWORD` = the password of step 4; `BACKUP_HEARTBEAT_URL` = the ping address of step 6. The host and the user are secrets so that the public log shows them as `***`: a run prints each step's variables in clear before the step starts. The ping address works like a password: anyone who has it can make a dead backup look alive.
 8. [ ] Run `pnpm infra:verify` (`infrastructure-setup.md` section 7 step 7). It checks that `production-backup` deploys from `main` only.
 9. [ ] The next morning: **Actions → Backup** shows a green scheduled run, with one artifact, `backup`. The heartbeat check shows a ping from that run's time. Paste both in the WP-7.3 pull request.
 
@@ -48,7 +47,7 @@ GitHub turns off scheduled workflows in a public repository after 60 days withou
 
 Required once before launch (NFR-REL-05), then once a quarter. It restores a real nightly backup into a throwaway local database, checks it, and destroys it. Record the time each step took.
 
-The drill machine needs: Docker, the Supabase CLI, Node.js 24, `gh` signed in to your GitHub account, `age`, and `psql` 17. It must not have Claude Code installed.
+The drill machine needs: Docker, the Supabase CLI, Node.js 24, the newest `gh` release signed in to your GitHub account (it unpacks the artifact before the provenance check, so take its latest fixes), `age`, and `psql` 17.6 or later (the nightly `pg_dump` comes from the PostgreSQL project's newest 17 release). It must not have Claude Code installed.
 
 1. [ ] Note the start time.
 2. [ ] Clone the repository on the drill machine, at `main`. Run `supabase start`, then `supabase db reset --no-seed`. The local database now has every migration and no rows, which is what the restore expects.
@@ -57,10 +56,11 @@ The drill machine needs: Docker, the Supabase CLI, Node.js 24, `gh` signed in to
    Note its `databaseId` (the run ID) and `createdAt` (the dump's time).
 4. [ ] Plug in the USB stick. Copy the key file to the drill machine's home folder and run `chmod 600 ~/backup.key`. The restore refuses a key others can read.
 5. [ ] Restore:
-   `node scripts/restore.mjs --repo <owner>/<repo> --run <run ID> --key ~/backup.key --target postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres`
-   It checks the run (workflow file, scheduled, `main`, this repository, succeeded), downloads the artifact, checks its provenance with `gh attestation verify`, and only then pipes `age -d` into `psql --single-transaction`. Any refusal names its reason and decrypts nothing. A restore that stops commits nothing. The local `supabase_admin` role is used because the restore turns triggers off for its session (`session_replication_role=replica`), which needs it.
+   `node scripts/restore.mjs --repo <owner>/<repo> --run <run ID> --key ~/backup.key --target postgresql://supabase_admin@127.0.0.1:54322/postgres`
+   psql asks for the password: the local stack's is `postgres`. The script refuses a target that holds a password, because a command line stays in the shell's history. It checks the run (workflow file, scheduled, `main`, this repository, succeeded), downloads the artifact, checks its provenance with `gh attestation verify`, and only then pipes `age -d` into psql, inside a transaction it commits only once age has finished cleanly. Any refusal names its reason and decrypts nothing. A restore that stops, for any reason, commits nothing. The local `supabase_admin` role is used because the restore turns triggers off for its session (`session_replication_role=replica`), which needs it.
+   The backup holds no sessions, refresh tokens, sign-in codes or audit log (`scripts/backup.sh`), so the restored database has none.
 6. [ ] Verify, with a lesson you know is published:
-   `psql -v ON_ERROR_STOP=1 -v lesson=<a published lesson's slug> -f scripts/restore-verify.sql postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+   `psql -v ON_ERROR_STOP=1 -v lesson=<a published lesson's slug> -f scripts/restore-verify.sql postgresql://postgres@127.0.0.1:54322/postgres` (the password is `postgres` here too)
    It prints the row counts and ends with `restore check passed`, or fails with the reason. Compare the counts with production: Supabase production → **SQL Editor**, the first query of `scripts/restore-verify.sql` (the counts only). Rows made after the dump's time are expected to differ.
 7. [ ] Re-apply deletions (section 5) against the local database, as practice.
 8. [ ] Destroy it: `supabase stop --no-backup`, which deletes the local database's volumes. Check with `docker volume ls` that no volume of this project is left. Delete `~/backup.key` and the clone. Unplug the stick.
@@ -75,7 +75,7 @@ Not rehearsed: only the restore of section 3 into a local database has been run,
 1. [ ] Note the time. The site has no maintenance mode: progress learners save from now until the restore ends is lost, and their devices keep it and send it again (ADR-0011).
 2. [ ] Find the newest good backup: section 3 steps 1 to 6 on the drill machine, which also proves it restores.
 3. [ ] Create a new Supabase project and set it up by `infrastructure-setup.md` sections 2, 4 and 10, so its database is empty. Run the migrations into it: point the `production` environment's `SUPABASE_DB_URL` at it (`rotate-a-secret.md` section 2 steps 4 and 5) and re-run the latest Deploy run. Restoring into the old project's database, over its rows, is not covered here: its rows would collide with the backup's.
-4. [ ] On the drill machine, section 3 steps 3 to 5, with `--target` being the new project's session pooler URL as `postgres`, with `?sslmode=require`. Build that URL in your password manager, never in a file.
+4. [ ] On the drill machine, section 3 steps 3 to 5, with `--target` being the new project's session pooler URL as `postgres`, with `?sslmode=require` and no password in it: `postgresql://postgres.<new-ref>@<pooler host>:5432/postgres?sslmode=require`. psql asks for the password; paste it from the password manager.
 5. [ ] Section 3 step 6 against the new project, then section 5 against it, which is not practice this time.
 6. [ ] Point the site at the new project: Vercel's Supabase variables (`infrastructure-setup.md` section 5), then `rotate-a-secret.md` section 1. Every learner signs in again.
 7. [ ] Section 3 step 8: delete the key from the drill machine.

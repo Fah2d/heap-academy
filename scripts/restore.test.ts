@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   attestationArgs,
+  holdsPassword,
   main,
   pipeInto,
   pipeRestore,
@@ -204,13 +205,13 @@ echo committed > "$FAKE_DIR/psql.committed"`,
       "--decrypt\n--identity\n/keys/k\n/tmp/backup.age\n",
     );
     expect(readFileSync(join(dir, "psql.args"), "utf8")).toBe(
-      "-v\nON_ERROR_STOP=1\n--single-transaction\n--quiet\npostgresql://x\n",
+      "-v\nON_ERROR_STOP=1\n--quiet\npostgresql://x\n",
     );
     expect(readFileSync(join(dir, "psql.options"), "utf8")).toBe(
       "-c session_replication_role=replica\n",
     );
     expect(readFileSync(join(dir, "psql.in"), "utf8")).toBe(
-      "insert into t values (1);\ninsert into t values (2);\n",
+      "BEGIN;\ninsert into t values (1);\ninsert into t values (2);\nCOMMIT;\n",
     );
     expect(existsSync(join(dir, "psql.committed"))).toBe(true);
   });
@@ -219,6 +220,9 @@ echo committed > "$FAKE_DIR/psql.committed"`,
     writeFileSync(join(dir, "age.fail"), "");
     await expect(pipeRestore("/keys/k", "/tmp/backup.age", "postgresql://x")).resolves.toBe(1);
     expect(existsSync(join(dir, "psql.committed"))).toBe(false);
+    // psql may be killed before it reads a line; whatever it read has no COMMIT.
+    const read = existsSync(join(dir, "psql.in")) ? readFileSync(join(dir, "psql.in"), "utf8") : "";
+    expect(read).not.toContain("COMMIT");
   });
 });
 
@@ -228,40 +232,80 @@ echo committed > "$FAKE_DIR/psql.committed"`,
 describe("restore.mjs pipeInto", () => {
   function processes() {
     const killed: string[] = [];
-    const age = Object.assign(new EventEmitter(), { stdout: new PassThrough() });
+    const received: string[] = [];
+    const age = Object.assign(new EventEmitter(), {
+      stdout: new PassThrough(),
+      kill: (signal: NodeJS.Signals) => {
+        killed.push(`age ${signal}`);
+      },
+    });
     const stdin = new PassThrough();
-    stdin.resume();
+    stdin.on("data", (chunk: Buffer) => received.push(chunk.toString()));
     const psql = Object.assign(new EventEmitter(), {
       stdin,
       kill: (signal: NodeJS.Signals) => {
-        killed.push(signal);
+        killed.push(`psql ${signal}`);
         psql.emit("close", null);
       },
     });
-    return { age, psql, killed };
+    return { age, psql, killed, received };
   }
 
-  it("[NFR-REL-05] [T-24] psql's input stays open when age's output ends, until age exits cleanly", async () => {
-    const { age, psql, killed } = processes();
+  it("[NFR-REL-05] [T-24] psql gets BEGIN, age's output, and COMMIT only once age exits cleanly", async () => {
+    const { age, psql, killed, received } = processes();
     const done = pipeInto(age, psql);
     age.stdout.end("insert into t values (1);\n");
     await once(age.stdout, "end");
     expect(psql.stdin.writableEnded).toBe(false);
+    expect(received.join("")).toBe("BEGIN;\ninsert into t values (1);\n");
     age.emit("close", 0);
     expect(psql.stdin.writableEnded).toBe(true);
     psql.emit("close", 0);
     await expect(done).resolves.toBe(0);
+    expect(received.join("")).toBe("BEGIN;\ninsert into t values (1);\nCOMMIT;\n");
     expect(killed).toEqual([]);
   });
 
-  it("[NFR-REL-05] [T-24] a failed age kills psql with its input still open, and its exit is reported", async () => {
-    const { age, psql, killed } = processes();
+  it("[NFR-REL-05] [T-24] a failed age kills psql with no COMMIT sent, and its exit is reported", async () => {
+    const { age, psql, killed, received } = processes();
     const done = pipeInto(age, psql);
     age.stdout.end("insert into t values (1);\n");
     await once(age.stdout, "end");
     age.emit("close", 1);
-    expect(psql.stdin.writableEnded).toBe(false);
-    expect(killed).toEqual(["SIGTERM"]);
+    expect(killed).toEqual(["psql SIGTERM"]);
     await expect(done).resolves.toBe(1);
+    expect(received.join("")).not.toContain("COMMIT");
+  });
+
+  it("[NFR-REL-05] psql that stops reading stops age, and psql's exit is reported", async () => {
+    const { age, psql, killed } = processes();
+    const done = pipeInto(age, psql);
+    psql.stdin.emit("error", Object.assign(new Error("write EPIPE"), { code: "EPIPE" }));
+    expect(killed).toEqual(["age SIGTERM"]);
+    psql.emit("close", 3);
+    age.emit("close", 0);
+    await expect(done).resolves.toBe(3);
+  });
+});
+
+describe("restore.mjs target", () => {
+  it.each([
+    ["postgresql://postgres:secret@host:5432/postgres", true],
+    ["host=db user=postgres password=secret", true],
+    ["postgresql://postgres@host:5432/postgres?sslmode=require", false],
+    ["host=db user=postgres", false],
+  ])("[T-12] %s holds a password: %s", (target, expected) => {
+    expect(holdsPassword(target)).toBe(expected);
+  });
+
+  it("[T-12] refuses a target with a password before anything runs", async () => {
+    const fake = tools();
+    await expect(
+      main(
+        ["--repo", REPO, "--run", "1", "--key", "k", "--target", "postgresql://u:secret@h/db"],
+        fake.tools,
+      ),
+    ).resolves.toBe(2);
+    expect(fake.calls).toEqual([]);
   });
 });

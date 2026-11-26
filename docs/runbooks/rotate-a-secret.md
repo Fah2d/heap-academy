@@ -201,18 +201,18 @@ Someone signed in to your GitHub, Vercel, Supabase, Resend, Google, or registrar
 
 The password of `backup_reader`, the read-only role the nightly backup connects as (ADR-0030, `restore.md` section 2). It reads every row of `public`, `private` and `auth`, past row level security, so it is a production secret. It changes nothing. Routine and exposure use the same order: the change is the removal.
 
-Where it lives: the GitHub environment `production-backup`, secret `BACKUP_DB_PASSWORD`, and your password manager entry `production backup_reader password`.
+Where it lives: the GitHub environment `production-backup`, secret `BACKUP_DB_PASSWORD`, and your password manager entry `production backup_reader password`. The same environment holds `BACKUP_DB_HOST` and `BACKUP_DB_USER` as secrets only to keep them out of the public log; they change only when the project does.
 
 1. [ ] Do it away from 02:17 UTC, when the backup runs. A run that connects during the change fails, and GitHub emails you; the next night's run is the check.
 2. [ ] Generate a new password in the password manager entry, in place of the old one.
-3. [ ] Production Supabase → **SQL Editor**: `alter role backup_reader with password '<the new password>';`. The old password stops working at once.
+3. [ ] On the drill machine (`restore.md` section 2 step 4), never in the SQL Editor, which keeps what you run: `psql "postgresql://postgres.<prod-ref>@<pooler host>:5432/postgres?sslmode=require"`, the `postgres` password when asked, then `\password backup_reader` and the new password twice. The old password stops working at once.
 4. [ ] GitHub → **Settings → Environments →** `production-backup` **→ Environment secrets →** `BACKUP_DB_PASSWORD` → edit → paste → **Update secret**.
 5. [ ] Check: the next morning, **Actions → Backup** shows a green scheduled run.
 
 After an exposure, also:
 
 6. [ ] Supabase production → **Logs**, the connection pooler source, for the window: connections as `backup_reader` at any time other than the nightly runs. Each one could have read every learner's email address and every solution: it is an S1, and section 0 step 6 applies.
-7. [ ] If the role should not log in until you know more: `alter role backup_reader with nologin;`. The nightly backup fails until you turn login on again with step 3.
+7. [ ] If the role should not log in until you know more: `alter role backup_reader with nologin;` in the SQL Editor. The nightly backup fails until you run `alter role backup_reader with login;` there and set a new password with step 3.
 
 ## 11. The heartbeat ping address (`BACKUP_HEARTBEAT_URL`)
 

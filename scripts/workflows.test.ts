@@ -180,10 +180,17 @@ describe("workflows", () => {
     expect(text).not.toMatch(/set -x|--verbose/);
   });
 
-  it("[T-12] [T-24] the backup's credentials and heartbeat address are secrets, given only to the steps that use them", () => {
+  it("[T-12] [T-24] the backup's connection parts and heartbeat address are secrets, given only to the steps that use them", () => {
     const text = read("backup.yml");
     const secrets = [...text.matchAll(/secrets\.([A-Z_]+)/g)].map((match) => match[1]);
-    expect(secrets).toEqual(["BACKUP_DB_PASSWORD", "BACKUP_HEARTBEAT_URL"]);
+    expect(secrets).toEqual([
+      "BACKUP_DB_HOST",
+      "BACKUP_DB_USER",
+      "BACKUP_DB_PASSWORD",
+      "BACKUP_HEARTBEAT_URL",
+    ]);
+    // A variable's value is printed in the step's log header; a secret's is not.
+    expect(text).not.toMatch(/vars\.BACKUP_DB_/);
     expect(step(text, "Dump and encrypt")).toContain("secrets.BACKUP_DB_PASSWORD");
     expect(step(text, "Ping the heartbeat monitor")).toContain("secrets.BACKUP_HEARTBEAT_URL");
   });
