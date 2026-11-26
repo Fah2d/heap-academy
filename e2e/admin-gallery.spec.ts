@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Locator, test, type Page } from "@playwright/test";
 import { HARNESS_OUTPUT_LIMIT } from "../src/grader/harness";
 import { CHECK_TEST_LIMIT } from "../src/grader/test-case";
 import {
@@ -11,11 +11,13 @@ import {
   secondStep,
   structure,
   testCaseList,
+  transfer,
   validation,
 } from "../src/messages/admin";
 import { adminGallery } from "../src/messages/gallery";
 import { lessonContent } from "../src/messages/lesson";
 import { TIME_LIMIT_MS } from "../src/runtime/controller";
+import { fileText, lessonFile } from "../src/features/admin/lesson-file";
 import { saveScreen } from "./screens";
 
 // The admin states the J-12 journey cannot reach (WP-2.3 design review 1),
@@ -183,6 +185,109 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   await expect(taken.getByText(structure.failure.slug_taken)).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await shot("admin-course-failures");
+});
+
+test("[FR-ADM-12] [T-23] export and import: every state, with no axe violation, at 1280 px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dev/admin");
+  // This page holds every admin state, so each picture is of one example.
+  const shot = async (region: Locator, name: string) => {
+    if (!["chromium", "gallery"].includes(test.info().project.name)) return;
+    await region.screenshot({ path: `docs/reports/screens/WP-6.4/${name}-1280.png` });
+  };
+  const file = (name: string, text: string) => ({
+    name,
+    mimeType: "application/json",
+    buffer: Buffer.from(text),
+  });
+  const lesson = lessonFile({
+    title: "Say hello by name",
+    slug: "say-hello-by-name",
+    xp: 10,
+    instructionsMd: "## Ask",
+    hints: [],
+    starterCode: "",
+    solutionCode: "print(input())",
+    wrongAnswers: [],
+    testCases: [],
+  });
+
+  // The file's own faults, each named on the field, which takes focus.
+  const succeeding = page.getByRole("region", { name: adminGallery.transferSucceeding });
+  const field = succeeding.getByLabel(transfer.fileLabel);
+  const importButton = succeeding.getByRole("button", { name: transfer.importLesson });
+  await importButton.click();
+  await expect(succeeding.getByText(transfer.fileMissing)).toBeVisible();
+  await expect(field).toBeFocused();
+  await field.setInputFiles(file("notes.json", "{ title"));
+  await importButton.click();
+  await expect(succeeding.getByText(transfer.notJson)).toBeVisible();
+  await field.setInputFiles(file("l.json", JSON.stringify({ ...lesson, xp: 99 })));
+  await importButton.click();
+  await expect(succeeding.getByText(transfer.fieldInvalid("xp"))).toBeVisible();
+  await expect(field).toHaveAttribute("aria-invalid", "true");
+  await expect(field).toBeFocused();
+  // This page holds every admin state, and these examples show one panel
+  // three times, so each is checked alone, as the course editor holds one.
+  const axe = async () => {
+    const found = [];
+    for (const example of ["succeeding", "pending", "failing"]) {
+      const result = await new AxeBuilder({ page })
+        .include(`section:has(> #gallery-transfer-${example})`)
+        .analyze();
+      found.push(...result.violations);
+    }
+    return { violations: found };
+  };
+  expect((await axe()).violations).toEqual([]);
+  await shot(succeeding, "admin-transfer-field-error");
+
+  // Success: the file is saved, the draft is named, with its new address and its link.
+  await succeeding.getByRole("button", { name: transfer.exportCourse }).click();
+  await expect(succeeding.getByText(transfer.exported("sample-course.json"))).toBeVisible();
+  await field.setInputFiles(file("l.json", fileText(lesson)));
+  await succeeding.getByLabel(transfer.chapterLabel).selectOption({ index: 0 });
+  await importButton.click();
+  await expect(
+    succeeding.getByText(transfer.slugChanged("say-hello-by-name-2", "say-hello-by-name"), {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(
+    succeeding.getByRole("link", { name: transfer.openLesson(lesson.title) }),
+  ).toBeVisible();
+  await expect(field).toHaveValue("");
+
+  // Failures from the server.
+  const failing = page.getByRole("region", { name: adminGallery.transferFailing });
+  await failing.getByRole("button", { name: transfer.exportCourse }).click();
+  await expect(failing.getByRole("alert").filter({ hasText: transfer.exportBroken })).toBeVisible();
+  await failing.getByLabel(transfer.fileLabel).setInputFiles(file("l.json", fileText(lesson)));
+  await failing.getByRole("button", { name: transfer.importLesson }).click();
+  await expect(
+    failing.getByRole("alert").filter({ hasText: transfer.failure.import_left_draft }),
+  ).toBeVisible();
+
+  // Every press waits: the actions never answer. Last, because React holds
+  // every other transition on the page until a pending one ends.
+  const pending = page.getByRole("region", { name: adminGallery.transferPending });
+  await pending.getByRole("button", { name: transfer.exportCourse }).click();
+  await expect(pending.getByRole("status").filter({ hasText: transfer.exporting })).toBeVisible();
+  await pending.getByLabel(transfer.fileLabel).setInputFiles(file("l.json", fileText(lesson)));
+  await pending.getByRole("button", { name: transfer.importLesson }).click();
+  await expect(pending.getByRole("status").filter({ hasText: transfer.importing })).toBeVisible();
+  await expect(pending.getByLabel(transfer.fileLabel)).toBeDisabled();
+
+  // A course with no chapter cannot take a lesson yet.
+  const empty = page.getByRole("region", { name: adminGallery.editorEmpty });
+  await expect(empty.getByText(transfer.importNeedsChapter)).toBeVisible();
+
+  expect((await axe()).violations).toEqual([]);
+  await shot(succeeding, "admin-transfer-imported");
+  await shot(failing, "admin-transfer-failed");
+  await shot(pending, "admin-transfer-pending");
 });
 
 for (const width of [375, 800]) {

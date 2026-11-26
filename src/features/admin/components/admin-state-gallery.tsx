@@ -11,6 +11,7 @@ import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
+import { CourseTransfer } from "./course-transfer";
 import { fixedResultsRuntime, scriptedRuntime, stuckRuntime } from "./gallery-runtimes";
 import { LessonContent } from "@/features/workspace";
 import { LessonEditor } from "./lesson-editor";
@@ -424,6 +425,8 @@ function CourseStates() {
           deleteChapter={refuse("unavailable")}
           reorder={refuse("cannot_move")}
           createLesson={refuse("unavailable")}
+          exportCourse={refuse("unavailable")}
+          importLesson={refuse("unavailable")}
           refresh={stay}
         />
       </Example>
@@ -436,6 +439,8 @@ function CourseStates() {
           deleteChapter={never}
           reorder={never}
           createLesson={never}
+          exportCourse={never}
+          importLesson={never}
           refresh={stay}
         />
       </Example>
@@ -448,6 +453,8 @@ function CourseStates() {
           deleteChapter={never}
           reorder={never}
           createLesson={never}
+          exportCourse={never}
+          importLesson={never}
           refresh={stay}
         />
       </Example>
@@ -460,7 +467,39 @@ function CourseStates() {
           deleteChapter={succeed(null)}
           reorder={succeed(null)}
           createLesson={never}
+          exportCourse={never}
+          importLesson={never}
           refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-transfer-succeeding" title={m.transferSucceeding}>
+        <CourseTransfer
+          courseId={COURSE_ID}
+          chapters={refusingCourse.chapters}
+          exportCourse={succeed({ fileName: "sample-course.json", text: "{}\n" })}
+          importLesson={succeed({ id: sampleLesson.id, slug: "say-hello-by-name-2" })}
+          refresh={stay}
+          save={stay}
+        />
+      </Example>
+      <Example id="gallery-transfer-pending" title={m.transferPending}>
+        <CourseTransfer
+          courseId={COURSE_ID}
+          chapters={refusingCourse.chapters}
+          exportCourse={never}
+          importLesson={never}
+          refresh={stay}
+          save={stay}
+        />
+      </Example>
+      <Example id="gallery-transfer-failing" title={m.transferFailing}>
+        <CourseTransfer
+          courseId={COURSE_ID}
+          chapters={refusingCourse.chapters}
+          exportCourse={refuse("export_broken")}
+          importLesson={refuse("import_left_draft")}
+          refresh={stay}
+          save={stay}
         />
       </Example>
       <Example id="gallery-editor-failed" title={m.editorFailed}>

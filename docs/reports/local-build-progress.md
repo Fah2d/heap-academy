@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (late afternoon), on `wp/6.4-export-import`: `wp/6.3-stack-legal` at b6fa870 merged in
+
+- `main` (89362a5) does not hold WP-6.3 yet, so `wp/6.3-stack-legal`, which holds `main` at 89362a5, was merged instead (9074058). Conflicts: this file (union of both copies' sections; where one section differed, the longer copy was kept), `course-editor-page.tsx` (6.3's layout with 6.4's `exportCourse` and `importLesson`), `e2e/admin-gallery.spec.ts` (both sides' imports) and `e2e/admin-gate-journey.spec.ts` (6.3's copy; this branch's side was an older `main`).
+- Fixed: axe `landmark-unique` on three gallery tests. The export and import sections are now groups, as 6.3 did for the course details (c0c7af5).
+- `pnpm verify` exit 0, 153 files, 2731 tests. e2e as CI runs it, after `supabase db reset`: before the fix 154 passed, 3 failed, 1 skipped; after it 157 passed, 1 skipped, exit 0. Not run: `pnpm test:db`.
+- Push: `wp/6.4-export-import`, once.
+
 ## Session of 2026-11-26 (afternoon), on `wp/6.3-stack-legal`: `main` at 89362a5 merged in (PR #22)
 
 - Merge 7ff6d80. Conflicts: this file (union of both copies' sections; where one section differed, the longer copy was kept) and a comment in `course-status.test.tsx`.
@@ -69,6 +76,128 @@ Task 1 took about 10 minutes, so the run went on. Task 2 had nothing new that do
 - Owner: open a draft pull request from `WP-6.3-stack-legal.md` (base `wp/6.3-account-deletion`). Do not release the privacy page before its decision 1.
 - Next: J-10 on the stack. Rate limiting (WP-7.1).
 
+## Session of 2026-11-25 (from 17:13), in `night-a`, on the new branch `wp/6.4-export-import`
+
+Same task list, owner decisions and speed mode (2026-11-24). `origin/main` was still c8ce780 and the runtime branches already held it, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-6.4 (export and import) was the one package in plan order with no branch; it depends on WP-4.3, whose Validate runs in the 3.x worker. This file is `wp/7.1-rate-limits`'s copy with this section on top.
+
+### Task 3, part 73 done: WP-6.4, export and import
+
+- Base: `origin/wp/4.3-validate-publish` at 84670a3 with `origin/main` at c8ce780 merged in (67b1495; `e2e/admin-gate-journey.spec.ts` resolved as `wp/7.4-journeys-part-2c` did).
+- 87d8ee6: Export and import on the course editor. Export writes the course as one JSON file (section 8 format); import parses one lesson file in the browser, names the wrong field, and the server makes it a draft through `save_lesson`, never validated.
+- Code review 1: CHANGES REQUIRED, 3 MAJOR, 4 MINOR. Security review 1: APPROVED, 4 MINOR. All fixed in 38870f1: a PGlite database test of the import's two steps, gallery examples with an e2e walk and four screens, a failed cleanup and an unreadable lesson with their own codes, a double press sending one import, the size limit checked before sending. Reports: `docs/reports/reviews/WP-6.4/`.
+- `pnpm verify`: exit 0, `Test Files  106 passed (106)`, `Tests  1963 passed (1963)`. `pnpm build` with the `.env.example` values: exit 0; `check-bundle` and `check-static`: exit 0.
+- Database tests on PGlite: every file passes with and without the seed; `13_import_lesson.test.sql` 9 of 9.
+- Browser, Chromium, against the development server another session left on port 3265 (it serves this folder; a second one cannot start): the new gallery test 1 passed. The other `admin-gallery.spec.ts` tests fail on this base with or without the change (description, "For the owner" 1).
+- Not run: `pnpm test:db` and the stack journeys (no Docker), Firefox and WebKit (speed mode), a real browser download.
+- Description: `docs/reports/pull-requests/WP-6.4.md` (40 lines).
+- Push: `wp/6.4-export-import`, once 60 minutes had passed since the last push (17:04).
+
+### Owner: run this (part 73)
+
+1. Open a draft pull request from `wp/6.4-export-import` (base `wp/4.3-validate-publish`) with `docs/reports/pull-requests/WP-6.4.md` as its body.
+2. Decide on the proposed spec change (the test case `id` in section 8's example).
+
+### Next
+
+- Every package through WP-7.4 now has a branch. WP-7.5 starts once 7.1 to 7.4 merge; WP-8.x needs production access.
+
+## Session of 2026-11-25 (from 16:40), in `night-a`, on the new branch `wp/7.1-rate-limits`
+
+Same task list, owner decisions and speed mode (2026-11-24). `origin/main` was still c8ce780 and the runtime branches already held it, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner (`gh` cannot reach GitHub from this sandbox: certificate error). A PGlite harness in `$TMPDIR` runs the database tests without Docker, so WP-7.1 part 3 was no longer blocked. This file is `wp/7.4-journeys-part-2c`'s copy with this section on top. `heap-fix-01` (in `/Users/fahad/heap-fix`) holds the local Supabase stack and ports 3100, 3101, 54321 and 54322; this session used none of them.
+
+### Task 3, part 72 done: WP-7.1 part 3, T-14's Postgres counters
+
+- Base: `origin/main` at c8ce780.
+- 39f258d: the counter table and its definer function with a Vault-checked HMAC, the wrapper counting every action first (120 a minute, 30 for sign-in), `x-real-ip` as the address, `ACTION_COUNTER_KEY`, `[db.vault]` in `supabase/config.toml`, `docs/runbooks/rate-limits.md`.
+- Code review 3: CHANGES REQUIRED, 3 MAJOR, 9 MINOR. Security review 3: CHANGES REQUIRED, no blocker, 2 MAJOR, 7 MINOR. Fixed in ed114d7: sign-out uncounted, `/api/csp-report` counted, a session-free counter client, the minute in the signature with a constant-time check, IPv6 by /64, `net.isIP`, bounded pruning, the local key refused on Vercel, more tests. The spec, evidence and copy points are proposed in the description. Reports: `docs/reports/reviews/WP-7.1/code-review-3.md`, `security-review-3.md`.
+- `pnpm verify`: exit 0, `Test Files  56 passed (56)`, `Tests  1046 passed (1046)`. `pnpm build` with the `.env.example` values: exit 0; `check-bundle`: exit 0.
+- Database tests on PGlite (not Supabase): every file passes with and without the seed; `13_action_counters.test.sql` 39 of 39.
+- Not run: `pnpm test:db` and e2e (Docker refused; the stack belongs to `heap-fix-01`).
+- Description: `docs/reports/pull-requests/WP-7.1-rate-limits.md`.
+- Push: `wp/7.1-rate-limits` (last push 14:28).
+
+### Owner: run this (part 72)
+
+1. Open a draft pull request from `wp/7.1-rate-limits` (base `main`) with `docs/reports/pull-requests/WP-7.1-rate-limits.md` as its body.
+2. Before merging, set `action_counter_key` in staging and production Vault and `ACTION_COUNTER_KEY` in Vercel (`docs/runbooks/rate-limits.md` section 1). Without them every action answers "unavailable".
+3. Decide on the four proposed spec changes in the description.
+
+### Next
+
+- WP-7.1: the firewall rule, provider settings, advisor run and `infra:verify` against production are the owner's; the whole-application review once the 6.x branches merge. WP-7.5 once 7.1 to 7.4 merge.
+
+## Session of 2026-11-25 (from 14:22), in `night-a`, task 1
+
+Same task list, owner decisions and speed mode (2026-11-24). From 13:51 to 14:20 the earlier session found nothing to do (main 76f616d, Docker refused). At 14:22 `origin/main` had moved to c8ce780 (PR #15, WP-2.3 admin gate).
+
+### Task 1 done at 14:28: `origin/main` c8ce780 merged
+
+- `wp/3.1-python-worker` (9c013da), `wp/3.3-grader` (6e74407) and `wp/3.4-statechart` (77e5be9): each merged `origin/main` directly; only this file conflicted (each branch kept its own copy).
+- `pnpm verify`, exit 0 on each: 3.1 `Tests  1258 passed (1258)` (64 files), 3.3 `Tests  1435 passed (1435)` (69 files), 3.4 `Tests  1550 passed (1550)` (73 files). `pnpm build` with the `.env.example` values: exit 0 on each.
+- `wp/7.4-journeys-part-2c` also merged `origin/main`. Conflicts: `e2e/sign-in-helpers.ts` (this branch's `before` argument to `latestCode` kept, main's `exact: true` on the Verify button taken) and `e2e/admin-gate-journey.spec.ts` (main's order of admin addresses, this branch's check that all three lead to setup, since the course editor exists here). `pnpm verify`: exit 0, `Test Files  147 passed (147)`, `Tests  2524 passed (2524)`. `pnpm build`: exit 0.
+- Not run: the stack journeys (Docker socket still refused).
+- Push: the four branches in one `git push`, once 60 minutes had passed since the last push (13:50).
+
+### For the owner
+
+- PR #15 brought `test.fixme` on the T-19 check "repeated wrong codes are limited" (`e2e/admin-gate-journey.spec.ts`, from `night-b`'s 7845451) into `main`. CLAUDE.md rule 2 forbids skipping a test. It is now on every branch that merges main; it is not changed here. Decide whether T-19 gets a check the local stack can run (for example a Postgres counter, WP-7.1 part 3) or a waiver.
+
+### Next
+
+- Task 2: nothing new that does not need the owner. Task 3: WP-7.1 part 3 needs Docker; WP-7.5 starts once 7.1 to 7.4 merge. Nothing else in the 3.x or 5.x line is unbuilt.
+
+## Session of 2026-11-25 (from about 12:40), in `night-a`, on the new branch `wp/7.4-journeys-part-2c`
+
+Same task list, owner decisions and speed mode (2026-11-24). At the start `origin/main` was still 428c437. Task 2: nothing new that does not need the owner. `night-b` pushed `wp/6.3-account-deletion` (f89420c), so J-10 could be written; `night-b` (heap-academy-24) was told this session takes J-10. This file is `wp/7.4-journeys-part-2b`'s copy with `night-b`'s account deletion section merged in and this section on top.
+
+### Task 3, part 71 done: WP-7.4 part 2c, J-10
+
+- Base: `wp/7.4-journeys-part-2b` at d728f0c with `origin/wp/6.3-account-deletion` at f89420c merged in (de082c8; only this file conflicted).
+- 9a8aa1c: `e2e/j10-delete-account-journey.spec.ts` (`stack` project): sign in, pass a lesson, change the name, then delete the account from the profile at 375 px (a lower-case word refused, `DELETE` accepted). Signed out, device completions cleared, and every `public` and `auth` table with a `user_id` column (from the system catalog) holds no row of the user; the same address then signs up as a new, empty account. CI's `e2e` job now sets the local stack's secret key (masked) and two test addresses, so the delete control exists there.
+- Code review 4: CHANGES REQUIRED, 1 MAJOR, 9 MINOR; the major and seven minors fixed in the next commit, two answered in the description. The major: the title claimed every table, but the audit log names users in JSON; it is now counted and reported, not asserted (owner's open decision). Report: `docs/reports/reviews/WP-7.4/code-review-4.md`.
+- `pnpm verify`: exit 0, `Test Files  147 passed (147)`, `Tests  2524 passed (2524)`. `next build` with the CI build job's markers: exit 0.
+- Not run: the journey (no Docker); its first run is CI's `stack` job. Firefox and WebKit (speed mode). No security review (test and CI step only).
+- Description: `docs/reports/pull-requests/WP-7.4-part-2c.md` (43 lines).
+- Push: with task 1's branches, below.
+
+### Task 1 done at 13:43: `origin/main` moved to 76f616d (PR #13, WP-2.2 sign-in)
+
+- Merged into `wp/3.1-python-worker` (b2baee0, then bed8d1c), `wp/3.3-grader` and `wp/3.4-statechart`. Conflicts in `playwright.config.ts` (both the `stack` project and the runtime projects kept, one `notDesktop` list), `src/proxy.test.ts` (both test groups and imports kept) and this file (each branch kept its own copy). Each branch's `scripts/next-config.test.ts` now stubs `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, which main's `next.config.ts` requires.
+- `pnpm verify`, exit 0 on each: 3.1 `Tests  1166 passed (1166)` (53 files), 3.3 `Tests  1343 passed (1343)` (58 files), 3.4 `Tests  1458 passed (1458)` (62 files). `pnpm build` with the `.env.example` values: exit 0 on each.
+- `wp/7.4-journeys-part-2c` already held PR #13's commits (through `wp/2.2-sign-in`), so it needed no merge.
+- Push: the three runtime branches and `wp/7.4-journeys-part-2c`, in one `git push` at about 13:50.
+
+### Owner: run this (part 71)
+
+1. Open a draft pull request from `wp/7.4-journeys-part-2c` with `docs/reports/pull-requests/WP-7.4-part-2c.md` as its body; check CI's `stack` job and the J-10 audit log annotation.
+2. Accept or refuse J-10's notice call to Resend with the fake key, and decide on the audit log (description, "For the owner" 2 and 3).
+
+### Next
+
+- WP-7.1 part 3 needs Docker. WP-7.5 starts once 7.1 to 7.4 merge. Nothing else in the 3.x or 5.x line is left unbuilt on a branch.
+
+## Session of 2026-11-25 (from about 11:40), in `night-a`, on the new branch `wp/7.4-journeys-part-2b`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-6.1's description lists J-5 and J-6 as not written, and WP-7.4 builds every journey, so this part wrote them on a new branch. This file is `wp/7.1-security-canary`'s copy (the newest) with this section on top. Two `night-b` sessions (heap-academy-9a, heap-academy-32) asked whether this one works there; it does not (answered 9a; 32's address had gone).
+
+### Task 3, part 70 done: WP-7.4 part 2b, J-5 and J-6
+
+- Base: `wp/7.4-journeys` at dbd91b2 with `origin/wp/6.3-profile-page` at a50ed1a merged in (deb8398; only this file conflicted).
+- ed6b241: `e2e/progress-journey.spec.ts` (`stack` project): three devices on one account. A signs in, passes a lesson, signs out (device cleared); B passes another as a guest, signs in, and the account holds both; C, a fresh phone, sees the same course page and profile. `e2e/stack-course.ts` holds the course writer `lesson-route-journey.spec.ts` had.
+- Code review 3: CHANGES REQUIRED, 2 MAJOR, 10 MINOR; all but one minor fixed in the next commit: the wait between code emails polls the provider's `auth.users` timestamps instead of a timer, axe on every screen, exact streaks, the phone device, contexts closed before cleanup, the user deleted, `latestCode` never answers a spent code. Report: `docs/reports/reviews/WP-7.4/code-review-3.md`.
+- `pnpm verify`: exit 0, `Test Files  142 passed (142)`, `Tests  2471 passed (2471)`.
+- Not run: the journey and the refactored `lesson-route-journey.spec.ts` (no Docker); their first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.4-part-2b.md` (40 lines).
+- Push: `wp/7.4-journeys-part-2b`, once 60 minutes had passed since the last push (11:39).
+
+### Owner: run this (part 70)
+
+1. Open a draft pull request from `wp/7.4-journeys-part-2b` with `docs/reports/pull-requests/WP-7.4-part-2b.md` as its body; check CI's `stack` job.
+
+### Next
+
+- J-10 once account deletion exists (blocked on the owner). WP-7.1 part 3 needs Docker. WP-7.5 starts once 7.1 to 7.4 merge. WP-6.2 part 2 (header XP) is `night-b`'s (heap-academy-9a).
+
 ## Session of 2026-11-25 (about 11:40 to 12:05), in `night-b`, account deletion (`wp/6.3-account-deletion`)
 
 - `origin/main` 428c437: nothing to merge. WP-6.2 part 2 needs nothing more here: XP and streak are on the profile, course page and completion moment; the header shows none (decision 1 of `WP-6.3-profile-page.md`).
@@ -77,6 +206,10 @@ Task 1 took about 10 minutes, so the run went on. Task 2 had nothing new that do
 - Owner: open a draft pull request from `docs/reports/pull-requests/WP-6.3-account-deletion.md` (base `wp/6.3-profile-page`) and do its three actions.
 - Next: J-10 on the stack; merge `wp/6.3-legal-pages-footer` into the stack; rate limiting.
 - Other sessions: `heap-academy-d6` is in `night-a` on J-5 and J-6.
+
+ ## Session of 2026-11-25 (about 11:00 to 11:25), in `night-b`, server-rendered progress (rest of WP-6.1)
+ 
+ - `origin/main` still 428c437: nothing to merge. PR #13's CI fixes were already pushed; the newest note says it is green at 2516297 (not rechecked here).
 
 ## Session of 2026-11-25 (about 11:00 to 11:25), in `night-b`, server-rendered progress (rest of WP-6.1)
 
@@ -146,6 +279,161 @@ Same task list and owner decisions. `git fetch`: `origin/main` moved to 428c437,
 - Next: per-course progress and sign-out on the profile.
 - Blocked: account deletion (service-role secret, notice address, "recent sign-in" rule). WP-5.1 browser checks (no Docker).
 - Note: a second session (heap-academy-63) asked at about 02:49 whether `night-b` was in use; its address was stale when answered.
+
+## Session of 2026-11-25 (from about 10:40), in `night-a`, on the new branch `wp/7.1-security-canary`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. WP-7.4 part 2b still waits for the 6.x branches (unchanged since 08:36), so this part started WP-7.1, whose T-21 canary walks the 5.x pages. This file is `wp/7.4-journeys`'s copy (the newest) with this section on top.
+
+### Task 3, parts 68 and 69 done: WP-7.1 parts 1 and 2, the T-21 canary test and the threat results
+
+- Base: `wp/7.2-a11y-perf` at cf6dde1 (it holds the 2.2 to 5.4 line the canary walks; 7.1 and 7.2 may run beside each other).
+- 45d78bc: `e2e/canary-journey.spec.ts` (`stack` project). Tokens in a published lesson's solution and wrong answer, in a draft and an archived lesson, and in a draft course. A guest and a learner walk every page and admin address; every browser response, each page as HTML and as the router's payload, the files, and the Data API's content tables must hold no token. The client bundles must not hold the seed's wrong answer.
+- Code review 1: CHANGES REQUIRED, 1 BLOCKER, 1 MAJOR, 6 MINOR; fixed in 2dea27a (half of one minor left: a count race other specs already carry). The blocker: payload fetches read only the empty redirect to `?_rsc`. Report: `docs/reports/reviews/WP-7.1/code-review-1.md`.
+- `pnpm verify` on 2dea27a: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
+- Bundle test on a fresh `next build`: 1 passed; a planted wrong answer in `.next/static/chunks` and in `public/_runtime/worker` each failed it. A local `next start` (port 3321, stopped by this run) answered `text/x-component` behind the redirect for all 11 kinds of page walked.
+- Not run: the guest and learner walks (no Docker); their first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Found, not fixed: the admin feature's index re-exports the development gallery, so its sample programs ship in a production admin chunk (description, "Owner actions" 2). A separate entry needs a module boundary rule change, which is the owner's.
+- Part 2, c0c3bbc and 9a4b774: `docs/reports/day-7-security.md`, every threat row with the tests that cite it, and the gaps (T-14's Postgres counters and T-17's J-10 exist on no branch). gitleaks over every branch's history: exit 0, `1189 commits scanned.`, `no leaks found`. `pnpm audit`: 1 moderate (`minimatch`, development only); `--audit-level high` exit 0. Titles now cite `[T-02]`, `[T-22]` and `[T-25]`. Code review 2: CHANGES REQUIRED, 1 MAJOR, 6 MINOR; all fixed in 9a4b774. `pnpm verify` on 9a4b774: exit 0, 2327 tests.
+- T-14's counters were not started: a migration that cannot be run here (no Docker, no Postgres) is not worth writing blind.
+- Description: `docs/reports/pull-requests/WP-7.1.md` (52 lines).
+- Push: `wp/7.1-security-canary`, once 60 minutes had passed since the last push (10:38).
+
+### Owner: run this (parts 68 and 69)
+
+1. Open a draft pull request from `wp/7.1-security-canary` with `docs/reports/pull-requests/WP-7.1.md` as its body; check CI's `e2e` job passes `canary-journey.spec.ts` and `database` passes.
+2. Decide on keeping the development galleries out of the feature indexes (description, "Owner actions" 2).
+
+### Next
+
+- WP-7.1 part 3: T-14's Postgres counters, once Docker can run `pnpm test:db`; the whole-application `security-reviewer` pass once the 6.x branches merge. The auth provider settings check, the firewall rule, the production advisor run and `pnpm infra:verify` against production need the owner. WP-7.4 part 2b once the 6.x branches hold J-5, J-6 and J-10.
+
+## Session of 2026-11-25 (from about 10:20), in `night-a`, on `wp/7.4-journeys`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. The 6.x branches on `origin` still hold no J-5, J-6 or J-10 spec (`wp/6.1-sync-wiring` and `wp/6.3-profile-page` changed at 08:33 and 08:36), so this part took what does not depend on them.
+
+### Task 3, part 67 done: WP-7.4 part 2a, J-1 to J-4 on real lesson addresses
+
+- 5a329ca: `e2e/journeys.ts` takes the lesson each journey walks; J-1 also walks the phone layout. `e2e/lesson-route-journey.spec.ts` (`stack` project) walks J-1 to J-4 as a guest on the production build at phone and laptop sizes.
+- Code review 2: CHANGES REQUIRED, 1 MAJOR, 6 MINOR; all fixed in 784e031. The spec now writes its own course with two published lessons, J-2 follows Next and the last lesson's Next is checked disabled, J-1 checks the back link from the database, the phone is a Pixel 7 at 375 px, and in Chromium J-3 must take the interactive input path. Report: `docs/reports/reviews/WP-7.4/code-review-2.md`.
+- `pnpm verify` on 784e031: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`. pnpm prints that its pre-run install could not take the store lock in this sandbox; the checks ran after it.
+- Browser, Chromium with `--no-sandbox --single-process`, one test per process, against `next dev --webpack` on `127.0.0.1:3311` (started by this run): `runtime-chromium` journeys 12 of 12, `phone-workspace` journeys 9 of 9, J-1 to J-4 on a Pixel 7 at 375 px through a temporary spec outside the repository 4 of 4.
+- Not run: `lesson-route-journey.spec.ts` itself (no Docker or Postgres here); its first run is CI's `stack` job. Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.4.md` (51 lines).
+- Push: `wp/7.4-journeys` (last push 06:59).
+
+### Owner: run this (part 67)
+
+1. Open or update the WP-7.4 draft pull request with `docs/reports/pull-requests/WP-7.4.md` as its body; check that CI's `stack` job passes `lesson-route-journey.spec.ts`.
+2. Stop the dev server this run left on port 3311, from a terminal outside the sandbox: `lsof -ti tcp:3311 | xargs kill`.
+
+### Next
+
+- WP-7.4 part 2b: J-5, J-6 and J-10 once the 6.x branches hold them, and the stack journeys in Firefox and WebKit (needs the owner's CI decision). WP-7.5 starts once 7.1 to 7.4 merge.
+
+## Session of 2026-11-25 (from about 08:15), in `night-a`, on the new branch `wp/7.4-journeys`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-df) asked whether this one works there; it does not (answered: only `wp/7.4-journeys` here).
+
+### Task 3, part 66 done: WP-7.4 part 1, journeys J-1 to J-4 at every size
+
+- Base: `wp/7.2-a11y-perf` at cf6dde1 (it holds the 2.2 to 5.4 line, the runtime branches and the `127.0.0.1` hydration fix).
+- f6b0d69: `e2e/journeys.ts` (J-1 to J-4 written once, by touch on a phone, by mouse above 768 px), `e2e/journeys-phone.spec.ts` (J-2 to J-4 at 320, 375 and 430 px) and `e2e/journeys-wide-runtime.spec.ts` (J-1 to J-4 at 768, 1024 and 2560 px).
+- Code review 1: CHANGES REQUIRED, 4 MAJOR, 6 MINOR. Fixed in the next commit: J-2 now runs first and checks the actual output; J-3 checks the echoed answers exactly; new projects `phone-workspace-webkit` and `phone-workspace-firefox`; the 768 and 320 px widths; stale comments; tags. CI (major 2) is the owner's open decision. Report: `docs/reports/reviews/WP-7.4/code-review-1.md`.
+- `pnpm verify`: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`.
+- Browser, Chromium with `--no-sandbox --single-process`, one test per process, against `next dev --webpack` on `127.0.0.1:3301` (started by this run): `phone-workspace` 9 of 9, `runtime-chromium` 12 of 12.
+- Not run: Firefox and WebKit (not installed; speed mode), the stack journeys (no Docker).
+- Description: `docs/reports/pull-requests/WP-7.4.md` (42 lines).
+- Push: `wp/7.4-journeys` (last push 06:59).
+
+### Owner: run this (part 66)
+
+1. Open a draft pull request from `wp/7.4-journeys` with `docs/reports/pull-requests/WP-7.4.md` as its body.
+2. Decide on a CI job on `main` that runs the `runtime-*` and `phone-workspace*` projects on three engines (description, "For the owner" 1).
+3. Stop the dev server this run left on port 3301, from a terminal outside the sandbox: `lsof -ti tcp:3301 | xargs kill`.
+
+### Next
+
+- WP-7.4 part 2: J-5, J-6, J-8, J-10, J-12 and J-13 on the stack in three engines. J-5, J-6 and J-10 depend on the 6.1 and 6.3 branches, which `night-b` is still changing, and every stack journey needs Docker to run. Then WP-7.5 once 7.1 to 7.4 merge.
+
+## Session of 2026-11-25 (from about 06:15), in `night-a`, on `wp/7.2-a11y-perf`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. Three `night-b` sessions asked whether this one holds `night-b`; it does not (answered where the sender was still listening).
+
+### Task 3, part 65 done: WP-7.2 part 3, the keyboard walkthroughs of every other page
+
+- 4aa6d03: `e2e/keyboard.ts`, a walk that tabs through a whole page and must reach every shown control once, in document order, each with its focus ring. Walked: the catalog states and all 34 admin states (`e2e/keyboard-gallery.spec.ts`, `gallery` project), sign-in with the in-app browser state (`sign-in.spec.ts`) and the not-found page (`shell.spec.ts`) on the production build, and the three phone views (`workspace-phone.spec.ts`).
+- Code review 3: CHANGES REQUIRED, 2 MAJOR, 6 MINOR; all fixed or answered in 9b49a74: the full ring rule (colour, opacity, offset, in view, after the colour transition), the admin editors waited for, the controls counted again after each walk, the part 2 walk on the shared rule, and walks of the shared error page and the admin preview. Report: `docs/reports/reviews/WP-7.2/code-review-3.md`.
+- Found and fixed (9b49a74): the development server never hydrated its pages at `127.0.0.1`, which is how `playwright.config.ts` opens it for the `gallery`, `runtime-*` and `phone*` projects (Next.js blocks its development files to that origin). `next.config.ts` sets `allowedDevOrigins: ["127.0.0.1"]` in development only, with a test.
+- `pnpm verify` on 9b49a74: exit 0, `Test Files  130 passed (130)`, `Tests  2327 passed (2327)`. `pnpm build` on 4aa6d03: exit 0 (no page code changed after it).
+- Browser, Chromium, one test per process: `keyboard-gallery` 44 of 44 at `127.0.0.1` and at `localhost`; production build, sign-in and not-found 40 of 40, the error page 1 of 1 (on port 3103: an older server holds 3102 and the sandbox cannot stop it); `workspace-a11y-runtime` walks 4 of 4, the preview spec 3 of 3, `workspace-phone` 5 of 5. Mutations (no outline; a transparent `--color-focus`) fail a walk.
+- Not run: the sign-in code step and the admin dialogs by keyboard (stack, no Docker), Firefox and WebKit (speed mode), Lighthouse.
+- Description: `docs/reports/pull-requests/WP-7.2.md` (53 lines), now parts 1 to 3, decisions 6 and 7.
+- Push: `wp/7.2-a11y-perf`, once 60 minutes had passed since the last push (06:13).
+
+### Owner: run this (part 65)
+
+1. Update the WP-7.2 draft pull request body with `docs/reports/pull-requests/WP-7.2.md`.
+2. Still open from part 64: adding `--project=runtime-chromium --project=phone-workspace` to CI, and Lighthouse on a preview or a waiver.
+3. Stop the servers the sandbox cannot stop, from a terminal outside it: `lsof -ti tcp:3102,3103,3264,3265,3271,3281,3290 | xargs kill`.
+
+### Next
+
+- WP-7.2 is complete apart from Lighthouse (owner) and the stack-only walks. Next in plan order that needs the 3.x runtime or 5.x pages: WP-7.4 (every journey on three engines), then WP-7.5 (polish) once 7.1 to 7.4 merge.
+
+## Session of 2026-11-25 (from about 05:50), in `night-a`, on `wp/7.2-a11y-perf`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. The `night-b` sessions in `heap-summary.md` work in the other checkout; nothing here had changed since 04:16.
+
+### Task 3, part 64 done: WP-7.2 part 2, the workspace's accessibility and load profile
+
+- 3b6df36: axe added to four workspace journeys (stopped, keyboard, markup as text, saved code restored); `e2e/workspace-a11y-runtime.spec.ts` (error while running, time limit, a test case out of input, a revealed hint, the open reset dialog, the keyboard walkthrough, test cases by keyboard, the dialog's focus, reduced motion); `e2e/workspace-load-profile.spec.ts` in a new `profile` project (throttled phone, one-line Run); `docs/reports/day-7-quality.md`.
+- Code review 2: CHANGES REQUIRED, 3 MAJOR, 7 MINOR; all fixed in 30b720b. Report: `docs/reports/reviews/WP-7.2/code-review-2.md`.
+- `pnpm verify` on 30b720b: exit 0, `Test Files  130 passed (130)`, `Tests  2326 passed (2326)`. `pnpm build` on 3b6df36: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser, Chromium, one test per process, against `next dev --webpack` on port 3272 (started by this run as a background task): `workspace-a11y-runtime` 8 of 8, `workspace-runtime` 17 of 17, `workspace-load-profile` 2 of 2.
+- Numbers (development server, throttled phone): first paint 740 ms, editor typing 45.4 s, Python ready 77.7 s; one-line Run 3 to 13 ms.
+- Found: CI (`.github/workflows/ci.yml` line 226) runs only the `chromium`, `stack` and `gallery` projects, so no workspace browser test, and none of its axe checks, runs in CI. Not changed here; the owner decides (description, "For the owner" 1).
+- Not run: Lighthouse (no preview deployment, not installed), stack journeys and `pnpm test:db` (no Docker), Firefox and WebKit (speed mode).
+- Description: `docs/reports/pull-requests/WP-7.2.md` (46 lines), now parts 1 and 2.
+- Push: `wp/7.2-a11y-perf` (last push 04:16).
+
+### Owner: run this (part 64)
+
+1. Open or update the draft pull request from `wp/7.2-a11y-perf` with `docs/reports/pull-requests/WP-7.2.md` as its body.
+2. Decide on adding `--project=runtime-chromium --project=phone-workspace` to CI (description, "For the owner" 1).
+3. Lighthouse on a preview for NFR-PERF-01, or a waiver.
+
+### Next
+
+- WP-7.2 part 3: keyboard walkthroughs of the catalog, sign-in and admin pages, and the phone layout's views. Then WP-7.5 (polish) once 7.1 to 7.4 merge, per the plan.
+
+## Session of 2026-11-25 (from about 03:15), in `night-a`, on the new branch `wp/7.2-a11y-perf`
+
+Same task list, owner decisions and speed mode (2026-11-24). `git fetch`: `origin/main` still 428c437, so task 1 had nothing to merge. Task 2: nothing new that does not need the owner. A `night-b` session (heap-academy-a7) asked; it works on `wp/6.3-profile-page` there, with no file overlap.
+
+### Task 3, part 63 done: WP-7.2 part 1, the admin gallery's axe checks
+
+- Base: `wp/5.4-progress-preview` at a15f858 (it holds the 2.2 to 5.4 line and the runtime branches).
+- The dev server on port 3265 had hung since 02:31 while compiling, and the sandbox cannot stop it (`kill 99660 failed: operation not permitted`). Its `.next/dev/lock` was moved to `$TMPDIR/next-dev-lock-99660.json` so a new server could start. `next dev` here needs both `WATCHPACK_POLLING=true` and `NEXT_WATCH_POLL_INTERVAL_MS=1000`. Without them it fails on `EMFILE`, restarts in a loop ("The directory ... .next/dev was deleted"), or serves stale chunks.
+- `e2e/admin-gallery.spec.ts` had never passed (0 of 8): about 20 editors on one page made axe report `landmark-unique`. 1e95ee3 gives each state its own page at `/dev/admin?state=<state>`, and the spec runs axe on all 34 states.
+- Found by the gallery's first run:
+  - a28300c: saving an existing course's details did nothing. The strict schema refused the whole course handed to the form, and the check reported that as a hidden sixth outcome. This is WP-4.1 code.
+  - 51c9b24: a pending Stop left the page, so its announcement named nothing and focus fell to `body`. Stop now gives focus back to Validate. A renamed chapter keeps its heading.
+- Code review 1: CHANGES REQUIRED, 1 BLOCKER, 6 MINOR. 8c41dae fixes the blocker and four minors; two minors are answered without change. The fix makes axe check every state as the spec leaves it. That found two more spent announcements (course and lesson status), and the `Button` primitive now removes them when it unmounts. Report: `docs/reports/reviews/WP-7.2/code-review-1.md`.
+- `pnpm verify` on 8c41dae: exit 0, `Test Files  130 passed (130)`, `Tests  2326 passed (2326)`. `pnpm build` on 8c41dae: exit 0; `check-bundle` and `check-static`: exit 0.
+- Browser, Chromium, one test per process, on 8c41dae: `admin-gallery.spec.ts` 46 of 46, `workspace-runtime.spec.ts` 17 of 17.
+- Not run: the stack journeys and `pnpm test:db` (no Docker; no database change), Firefox and WebKit (speed mode), Lighthouse (no preview deployment of this branch).
+- Description: `docs/reports/pull-requests/WP-7.2.md` (43 lines).
+- Push: `wp/7.2-a11y-perf`, once 60 minutes had passed since the last push (about 03:13).
+
+### Owner: run this (part 63)
+
+1. Open a draft pull request from `wp/7.2-a11y-perf` with `docs/reports/pull-requests/WP-7.2.md` as its body.
+2. a28300c fixes WP-4.1's course editor. If WP-4.1 merges before this, cherry-pick it there.
+3. Stop the dev servers the sandbox cannot stop, from a terminal outside the sandbox: `lsof -ti tcp:3264,3265,3271 | xargs kill`.
+
+### Next
+
+- WP-7.2 part 2: axe on the workspace states the journeys miss, the keyboard walkthrough, the reduced-motion check, the throttled load profile, and `docs/reports/day-7-quality.md`.
 
 ## Session of 2026-11-25 (from about 02:14), in `night-a`, on `wp/5.4-progress-preview`
 

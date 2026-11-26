@@ -127,6 +127,11 @@ export const adminGallery = {
     "Course editor of a published course whose saves never answer: the saving and changing states, rename, and the questions before archiving and deleting",
   editorSaving: "Course editor whose saves succeed",
   editorFailed: "Course editor whose course could not load",
+  transferSucceeding:
+    "Export and import whose actions succeed; the imported lesson gets another address",
+  transferPending: "Export and import whose actions never answer",
+  transferFailing:
+    "Export and import whose actions fail: a lesson that cannot be read, and a draft left behind",
   setupFailed: "Setup whose QR code could not be made",
   codeLimited: "Code form after too many tries",
   codeChecking: "Code form while a code is checked",
