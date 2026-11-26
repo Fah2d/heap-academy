@@ -6,6 +6,9 @@ import { courseEditor as words, structure } from "@/messages/admin";
 import { CourseDetailsForm, type SaveCourse } from "./course-details-form";
 import { NewCourseForm } from "./new-course-form";
 
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
 // The Details of a course (FR-ADM-03, FR-ADM-10): every field that is wrong
 // is named before anything is sent; a create opens the new editor; an edit
 // names the loaded version; a stale save is refused with a prompt to reload.
@@ -65,6 +68,17 @@ describe("CourseDetailsForm [FR-ADM-03, FR-ADM-10]", () => {
     const unload = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(unload);
     expect(unload.defaultPrevented).toBe(false);
+  });
+
+  it("opens the new course's editor inside the app, so nothing typed there is lost to a page load", async () => {
+    const save = vi.fn<SaveCourse>(() => Promise.resolve({ ok: true, value: { id: ID } }));
+    const user = userEvent.setup();
+    render(<NewCourseForm saveCourse={save} />);
+    await user.type(screen.getByLabelText(words.titleLabel), "Python basics");
+    await user.type(screen.getByLabelText(words.slugLabel), "python-basics");
+    await user.type(screen.getByLabelText(words.summaryLabel), "Write your first programs.");
+    await user.click(screen.getByRole("button", { name: words.create }));
+    expect(router.push).toHaveBeenCalledWith(`/admin/courses/${ID}`);
   });
 
   it("names a taken address and keeps what was typed", async () => {

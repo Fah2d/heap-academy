@@ -1,0 +1,50 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Stop a loop with break",
+  "slug": "stop-with-break",
+  "xp": 15,
+  "instructions_md": "## Stop early\n\n`break` ends a loop at once. `while True:` repeats until a `break` runs.\n\n```python\ntotal = 0\nwhile True:\n    total = total + 4\n    if total >= 10:\n        break\nprint(total)\n```\n\n```text\n12\n```\n\n## Your task\n\nKeep asking `Number: ` and add each answer to a total. When the person types `0`, stop and print `Total: ` followed by the total.\n",
+  "hints": [
+    "Start the total at 0 before the loop.",
+    "Inside `while True:`, read a number and test for 0.",
+    "If the number is 0, `break`. If not, add it. Print the total after the loop."
+  ],
+  "starter_code": "# Add numbers until the person types 0.\n",
+  "solution_code": "total = 0\nwhile True:\n    number = int(input(\"Number: \"))\n    if number == 0:\n        break\n    total = total + number\nprint(f\"Total: {total}\")\n",
+  "wrong_answers": [
+    {
+      "label": "reads only two numbers",
+      "code": "first = int(input(\"Number: \"))\nsecond = int(input(\"Number: \"))\ninput(\"Number: \")\nprint(f\"Total: {first + second}\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "two-numbers",
+      "name": "Adds 4 and 6",
+      "stdin": "4\n6\n0\n",
+      "afterCode": "",
+      "expected": "Number: Number: Number: Total: 10",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "four-numbers",
+      "name": "Adds four numbers",
+      "stdin": "2\n3\n5\n10\n0\n",
+      "afterCode": "",
+      "expected": "Number: Number: Number: Number: Number: Total: 20",
+      "match": "normalized",
+      "hint": "The program must keep asking until it reads 0."
+    },
+    {
+      "id": "zero-first",
+      "name": "Gives 0 when the first answer is 0",
+      "stdin": "0\n",
+      "afterCode": "",
+      "expected": "Number: Total: 0",
+      "match": "normalized",
+      "hint": ""
+    }
+  ]
+}

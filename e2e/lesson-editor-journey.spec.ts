@@ -1,9 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { MALICIOUS } from "../src/content/markdown/malicious-fixtures";
 import { courseEditor, dashboard, lessonEditor, lessonRows } from "../src/messages/admin";
 import { removeAdmin, signInAsAdmin } from "./admin-helpers";
 import { saveScreen } from "./screens";
+import { noAxeViolations } from "./journeys";
 
 // WP-4.2 against the local stack (FR-ADM-04, FR-ADM-10, NFR-SEC-07, T-06): an
 // admin at aal2 adds a lesson to a new chapter, writes its instructions while
@@ -64,8 +64,13 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
     await instructions.fill(`${markdown}\n\nMarker ${name}`);
     await expect(preview, name).toContainText(`Marker ${name}`);
     const found = await preview.evaluate((root) => ({
-      elements: root.querySelectorAll("script, iframe, img, object, embed, style, svg, form, input")
-        .length,
+      elements: [
+        ...root.querySelectorAll("script, iframe, img, object, embed, style, svg, form, input"),
+      ].filter(
+        // Not from the Markdown: the icon the page draws after a link that
+        // leaves the site.
+        (element) => !element.matches('a[target="_blank"] > svg[aria-hidden="true"]:last-child'),
+      ).length,
       handlers: [...root.querySelectorAll("*")].flatMap((element) =>
         element.getAttributeNames().filter((attribute) => attribute.startsWith("on")),
       ),
@@ -80,7 +85,8 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await instructions.fill(
     "## Ask, then answer\n\nAsk for a name with `input()`, then greet that person.\n\n```python\nname = input()\n```",
   );
-  await expect(preview.getByRole("heading", { level: 2 })).toHaveText("Ask, then answer");
+  // The lesson's own headings sit under the preview's, two levels down.
+  await expect(preview.getByRole("heading", { level: 4 })).toHaveText("Ask, then answer");
 
   // The code editor: typed code is kept, and its styles break no policy.
   const solution = page.getByRole("textbox", { name: lessonEditor.solutionLabel });
@@ -90,7 +96,7 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await page.getByRole("button", { name: lessonEditor.save }).click();
   await expect(page.getByRole("status").filter({ hasText: lessonEditor.saved })).toBeVisible();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-lesson-editor", 1280, { workPackage: "WP-4.2" });
 
   // A second tab saves first; this tab's save is refused with a prompt.
@@ -103,7 +109,7 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await other.close();
   await page.getByLabel(lessonEditor.titleLabel).fill("Saved in this tab");
   await page.getByRole("button", { name: lessonEditor.save }).click();
-  await expect(page.getByRole("alert")).toContainText(lessonEditor.failure.stale);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(lessonEditor.failure.stale);
   await expect(page.getByText(lessonEditor.unsaved)).toBeVisible();
   await saveScreen(page, "admin-lesson-editor-stale", 1280, { workPackage: "WP-4.2" });
 

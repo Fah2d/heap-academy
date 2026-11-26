@@ -126,7 +126,7 @@ describe("CourseStatusPanel [FR-ADM-03, FR-ADM-09]", () => {
     await user.click(within(dialog).getByRole("button", { name: words.statusAction.archived }));
     expect(setStatus).toHaveBeenCalledWith({ id: ID, loadedAt: LOADED, status: "archived" });
     expect(onChanged).toHaveBeenCalledWith("archived", NEWER);
-    // The words come with the transition's last render, which can follow onChanged.
+    // The panel says so in a transition, which can render after the click returns.
     await waitFor(() => {
       expect(screen.getByRole("status").textContent).toBe(
         words.statusChanged(words.statusName.archived),

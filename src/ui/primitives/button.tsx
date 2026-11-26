@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps } from "react-aria-components";
 import { cx } from "../class-names";
 
@@ -54,6 +54,52 @@ function variantClasses(variant: ButtonVariant, surface: ButtonSurface): string 
 }
 
 /**
+ * React Aria announces a focused button going pending with a node in its
+ * shared live region that is labelled by the button's id, and keeps that
+ * node for seconds. When the finished action removes the button, as
+ * publishing removes Publish, the node is left naming nothing: it reads as
+ * empty and fails axe's role-img-alt rule. The nodes this button labelled
+ * go with it. Its element may still be in the document at that moment, as
+ * when the router leaves a page, so whether it is there is not asked.
+ */
+function forgetAnnouncements(id: string) {
+  for (const node of document.querySelectorAll("[role='img'][aria-labelledby]")) {
+    const labels = (node.getAttribute("aria-labelledby") ?? "").split(" ");
+    if (labels.includes(id)) node.remove();
+  }
+}
+
+/**
+ * React Aria waits a moment before the first announcement in a document, so
+ * a button that the finished action removes quickly can be gone before its
+ * node arrives. One watcher per document drops such a node as it lands: every
+ * element that labels it is already gone.
+ */
+const watchedDocuments = new WeakSet<Document>();
+
+function dropUnnamedAnnouncements(records: MutationRecord[]) {
+  for (const record of records) {
+    for (const node of record.addedNodes) {
+      if (!(node instanceof Element) || node.getAttribute("role") !== "img") continue;
+      if (node.closest("[data-live-announcer]") === null) continue;
+      const labels = (node.getAttribute("aria-labelledby") ?? "").split(" ");
+      if (labels.every((label) => node.ownerDocument.getElementById(label) === null)) {
+        node.remove();
+      }
+    }
+  }
+}
+
+function watchAnnouncements(page: Document) {
+  if (watchedDocuments.has(page)) return;
+  watchedDocuments.add(page);
+  new MutationObserver(dropUnnamedAnnouncements).observe(page.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+/**
  * One primary button per screen; secondary for the other actions; destructive
  * for deleting and archiving, never with a red fill.
  */
@@ -73,25 +119,17 @@ export function Button({
     if (keyShortcuts === undefined) button.removeAttribute("aria-keyshortcuts");
     else button.setAttribute("aria-keyshortcuts", keyShortcuts);
   }, [keyShortcuts]);
-  // React Aria announces a pending button by its ID and keeps the announcement
-  // for 7 s. A button that leaves the page first, such as Publish once the
-  // lesson is published, would leave it naming nothing (axe role-img-alt).
-  // It has been read by then, so it leaves with the button.
+  const ownId = useId();
+  const id = props.id ?? ownId;
   useEffect(() => {
-    const button = element.current;
-    return () => {
-      if (button === null || button.id === "") return;
-      for (const node of document.querySelectorAll(
-        '[role="log"] > [role="img"][aria-labelledby]',
-      )) {
-        if (node.getAttribute("aria-labelledby")?.split(" ").includes(button.id)) node.remove();
-      }
-    };
-  }, []);
+    watchAnnouncements(document);
+    return () => forgetAnnouncements(id);
+  }, [id]);
   return (
     <AriaButton
       ref={element}
       {...props}
+      id={id}
       className={cx(shared, variantClasses(variant, surface), block && "w-full")}
     >
       {icon !== undefined && (

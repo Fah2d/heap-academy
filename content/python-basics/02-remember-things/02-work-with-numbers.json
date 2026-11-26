@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Work with numbers",
+  "slug": "work-with-numbers",
+  "xp": 10,
+  "instructions_md": "## Numbers need no quotes\n\nPython can calculate. Use `+` to add, `-` to subtract and `*` to multiply.\n\n```python\nboxes = 4\npens_in_box = 6\npens = boxes * pens_in_box\nprint(pens)\n```\n\n```text\n24\n```\n\n## Your task\n\nA library has `12` shelves. Each shelf holds `30` books. Store the numbers in `shelves` and `books_per_shelf`. Store the total in `books`, then print `books`.\n",
+  "hints": [
+    "You need three variables.",
+    "The total is one number multiplied by the other.",
+    "Set `shelves` and `books_per_shelf`, multiply them into `books`, then print `books`."
+  ],
+  "starter_code": "# Store the numbers, calculate, then print.\n",
+  "solution_code": "shelves = 12\nbooks_per_shelf = 30\nbooks = shelves * books_per_shelf\nprint(books)\n",
+  "wrong_answers": [
+    {
+      "label": "adds instead of multiplying",
+      "code": "shelves = 12\nbooks_per_shelf = 30\nbooks = shelves + books_per_shelf\nprint(books)\n"
+    },
+    {
+      "label": "types the answer",
+      "code": "print(360)\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "prints-total",
+      "name": "Prints the number of books",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "360",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "uses-variables",
+      "name": "`shelves`, `books_per_shelf` and `books` hold the numbers",
+      "stdin": "",
+      "afterCode": "print(shelves, books_per_shelf, books)",
+      "expected": "360\n12 30 360",
+      "match": "normalized",
+      "hint": "Check the spelling of the three variable names."
+    }
+  ]
+}

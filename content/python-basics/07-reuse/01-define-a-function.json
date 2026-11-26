@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Define a function",
+  "slug": "define-a-function",
+  "xp": 15,
+  "instructions_md": "## Name a block of code\n\nA **function** is a block of code with a name. `def` creates it. The block runs only when you **call** the function by its name with `()`.\n\n```python\ndef cheer():\n    print(\"Well done!\")\n\ncheer()\ncheer()\n```\n\n```text\nWell done!\nWell done!\n```\n\n## Your task\n\nDefine a function called `welcome` that prints `Welcome to class.`. Then call it two times.\n",
+  "hints": [
+    "Write the function first, then call it below.",
+    "Start with `def welcome():` and move the next line in by four spaces.",
+    "After the function, write `welcome()` on two lines with no spaces before them."
+  ],
+  "starter_code": "# Define welcome, then call it two times.\n",
+  "solution_code": "def welcome():\n    print(\"Welcome to class.\")\n\n\nwelcome()\nwelcome()\n",
+  "wrong_answers": [
+    {
+      "label": "calls the function once",
+      "code": "def welcome():\n    print(\"Welcome to class.\")\n\nwelcome()\n"
+    },
+    {
+      "label": "prints without a function",
+      "code": "print(\"Welcome to class.\")\nprint(\"Welcome to class.\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "two-welcomes",
+      "name": "Prints `Welcome to class.` two times",
+      "stdin": "",
+      "afterCode": "",
+      "expected": "Welcome to class.\nWelcome to class.",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "function-exists",
+      "name": "`welcome()` prints the line when called",
+      "stdin": "",
+      "afterCode": "welcome()",
+      "expected": "Welcome to class.\nWelcome to class.\nWelcome to class.",
+      "match": "normalized",
+      "hint": "The function must be named `welcome`."
+    }
+  ]
+}
