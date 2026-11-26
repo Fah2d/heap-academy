@@ -279,15 +279,27 @@ export function createRuntimeController({
     worker = undefined;
   }
 
+  /**
+   * The `onEvent` and `report` listeners may call `dispose`; after that no
+   * worker is started and the status stays `disposed`. A function, because
+   * TypeScript's narrowing of `status` does not see a listener change it.
+   */
+  function isDisposed(): boolean {
+    return status === "disposed";
+  }
+
   function restart(reason: RestartReason): void {
+    if (isDisposed()) return;
     end();
     status = "restarting";
     onEvent({ type: "restarting", reason });
+    if (isDisposed()) return;
     spawn();
   }
 
   /** The worker died or gave up. What follows depends on what it was doing. */
   function crashed(): void {
+    if (isDisposed()) return;
     if (pending !== undefined) {
       pending = undefined;
       endCheck("crashed");
@@ -361,6 +373,7 @@ export function createRuntimeController({
       case "run_done":
         if (current?.kind !== "run" || current.runId !== message.runId) return unexpected();
         finishReported(message.outcome, message.truncated, message.durationMs);
+        if (isDisposed()) return;
         // A program that ran out of memory may leave the runtime's memory
         // grown; a new worker gives it back. One stopped at the output cap may
         // leave text in Python's stream buffers, which the next run would

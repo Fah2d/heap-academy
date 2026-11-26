@@ -1,9 +1,4 @@
-import type {
-  ControllerEvent,
-  ControllerReport,
-  ControllerStatus,
-  RunResult,
-} from "@/runtime/controller";
+import type { ControllerEvent, ControllerStatus, RunResult } from "@/runtime/controller";
 import type { CheckSummary, TestResult } from "@/grader/grade";
 import type { OutputStream } from "@/runtime/protocol";
 
@@ -24,7 +19,9 @@ export type RuntimeView = {
   tests: TestResult[];
   summary: CheckSummary | undefined;
   restarts: number;
-  dropped: ControllerReport["code"][];
+  /** How many messages the controller dropped or acted on. A count, not a
+   * list, so a late timer that prints for ever cannot grow it without limit. */
+  dropped: number;
   /** Runs and checks the controller refused although the chart sent them. */
   refused: number;
 };
@@ -38,7 +35,7 @@ export const INITIAL_VIEW: RuntimeView = {
   tests: [],
   summary: undefined,
   restarts: 0,
-  dropped: [],
+  dropped: 0,
   refused: 0,
 };
 
@@ -104,6 +101,7 @@ export function addRefusal(view: RuntimeView, count: number): RuntimeView {
   return { ...view, refused: view.refused + count };
 }
 
-export function addReport(view: RuntimeView, report: ControllerReport): RuntimeView {
-  return { ...view, dropped: [...view.dropped, report.code] };
+/** Counts one message the controller dropped or acted on. */
+export function addReport(view: RuntimeView): RuntimeView {
+  return { ...view, dropped: view.dropped + 1 };
 }

@@ -1,6 +1,6 @@
 # ADR-0033: The Python worker is compiled by the TypeScript compiler, outside the bundler
 
-- Status: Proposed (WP-3.1, pull request for `wp/3.1-python-worker`, pending owner decision)
+- Status: Accepted (owner, on pull request #9 for WP-3.1, 2026-11-24)
 - Decision due: WP-3.1
 - Date proposed: 2026-11-17
 - Decider: the owner

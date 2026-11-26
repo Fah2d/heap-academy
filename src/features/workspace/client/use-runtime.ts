@@ -101,8 +101,8 @@ export function useRuntime(program: (interactiveInput: boolean) => Program): {
         const chartEvent = chartEventFor(event, chartRef.current);
         if (chartEvent !== undefined) dispatch(chartEvent);
       },
-      report: (report) => {
-        setView((current) => addReport(current, report));
+      report: () => {
+        setView(addReport);
       },
     });
     controller.current = created;
