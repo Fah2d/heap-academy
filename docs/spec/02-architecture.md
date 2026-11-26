@@ -136,12 +136,15 @@ ADR-0003, ADR-0004, ADR-0005.
 
 - Pyodide runs in a **module worker**. Pyodide 314 does not support classic workers (verified, E-03).
 - The distribution files come from the `pyodide` npm package pinned in the lockfile and are copied at build time to `/_runtime/pyodide/<version>/`. The lockfile hash is the integrity guarantee. Responses are `Cache-Control: public, max-age=31536000, immutable`.
-- The base path is one configuration value (`RUNTIME_ASSET_BASE_URL`) so the files can later move to a zero-egress host without a code change.
+- The base path is one constant, `RUNTIME_ASSET_BASE_URL` in `src/runtime/assets.ts`, so the files can later move to a zero-egress host by changing that one line. The worker's response policy follows it.
+  - **Approved by the owner on 2026-11-24 (proposed in WP-3.1, pull request #9):** a constant, not an environment variable. The browser reads the value, so a variable would need the `NEXT_PUBLIC_` prefix; under `.env.example`'s rule any other name is a server secret, which `scripts/check-bundle.mjs` would flag in the bundle.
 - The worker is disposable. Stopping a run means terminating the worker from the page. The worker is never asked to stop itself, because a busy loop cannot read messages.
 
 ### 5.2 Protocol (version 1)
 
-Every message is a discriminated union validated with a schema on receipt, on both sides. Unknown or malformed messages are dropped and reported.
+Every message is a discriminated union validated with a schema on receipt, on both sides. The page drops and reports an unknown or malformed message; the worker ends itself with `fatal malformed_message`.
+
+> **Approved by the owner on 2026-11-24 (proposed in WP-3.1, pull request #9):** the page parses every message before it sends it, so a malformed message at the worker means the page is broken, and the worker cannot trust what follows.
 
 | Direction | Message | Purpose |
 |---|---|---|
@@ -149,7 +152,7 @@ Every message is a discriminated union validated with a schema on receipt, on bo
 | worker to page | `progress { loadedBytes, totalBytes }` | Real download progress, computed against a build-time size manifest. |
 | worker to page | `ready { runtimeVersion, capabilities }` | Capabilities include `interactiveInput`. |
 | page to worker | `run { runId, source, mode, stdin? }` | `mode` is `interactive` or `batch`. |
-| worker to page | `output { runId, stream, text }` | Batched at most every 50 ms. |
+| worker to page | `output { runId, stream, text }` | Sent at once up to 8 times per 50 ms window, then batched until the next window or the end of the run (approved by the owner on 2026-11-24, proposed in WP-3.1, pull request #9: a running program leaves the worker no turn for a timer). |
 | worker to page | `input_request { runId }` | The program is waiting for a line. |
 | page to worker | `input { runId, line }` or `input_end { runId }` | Answer, or end of input. |
 | worker to page | `run_done { runId, outcome, truncated, durationMs }` | `outcome` is `ok` or a learner error. |
@@ -497,5 +500,5 @@ Each of these cost time in the prototypes or in reading current documentation. E
 | 0030 | Nightly encrypted backups in GitHub Actions | Accepted |
 | 0031 | Identity without a brand kit | Accepted |
 | 0032 | Module table additions and a test-only grader runner | Accepted |
-| 0033 | The Python worker is compiled by the TypeScript compiler, outside the bundler | Proposed |
+| 0033 | The Python worker is compiled by the TypeScript compiler, outside the bundler | Accepted |
 | 0034 | A program that yields once can compute while the page waits for its input; the risk is accepted with Stop as the control | Accepted |

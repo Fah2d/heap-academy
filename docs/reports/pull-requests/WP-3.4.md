@@ -1,6 +1,6 @@
 <!-- No AI attribution in this description or in any commit: no co-author trailer, no "Generated with" line, no session link (CLAUDE.md rule 15). -->
 
-**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29), and `wp/3.3-grader`, which carries `main` at 428c437, is merged (last in 818c111, at 68a69d2). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
+**Base: `wp/3.3-grader`; merges after WP-3.1, WP-3.2 and WP-3.3.** `wp/3.2-live-input` is merged into this branch (312bf29) and is now in `main` through #18. `wp/3.3-grader`, which carries `main` at 032246c, is merged (last in 704fd8e, at bb8022b). Until those merge, this pull request also shows their commits. It is a **draft**: the browser tests have run in Chromium only (39 runtime tests and 16 shell tests pass after the selector fix in 64bb6c3; the 26 tests of the three specs deca401 touches pass on deca401), not in Firefox or WebKit, and the phone check is the owner's.
 
 ## What and why
 
@@ -18,6 +18,18 @@ The workspace statechart of `02-architecture.md` section 6, the driver that conn
 - Time box 2 hours. Over the box: the work ran across four sessions, first commit 2026-11-21 05:56, last 2026-11-22 07:00, with the WP-3.2 merge inside it. Hours of work not measured. Reported here as the handbook section 3.4 asks. Nothing was cut to fit.
 
 ## Up to date with main
+
+`main` at 032246c (#18, `wp/4.3-validate-publish`, and #19, `wp/5.1-catalog`) is merged in 1a79bcc, and `wp/3.3-grader` with the same merge in 704fd8e. #18 already holds an older copy of this branch. Five files conflicted besides `docs/reports/local-build-progress.md`: `scripts/eslint/module-boundaries.mjs`, `src/features/workspace/index.ts`, `src/infrastructure/http/security-headers.test.ts` and `src/proxy.test.ts` take `wp/3.3-grader`'s resolution (bb8022b); `playwright.config.ts` takes `main`'s copy.
+
+On 704fd8e, on 2026-11-26: `pnpm verify` exit 0 (`Test Files  110 passed (110)`, `Tests  2130 passed (2130)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. Not run: the browser tests and `pnpm test:db`. No reviewer has seen the merges.
+
+`wp/3.3-grader` at 3075cea (its e2e note only) is merged in 093ec76. On 093ec76, on 2026-11-26: `pnpm verify` exit 0 (`Test Files  110 passed (110)`, `Tests  2130 passed (2130)`). The e2e job of CI ran here against the local stack, freshly reset (`supabase db reset`), with `CI=1` and the stack's publishable key: `pnpm test:e2e --project=chromium --project=stack --project=gallery`, `120 passed`, `1 skipped` (`[T-19] repeated wrong codes are limited`, a `test.fixme` that `main` has too), exit 0. Not run: Firefox, WebKit and the runtime projects, which CI does not run on a pull request.
+
+Before that: `main` at dffe1a8 (#17, `wp/4.2-lesson-editor`) is merged in 3abe4d9, and `wp/3.3-grader` with the same merge in 8b91c4f. Two files conflicted besides `docs/reports/local-build-progress.md`: `src/features/workspace/index.ts` (this branch's `RuntimeConsole` export and `main`'s `LessonContent` and `CodeEditor` exports all kept) and `src/infrastructure/http/security-headers.test.ts` (both sides' tests kept). #17's CodeMirror packages were already installed. On 8b91c4f, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  94 passed (94)`, `Tests  1867 passed (1867)`); `pnpm build` exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+`main` at 739eacd (#16, `wp/4.1-courses-chapters`) is merged in a3265aa, and then `wp/3.3-grader` at 05cd6d8 in fcbdda7 (it adds only WP-3.3's description). Two files conflicted in a3265aa: `docs/reports/local-build-progress.md` (both sides' sections kept) and `scripts/eslint/module-boundaries.mjs`, resolved exactly as `wp/3.3-grader` did (its `nodeRunner`, `testImport` and `computedImport` rules and `main`'s `contentSession` rule all kept). On a3265aa, on 2026-11-25: `pnpm verify` exit 0 (`Test Files  82 passed (82)`, `Tests  1648 passed (1648)`); `pnpm build` with CI's fake public values exit 0, `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
+
+Before that: `main` at c8ce780 (#15, `wp/2.3-admin-gate`) is merged in 77e5be9.
 
 `wp/3.3-grader` at 68a69d2 is merged in 818c111. It brings `main` at 428c437 (#14, `wp/db-types`: one generated file, `src/infrastructure/db/database.types.ts`, which nothing on this branch uses), merged into `wp/3.3-grader` in bbd6d31, and WP-3.3's notes on WP-3.1 security review 8 (881e51a). One conflict, `docs/reports/local-build-progress.md`: `wp/5.2-workspace-laptop`'s copy, which holds every line of both sides, was taken. On 818c111: `pnpm verify` exit 0 (`Test Files  47 passed (47)`, `Tests  1247 passed (1247)`); `pnpm build` with CI's fake public values exit 0, and the built harness has `HARNESS_VERSION = "7"`; `check-bundle` and `check-static` exit 0. The browser tests were not run again.
 

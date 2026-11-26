@@ -87,11 +87,13 @@ test("[J-8] [FR-ADM-08] [FR-ADM-11] the owner adds a lesson, previews it, publis
   const fill = page.getByRole("button", { name: validation.fillLabel(TEST_NAME) });
   await expect(fill).toBeVisible({ timeout: PYTHON_READY_MS });
   await fill.click();
+  // Exactly what the solution printed, with print's line break
+  // (04-content-system.md section 3).
   await expect(testCase.getByLabel(testCaseList.expectedLabel, { exact: true })).toHaveValue(
-    "Hello, Ada!",
+    "Hello, Ada!\n",
   );
   await page.getByRole("button", { name: validation.validate }).click();
-  await expect(page.getByText(validation.status.passed)).toBeVisible();
+  await expect(page.getByText(validation.status.passed)).toBeVisible({ timeout: PYTHON_READY_MS });
   await page.getByRole("button", { name: lessonEditor.save }).click();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
 
@@ -123,7 +125,7 @@ test("[J-8] [FR-ADM-08] [FR-ADM-11] the owner adds a lesson, previews it, publis
   await page.getByRole("link", { name: lessonEditor.backToCourse("Add a lesson") }).click();
   await page.getByRole("button", { name: courseEditor.statusAction.published }).click();
   await expect(
-    page.getByRole("region", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
+    page.getByRole("group", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
   ).toHaveText(courseEditor.statusChanged(courseEditor.statusName.published));
   const publishedAt = Date.now();
 

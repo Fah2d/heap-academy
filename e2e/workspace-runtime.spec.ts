@@ -54,9 +54,27 @@ async function noAxeViolations(page: Page) {
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 }
 
-async function screens(page: Page, name: string, workPackage?: string) {
+// Crossing 768 px builds the other layout once the media query's listener
+// runs, after the resize. Waiting for it keeps a later step from typing into
+// the layout that is about to go. A browser that cannot run Python keeps the
+// wide layout at every width, so it has nothing to wait for.
+async function resize(page: Page, width: number, phoneLayout: boolean) {
+  await page.setViewportSize({ width, height: 900 });
+  if (!phoneLayout) return;
+  await page.waitForFunction(
+    (wantPhone) =>
+      document.querySelector("[data-workspace]")?.hasAttribute("data-phone") === wantPhone,
+    width < 768,
+  );
+}
+
+async function screens(
+  page: Page,
+  name: string,
+  { phoneLayout = true, workPackage }: { phoneLayout?: boolean; workPackage?: string } = {},
+) {
   for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: 900 });
+    await resize(page, width, phoneLayout);
     await settled(page);
     // Below 768 px the screen is WP-5.3's phone layout, unless a later package owns the state.
     await saveScreen(page, name, width, {
@@ -64,7 +82,7 @@ async function screens(page: Page, name: string, workPackage?: string) {
       fullPage: width < 768,
     });
   }
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await resize(page, 1280, phoneLayout);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -160,7 +178,7 @@ test("[FR-WSP-06] [FR-PRG-01] a pass shows its XP once and is kept after a reloa
     expect.objectContaining({ code: `${EXAMPLE_LESSON.solution}`, synced: false }),
   ]);
   await noAxeViolations(page);
-  await screens(page, "workspace-complete", "WP-5.4");
+  await screens(page, "workspace-complete", { workPackage: "WP-5.4" });
 
   await page.reload();
   await ready(page);
@@ -186,7 +204,7 @@ test("[FR-AUTH-07] [FR-PRG-01] a guest is invited to save progress after a first
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(checkButton(page)).toBeEnabled();
   await noAxeViolations(page);
-  await screens(page, "workspace-invitation", "WP-5.4");
+  await screens(page, "workspace-invitation", { workPackage: "WP-5.4" });
   await card.getByRole("button", { name: invitation.dismiss }).click();
   await expect(card).toHaveCount(0);
   // Focus goes on to the tests' summary, which is seen and read out.
@@ -272,11 +290,8 @@ test("[FR-WSP-07] [FR-WSP-17] output over the limit replaces Python, which says 
   await noAxeViolations(page);
   // Below 768 px the console scrolls inside its 24 rem ceiling, so the error
   // card stays near the output instead of below thousands of lines.
-  await page.setViewportSize({ width: 375, height: 900 });
-  // The phone layout draws the console a moment after the resize; wait for it.
-  const consoleRegion = page.getByRole("region", { name: words.consoleLabel });
-  await expect(consoleRegion).toBeVisible();
-  const consoleBox = await consoleRegion.boundingBox();
+  await resize(page, 375, true);
+  const consoleBox = await page.getByRole("region", { name: words.consoleLabel }).boundingBox();
   expect(consoleBox?.height).toBeLessThanOrEqual(384);
   await screens(page, "workspace-restarting");
   release();
@@ -436,7 +451,7 @@ test("[FR-SYS-02] a browser that cannot run Python sees why, not a broken worksp
   await expect(runButton(page)).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Your task" })).toBeVisible();
   await noAxeViolations(page);
-  await screens(page, "workspace-unsupported");
+  await screens(page, "workspace-unsupported", { phoneLayout: false });
 });
 
 test("[NFR-A11Y-01] a program longer than the editor stays reachable by keyboard", async ({

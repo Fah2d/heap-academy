@@ -1,0 +1,50 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Know your types",
+  "slug": "know-your-types",
+  "xp": 10,
+  "instructions_md": "## Kinds of values\n\nEvery value has a **type**. Three common types:\n\n- `str` is text, such as `\"7\"`\n- `int` is a whole number, such as `7`\n- `float` is a number with a decimal point, such as `7.5`\n\n`type()` tells you the type of a value.\n\n```python\nprint(type(\"7\"))\nprint(type(7))\nprint(type(7.5))\n```\n\n```text\n<class 'str'>\n<class 'int'>\n<class 'float'>\n```\n\n## Your task\n\nMake three variables:\n\n- `title` holds the text `Desert Nights`\n- `pages` holds the whole number `96`\n- `price` holds the number `2.5`\n",
+  "hints": [
+    "Only one of the three values needs quotes.",
+    "A whole number has no quotes and no decimal point.",
+    "Write three lines, each with a name, `=` and a value."
+  ],
+  "starter_code": "# Make the three variables below.\n",
+  "solution_code": "title = \"Desert Nights\"\npages = 96\nprice = 2.5\n",
+  "wrong_answers": [
+    {
+      "label": "puts the numbers in quotes",
+      "code": "title = \"Desert Nights\"\npages = \"96\"\nprice = \"2.5\"\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "title-text",
+      "name": "`title` is the text `Desert Nights`",
+      "stdin": "",
+      "afterCode": "print(type(title).__name__, title)",
+      "expected": "str Desert Nights",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "pages-int",
+      "name": "`pages` is the whole number `96`",
+      "stdin": "",
+      "afterCode": "print(type(pages).__name__, pages)",
+      "expected": "int 96",
+      "match": "normalized",
+      "hint": "A number inside quotes is text."
+    },
+    {
+      "id": "price-float",
+      "name": "`price` is the number `2.5`",
+      "stdin": "",
+      "afterCode": "print(type(price).__name__, price)",
+      "expected": "float 2.5",
+      "match": "normalized",
+      "hint": "A number inside quotes is text."
+    }
+  ]
+}
