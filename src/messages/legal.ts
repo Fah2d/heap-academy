@@ -53,7 +53,7 @@ export const privacy: LegalDocument = {
   title: "Privacy policy",
   description:
     "What Heap Academy keeps about you, why, where, and for how long, and how to delete it.",
-  updated: { iso: "2026-11-25", text: "25 November 2026" },
+  updated: { iso: "2026-11-26", text: "26 November 2026" },
   intro:
     'This page lists what Heap Academy keeps about you, why we keep it, who holds it, and for how long. In this policy, "we" means Heap Academy.',
   sections: [
@@ -157,6 +157,15 @@ export const privacy: LegalDocument = {
       ],
     },
     {
+      id: "contact",
+      heading: "Contact",
+      blocks: [
+        paragraph(
+          "Heap Academy runs this site. For questions about this policy or about your data, write to m3dia.t3ch@gmail.com.",
+        ),
+      ],
+    },
+    {
       id: "changes",
       heading: "Changes to this policy",
       blocks: [
@@ -171,7 +180,7 @@ export const privacy: LegalDocument = {
 export const terms: LegalDocument = {
   title: "Terms of use",
   description: "The rules for using Heap Academy, its lessons, and your account.",
-  updated: { iso: "2026-11-23", text: "23 November 2026" },
+  updated: { iso: "2026-11-26", text: "26 November 2026" },
   intro:
     'These terms apply when you use Heap Academy. By using the site, you agree to them. In these terms, "we" means Heap Academy.',
   sections: [
@@ -236,6 +245,15 @@ export const terms: LegalDocument = {
       blocks: [
         paragraph(
           "We work to keep the site running and the lessons correct, but we cannot promise that the site is always available or that it has no mistakes. You use it as it is. We may change the site, or stop offering it.",
+        ),
+      ],
+    },
+    {
+      id: "contact",
+      heading: "Contact",
+      blocks: [
+        paragraph(
+          "Heap Academy runs this site. For questions about these terms, write to m3dia.t3ch@gmail.com.",
         ),
       ],
     },
