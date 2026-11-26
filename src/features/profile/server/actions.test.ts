@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as DeleteAccount from "./delete-account";
+import { SIGN_IN_PER_MINUTE } from "@/infrastructure/actions/action-counter";
 import { deleteAccount } from "./actions";
 
 // The action as the server runs it, through the real wrapper (T-01).
@@ -8,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   identify: vi.fn(),
   getClaims: vi.fn(),
   deleteUser: vi.fn(),
+  count: vi.fn(async (_action: string, _perMinute: number) => "allowed" as const),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/infrastructure/actions/server-action", async () => {
@@ -18,7 +20,7 @@ vi.mock("@/infrastructure/actions/server-action", async () => {
         requestId: "req-1" as never,
         identify: mocks.identify,
         isAdmin: async () => false,
-        count: async () => "allowed" as const,
+        count: mocks.count,
         services: { db: { auth: { getClaims: mocks.getClaims } } },
       }),
       log: () => {},
@@ -53,6 +55,11 @@ describe("[FR-PRF-03] [T-01] the deleteAccount action", () => {
   it("deletes the signed-in caller, from the session's own claims", async () => {
     await expect(deleteAccount({ confirmation: "DELETE" })).resolves.toMatchObject({ ok: true });
     expect(mocks.deleteUser.mock.calls).toEqual([["user-1"]]);
+  });
+
+  it("[T-14] counts each call against the lower limit of sign-in, not the default", async () => {
+    await deleteAccount({ confirmation: "DELETE" });
+    expect(mocks.count.mock.calls).toEqual([["delete-account", SIGN_IN_PER_MINUTE]]);
   });
 
   it("refuses a caller who is not signed in", async () => {

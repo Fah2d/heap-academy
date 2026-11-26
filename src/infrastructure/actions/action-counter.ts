@@ -14,9 +14,10 @@ import { createHmac } from "node:crypto";
 export const DEFAULT_PER_MINUTE = 120;
 
 /**
- * Calls a minute per address for sign-in and the admin's second step: lower
- * than the default, and above what a person typing codes needs. The auth
- * provider's own limits on emails and code checks stay in force behind it.
+ * Calls a minute per address for sign-in, the admin's second step and
+ * account deletion: lower than the default, and above what a person typing
+ * codes needs. The auth provider's own limits on emails and code checks stay
+ * in force behind it.
  */
 export const SIGN_IN_PER_MINUTE = 30;
 
