@@ -44,6 +44,27 @@ function byLesson(a: Completion, b: Completion): number {
   return a.lessonId < b.lessonId ? -1 : a.lessonId > b.lessonId ? 1 : 0;
 }
 
+/** The most completions one sync sends. */
+export const MAX_SYNC_COMPLETIONS = 100;
+/** The longest code the database holds (docs/spec/02-architecture.md 8.1). */
+export const MAX_COMPLETION_CODE = 20_000;
+/** The last time that can still be written as a date the database takes. */
+export const MAX_COMPLETED_AT = 9_999_999_999_999;
+
+/**
+ * The completion in the form the server accepts, so one long program or one
+ * odd character cannot make every sync fail: NUL, which the database's text
+ * type refuses, is removed, and the code is cut to the column's length.
+ */
+export function sendable(completion: Completion): Completion {
+  const { lessonId, completedAt, code } = completion;
+  return {
+    lessonId,
+    completedAt: Math.min(Math.max(Math.trunc(completedAt), 0), MAX_COMPLETED_AT),
+    code: code.replaceAll("\u0000", "").slice(0, MAX_COMPLETION_CODE),
+  };
+}
+
 /** One completion per lesson, the first of each, in lesson order. */
 export function mergeCompletions(...lists: readonly (readonly Completion[])[]): Completion[] {
   const first = new Map<LessonId, Completion>();

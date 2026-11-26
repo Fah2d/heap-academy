@@ -166,6 +166,48 @@ export const courseEditor = {
   chapterLessonsLabel: (title: string) => `Lessons in ${title}`,
 } as const;
 
+/** Export and import on the course editor (docs/spec/04-content-system.md section 8; FR-ADM-12). */
+export const transfer = {
+  heading: "Export and import",
+  exportExplain:
+    "Export saves this course, with every chapter and lesson, solutions and wrong answers included, as one JSON file.",
+  exportCourse: "Export course",
+  exporting: "Exporting course",
+  exported: (fileName: string) => `Saved as ${fileName}.`,
+  exportFailed: "The course could not be exported right now. Try again in a minute.",
+  exportBroken:
+    "A lesson in this course could not be read, so the course was not exported. Open each lesson to find the one that does not load.",
+  importHeading: "Import a lesson",
+  importExplain:
+    "Import adds one lesson from a JSON file as a draft at the end of the chapter you choose. Nothing in it runs. Publish it like any other lesson, after Validate passes.",
+  importNeedsChapter: "Add a chapter before you import a lesson.",
+  chapterLabel: "Chapter",
+  fileLabel: "Lesson file",
+  fileHint: "A .json file in the lesson export format.",
+  importLesson: "Import lesson",
+  importing: "Importing lesson",
+  fileMissing: "Choose a lesson file.",
+  fileTooLarge: "This file is too large to be one lesson. Choose a lesson file.",
+  fileUnreadable: "This file could not be read. Choose it again.",
+  notJson: "This file is not JSON. Choose a lesson file exported from Heap Academy.",
+  fieldInvalid: (field: string) =>
+    `The lesson was not imported: ${field} is missing or not valid. Fix it in the file and choose it again.`,
+  imported: (title: string, chapter: string) =>
+    `Imported "${title}" as a draft at the end of ${chapter}.`,
+  slugChanged: (slug: string, wanted: string) =>
+    `Another lesson in this course uses ${wanted}, so its address is ${slug}.`,
+  openLesson: (title: string) => `Open ${title}`,
+  failure: {
+    invalid_file: "The lesson was not imported. Choose the file again.",
+    import_left_draft:
+      "The lesson was not imported, and an empty draft with its title may be left at the end of the chapter. Reload the page to check before you try again.",
+    chapter_not_found: "That chapter is no longer in this course. Reload the page.",
+    not_found: "This course no longer exists. Reload the page.",
+    unavailable: "The change could not be saved right now. Try again in a minute.",
+    invalid_input: "The lesson was not imported. Choose the file again.",
+  },
+} as const;
+
 /** The lesson editor (docs/spec/03-experience.md section 7.4). */
 export const lessonEditor = {
   metaTitle: "Edit lesson",

@@ -67,7 +67,7 @@ async function ready(page: Page) {
 // A state change has a 160 ms color transition (DESIGN.md section 7); axe
 // measures the settled colors. Endless animations, such as the editor's
 // blinking cursor, are not waited for.
-async function noAxeViolations(page: Page) {
+export async function noAxeViolations(page: Page) {
   await page.waitForFunction(() =>
     document
       .getAnimations()
@@ -188,6 +188,20 @@ export async function completeALesson(page: Page, device: Device, target: Target
   await press(next, device);
   await expect(page).toHaveURL(target.next.href);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(target.next.title);
+}
+
+/**
+ * Passes a lesson with the example solution and waits for the completion
+ * moment. The progress journeys (e2e/progress-journey.spec.ts) use it to make
+ * a completion; J-2 above walks the whole path to one.
+ */
+export async function passLesson(page: Page, device: Device, target: Target) {
+  await page.goto(target.address);
+  await ready(page);
+  await write(page, EXAMPLE_LESSON.solution, device);
+  await press(button(page, words.check), device);
+  await expect(page.locator("[data-summary]")).toHaveText(words.summary(2, 2));
+  await expect(page.locator("[data-completion]")).toHaveText(words.completeFirst(target.xp));
 }
 
 // J-3: a program that calls input() twice. The console asks for each answer

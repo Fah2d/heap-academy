@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Give a function information",
+  "slug": "function-parameters",
+  "xp": 15,
+  "instructions_md": "## Parameters\n\nA **parameter** is a name inside the brackets of a function. Each call gives it a value.\n\n```python\ndef label(owner):\n    print(f\"This book belongs to {owner}.\")\n\nlabel(\"Mariam\")\nlabel(\"Ali\")\n```\n\n```text\nThis book belongs to Mariam.\nThis book belongs to Ali.\n```\n\n## Your task\n\nDefine `invite(name, day)`. It prints one line like this:\n\n`Lina, come on Sunday.`\n",
+  "hints": [
+    "The function takes two values, separated by a comma.",
+    "Use an f-string with both parameters.",
+    "Write `def invite(name, day):` and print the sentence inside it."
+  ],
+  "starter_code": "# Define invite below.\n",
+  "solution_code": "def invite(name, day):\n    print(f\"{name}, come on {day}.\")\n",
+  "wrong_answers": [
+    {
+      "label": "prints fixed values",
+      "code": "def invite(name, day):\n    print(\"Lina, come on Sunday.\")\n"
+    },
+    {
+      "label": "swaps the two values",
+      "code": "def invite(name, day):\n    print(f\"{day}, come on {name}.\")\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "invite-lina",
+      "name": "`invite(\"Lina\", \"Sunday\")` prints the line",
+      "stdin": "",
+      "afterCode": "invite(\"Lina\", \"Sunday\")",
+      "expected": "Lina, come on Sunday.",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "invite-hamad",
+      "name": "Works for another name and day",
+      "stdin": "",
+      "afterCode": "invite(\"Hamad\", \"Monday\")",
+      "expected": "Hamad, come on Monday.",
+      "match": "normalized",
+      "hint": "Use the parameters, not fixed words."
+    }
+  ]
+}

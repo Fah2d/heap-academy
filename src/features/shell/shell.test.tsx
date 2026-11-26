@@ -1,24 +1,31 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { gallery } from "@/messages/gallery";
+import { legal, privacy, terms } from "@/messages/legal";
 import { errorPage, notFound } from "@/messages/system";
 import { pageTitle, shell } from "@/messages/shell";
 import { ErrorView, errorReference } from "./components/error-view";
+import { GlobalErrorBody } from "./components/global-error-body";
+import { LegalPage } from "./components/legal-page";
 import { NotFoundView } from "./components/not-found-view";
 import { PrimitiveGallery } from "./components/primitive-gallery";
 // fonts.ts runs only under the Next.js compiler, so the test imports the
 // modules directly rather than through index.ts.
+import { FOOTER_LINKS, SiteFooter } from "./components/site-footer";
 import { SiteShell } from "./components/site-shell";
 
+// The footer reads the current address to mark its current link.
 const navigation = vi.hoisted(() => ({ pathname: "/courses" }));
 vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
 
-afterEach(() => {
-  cleanup();
+beforeEach(() => {
   navigation.pathname = "/courses";
 });
+afterEach(cleanup);
 
 function serverError(digest: string): Error {
   return Object.assign(new Error("An error occurred in the Server Components render."), { digest });
@@ -124,6 +131,96 @@ describe("site shell", () => {
     const links = screen.getAllByRole("link").map((link) => link.textContent);
     expect(links.indexOf("Courses")).toBe(links.indexOf(shell.productName) + 1);
   });
+});
+
+describe("site footer", () => {
+  it("[FR-SYS-03] is the contentinfo landmark, after main, with the privacy and terms links", () => {
+    render(
+      <SiteShell navigation={null} account={null}>
+        <p>Content</p>
+      </SiteShell>,
+    );
+    const footer = screen.getByRole("contentinfo");
+    const main = screen.getByRole("main");
+    expect(main.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(main.contains(footer)).toBe(false);
+    const links = within(footer).getAllByRole("link");
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      [shell.footer.privacy, "/privacy"],
+      [shell.footer.terms, "/terms"],
+    ]);
+    for (const link of links) expect(link.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("[FR-SYS-03] links only to pages that exist under src/app", () => {
+    for (const { href } of FOOTER_LINKS) {
+      expect(existsSync(join(process.cwd(), "src", "app", href, "page.tsx")), href).toBe(true);
+    }
+  });
+
+  it("[FR-SYS-03] marks the link of the page that is open", () => {
+    navigation.pathname = "/terms";
+    render(<SiteFooter />);
+    const footer = screen.getByRole("contentinfo");
+    expect(
+      within(footer).getByRole("link", { name: shell.footer.terms }).getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      within(footer).getByRole("link", { name: shell.footer.privacy }).getAttribute("aria-current"),
+    ).toBeNull();
+  });
+
+  it("[FR-SYS-03] is on the page that replaces a failed root layout", () => {
+    render(<GlobalErrorBody error={new Error("layout failed")} retry={() => undefined} />);
+    expect(screen.getByRole("heading", { level: 1, name: errorPage.heading })).toBeTruthy();
+    const footer = screen.getByRole("contentinfo");
+    expect(screen.getByRole("main").contains(footer)).toBe(false);
+    expect(
+      within(footer)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/privacy", "/terms"]);
+  });
+});
+
+describe("legal pages", () => {
+  for (const content of [privacy, terms]) {
+    it(`[FR-SYS-03] shows the ${content.title} with its date and every section in order`, () => {
+      const { container } = render(<LegalPage content={content} />);
+      expect(screen.getByRole("heading", { level: 1, name: content.title })).toBeTruthy();
+      const time = container.querySelector("time");
+      expect(time?.getAttribute("dateTime")).toBe(content.updated.iso);
+      expect(time?.closest("p")?.textContent).toBe(`${legal.updatedLabel} ${content.updated.text}`);
+      expect(screen.getByText(content.intro)).toBeTruthy();
+      const headings = screen.getAllByRole("heading", { level: 2 });
+      expect(headings.map((heading) => heading.textContent)).toEqual(
+        content.sections.map((section) => section.heading),
+      );
+      // Only the page's own landmarks: the sections are not regions.
+      expect(screen.queryAllByRole("region")).toEqual([]);
+      for (const section of content.sections) {
+        const heading = screen.getByRole("heading", { level: 2, name: section.heading });
+        const body = heading.closest("section");
+        if (body === null) throw new Error(`${section.heading} is not in a section`);
+        for (const block of section.blocks) {
+          if (block.kind === "paragraph") {
+            expect(within(body).getByText(block.text).tagName).toBe("P");
+          } else if (block.kind === "list") {
+            const items = within(body)
+              .getAllByRole("listitem")
+              .map((item) => item.textContent);
+            for (const item of block.items) expect(items).toContain(item);
+          } else {
+            const link = within(body).getByRole("link", { name: block.label });
+            expect(link.getAttribute("href")).toBe(block.href);
+            expect(link.closest("p")?.textContent).toBe(
+              `${block.before}${block.label}${block.after}`,
+            );
+          }
+        }
+      }
+    });
+  }
 });
 
 describe("page title", () => {

@@ -1,9 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { createContext, type ReactNode, useContext } from "react";
 import { adminGallery as m } from "@/messages/gallery";
 import { secondStep } from "@/messages/admin";
-import { Link } from "@/ui";
 import type { LessonDocument } from "@/content/markdown";
 import { type TestResult, unfinished } from "@/grader/grade";
 import { HARNESS_OUTPUT_LIMIT, HARNESS_VERSION } from "@/grader/harness";
@@ -12,19 +11,24 @@ import type { EditorCourse, EditorLessonDetail } from "../types";
 import { CourseEditor } from "./course-editor";
 import { CourseEditorFailed } from "./course-editor-failed";
 import { CourseList } from "./course-list";
+import { CourseTransfer } from "./course-transfer";
 import { fixedResultsRuntime, scriptedRuntime, stuckRuntime } from "./gallery-runtimes";
 import { LessonContent } from "@/features/workspace";
 import { LessonEditor } from "./lesson-editor";
 import { NewCourseForm } from "./new-course-form";
 import { SecondStepForm } from "./second-step-form";
 import { SetupFlow } from "./setup-flow";
-import { ADMIN_STATE_PATH, ADMIN_STATES, type AdminState } from "./admin-states";
 
 // Development only (src/app/dev/admin/page.dev.tsx): each state of the admin
 // views that the J-12 journey cannot reach, with fake actions, so the e2e
 // gallery spec can check and photograph them (WP-2.3 design review 1).
 
+/** The one example a page shows when its address names it (`?example=<id>`). */
+const ShownExample = createContext<string | undefined>(undefined);
+
 function Example({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const shown = useContext(ShownExample);
+  if (shown !== undefined && shown !== id) return null;
   // As wide as the real pages, so a screenshot shows the layout they have.
   return (
     <section aria-labelledby={id} className="flex max-w-page flex-col gap-4">
@@ -331,211 +335,207 @@ const oddRuntime = fixedResultsRuntime((source, tests) => {
   });
 });
 
-/** Each state's view; ADMIN_STATES names them. */
-function adminViews(nonce: string): Record<AdminState, ReactNode> {
-  return {
-    empty: <CourseList result={{ ok: true, courses: [] }} reorder={never} refresh={stay} />,
-    failed: <CourseList result={{ ok: false }} reorder={never} refresh={stay} />,
-    rows: (
-      <CourseList
-        result={{
-          ok: true,
-          courses: [
-            {
-              id: COURSE_ID,
-              slug: "sample-course",
-              title: m.sampleCourse,
-              status: "published",
-              publishedLessons: 1,
-              draftLessons: 0,
-            },
-            {
-              id: "5eed0000-0000-4000-8000-000000000002",
-              slug: "second-course",
-              title: m.secondCourse,
-              status: "draft",
-              publishedLessons: 0,
-              draftLessons: 2,
-            },
-          ],
-        }}
-        reorder={refuse("cannot_move")}
-        refresh={stay}
-      />
-    ),
-    "editor-refusing": (
-      <CourseEditor
-        course={refusingCourse}
-        saveCourse={refuse("stale")}
-        setStatus={refuse("no_published_lesson")}
-        saveChapter={refuse("unavailable")}
-        deleteChapter={refuse("unavailable")}
-        reorder={refuse("cannot_move")}
-        createLesson={refuse("unavailable")}
-        refresh={stay}
-      />
-    ),
-    "editor-empty": (
-      <CourseEditor
-        course={{ ...refusingCourse, chapters: [] }}
-        saveCourse={never}
-        setStatus={never}
-        saveChapter={never}
-        deleteChapter={never}
-        reorder={never}
-        createLesson={never}
-        refresh={stay}
-      />
-    ),
-    "editor-published": (
-      <CourseEditor
-        course={{ ...refusingCourse, status: "published" }}
-        saveCourse={never}
-        setStatus={never}
-        saveChapter={never}
-        deleteChapter={never}
-        reorder={never}
-        createLesson={never}
-        refresh={stay}
-      />
-    ),
-    "editor-saving": (
-      <CourseEditor
-        course={refusingCourse}
-        saveCourse={succeed({ id: COURSE_ID, updatedAt: SAVED_AT })}
-        setStatus={succeed({ updatedAt: SAVED_AT })}
-        saveChapter={succeed({ id: COURSE_ID })}
-        deleteChapter={succeed(null)}
-        reorder={succeed(null)}
-        createLesson={never}
-        refresh={stay}
-      />
-    ),
-    "editor-failed": <CourseEditorFailed headingId="gallery-editor-failed-heading" />,
-    "new-course": <NewCourseForm saveCourse={never} navigate={stay} />,
-    "new-course-taken": <NewCourseForm saveCourse={refuse("slug_taken")} navigate={stay} />,
-    setup: (
-      <SetupFlow
-        startSetup={() => Promise.resolve({ ok: false, error: "unavailable" })}
-        confirmSetup={never}
-        navigate={() => undefined}
-      />
-    ),
-    limited: (
-      <SecondStepForm
-        action={() => Promise.resolve({ ok: false, error: "rate_limited" })}
-        submitLabel={secondStep.verify}
-        navigate={() => undefined}
-      />
-    ),
-    checking: (
-      <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
-    ),
-    "lesson-editor": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={succeed({ updatedAt: SAVED_AT })}
-        setStatus={succeed({ updatedAt: SAVED_AT })}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-refusing": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={refuse("stale")}
-        setStatus={refuse("status_not_allowed")}
-        renderPreview={refuse("unavailable")}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-published": (
-      <LessonEditor
-        lesson={{ ...sampleLesson, status: "published" }}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={never}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-archived": (
-      <LessonEditor
-        lesson={{ ...sampleLesson, status: "archived" }}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={never}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-full": (
-      <LessonEditor
-        lesson={fullLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={refuse("unavailable")}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-taken": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={refuse("slug_taken")}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-too-long": (
-      <LessonEditor
-        lesson={tooLongLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-tests-full": (
-      <LessonEditor
-        lesson={twelveTestsLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-test-problem": (
-      <LessonEditor
-        lesson={testProblemLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-content": (
-      <div className="rounded-panel border border-border bg-surface p-4">
-        <LessonContent document={learnerContent} topHeadingLevel={3} />
+export type AdminGalleryPart = "course" | "lesson" | "validation";
+
+/**
+ * One page per part, so that no page holds every editor at once. A page can
+ * also show one example by itself, so that an axe run or a screenshot of it
+ * costs the same however many examples the part has.
+ */
+export function AdminStateGallery({
+  nonce,
+  part,
+  example,
+}: {
+  nonce: string;
+  part: AdminGalleryPart;
+  example?: string | undefined;
+}) {
+  const heading = m.pages[part];
+  return (
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-xl font-semibold text-text">{heading.title}</h1>
+        <p className="max-w-prose text-base text-text-muted">{heading.intro}</p>
       </div>
-    ),
-    "lesson-empty": (
+      <ShownExample value={example}>
+        <GalleryPart nonce={nonce} part={part} />
+      </ShownExample>
+    </div>
+  );
+}
+
+function GalleryPart({ nonce, part }: { nonce: string; part: AdminGalleryPart }) {
+  switch (part) {
+    case "course":
+      return <CourseStates />;
+    case "lesson":
+      return <LessonStates nonce={nonce} />;
+    case "validation":
+      return <ValidationStates nonce={nonce} />;
+    default: {
+      const unreachable: never = part;
+      return unreachable;
+    }
+  }
+}
+
+function CourseStates() {
+  return (
+    <>
+      <Example id="gallery-empty" title={m.courseListEmpty}>
+        <CourseList result={{ ok: true, courses: [] }} reorder={never} refresh={stay} />
+      </Example>
+      <Example id="gallery-failed" title={m.courseListFailed}>
+        <CourseList result={{ ok: false }} reorder={never} refresh={stay} />
+      </Example>
+      <Example id="gallery-rows" title={m.courseListRows}>
+        <CourseList
+          result={{
+            ok: true,
+            courses: [
+              {
+                id: COURSE_ID,
+                slug: "sample-course",
+                title: m.sampleCourse,
+                status: "published",
+                publishedLessons: 1,
+                draftLessons: 0,
+              },
+              {
+                id: "5eed0000-0000-4000-8000-000000000002",
+                slug: "second-course",
+                title: m.secondCourse,
+                status: "draft",
+                publishedLessons: 0,
+                draftLessons: 2,
+              },
+            ],
+          }}
+          reorder={refuse("cannot_move")}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-refusing" title={m.editorRefusing}>
+        <CourseEditor
+          course={refusingCourse}
+          saveCourse={refuse("stale")}
+          setStatus={refuse("no_published_lesson")}
+          saveChapter={refuse("unavailable")}
+          deleteChapter={refuse("unavailable")}
+          reorder={refuse("cannot_move")}
+          createLesson={refuse("unavailable")}
+          exportCourse={refuse("unavailable")}
+          importLesson={refuse("unavailable")}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-empty" title={m.editorEmpty}>
+        <CourseEditor
+          course={{ ...refusingCourse, chapters: [] }}
+          saveCourse={never}
+          setStatus={never}
+          saveChapter={never}
+          deleteChapter={never}
+          reorder={never}
+          createLesson={never}
+          exportCourse={never}
+          importLesson={never}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-published" title={m.editorPublished}>
+        <CourseEditor
+          course={{ ...refusingCourse, status: "published" }}
+          saveCourse={never}
+          setStatus={never}
+          saveChapter={never}
+          deleteChapter={never}
+          reorder={never}
+          createLesson={never}
+          exportCourse={never}
+          importLesson={never}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-saving" title={m.editorSaving}>
+        <CourseEditor
+          course={refusingCourse}
+          saveCourse={succeed({ id: COURSE_ID, updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
+          saveChapter={succeed({ id: COURSE_ID })}
+          deleteChapter={succeed(null)}
+          reorder={succeed(null)}
+          createLesson={never}
+          exportCourse={never}
+          importLesson={never}
+          refresh={stay}
+        />
+      </Example>
+      <Example id="gallery-transfer-succeeding" title={m.transferSucceeding}>
+        <CourseTransfer
+          courseId={COURSE_ID}
+          chapters={refusingCourse.chapters}
+          exportCourse={succeed({ fileName: "sample-course.json", text: "{}\n" })}
+          importLesson={succeed({ id: sampleLesson.id, slug: "say-hello-by-name-2" })}
+          refresh={stay}
+          save={stay}
+        />
+      </Example>
+      <Example id="gallery-transfer-pending" title={m.transferPending}>
+        <CourseTransfer
+          courseId={COURSE_ID}
+          chapters={refusingCourse.chapters}
+          exportCourse={never}
+          importLesson={never}
+          refresh={stay}
+          save={stay}
+        />
+      </Example>
+      <Example id="gallery-transfer-failing" title={m.transferFailing}>
+        <CourseTransfer
+          courseId={COURSE_ID}
+          chapters={refusingCourse.chapters}
+          exportCourse={refuse("export_broken")}
+          importLesson={refuse("import_left_draft")}
+          refresh={stay}
+          save={stay}
+        />
+      </Example>
+      <Example id="gallery-editor-failed" title={m.editorFailed}>
+        <CourseEditorFailed />
+      </Example>
+      <Example id="gallery-new-course" title={m.newCourse}>
+        <NewCourseForm saveCourse={never} navigate={stay} />
+      </Example>
+      <Example id="gallery-new-course-taken" title={m.newCourseTaken}>
+        <NewCourseForm saveCourse={refuse("slug_taken")} navigate={stay} />
+      </Example>
+      <Example id="gallery-setup" title={m.setupFailed}>
+        <SetupFlow
+          startSetup={() => Promise.resolve({ ok: false, error: "unavailable" })}
+          confirmSetup={never}
+          navigate={() => undefined}
+        />
+      </Example>
+      <Example id="gallery-limited" title={m.codeLimited}>
+        <SecondStepForm
+          action={() => Promise.resolve({ ok: false, error: "rate_limited" })}
+          submitLabel={secondStep.verify}
+          navigate={() => undefined}
+        />
+      </Example>
+      <Example id="gallery-checking" title={m.codeChecking}>
+        <SecondStepForm action={never} submitLabel={secondStep.verify} navigate={() => undefined} />
+      </Example>
+    </>
+  );
+}
+
+/** The empty lesson, which both the lesson part and the validation part show. */
+function EmptyLessonExample({ nonce }: { nonce: string }) {
+  return (
+    <Example id="gallery-lesson-empty" title={m.lessonEmpty}>
       <LessonEditor
         lesson={emptyLesson}
         initialPreview={{ blocks: [] }}
@@ -545,144 +545,236 @@ function adminViews(nonce: string): Record<AdminState, ReactNode> {
         renderPreview={succeed({ blocks: [] })}
         openRuntime={sampleRuntime}
       />
-    ),
-    "lesson-python-loading": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={loadingRuntime}
-      />
-    ),
-    "lesson-python-failed": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={failedRuntime}
-      />
-    ),
-    "lesson-validating": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={readyRuntime}
-      />
-    ),
-    "lesson-python-cannot-run": (
-      <LessonEditor
-        lesson={sampleLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={cannotRunRuntime}
-      />
-    ),
-    "lesson-save-validating": (
-      <LessonEditor
-        lesson={{ ...sampleLesson, status: "published" }}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={readyRuntime}
-      />
-    ),
-    "lesson-save-python-failed": (
-      <LessonEditor
-        lesson={{ ...sampleLesson, status: "published" }}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={failedRuntime}
-      />
-    ),
-    "lesson-save-python-cannot-run": (
-      <LessonEditor
-        lesson={{ ...sampleLesson, status: "published" }}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={cannotRunRuntime}
-      />
-    ),
-    "lesson-save-rule-failed": (
-      <LessonEditor
-        lesson={{ ...wrongExpectedLesson, status: "published" }}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-    "lesson-odd-results": (
-      <LessonEditor
-        lesson={oddLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={never}
-        setStatus={never}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={oddRuntime}
-      />
-    ),
-    "lesson-validation-failed": (
-      <LessonEditor
-        lesson={wrongExpectedLesson}
-        initialPreview={samplePreview}
-        nonce={nonce}
-        save={succeed({ updatedAt: SAVED_AT })}
-        setStatus={succeed({ updatedAt: SAVED_AT })}
-        renderPreview={succeed(samplePreview)}
-        openRuntime={sampleRuntime}
-      />
-    ),
-  };
+    </Example>
+  );
 }
 
-/** One state when `state` names one; otherwise the list of states. */
-export function AdminStateGallery({ nonce, state }: { nonce: string; state?: string | undefined }) {
-  const chosen = ADMIN_STATES.find((entry) => entry.state === state);
+function LessonStates({ nonce }: { nonce: string }) {
   return (
-    <div className="flex flex-col gap-7">
-      <div className="flex flex-col gap-3">
-        <h1 className="text-xl font-semibold text-text">{m.title}</h1>
-        <p className="max-w-prose text-base text-text-muted">{m.intro}</p>
-      </div>
-      {chosen === undefined ? (
-        <ul className="flex flex-col gap-1">
-          {ADMIN_STATES.map((entry) => (
-            <li key={entry.state}>
-              <Link href={`${ADMIN_STATE_PATH}?state=${entry.state}`} variant="standalone">
-                {entry.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Example id={`gallery-${chosen.state}`} title={chosen.title}>
-          {adminViews(nonce)[chosen.state]}
-        </Example>
-      )}
-    </div>
+    <>
+      <Example id="gallery-lesson-editor" title={m.lessonEditor}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={succeed({ updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-refusing" title={m.lessonRefusing}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("stale")}
+          setStatus={refuse("status_not_allowed")}
+          renderPreview={refuse("unavailable")}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-published" title={m.lessonPublished}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={never}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-archived" title={m.lessonArchived}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "archived" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={never}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-full" title={m.lessonFull}>
+        <LessonEditor
+          lesson={fullLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("unavailable")}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-taken" title={m.lessonTaken}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={refuse("slug_taken")}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-too-long" title={m.lessonTooLong}>
+        <LessonEditor
+          lesson={tooLongLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-tests-full" title={m.lessonTestCasesFull}>
+        <LessonEditor
+          lesson={twelveTestsLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-test-problem" title={m.lessonTestCaseProblem}>
+        <LessonEditor
+          lesson={testProblemLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-content" title={m.lessonContent}>
+        <div className="rounded-panel border border-border bg-surface p-4">
+          <LessonContent document={learnerContent} topHeadingLevel={3} />
+        </div>
+      </Example>
+      <EmptyLessonExample nonce={nonce} />
+    </>
+  );
+}
+
+function ValidationStates({ nonce }: { nonce: string }) {
+  return (
+    <>
+      <Example id="gallery-lesson-python-loading" title={m.lessonPythonLoading}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={loadingRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-python-failed" title={m.lessonPythonFailed}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={failedRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-validating" title={m.lessonValidating}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={readyRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-python-cannot-run" title={m.lessonPythonCannotRun}>
+        <LessonEditor
+          lesson={sampleLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={cannotRunRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-validating" title={m.lessonSaveValidating}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={readyRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-python-failed" title={m.lessonSavePythonFailed}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={failedRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-python-cannot-run" title={m.lessonSavePythonCannotRun}>
+        <LessonEditor
+          lesson={{ ...sampleLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={cannotRunRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-save-rule-failed" title={m.lessonSaveRuleFailed}>
+        <LessonEditor
+          lesson={{ ...wrongExpectedLesson, status: "published" }}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-odd-results" title={m.lessonOddResults}>
+        <LessonEditor
+          lesson={oddLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={never}
+          setStatus={never}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={oddRuntime}
+        />
+      </Example>
+      <Example id="gallery-lesson-validation-failed" title={m.lessonValidationFailed}>
+        <LessonEditor
+          lesson={wrongExpectedLesson}
+          initialPreview={samplePreview}
+          nonce={nonce}
+          save={succeed({ updatedAt: SAVED_AT })}
+          setStatus={succeed({ updatedAt: SAVED_AT })}
+          renderPreview={succeed(samplePreview)}
+          openRuntime={sampleRuntime}
+        />
+      </Example>
+      <EmptyLessonExample nonce={nonce} />
+    </>
   );
 }

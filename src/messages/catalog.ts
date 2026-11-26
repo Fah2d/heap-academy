@@ -60,6 +60,7 @@ export const coursePage = {
   lessonNumber: (chapter: number, lesson: number) => `${String(chapter)}.${String(lesson)}`,
   chapterLessonsLabel: (title: string) => `Lessons in ${title}`,
   lessonXp: (xp: number) => `${String(xp)} XP`,
+  xpEarned: (earned: number, total: number) => `${String(earned)} of ${String(total)} XP earned`,
   /** A lesson row's state, in words beside its icon (FR-CRS-02). */
   lessonState: { completed: "Completed", next: "Next up", open: "Not started" },
 } as const;

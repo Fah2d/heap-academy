@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -7,6 +6,7 @@ import { catalogCommon, courseList, coursePage, home } from "../src/messages/cat
 import { shell } from "../src/messages/shell";
 import { removeAdmin, signInAsAdmin, sql, sqlRows } from "./admin-helpers";
 import { saveScreen } from "./screens";
+import { noAxeViolations } from "./journeys";
 
 // WP-5.1 against the local stack: the home page, the course list and a course
 // page show only published content, with the counts the database holds
@@ -158,17 +158,31 @@ async function expectRowsMatchDatabase(page: Page, heading: string) {
 const ADMIN = `admin-catalog-${String(stamp)}@example.test`;
 let admin: Page | undefined;
 
+/**
+ * The page asks not to be indexed. A not-found answer carries two robots
+ * tags, the page's own and the one Next.js adds to every not-found response,
+ * so every tag there is must say noindex.
+ */
+async function expectNoindex(page: Page, label: string) {
+  const robots = page.locator('meta[name="robots"]');
+  await expect(robots.first(), label).toBeAttached();
+  const contents = await robots.evaluateAll((metas) =>
+    metas.map((meta) => meta.getAttribute("content") ?? ""),
+  );
+  for (const content of contents) expect(content, label).toMatch(/noindex/);
+}
+
 /** Moves the course to a status in its editor, as the owner does. */
 async function setCourseStatus(page: Page, to: "published" | "draft") {
   const [row] = sqlRows(`select id from public.courses where slug = '${SLUG}'`);
   await page.goto(`/admin/courses/${row?.[0] ?? ""}`);
-  await page.getByRole("button", { name: courseEditor.statusAction[to] }).click();
+  await page.getByRole("button", { name: courseEditor.statusAction[to], exact: true }).click();
   const dialog = page.getByRole("dialog");
   if (to === "draft")
-    await dialog.getByRole("button", { name: courseEditor.statusAction[to] }).click();
+    await dialog.getByRole("button", { name: courseEditor.statusAction[to], exact: true }).click();
   // The editor has a status line per panel; this is the one in the Status panel.
   await expect(
-    page.getByRole("region", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
+    page.getByRole("group", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
   ).toHaveText(courseEditor.statusChanged(courseEditor.statusName[to]));
 }
 
@@ -235,7 +249,7 @@ test("[FR-CAT-01] [FR-CAT-04] the course list shows only published courses, with
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await noAxeViolations(page);
     if (SHOT_WIDTHS.includes(width)) {
       await saveScreen(page, "courses", width, { workPackage: "WP-5.1" });
     }
@@ -256,7 +270,7 @@ test("[FR-LND-02] [FR-LND-03] the home page says what this is and lists the publ
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await noAxeViolations(page);
     if (SHOT_WIDTHS.includes(width)) {
       await saveScreen(page, "home", width, { workPackage: "WP-5.1" });
     }
@@ -304,7 +318,7 @@ test("[FR-CRS-01] [FR-SEO-01] the course page shows the published chapters and l
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await noSidewaysScroll(page);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    await noAxeViolations(page);
     if (SHOT_WIDTHS.includes(width)) {
       await saveScreen(page, "course", width, { workPackage: "WP-5.1" });
     }
@@ -317,7 +331,7 @@ test("[FR-CAT-04] a draft course answers not found and is left out of the sitema
 }) => {
   const response = await page.goto(`/courses/${DRAFT_SLUG}`);
   expect(response?.status()).toBe(404);
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  await expectNoindex(page, `/courses/${DRAFT_SLUG}`);
 
   const sitemap = await (await request.get("/sitemap.xml")).text();
   expect(sitemap).toContain(`${ORIGIN}/courses/${SLUG}`);
@@ -355,6 +369,6 @@ test("the three pages' screens are saved for the design review", () => {
 test("[FR-SEO-01] sign-in and the admin door ask not to be indexed", async ({ page }) => {
   for (const path of ["/sign-in", "/admin", "/admin/setup", "/admin/verify"]) {
     await page.goto(path);
-    await expect(page.locator('meta[name="robots"]'), path).toHaveAttribute("content", /noindex/);
+    await expectNoindex(page, path);
   }
 });

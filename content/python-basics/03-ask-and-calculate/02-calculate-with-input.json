@@ -1,0 +1,45 @@
+{
+  "format": "heap-academy.lesson",
+  "version": 1,
+  "title": "Calculate with input",
+  "slug": "calculate-with-input",
+  "xp": 15,
+  "instructions_md": "## Typed text is not a number\n\n`input()` always gives you a string. To calculate with it, change it into a whole number with `int()`.\n\n```python\nage = int(input(\"Age: \"))\nprint(age + 1)\n```\n\nIf the person types `11`, the screen shows:\n\n```text\nAge: 12\n```\n\n## Your task\n\nA box holds 8 dates. Ask `Boxes: ` and print the total number of dates. Print the number only.\n",
+  "hints": [
+    "The answer must become a number before you multiply.",
+    "Wrap `input()` inside `int()`.",
+    "Store the number of boxes, then print it multiplied by 8."
+  ],
+  "starter_code": "# Ask for the number of boxes.\n",
+  "solution_code": "boxes = int(input(\"Boxes: \"))\nprint(boxes * 8)\n",
+  "wrong_answers": [
+    {
+      "label": "repeats the text instead",
+      "code": "boxes = input(\"Boxes: \")\nprint(boxes * 8)\n"
+    },
+    {
+      "label": "prints a fixed total",
+      "code": "input(\"Boxes: \")\nprint(24)\n"
+    }
+  ],
+  "tests": [
+    {
+      "id": "three-boxes",
+      "name": "3 boxes hold 24 dates",
+      "stdin": "3\n",
+      "afterCode": "",
+      "expected": "Boxes: 24",
+      "match": "normalized",
+      "hint": ""
+    },
+    {
+      "id": "ten-boxes",
+      "name": "10 boxes hold 80 dates",
+      "stdin": "10\n",
+      "afterCode": "",
+      "expected": "Boxes: 80",
+      "match": "normalized",
+      "hint": "If you see a long row of digits, change the text to a number."
+    }
+  ]
+}

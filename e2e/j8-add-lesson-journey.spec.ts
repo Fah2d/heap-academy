@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import {
   courseEditor,
@@ -13,6 +12,7 @@ import { notFound } from "../src/messages/system";
 import { workspace } from "../src/messages/workspace";
 import { removeAdmin, signInAsAdmin, sqlRows } from "./admin-helpers";
 import { saveScreen } from "./screens";
+import { noAxeViolations } from "./journeys";
 
 // J-8 against the local stack (FR-ADM-08, FR-ADM-11; G-5): an admin at aal2
 // creates a course and a lesson, writes its instructions, starter, solution
@@ -87,11 +87,13 @@ test("[J-8] [FR-ADM-08] [FR-ADM-11] the owner adds a lesson, previews it, publis
   const fill = page.getByRole("button", { name: validation.fillLabel(TEST_NAME) });
   await expect(fill).toBeVisible({ timeout: PYTHON_READY_MS });
   await fill.click();
+  // Exactly what the solution printed, with print's line break
+  // (04-content-system.md section 3).
   await expect(testCase.getByLabel(testCaseList.expectedLabel, { exact: true })).toHaveValue(
-    "Hello, Ada!",
+    "Hello, Ada!\n",
   );
   await page.getByRole("button", { name: validation.validate }).click();
-  await expect(page.getByText(validation.status.passed)).toBeVisible();
+  await expect(page.getByText(validation.status.passed)).toBeVisible({ timeout: PYTHON_READY_MS });
   await page.getByRole("button", { name: lessonEditor.save }).click();
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
 
@@ -108,7 +110,7 @@ test("[J-8] [FR-ADM-08] [FR-ADM-11] the owner adds a lesson, previews it, publis
   await page.keyboard.insertText(SOLUTION);
   await page.getByRole("button", { name: new RegExp(`^${workspace.check}`) }).click();
   await expect(page.locator("[data-completion]")).toHaveText(workspace.previewComplete);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await noAxeViolations(page);
   await saveScreen(page, "admin-preview-route", 1280, { workPackage: "WP-5.4" });
   await page.getByRole("link", { name: lessonEditor.backToEditor }).click();
   await expect(page).toHaveURL(editorAddress);
@@ -123,7 +125,7 @@ test("[J-8] [FR-ADM-08] [FR-ADM-11] the owner adds a lesson, previews it, publis
   await page.getByRole("link", { name: lessonEditor.backToCourse("Add a lesson") }).click();
   await page.getByRole("button", { name: courseEditor.statusAction.published }).click();
   await expect(
-    page.getByRole("region", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
+    page.getByRole("group", { name: courseEditor.statusHeading, exact: true }).getByRole("status"),
   ).toHaveText(courseEditor.statusChanged(courseEditor.statusName.published));
   const publishedAt = Date.now();
 

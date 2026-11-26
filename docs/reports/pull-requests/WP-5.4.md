@@ -1,6 +1,21 @@
 <!-- No AI attribution in this description or in any commit (CLAUDE.md rule 15). -->
 
-**Base: `wp/5.3-workspace-phone` at 2653c90 (with `wp/5.2-workspace-laptop` at 3f5f1bb), plus `origin/wp/5.1-catalog` at 392fa44 (with the 2.2 to 4.3 line).** WP-5.4 depends on WP-5.2 and WP-4.3, and its marks go on WP-5.1's pages. The branch started from `wp/5.2-workspace-laptop`, took `wp/5.1-catalog` (afbd72d), then `wp/5.3-workspace-phone` (cf9d200) so the workspace changes do not conflict with the phone layout. Merges after WP-5.1, WP-5.2 and WP-5.3. Until then this pull request also shows their commits; review afbd72d's resolutions and the commits after it. Parts 1 to 5: WP-5.4 complete; J-8 and the gate journeys run only in CI.
+**Base: `wp/5.3-workspace-phone` at 2653c90 (with `wp/5.2-workspace-laptop` at 3f5f1bb), plus `origin/wp/5.1-catalog` at 392fa44 (with the 2.2 to 4.3 line).** WP-5.4 depends on WP-5.2 and WP-4.3, and its marks go on WP-5.1's pages. The branch started from `wp/5.2-workspace-laptop`, took `wp/5.1-catalog` (afbd72d), then `wp/5.3-workspace-phone` (cf9d200) so the workspace changes do not conflict with the phone layout. Merges after WP-5.1, WP-5.2 and WP-5.3. Until then this pull request also shows their commits; review afbd72d's resolutions and the commits after it. Parts 1 to 5: WP-5.4 complete. J-8 and the stack journeys have now run here as CI runs them (see "Up to date with WP-5.3, WP-5.2, WP-3.4 and main").
+
+## Up to date with WP-5.3, WP-5.2, WP-3.4 and main
+
+On 2026-11-26 `wp/5.3-workspace-phone` came in twice: at 9d404cd in f54ed71, and at its pushed head in 24ab3e1. Through it come `wp/5.2-workspace-laptop`, `wp/3.4-statechart` and `main` at 032246c (#18 and #19). Four files conflicted in f54ed71:
+
+- `e2e/admin-gallery.spec.ts`: the lesson editor test opens its example with `main`'s `openExample`, then checks this branch's link to the preview and saves its screen.
+- `e2e/workspace-runtime.spec.ts`: WP-5.3's `resize`, which waits for the layout to change, with this branch's work package for a screen. `screens` now takes `{ phoneLayout, workPackage }`.
+- `src/features/admin/components/course-status.test.tsx`: `main`'s comment.
+- `docs/reports/local-build-progress.md`: both sides kept.
+
+In 24ab3e1, `src/features/catalog/reads-only-content.test.ts` conflicted with WP-5.2's 08df7cc, which allows a subset of what this branch allows; this branch's copy is kept.
+
+J-8 ran for the first time and failed twice, both in the test: Fill from solution copies what the solution printed, with print's line break (`04-content-system.md` section 3), so the expected value is now `"Hello, Ada!\n"`; and the course editor's status panel is a `group`, as `e2e/catalog-journey.spec.ts` finds it, not a `region`. Both fixed in df1c483.
+
+On df1c483: `pnpm verify` exit 0 (`Test Files  131 passed (131)`, `Tests  2328 passed (2328)`). The e2e job of CI ran here against the local stack, freshly reset (`supabase db reset`), with `CI=1` and the stack's publishable key: `pnpm test:e2e --project=chromium --project=stack --project=gallery`, `125 passed`, `1 skipped` (`[T-19] repeated wrong codes are limited`, a `test.fixme` that `main` has too), exit 0. J-8 is in those 125. Not run: `pnpm test:db` (no database change), Firefox, WebKit, `phone-workspace` and the `runtime-*` projects, which CI does not run on a pull request.
 
 ## What
 
