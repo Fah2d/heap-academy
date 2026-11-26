@@ -7,7 +7,7 @@ import {
   type Target,
   videoToFirstRun,
 } from "./journeys";
-import { stackCourse } from "./stack-course";
+import { ON_SITE_MS, stackCourse } from "./stack-course";
 
 // WP-7.4 part 2: journeys J-1 to J-4 as a guest on real lesson addresses, on
 // the production build, read from the local stack through the public content
@@ -33,8 +33,12 @@ const course = stackCourse(
 );
 const [firstLesson, lastLesson] = course.lessons as [Target, Target];
 
-test.beforeAll(() => {
+// The course list is cached, so a new course reaches the site up to about
+// 75 s later; every test here opens it at once (stack-course.ts).
+test.beforeAll(async ({ request }) => {
+  test.setTimeout(ON_SITE_MS + 15_000);
   course.write();
+  await course.onSite(request);
 });
 
 test.afterAll(() => {

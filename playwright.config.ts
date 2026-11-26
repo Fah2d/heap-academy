@@ -67,6 +67,11 @@ export default defineConfig({
       use: { ...device },
     })),
     { name: "stack", testMatch: stack, use: { ...devices["Desktop Chrome"] } },
+    // The journeys that need the database, in the other two engines (WP-7.4:
+    // J-1 to J-13 on three engines). Not in the pull request's e2e job,
+    // which runs Chromium only (docs/spec/05-engineering-handbook.md section 8).
+    { name: "stack-firefox", testMatch: stack, use: { ...devices["Desktop Firefox"] } },
+    { name: "stack-webkit", testMatch: stack, use: { ...devices["Desktop Safari"] } },
     {
       name: "gallery",
       testMatch: gallery,
