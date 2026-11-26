@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
@@ -81,6 +81,25 @@ describe("dependencies", () => {
     expect(workspace).toMatch(/^minimumReleaseAge: 1440$/m);
     expect(workspace).toMatch(/^minimumReleaseAgeStrict: true$/m);
     expect(workspace).not.toMatch(/minimumReleaseAgeExclude/);
+  });
+});
+
+describe("bundling", () => {
+  // package.json "sideEffects" lets the bundler drop a module that nothing
+  // uses a value from (WP-7.2: CodeMirror left the public pages that way). A
+  // module whose work happens at import is then dropped too: without
+  // src/domain/schema.ts's z.config, Zod probes with `new Function` and the
+  // script policy reports it (NFR-SEC-02).
+  it("[NFR-PERF-01] [NFR-SEC-02] keeps every module that configures Zod at import", () => {
+    const manifest = readJson("package.json") as { sideEffects?: unknown };
+    expect(Array.isArray(manifest.sideEffects)).toBe(true);
+    const listed = manifest.sideEffects as string[];
+    const configuring = readdirSync(join(root, "src"), { recursive: true, encoding: "utf8" })
+      .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+      .filter((file) => /^z\.config\(/m.test(readFileSync(join(root, "src", file), "utf8")))
+      .map((file) => `./src/${file}`);
+    expect(configuring).toEqual(["./src/domain/schema.ts"]);
+    for (const file of configuring) expect(listed).toContain(file);
   });
 });
 

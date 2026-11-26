@@ -14,7 +14,7 @@ Every number here comes from the command next to it, run on branch `wp/7.2-a11y-
 | NFR-A11Y-06 touch targets 44 by 44 px | Pass where checked | The same phone and gallery specs; not rerun in this part |
 | NFR-A11Y-07 AA contrast on tokens, syntax colors included | Pass | `src/ui/tokens/contrast.test.ts`, in `pnpm verify` |
 | NFR-A11Y-08 motion stops under reduced motion | Pass | Section 3 |
-| NFR-PERF-01 Lighthouse mobile 90+, LCP 2.5 s or less, CLS 0.1 or less | **Not measured** | No preview deployment of this branch; section 5 |
+| NFR-PERF-01 Lighthouse mobile 90+, LCP 2.5 s or less, CLS 0.1 or less | Local production build: performance 94, 96, 96 and CLS 0 to 0.038 pass; **LCP 2.8 to 2.9 s misses** (simulated). The preview run is still open. | Section 5 |
 | NFR-PERF-03 lesson readable and editor typeable before Python is ready | Pass, throttled | Section 4 |
 | NFR-PERF-06 Run 150 ms or less, Check of ten 500 ms or less | Run: pass in the browser. Check of ten: pass in the Node runner, not measured in the browser | Section 4 |
 
@@ -40,7 +40,9 @@ Earlier packages' axe specs, not rerun in this part: `catalog-gallery`, `gallery
 Not reached in a browser, with the reason:
 
 - `memory` and `crashed` errors: no program makes Pyodide run out of memory or the worker crash on demand. They use the same error component as the states above, which axe passed.
-- "Server unreachable" and "unsynced completion": the completion sync is WP-6.1, on the other line (`night-b`), not on this branch.
+- "Server unreachable": a state of the account's progress list, not of the workspace.
+
+Added on 2026-11-26, after `main` (WP-6.1) was merged in: `e2e/unsynced-journey.spec.ts` (`stack`), the "unsynced completion" notice of a signed-in learner whose pass cannot reach the account (server actions refused), with axe, then gone once the pass is stored: 1 passed.
 
 **Finding: CI does not run the workspace's axe checks.** `.github/workflows/ci.yml` line 226 runs `--project=chromium --project=stack --project=gallery`. The workspace specs run in `runtime-chromium` and `phone-workspace`, which no CI job runs, so NFR-A11Y-02's "required check" does not cover the workspace yet. This part does not change CI; the pull request asks the owner.
 
@@ -113,8 +115,26 @@ node -e 'const fs=require("fs"),zlib=require("zlib");const d=".next/server/app/l
 
 Laptop, no throttling, Python ready, six one-line Runs, each from the press to the output on screen, measured in the page: 13, 10, 9, 10, 10, 3 ms (the first is the first Run after Python was ready). The test asserts the largest is 150 ms or less. Check of ten test cases is measured in the Node runner, not in the browser: `src/grader/node-runner/runner.test.ts` asserts 500 ms or less, in `pnpm verify`.
 
-## 5. Not measured
+## 5. Lighthouse (NFR-PERF-01), 2026-11-26
 
-- NFR-PERF-01, Lighthouse mobile on the home, course list and course pages: needs a preview deployment of this branch (`07-operations.md`), and Lighthouse is not installed here. Owner: run it on the preview once the line is deployed, or name a waiver.
+Lighthouse 12.8.2, default mobile configuration (emulated phone, simulated slow 4G and 4x CPU slowdown), performance and accessibility only, Chrome for Testing from Playwright, against `next start` of a production build on `127.0.0.1:3150` with the local stack's seeded content. Not the preview deployment the plan names: a local server has no CDN or HTTP/2, so these numbers stand until the preview run.
+
+```
+npx lighthouse@12.8.2 http://127.0.0.1:3150<path> --chrome-flags="--headless=new" --only-categories=performance,accessibility --output=json
+```
+
+| Page | Before | After the fix below |
+|---|---|---|
+| `/` | performance 87, accessibility 100, LCP 4.1 s, CLS 0, 474 KiB | performance 95, accessibility 100, LCP 2.9 s, CLS 0, 274 KiB |
+| `/courses` | 96, 100, LCP 2.9 s, CLS 0, weight not recorded | 96, 100, LCP 2.8 s, CLS 0, 273 KiB |
+| `/courses/sample-course` | 87, 100, LCP 4.1 s, CLS 0.038, weight not recorded | 96, 100, LCP 2.8 s, CLS 0.038, 289 KiB |
+
+**Found and fixed: every page downloaded the lesson workspace.** The root layout imports `@/features/catalog` and `@/features/auth`, whose indexes also re-export the lesson page and the sign-in page. Next.js takes a layout's client components from its whole import graph, so the workspace and CodeMirror (157 KiB compressed, 99.9 % unused on the home page) were a client entry of every page. `"sideEffects"` in `package.json` tells the bundler which modules run code that matters when imported, so the unused re-exports of every other module are dropped. It lists the style sheets and `src/domain/schema.ts`, whose `z.config({ jitless: true })` keeps Zod from probing with `new Function`. A first version listed only the style sheets and said no module was imported for its side effects; that was wrong. The bundler dropped the Zod setting, and the lesson editor's script policy test failed (`e2e/lesson-editor-journey.spec.ts`). `scripts/repository.test.ts` now fails if a module that configures Zod is missing from the list. The Next.js documentation does not describe the field for app code (read 2026-11-26), so `e2e/page-weight-journey.spec.ts` guards the result: `/`, `/courses` and the course page must download no script holding CodeMirror's `cm-editor`, and the lesson page must. With the fix: 4 passed; without it: the three public pages failed. The "after" column was measured again with the corrected list, on the build of 2026-11-26 19:57.
+
+**Miss: LCP 2.8 to 2.9 s against 2.5 s.** The observed LCP is the first paint (87 ms on the home page); the simulated value adds the three preloaded IBM Plex Sans files (about 72 KiB) and the remaining framework script on slow 4G. Proposed next fix, for the owner: preload only the 400 weight and let 500 and 600 swap in, which changes how headings first paint (a `DESIGN.md` question), then measure on the preview. Otherwise a written waiver.
+
+## 6. Not measured
+
+- NFR-PERF-01 on the preview deployment the plan names. Owner: run the command above on the preview, or name a waiver for the LCP miss.
 - The throttled profile on a production build of the lesson route: needs the local stack (Docker) or a preview with seeded content.
 - Firefox and WebKit: speed mode. `sign-in.spec.ts`, `shell.spec.ts` and `catalog-outage.spec.ts` also run in the `firefox` and `webkit` projects; their walks were run in Chromium only. WebKit on macOS skips links on Tab unless the system setting allows it, so a local WebKit run there may fail the walks (not verified).
