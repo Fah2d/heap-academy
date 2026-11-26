@@ -134,6 +134,7 @@ test("[FR-PRG-02] [FR-PRG-03] J-5 and J-6: a guest's progress joins the account 
   browser,
   request,
 }) => {
+  await course.onSite(request);
   // Device A: an account with one completion, then signed out.
   const deviceA = await browser.newContext();
   contexts.push(deviceA);

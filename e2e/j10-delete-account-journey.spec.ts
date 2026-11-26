@@ -108,6 +108,7 @@ test("[FR-PRF-03] [T-17] J-10: a learner deletes their account; no table keeps a
   page,
   request,
 }) => {
+  await course.onSite(request);
   await signInWithCode(page, request, address);
   await passLesson(page, laptop, lesson);
   await page.goto("/profile");
