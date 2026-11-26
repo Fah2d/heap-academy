@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-26 (evening), on `wp/7.3-operations`: `main` at 23cfb4b merged in, part 6
+
+- `main` merged in (f33e346). Then part 6: the nightly encrypted backup, the checked restore, the verify script, the restore and deletion-request runbooks, the backup secrets' rotation, the drill records, and ADR-0030's text amended as proposed (`pull-requests/WP-7.3-part-6.md`, `reviews/WP-7.3/security-review-8.md`).
+- **Decision P is needed**: `backup_reader` cannot use `auth` (`postgres` lacks the grant option), so `pnpm test:db` fails tests 6 to 8 of `06_backup_reader` and the backup cannot run. Recommended: `pg_read_all_data`, with the ADR amended.
+- `pnpm verify` exit 0, 160 files, 2810 tests. e2e as CI runs it: 169 passed, 1 skipped, exit 0. `pnpm test:db`: 407 tests, FAIL on tests 6 to 8 only.
+- Push: `wp/7.3-operations`, once.
+
 ## Session of 2026-11-24 (from about 22:50), in `night-c`, on `wp/7.3-operations`
 
 - `git fetch` at 22:50: `origin/main` moved to 428c437 (pull request #14, `wp/db-types`: `src/infrastructure/db/database.types.ts`). Merged into `wp/7.3-operations` with no conflict.
