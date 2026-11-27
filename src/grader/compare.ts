@@ -42,9 +42,25 @@ export function matches(actual: string, expected: string, mode: MatchMode): bool
 export type NearMiss = "letter_case" | "spaces" | "punctuation" | "missing_last_line";
 
 const HORIZONTAL_SPACE = /[^\S\n]/gu;
-// Punctuation beside a digit is part of a number, such as the point in 3.5
-// or the sign in -5: "35" for "3.5" is a wrong answer, not a slip in commas.
-const PUNCTUATION = /(?<!\d)\p{P}(?!\d)/gu;
+// Punctuation inside a number stays: the point in 3.5, the comma in 1,000, or
+// a sign or point that starts one, as in -5 or .5. "35" for "3.5" is a wrong
+// answer, not a slip in commas. A full stop after a number is still punctuation.
+const PUNCTUATION = /\p{P}/gu;
+const DIGIT = /^\d$/u;
+const LETTER_OR_DIGIT = /^[\p{L}\p{N}]$/u;
+
+function inNumber(mark: string, before: string, after: string): boolean {
+  if (!DIGIT.test(after)) return false;
+  if (DIGIT.test(before)) return true;
+  return (mark === "-" || mark === ".") && !LETTER_OR_DIGIT.test(before);
+}
+
+/** The text without its punctuation, except punctuation inside a number. */
+export function withoutPunctuation(text: string): string {
+  return text.replace(PUNCTUATION, (mark: string, offset: number) =>
+    inNumber(mark, text.charAt(offset - 1), text.charAt(offset + 1)) ? mark : "",
+  );
+}
 
 /**
  * The one way `actual` almost matches `expected` under `mode`, or undefined
@@ -58,7 +74,7 @@ export function nearMiss(actual: string, expected: string, mode: MatchMode): Nea
   const e = mode === "normalized" ? normalize(expected) : expected;
   if (a.toLowerCase() === e.toLowerCase()) return "letter_case";
   if (a.replace(HORIZONTAL_SPACE, "") === e.replace(HORIZONTAL_SPACE, "")) return "spaces";
-  if (a.replace(PUNCTUATION, "") === e.replace(PUNCTUATION, "")) return "punctuation";
+  if (withoutPunctuation(a) === withoutPunctuation(e)) return "punctuation";
   // In exact mode both texts usually end with print's line break; it ends
   // the last line and is not a line of its own.
   const bothEnd = a.endsWith("\n") && e.endsWith("\n");

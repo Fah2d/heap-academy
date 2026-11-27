@@ -27,7 +27,8 @@ export function HomeView({
 }) {
   return (
     <CatalogPage>
-      <div className="grid gap-7 lg:grid-cols-2 lg:items-center">
+      {/* Aligned to the top, so the heading stays put while the editor's output grows. */}
+      <div className="grid gap-7 lg:grid-cols-2 lg:items-start">
         <h1 className="max-inline-prose text-2xl font-semibold text-balance text-text">
           {home.heading}
         </h1>

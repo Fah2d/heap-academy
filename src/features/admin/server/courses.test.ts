@@ -50,34 +50,34 @@ describe("summarizeCourses [docs/spec/03-experience.md section 7.2]", () => {
   });
 });
 
-describe("editorCourse [FR-ADM-13]", () => {
-  const LESSON_A = "00000000-0000-4000-8000-0000000000a1";
-  const LESSON_B = "00000000-0000-4000-8000-0000000000a2";
-  const row = {
-    id,
-    slug: "python-basics",
-    title: "Python basics",
-    summary: "",
-    outcomes: [],
-    status: "published",
-    updated_at: "2026-11-27T08:00:00+00:00",
-    chapters: [
-      {
-        id: "00000000-0000-4000-8000-0000000000b1",
-        title: "First steps",
-        summary: "",
-        position: 1,
-        updated_at: "2026-11-27T08:00:00+00:00",
-        lessons: [
-          { id: LESSON_A, title: "Print", status: "published", position: 1 },
-          { id: LESSON_B, title: "Ask", status: "draft", position: 2 },
-        ],
-      },
-    ],
-  };
-  const lessonsOf = (result: ReturnType<typeof editorCourse>) =>
-    result.ok ? result.course?.chapters[0]?.lessons : undefined;
+const LESSON_A = "00000000-0000-4000-8000-0000000000a1";
+const LESSON_B = "00000000-0000-4000-8000-0000000000a2";
+const row = {
+  id,
+  slug: "python-basics",
+  title: "Python basics",
+  summary: "",
+  outcomes: [],
+  status: "published",
+  updated_at: "2026-11-27T08:00:00+00:00",
+  chapters: [
+    {
+      id: "00000000-0000-4000-8000-0000000000b1",
+      title: "First steps",
+      summary: "",
+      position: 1,
+      updated_at: "2026-11-27T08:00:00+00:00",
+      lessons: [
+        { id: LESSON_A, title: "Print", status: "published", position: 1 },
+        { id: LESSON_B, title: "Ask", status: "draft", position: 2 },
+      ],
+    },
+  ],
+};
+const lessonsOf = (result: ReturnType<typeof editorCourse>) =>
+  result.ok ? result.course?.chapters[0]?.lessons : undefined;
 
+describe("editorCourse [FR-ADM-13]", () => {
   it("gives each lesson the count the database returned, and 0 to one it has no row for", () => {
     const result = editorCourse(row, [{ lesson_id: LESSON_A, completions: 12 }]);
     expect(lessonsOf(result)?.map((lesson) => [lesson.title, lesson.completions])).toEqual([
@@ -118,7 +118,18 @@ describe("courseForEditor [FR-ADM-13]", () => {
     ).resolves.toEqual({ ok: false });
   });
 
-  it("reads the course and the counts through the same session", async () => {
+  it("reads the course and its counts through the same session and joins them", async () => {
+    const result = await courseForEditor(
+      session(row, { data: [{ lesson_id: LESSON_B, completions: 3 }], error: null }),
+      id,
+    );
+    expect(lessonsOf(result)?.map((lesson) => [lesson.title, lesson.completions])).toEqual([
+      ["Print", 0],
+      ["Ask", 3],
+    ]);
+  });
+
+  it("says there is no such course when the session finds none", async () => {
     await expect(courseForEditor(session(null, { data: [], error: null }), id)).resolves.toEqual({
       ok: true,
       course: null,

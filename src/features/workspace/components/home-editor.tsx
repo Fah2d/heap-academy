@@ -38,13 +38,17 @@ const CodeEditor = lazy(() =>
  * text and Run still runs it; the rest of the home page stays.
  */
 class EditorBoundary extends Component<
-  { fallback: ReactNode; children: ReactNode },
+  { fallback: ReactNode; children: ReactNode; onFailed: () => void },
   { failed: boolean }
 > {
   override state = { failed: false };
 
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+
+  override componentDidCatch() {
+    this.props.onFailed();
   }
 
   override render() {
@@ -83,6 +87,7 @@ export function HomeEditor({ nonce }: { nonce: string }) {
   const [batchInput, setBatchInput] = useState("");
   const [refusal, setRefusal] = useState<TooLarge | undefined>(undefined);
   const [editorWanted, setEditorWanted] = useState(false);
+  const [editorFailed, setEditorFailed] = useState(false);
   const [started, setStarted] = useState(false);
   // A Run pressed before Python was asked for. It is sent once, when Python
   // starts; the flag then stays set and does nothing more.
@@ -154,17 +159,15 @@ export function HomeEditor({ nonce }: { nonce: string }) {
       ? runAnnouncement(view.result, transcript(view.output, false).lines)
       : "";
 
+  // No program is shown, so no heading names one.
   if (supported === false) {
     return (
-      <section aria-labelledby={labelId} className="flex flex-col gap-3">
-        <h2 id={labelId} className="text-lg font-semibold text-text">
-          {homeWords.heading}
-        </h2>
+      <div data-home-editor>
         <Notice kind="warning" kindLabel={words.warningKind}>
           <strong className="font-semibold">{words.unsupportedTitle}</strong>{" "}
           {words.unsupportedBody}
         </Notice>
-      </section>
+      </div>
     );
   }
 
@@ -189,19 +192,19 @@ export function HomeEditor({ nonce }: { nonce: string }) {
     >
       <div className="flex flex-col gap-1">
         <h2 id={labelId} className="text-lg font-semibold text-text">
-          {homeWords.heading}
+          {editorFailed ? homeWords.headingRunOnly : homeWords.heading}
         </h2>
-        <p className="text-base text-text-muted">{homeWords.intro}</p>
+        <p className="text-base text-text-muted">
+          {editorFailed ? homeWords.introRunOnly : homeWords.intro}
+        </p>
       </div>
       <div className="flex h-(--home-editor-size) flex-col">
         {editorWanted ? (
           <EditorBoundary
-            fallback={
-              <div className="flex h-full flex-col gap-2">
-                {programText(true)}
-                <p className="text-sm text-text-muted">{homeWords.editorFailed}</p>
-              </div>
-            }
+            fallback={programText(true)}
+            onFailed={() => {
+              setEditorFailed(true);
+            }}
           >
             <Suspense fallback={fallback}>
               <CodeEditor
@@ -218,6 +221,7 @@ export function HomeEditor({ nonce }: { nonce: string }) {
           fallback
         )}
       </div>
+      {editorFailed && <p className="text-sm text-text-muted">{homeWords.editorFailed}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="secondary" icon={<Play size={16} />} isPending={runBlocked} onPress={run}>
           {runPending ? words.runPending : words.run}

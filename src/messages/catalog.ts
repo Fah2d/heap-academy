@@ -44,10 +44,13 @@ export const home = {
 export const homeEditor = {
   heading: "A Python program you can change",
   intro: "Change it, then press Run.",
+  /** The heading and line above the program when the editor could not be fetched. */
+  headingRunOnly: "A Python program you can run",
+  introRunOnly: "Press Run to run it.",
   /** The read-only program's name, when the editor could not be fetched. */
   programLabel: "The program, read-only",
   /** When the editor's code could not be fetched: the program stays, read-only. */
-  editorFailed: "The editor did not load, so this program cannot be changed. Run still runs it.",
+  editorFailed: "The editor did not load, so this program cannot be changed.",
   /** The program the editor opens with: short, with output a beginner can predict. */
   program:
     'name = "Sara"\nprint("Hello, " + name + "!")\nfor letter in name:\n    print(letter)\nprint("Done.")',

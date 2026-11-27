@@ -6,6 +6,7 @@ import type { NearMiss } from "@/grader/compare";
 import type { TestResult } from "@/grader/grade";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import {
+  goToLine,
   learnerErrorSuggestion,
   type NearMissWord,
   pythonErrorExplanations,
@@ -83,6 +84,18 @@ describe("[T-07] the console", () => {
     expect(container.textContent).toContain(`ValueError: ${MARKUP}`);
     expect(screen.getByText(MARKUP, { selector: "label" })).toBeTruthy();
     expectInert(container);
+  });
+});
+
+describe("[FR-WSP-08] the answers box", () => {
+  it("appears only once Python has said it cannot pause for input", () => {
+    for (const status of ["idle", "loading", "failed"] as const) {
+      render(<ConsolePanel {...consoleProps} view={{ ...INITIAL_VIEW, status }} />);
+      expect(screen.queryByLabelText(words.batchLabel)).toBeNull();
+      cleanup();
+    }
+    render(<ConsolePanel {...consoleProps} view={{ ...INITIAL_VIEW, status: "ready" }} />);
+    expect(screen.getByLabelText(words.batchLabel)).toBeTruthy();
   });
 });
 
@@ -188,8 +201,14 @@ describe("[FR-WSP-23] the error view explains a common Python error", () => {
         onGoToLine={ignore}
       />,
     );
-    expect(screen.getByText("ZeroDivisionError: division by zero")).toBeTruthy();
-    expect(screen.getByText(pythonErrorExplanations.ZeroDivisionError)).toBeTruthy();
+    const message = screen.getByText("ZeroDivisionError: division by zero");
+    const explanation = screen.getByText(pythonErrorExplanations.ZeroDivisionError);
+    // Read in this order: Python's message, then what it means, then the line.
+    expect(message.nextElementSibling).toBe(explanation);
+    expect(
+      explanation.compareDocumentPosition(screen.getByRole("button", { name: goToLine(7) })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("shows the syntax suggestion, not an explanation, for a syntax error that is not about indentation", () => {
@@ -247,6 +266,15 @@ describe("[FR-GRD-07] the tests panel names a near miss", () => {
     expect(
       screen.getByText(`${words.failure("mismatch", 5)} ${words.nearMiss(kind)}`),
     ).toBeTruthy();
+  });
+
+  it("never wraps an output, so a wrap cannot hide a missing space", () => {
+    showFailure("Hello,Sara!");
+    const actual = screen.getByText("Hello,Sara!", { selector: "pre" });
+    expect(actual.className).toContain("whitespace-pre ");
+    expect(actual.className).not.toContain("whitespace-pre-wrap");
+    // It scrolls sideways, so a keyboard can reach it.
+    expect(actual.tabIndex).toBe(0);
   });
 
   it("names a missing last line", () => {

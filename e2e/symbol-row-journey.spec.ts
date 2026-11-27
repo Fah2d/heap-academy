@@ -74,17 +74,22 @@ for (const width of [320, 375]) {
       });
       await saveScreen(page, "symbol-row", width, { workPackage: WORK_PACKAGE, fullPage: false });
 
-      // With an on-screen keyboard (about 300 px), the bar rides on it and
-      // the editor keeps room above. Set as the workspace sets it from the
-      // visual viewport, which an emulated phone has no keyboard to change.
-      await page.locator("[data-workspace]").evaluate((element) => {
-        (element as HTMLElement).style.setProperty("--keyboard-inset", "300px");
-      });
-      await expect(row(page)).toBeInViewport();
-      await expect(editor(page)).toBeInViewport();
+      // With an on-screen keyboard (about 300 px), the whole bar rides on it.
+      // Set as the workspace sets it from the visual viewport, which an
+      // emulated phone has no keyboard to shrink. CodeMirror keeps the cursor
+      // inside the visual viewport, so where it scrolls with a real keyboard
+      // is not shown here; the screen is only the area above the keyboard.
+      const KEYBOARD = 300;
+      await page.locator("[data-workspace]").evaluate((element, inset) => {
+        (element as HTMLElement).style.setProperty("--keyboard-inset", `${String(inset)}px`);
+      }, KEYBOARD);
+      const bar = await row(page).boundingBox();
+      const above = 740 - KEYBOARD;
+      expect((bar?.y ?? Infinity) + (bar?.height ?? 0)).toBeLessThanOrEqual(above);
+      await expect(row(page)).toBeInViewport({ ratio: 1 });
       await saveScreen(page, "symbol-row-keyboard", width, {
         workPackage: WORK_PACKAGE,
-        fullPage: false,
+        clip: { x: 0, y: 0, width, height: above },
       });
     });
   });

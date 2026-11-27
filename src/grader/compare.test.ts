@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { forAll, type Generator, textFrom, tuple } from "../../scripts/testing/property.ts";
-import { matches, nearMiss, normalize } from "./compare.ts";
+import { matches, nearMiss, normalize, withoutPunctuation } from "./compare.ts";
 
 // Characters that matter to the rules: line endings, the whitespace each kind
 // of trim sees, letters in both cases, punctuation, and a character outside
@@ -136,8 +136,17 @@ describe("nearMiss", () => {
     expect(nearMiss("35", "3.5", "normalized")).toBeUndefined();
     expect(nearMiss("5", "-5", "normalized")).toBeUndefined();
     expect(nearMiss("Total 1000", "Total 1,000", "normalized")).toBeUndefined();
+    expect(nearMiss("Cost 5", "Cost .5", "normalized")).toBeUndefined();
     // Punctuation away from digits still counts.
     expect(nearMiss("Total 3", "Total: 3", "normalized")).toBe("punctuation");
+  });
+
+  it("[FR-GRD-07] names punctuation that only touches a number", () => {
+    expect(nearMiss("Your total is 42", "Your total is 42.", "normalized")).toBe("punctuation");
+    expect(nearMiss("I am 30", "I am 30!", "normalized")).toBe("punctuation");
+    expect(nearMiss("Hello Sara 2", "Hello, Sara 2!", "normalized")).toBe("punctuation");
+    expect(nearMiss("(3)", "3", "normalized")).toBe("punctuation");
+    expect(nearMiss("x5", "x-5", "normalized")).toBe("punctuation");
   });
 
   it("[FR-GRD-07] names nothing when the output matches", () => {
@@ -178,12 +187,35 @@ describe("nearMiss", () => {
         case "spaces":
           return a.replace(/[^\S\n]/gu, "") === e.replace(/[^\S\n]/gu, "");
         case "punctuation":
-          return a.replace(/(?<!\d)\p{P}(?!\d)/gu, "") === e.replace(/(?<!\d)\p{P}(?!\d)/gu, "");
+          return withoutPunctuation(a) === withoutPunctuation(e);
         case "missing_last_line": {
           // Normalized text never ends with a line break, so a and e are whole lines.
           return e.startsWith(`${a}\n`) && !e.slice(a.length + 1).includes("\n");
         }
       }
     });
+  });
+
+  it("[FR-GRD-07] in exact mode a missing last line is exactly one more line, ending as the others do", () => {
+    forAll(tuple(anyText, anyText), ([actual, expected]) => {
+      if (nearMiss(actual, expected, "exact") !== "missing_last_line") return true;
+      const rest = expected.startsWith(actual.endsWith("\n") ? actual : `${actual}\n`)
+        ? expected.slice(actual.length + (actual.endsWith("\n") ? 0 : 1))
+        : undefined;
+      if (rest === undefined || rest.trim() === "") return false;
+      const lines = rest.endsWith("\n") ? rest.slice(0, -1) : rest;
+      return !lines.includes("\n") && rest.endsWith("\n") === actual.endsWith("\n");
+    });
+    // Built so the property sees the case it describes.
+    expect(nearMiss("1\n2\n", "1\n2\n3\n", "exact")).toBe("missing_last_line");
+  });
+
+  it("[FR-GRD-07] withoutPunctuation keeps only punctuation inside a number", () => {
+    expect(withoutPunctuation("Hello, Sara!")).toBe("Hello Sara");
+    expect(withoutPunctuation("It costs 3.50, or -2 with .5 off.")).toBe(
+      "It costs 3.50 or -2 with .5 off",
+    );
+    expect(withoutPunctuation("1,000 (5)")).toBe("1,000 5");
+    expect(withoutPunctuation("x-5 total: 42.")).toBe("x5 total 42");
   });
 });

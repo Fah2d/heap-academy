@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { homeEditor as homeWords } from "@/messages/catalog";
 import { workspace as words } from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
@@ -154,6 +154,8 @@ describe("the home page's live editor", () => {
     const { HomeEditor: FreshEditor } = await import("./home-editor");
     render(<FreshEditor nonce="nonce" />);
     expect(screen.getByText(words.unsupportedTitle)).toBeTruthy();
+    // No program is shown, so no heading names one.
+    expect(screen.queryByRole("heading", { name: homeWords.heading })).toBeNull();
     expect(screen.queryByRole("button", { name: new RegExp(`^${words.run}`) })).toBeNull();
   });
 
@@ -176,8 +178,16 @@ describe("the home page's live editor when the editor's code cannot be fetched",
     const { HomeEditor: FreshEditor } = await import("./home-editor");
     // React reports the caught error on the console; the test reads the page.
     const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      quiet.mockRestore();
+      vi.doUnmock("./code-editor");
+    });
     render(<FreshEditor nonce="nonce" />);
     expect(await screen.findByText(homeWords.editorFailed)).toBeTruthy();
+    // The words above the program no longer offer a change it cannot take.
+    expect(screen.getByRole("heading", { level: 2, name: homeWords.headingRunOnly })).toBeTruthy();
+    expect(screen.getByText(homeWords.introRunOnly)).toBeTruthy();
+    expect(screen.queryByText(homeWords.intro)).toBeNull();
     expect(
       screen.getByText(
         (_, element) => element?.tagName === "PRE" && element.textContent === homeWords.program,
@@ -186,7 +196,5 @@ describe("the home page's live editor when the editor's code cannot be fetched",
     expect(runButton()).toBeTruthy();
     await userEvent.click(runButton());
     expect(runtime.enabled.at(-1)).toBe(true);
-    quiet.mockRestore();
-    vi.doUnmock("./code-editor");
   });
 });

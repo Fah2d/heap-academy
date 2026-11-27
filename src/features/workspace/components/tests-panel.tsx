@@ -153,7 +153,14 @@ function Block({ label, text, empty }: { label: string; text: string; empty: str
       {text === "" ? (
         <p className="text-sm text-text-muted">{empty}</p>
       ) : (
-        <pre className="overflow-x-auto rounded-control bg-surface-editor p-2 font-mono text-code whitespace-pre-wrap text-text">
+        // Never wrapped: a wrap where a space differs would hide the one
+        // difference a near miss names (FR-GRD-07). Long lines scroll.
+        <pre
+          tabIndex={0}
+          role="group"
+          aria-label={label}
+          className="overflow-x-auto rounded-control bg-surface-editor p-2 font-mono text-code whitespace-pre text-text focus-visible:-outline-offset-2"
+        >
           {text}
         </pre>
       )}
