@@ -2,6 +2,48 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (morning), on `wp/8.1-readiness` from `main` at 5dcc577: WP-8.1, the parts with no owner action
+
+This session also did WP-7.3 decision P (`wp/7.3-operations`, pushed at 820c1c6) and WP-7.5 (`wp/7.5-polish`, pushed at be23a5e). Each branch's copy of this file has its own entry.
+
+- **Built:**
+  - `docs/reports/launch-readiness.md`: launch checklist 4.1 to 4.3, each item with its state and evidence.
+  - The whole-application design review, fresh screens of every screen, and the cheap fixes. The fixes and the reviews are in `pull-requests/WP-8.1.md` and `reviews/WP-8.1/`.
+  - The dashboard setup page's broken QR code (B1). Code and security review caught a first fix that refused every real code, before it was committed.
+- **Verified:**
+  - gitleaks: 1298 commits, no leaks.
+  - Attribution: the range, the root commit and the files are all clean.
+  - `infra:verify` against a local production build: 23 checks passed or do not apply.
+  - e2e, every screen project with one worker: 326 passed, 1 failed (the canary; see below).
+- **For the owner, from WP-8.1:**
+  - Domain and DNS.
+  - Google sign-in in production mode.
+  - The verified email sender.
+  - The production env vars audit (names only).
+  - `infra:verify` against the real domain with `--repo` and `--auth`.
+  - The real-phone checks, including the in-app browsers.
+  - `admins` holds only the owner, and the authenticator works.
+  - The auth redirect allow-list.
+  - The backup run and one restore, after WP-7.3 merges.
+  - One rollback and one restore.
+  - The uptime check.
+  - Usage notifications.
+  - The firewall rate limit.
+- **Open design findings:**
+  - B3: no profile screens.
+  - B4: the workspace frame from 768 px up. This one is structural.
+  - M1: dashboard screens that cannot be read.
+  - M2: sign-in states without screens.
+  - M4: the traceback shows before the error card. Decide after WP-7.5.
+  - 11 minors.
+- **Defect reported, not fixed:**
+  - `e2e/canary-journey.spec.ts` fails in a full run with one worker, at the same place in two runs: the cached course list still lacks the new course after 180 s.
+  - It passes alone, and with five workers.
+- **CI gap:**
+  - CI does not run `runtime-*`, `phone-*` or the Firefox and WebKit stack projects.
+  - J-1 to J-13 on three engines (checklist 4.1) needs them.
+- **Push:** `wp/8.1-readiness`, once.
+
 ## Session of 2026-11-26 (night), on `wp/7.4-journeys`: `main` at 23cfb4b, `wp/7.2-a11y-perf` at 376fba2 and `wp/7.4-journeys-part-2b` merged in
 
 - Fixed the two CI flakes, the admin gallery's fill before hydration and FR-RUN-04's 0 ms timer. Also fixed the page-weight and chapter-list races found on the way. Added `stack-firefox` and `stack-webkit` (`pull-requests/WP-7.4-part-3.md`).
