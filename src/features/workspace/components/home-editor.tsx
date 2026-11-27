@@ -172,11 +172,12 @@ export function HomeEditor({ nonce }: { nonce: string }) {
   }
 
   // The program as plain text: until the editor arrives, and for good when it
-  // cannot. Only the lasting one takes focus, so the keyboard can scroll it.
+  // cannot. Only the lasting one scrolls and takes focus, so the keyboard can
+  // scroll it; the passing one clips, so no region scrolls without focus.
   const programText = (lasting: boolean) => (
     <div
       {...(lasting && { tabIndex: 0, role: "region", "aria-label": homeWords.programLabel })}
-      className="code-surface min-h-0 flex-1 overflow-auto rounded-panel border border-border-control focus-visible:-outline-offset-2"
+      className={`code-surface min-h-0 flex-1 ${lasting ? "overflow-auto" : "overflow-hidden"} rounded-panel border border-border-control focus-visible:-outline-offset-2`}
     >
       <pre className="px-3 py-3 font-mono text-code text-text">{code}</pre>
     </div>
