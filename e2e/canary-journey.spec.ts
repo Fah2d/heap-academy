@@ -167,7 +167,13 @@ $canary$;`);
 
   // The cached course list lacks the new course for up to a minute, and the
   // course and lesson answer not-found until it has it (e2e/stack-course.ts).
+  // This hook stopped after about 30 s of polling, though the file's timeout
+  // is 180 s, whenever a journey had just read the list, as the admin
+  // journey before this file does in a serial run: the course then appears
+  // up to about 61 s later. The hook sets its own timeout to the wait it
+  // polls for, as e2e/lesson-route-journey.spec.ts does (WP-8.2).
   test.beforeAll(async ({ playwright }) => {
+    test.setTimeout(ON_SITE_MS + 15_000);
     const { baseURL } = test.info().project.use;
     const request = await playwright.request.newContext(baseURL === undefined ? {} : { baseURL });
     await expect
@@ -318,11 +324,13 @@ delete from public.courses where slug in ('${SLUG}', '${DRAFT_SLUG}');`);
     const paths = pages();
     for (const path of paths) {
       await page.goto(path);
-      if (path === SHOWN_COURSE() || path === SHOWN_LESSON()) {
+      if (path === SHOWN_COURSE()) {
         await expect(page.locator("main")).toContainText(COURSE_TITLE);
       }
       if (path === SHOWN_LESSON()) {
-        await expect(page.locator("main")).toContainText(EXAMPLE_LESSON.title);
+        // The workspace's compact bar names the course and the lesson.
+        await expect(page.getByRole("banner")).toContainText(COURSE_TITLE);
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(EXAMPLE_LESSON.title);
         // The worker's own fetches: the Python files and the harness.
         await page.waitForLoadState("networkidle");
       }
