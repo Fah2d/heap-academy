@@ -27,8 +27,8 @@ const chapter: EditorChapter = {
   summary: "",
   loadedAt: "2026-11-22T08:00:00.000001+00:00",
   lessons: [
-    { id: FIRST, title: "Print", status: "published" },
-    { id: SECOND, title: "Ask", status: "draft" },
+    { id: FIRST, title: "Print", status: "published", completions: 1250 },
+    { id: SECOND, title: "Ask", status: "draft", completions: 0 },
   ],
 };
 const ok = <Value,>(value: Value) => Promise.resolve({ ok: true as const, value });
@@ -49,6 +49,16 @@ describe("LessonRows [FR-ADM-03]", () => {
       (screen.getByRole("button", { name: structure.moveUp("Print") }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it("[FR-ADM-13] shows how many learners completed each lesson", () => {
+    render(<LessonRows chapter={chapter} chapterNumber={1} reorder={vi.fn()} refresh={vi.fn()} />);
+    const rows = within(
+      screen.getByRole("list", { name: courseEditor.chapterLessonsLabel("First steps") }),
+    ).getAllByRole("listitem");
+    expect(within(rows[0]!).getByText("1,250 completions")).toBeTruthy();
+    expect(within(rows[1]!).getByText("0 completions")).toBeTruthy();
+    expect(courseEditor.completions(1)).toBe("1 completion");
   });
 
   it("moves a lesson in its chapter and reads the course again", async () => {

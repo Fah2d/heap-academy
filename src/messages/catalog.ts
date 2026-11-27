@@ -40,6 +40,22 @@ export const home = {
   how: "Each lesson starts with a short explanation. Then you write a small Python program in the editor and press Run to see what it prints. When it looks right, press Check. Every test case shows what goes in, what should come out, and what your program printed. You do not need to install anything: your code runs in your browser.",
 } as const;
 
+/** The live editor on the home page (FR-LND-01). */
+export const homeEditor = {
+  heading: "A Python program you can change",
+  intro: "Change it, then press Run.",
+  /** The heading and line above the program when the editor could not be fetched. */
+  headingRunOnly: "A Python program you can run",
+  introRunOnly: "Press Run to run it.",
+  /** The read-only program's name, when the editor could not be fetched. */
+  programLabel: "The program, read-only",
+  /** When the editor's code could not be fetched: the program stays, read-only. */
+  editorFailed: "The editor did not load, so this program cannot be changed.",
+  /** The program the editor opens with: short, with output a beginner can predict. */
+  program:
+    'name = "Sara"\nprint("Hello, " + name + "!")\nfor letter in name:\n    print(letter)\nprint("Done.")',
+} as const;
+
 export const courseList = {
   title: "Courses",
   description: "Every Python course on Heap Academy, with the number of lessons in each.",

@@ -13,7 +13,8 @@ import { focusMoved, MoveButtons, settle, structureFailureText } from "./structu
 
 // A chapter's lessons in the course editor (docs/spec/03-experience.md
 // section 7.3, FR-ADM-03): each opens its editor, moves up or down with the
-// keyboard, and shows its number and status; "Add lesson" creates a draft at
+// keyboard, and shows its number, how many learners completed it (FR-ADM-13)
+// and its status; "Add lesson" creates a draft at
 // the end of the chapter and opens it.
 
 export type CreateLessonInput = { courseId: string; chapterId: string; title: string };
@@ -97,6 +98,9 @@ export function LessonRows({
               <Link href={adminLessonPath(lesson.id)} variant="inline">
                 {lesson.title}
               </Link>
+            </span>
+            <span className="text-text-muted tabular-nums">
+              {courseEditor.completions(lesson.completions)}
             </span>
             <span className="text-text-muted">{courseEditor.lessonStatus[lesson.status]}</span>
             <MoveButtons

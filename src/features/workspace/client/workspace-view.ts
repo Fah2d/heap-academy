@@ -5,6 +5,7 @@ import {
   type LearnerErrorFacts,
   type LearnerErrorKind,
   learnerErrorHeading,
+  pythonErrorExplanations,
   workspace as words,
 } from "@/messages/workspace";
 import type { RunOutcome, RunResult } from "@/runtime/controller";
@@ -32,6 +33,35 @@ export type LearnerError = {
 export function errorFacts(line: number | undefined): LearnerErrorFacts {
   return { line, timeLimitSeconds: TIME_LIMIT_SECONDS, outputLimit: OUTPUT_LIMIT };
 }
+
+/**
+ * The name of the Python error's type, from Python's message: the text before
+ * its first colon, as in `ZeroDivisionError: division by zero`, or the whole
+ * message when the error has no text of its own.
+ */
+export function pythonErrorType(message: string | undefined): string | undefined {
+  const match = /^([A-Za-z_][A-Za-z0-9_]*)(?::|$)/.exec(message ?? "");
+  return match?.[1];
+}
+
+/**
+ * What a common Python error means, in one sentence (FR-WSP-23), for a
+ * runtime error and for the two syntax errors about a line's indentation;
+ * other syntax errors keep their own suggestion.
+ */
+export function errorExplanation(error: LearnerError): string | undefined {
+  if (error.kind !== "runtime" && error.kind !== "syntax") return undefined;
+  const type = pythonErrorType(error.message);
+  if (type === undefined || !isExplained(type)) return undefined;
+  if (error.kind === "syntax" && type !== "IndentationError" && type !== "TabError") {
+    return undefined;
+  }
+  return pythonErrorExplanations[type];
+}
+
+// Own keys only, so a message such as `constructor` finds nothing.
+const isExplained = (type: string): type is keyof typeof pythonErrorExplanations =>
+  Object.hasOwn(pythonErrorExplanations, type);
 
 /** The error a run ended with, or undefined when it ended well. */
 export function runError(outcome: RunOutcome): LearnerError | undefined {

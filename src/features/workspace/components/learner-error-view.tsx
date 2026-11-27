@@ -8,12 +8,13 @@ import {
 } from "@/messages/workspace";
 import { Button } from "@/ui";
 import { ErrorFilled } from "@/ui/icons";
-import { errorFacts, type LearnerError } from "../client/workspace-view";
+import { errorExplanation, errorFacts, type LearnerError } from "../client/workspace-view";
 
 /**
  * The one component for every learner error (docs/spec/03-experience.md
  * section 6.5; FR-WSP-09): a heading in plain words, Python's message, the
- * line as a button that moves the editor's cursor there, and one suggestion.
+ * line as a button that moves the editor's cursor there, and one suggestion:
+ * for a common Python error, one sentence on what it means (FR-WSP-23).
  * Every text is rendered by React as text (T-07).
  */
 export function LearnerErrorView({
@@ -28,7 +29,11 @@ export function LearnerErrorView({
   headingLevel?: 3 | 5;
 }) {
   const facts = errorFacts(error.line);
-  const suggestion = learnerErrorSuggestion(error.kind, facts, strategy);
+  // What a common Python error means takes the suggestion's place, read
+  // right after Python's message (FR-WSP-23; section 6.5).
+  const explanation = errorExplanation(error);
+  const suggestion =
+    explanation === undefined ? learnerErrorSuggestion(error.kind, facts, strategy) : undefined;
   const Heading = headingLevel === 3 ? "h3" : "h5";
   return (
     <div
@@ -47,6 +52,7 @@ export function LearnerErrorView({
           {error.message}
         </pre>
       )}
+      {explanation !== undefined && <p className="text-base text-text">{explanation}</p>}
       {error.line !== undefined && (
         <div>
           <Button

@@ -124,10 +124,15 @@ describe("the catalog reads only through src/content", () => {
   });
 
   // The lesson page and its development twin compose the workspace (WP-5.2
-  // decision 7): each may take the workspace's client-safe index and the
-  // request's script nonce, which carries no identity, and exactly those.
-  // Any other forbidden import still fails.
+  // decision 7), and the home page its live editor (FR-LND-01): each may take
+  // the workspace's client-safe index and the request's script nonce, which
+  // carries no identity, and exactly those. Any other forbidden import still
+  // fails.
   const WORKSPACE_HOSTS: Record<string, string[]> = {
+    "src/features/catalog/components/home-page.tsx": [
+      "@/features/workspace",
+      "@/infrastructure/http/nonce",
+    ],
     "src/features/catalog/components/lesson-page.tsx": [
       "@/features/workspace",
       "@/infrastructure/http/nonce",
