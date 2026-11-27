@@ -30,7 +30,7 @@ export function CourseRows({ courses, labelledBy, titleLevel }: CourseRowsProps)
       {courses.map((course) => (
         <li
           key={course.slug}
-          className="flex flex-col gap-2 rounded-panel border border-border bg-surface p-5"
+          className="flex flex-col gap-2 rounded-panel border border-border bg-surface p-4 md:p-5"
         >
           <Title className={titleLevel === 2 ? "text-lg" : "text-base"}>
             <Link href={coursePath(course.slug)} variant="heading">

@@ -68,8 +68,10 @@ export async function saveScreen(
       return box.width > 0 && box.height > 0;
     }),
   );
-  await page.screenshot({
-    path,
-    ...(clip === undefined ? { fullPage: fullPage && !fixed } : { clip }),
-  });
+  const whole = clip === undefined && fullPage && !fixed;
+  // A full-page capture keeps the scroll position, so a sticky bar, such as
+  // the lesson editor's save bar, would be painted where the window was and
+  // leave its own place empty. The page is captured from its top.
+  if (whole) await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path, ...(clip === undefined ? { fullPage: whole } : { clip }) });
 }

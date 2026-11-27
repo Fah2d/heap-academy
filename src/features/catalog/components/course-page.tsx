@@ -43,10 +43,13 @@ export function CourseView({ course }: { course: PublishedCourse }) {
         <header className="flex max-inline-prose flex-col items-start gap-3">
           <h1 className="text-xl font-semibold text-balance text-text">{course.title}</h1>
           <p className="text-prose text-text">{course.summary}</p>
-          <p className="text-xs text-text-muted tabular-nums">
-            {words.size(lessons.length, course.chapters.length)}
-          </p>
-          <CourseCount />
+          {/* The course's size and the learner's progress read as one block. */}
+          <div className="flex flex-col gap-1">
+            <p className="text-xs text-text-muted tabular-nums">
+              {words.size(lessons.length, course.chapters.length)}
+            </p>
+            <CourseCount />
+          </div>
           <CourseAction course={course.slug} />
         </header>
         {outcomes.length > 0 && (
@@ -77,7 +80,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
               return (
                 <li
                   key={chapter.id}
-                  className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-5"
+                  className="flex flex-col gap-3 rounded-panel border border-border bg-surface p-4 md:p-5"
                 >
                   <h3
                     id={headingId}

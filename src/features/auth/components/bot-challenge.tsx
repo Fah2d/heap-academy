@@ -10,13 +10,19 @@ import { useEffect, useRef } from "react";
 
 const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
+// Cloudflare's flexible widget fills its column but is never narrower than
+// 300 px; the compact one is 150 by 140 px. A narrower column, such as a
+// 320 px phone with its gutters, gets the compact one, so the widget stays
+// inside the gutter. --challenge-height-compact reserves its height.
+const FLEXIBLE_MIN_WIDTH = 300;
+
 type TurnstileOptions = {
   sitekey: string;
   callback: (token: string) => void;
   "expired-callback": () => void;
   "error-callback": () => void;
   theme: "dark";
-  size: "flexible";
+  size: "flexible" | "compact";
 };
 type Turnstile = {
   render: (element: HTMLElement, options: TurnstileOptions) => string;
@@ -80,7 +86,7 @@ export function BotChallenge({ siteKey, onToken, onLoadFailed, resetKey }: BotCh
           "expired-callback": () => callbacks.current.onToken(null),
           "error-callback": () => callbacks.current.onToken(null),
           theme: "dark",
-          size: "flexible",
+          size: container.current.clientWidth < FLEXIBLE_MIN_WIDTH ? "compact" : "flexible",
         });
         widget.current = { api, id };
       },
@@ -101,5 +107,14 @@ export function BotChallenge({ siteKey, onToken, onLoadFailed, resetKey }: BotCh
     widget.current.api.reset(widget.current.id);
   }, [resetKey]);
 
-  return <div ref={container} className="min-h-(--challenge-height)" />;
+  // The column's own width decides the height kept for the widget, as it
+  // decides the widget's size above.
+  return (
+    <div className="@container">
+      <div
+        ref={container}
+        className="min-h-(--challenge-height) @max-[18.75rem]:min-h-(--challenge-height-compact)"
+      />
+    </div>
+  );
 }

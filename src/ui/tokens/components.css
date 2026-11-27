@@ -29,9 +29,11 @@
   /* A pressed button moves 1 px down (DESIGN.md section 4.5). */
   --press-shift: 1px;
 
-  /* The bot challenge's widget is 65 px tall; its space is kept so nothing
-     moves when it appears (antislop R-40). */
+  /* The bot challenge's widget is 65 px tall, or 140 px when compact in a
+     column under 300 px; its space is kept so nothing moves when it appears
+     (antislop R-40). */
   --challenge-height: 4.0625rem;
+  --challenge-height-compact: 8.75rem;
 
   /* The QR code of the admin's authenticator setup: dark modules on a light
      square, which authenticator apps read best, at 200 px. */
