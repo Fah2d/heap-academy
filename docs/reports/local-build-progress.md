@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (later), on `wp/7.3-operations`: decision P
+
+- The owner approved decision P, option A. Migration `20261127010000_backup_reader_reads_all_data.sql` grants `pg_read_all_data` to `backup_reader` with inherit, without the admin option. `06_backup_reader` now pins no write, no Vault decryption, and membership in `pg_read_all_data` only (24 tests, four of them as the role). ADR-0030 amended; T-24, `restore.md` and `rotate-a-secret.md` match.
+- `pnpm verify` exit 0, 2853 tests. `pnpm test:db` after a clean reset: 450 tests, PASS. Three mutations each failed the file. The dump as `backup_reader`: exit 0, 7,625 bytes.
+- Not verified: that `postgres` on hosted Supabase holds `pg_read_all_data` with the admin option.
+- Push: `wp/7.3-operations`, once.
+
 ## Session of 2026-11-27, on `wp/7.3-operations`: `main` at 5dcc577 merged in
 
 - `main` merged in (d74d10b). Conflicts: `.env.example` (both sides kept), `csp-report.ts` (`main`'s counter name, with this branch's `read-capped.ts` import), and this file (union).
