@@ -2,6 +2,20 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (early morning): WP-7.3 decision P, WP-7.5, WP-8.1
+
+The owner's order for this session: (1) decision P option A on `wp/7.3-operations`, (2) WP-7.5 on `wp/7.5-polish` from `main`, (3) the parts of WP-8.1 that need no owner action on `wp/8.1-readiness` from `main`. Never merge, never push to `main`.
+
+- **WP-7.3** (`wp/7.3-operations`, pushed at 820c1c6): `backup_reader` is granted `pg_read_all_data` (migration `20261127010000`), the database tests pin no writes, no Vault decryption and membership in `pg_read_all_data` only, and ADR-0030 is amended (`spec-change`). `pnpm verify` exit 0, 2853 tests. After `supabase db reset`, `pnpm test:db`: 450 tests, PASS.
+- **WP-7.5** (`wp/7.5-polish`, from `main` at 5dcc577): all five Should items are built, in order. The evidence, the Delivery Gate, the three review rounds and the owner actions are in `pull-requests/WP-7.5.md`. WP-7.3 is not merged into `main`, so the plan's start condition was not met; the owner's instruction overrides it.
+- **Owner, from WP-7.5:**
+  - Read the 13 error explanations.
+  - Decide whether Run is the primary button on home.
+  - Waive or schedule the tests-pane height and the phone bar height (two open design MAJORs, both predating the package).
+  - Check the line being typed above the symbol row on a real phone.
+  - The seed lesson's indented example renders as a paragraph.
+- **Local stack note:** `supabase db reset` needs `ACTION_COUNTER_KEY` in the environment. Without it the Vault secret `action_counter_key` is empty, and every server action fails ("Sign-in is not working right now"). One e2e run failed 14 stack journeys for that reason. The reset was redone with the key, then the suite was run again.
+
 ## Session of 2026-11-26 (night), on `wp/7.4-journeys`: `main` at 23cfb4b, `wp/7.2-a11y-perf` at 376fba2 and `wp/7.4-journeys-part-2b` merged in
 
 - Fixed the two CI flakes, the admin gallery's fill before hydration and FR-RUN-04's 0 ms timer. Also fixed the page-weight and chapter-list races found on the way. Added `stack-firefox` and `stack-webkit` (`pull-requests/WP-7.4-part-3.md`).
