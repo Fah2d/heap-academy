@@ -95,12 +95,12 @@ async function walk(page: Page): Promise<Stop[]> {
     await tab(page);
     const stop = await focused(page);
     if (stops.length > 0 && stop.name === shell.skipLink) return stops;
-    // After the last control, Next lesson, focus passes the development
+    // After the last control, the footer's Terms link, focus passes the development
     // indicator and the page itself before the skip link. Anywhere else,
     // focus on the page itself is focus lost: it is kept, and fails below.
     if (wrapping && stop.outside) continue;
     stops.push(stop);
-    if (stop.name.startsWith(words.next)) wrapping = true;
+    if (stop.name.startsWith(shell.footer.terms)) wrapping = true;
     // The editor keeps Tab for indenting; Escape, then Tab, leaves it (section 6.2).
     if (stop.inEditor) await page.keyboard.press("Escape");
   }
@@ -138,6 +138,8 @@ test("[NFR-A11Y-03] the keyboard reaches every control in reading order, each wi
     "main",
     words.output,
     words.lessons,
+    // The privacy and terms links, on every page (FR-SYS-03, WP-6.3).
+    "footer",
   ]);
   // One stop each, in this order. The Console and Tests tabs are one stop;
   // the arrow keys move between them.
@@ -159,6 +161,8 @@ test("[NFR-A11Y-03] the keyboard reaches every control in reading order, each wi
     words.consoleLabel,
     words.previous,
     words.next,
+    shell.footer.privacy,
+    shell.footer.terms,
   ];
   expect(stops).toHaveLength(names.length);
   stops.forEach((stop, index) => {

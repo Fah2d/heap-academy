@@ -95,7 +95,12 @@ test("[FR-ADM-01] [FR-ADM-02] [NFR-SEC-06] [T-19] an admin passes setup, then ve
   const setupResponse = await page.goto("/admin/setup");
   expect(setupResponse?.headers()["cache-control"]).toContain("no-store");
   await page.getByRole("button", { name: secondStep.start }).click();
-  await expect(page.getByRole("img", { name: secondStep.qrAlt })).toBeVisible();
+  const qr = page.getByRole("img", { name: secondStep.qrAlt });
+  await expect(qr).toBeVisible();
+  // A broken image is visible too; a decoded one has a width.
+  await expect
+    .poll(() => qr.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
   await noAxeViolations(page);
   await saveScreen(page, "admin-setup", 1280, { workPackage: "WP-2.3" });
 

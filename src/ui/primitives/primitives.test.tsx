@@ -4,7 +4,18 @@ import { Activity } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Button, Dialog, Disclosure, Link, Notice, Progress, Status, Tabs, TextField } from "@/ui";
+import {
+  Button,
+  Dialog,
+  Disclosure,
+  Link,
+  Notice,
+  Progress,
+  Status,
+  Tabs,
+  TextArea,
+  TextField,
+} from "@/ui";
 import { INVALID_WITHOUT_SENTENCE } from "./text-field";
 
 afterEach(cleanup);
@@ -262,6 +273,16 @@ describe("TextField", () => {
     expect(
       screen.getByRole("textbox", { description: "Enter an email address with an @ sign." }),
     ).toBe(field);
+    // The hover border is more specific than the invalid one, so the invalid
+    // field keeps its red border under the pointer too (DESIGN.md 4.5).
+    expect(field.className).toContain("data-invalid:data-hovered:border-fail");
+  });
+
+  it("[ADR-0014] an invalid text area keeps its red border under the pointer too", () => {
+    render(<TextArea label="Summary" isInvalid errorMessage="Write a summary." />);
+    const area = screen.getByRole("textbox", { name: "Summary" });
+    expect(area.getAttribute("aria-invalid")).toBe("true");
+    expect(area.className).toContain("data-invalid:data-hovered:border-fail");
   });
 
   it("[ADR-0014] falls back to the field's own validation message when no sentence is given", () => {

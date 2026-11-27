@@ -5,7 +5,13 @@ import { Link } from "@/ui";
 import { catalogCourse } from "../server/reads";
 import { lessonPath } from "../paths";
 import { CatalogPage } from "./catalog-page";
-import { CourseAction, CourseCount, CourseProgress, LessonMark } from "./course-progress";
+import {
+  CourseAction,
+  CourseCount,
+  CourseProgress,
+  LessonMark,
+  LessonRow,
+} from "./course-progress";
 
 /**
  * `/courses/[course]` (docs/spec/03-experience.md section 5.3; FR-CRS-01):
@@ -92,10 +98,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
                     {chapter.lessons.map((lesson, lessonIndex) => {
                       const index = (firstPlace[chapterIndex] ?? 0) + lessonIndex;
                       return (
-                        <li
-                          key={lesson.slug}
-                          className="flex flex-wrap items-center gap-x-3 border-bs border-border py-1 text-base text-text last:pbe-0"
-                        >
+                        <LessonRow key={lesson.slug} index={index}>
                           <span className="shrink-0 font-mono text-sm text-text-muted tabular-nums">
                             {words.lessonNumber(chapterIndex + 1, lessonIndex + 1)}
                           </span>{" "}
@@ -110,7 +113,7 @@ export function CourseView({ course }: { course: PublishedCourse }) {
                             </span>
                             <LessonMark index={index} />
                           </span>
-                        </li>
+                        </LessonRow>
                       );
                     })}
                   </ol>

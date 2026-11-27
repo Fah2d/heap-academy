@@ -471,7 +471,7 @@ export function LessonEditor({
   const saving = savePending || publishing;
   return (
     <form ref={form} noValidate onSubmit={onSubmit} className="flex flex-col gap-6">
-      <div className="sticky inset-bs-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-border bg-bg py-3">
+      <div className="sticky inset-bs-0 z-10 flex flex-wrap items-center justify-between gap-4 border-be border-border bg-bg py-3">
         <p className="text-base text-text">
           <span className="text-text-muted">{words.statusLabel}: </span>
           {words.statusNow[status]}
