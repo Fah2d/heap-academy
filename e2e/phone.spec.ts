@@ -1,13 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { gallery } from "../src/messages/gallery";
-import { notFound } from "../src/messages/system";
+import { errorPage, notFound } from "../src/messages/system";
 import { saveScreen } from "./screens";
 
-// The primitive gallery and the not-found page on an emulated phone: the
-// `phone`, `phone-375` and `phone-360` projects, Pixel 7 at 412, 375 and
-// 360 px, with touch and the phone's pixel density (WP-1.4 design review 2,
-// MINOR 9). Runs against the development server.
+// The primitive gallery, the not-found page and the browser error page on an
+// emulated phone: the `phone`, `phone-375` and `phone-360` projects, Pixel 7
+// at 412, 375 and 360 px, with touch and the phone's pixel density (WP-1.4
+// design review 2, MINOR 9; WP-7.3). Runs against the development server.
 
 const TARGET = 44;
 
@@ -77,4 +77,25 @@ test("[FR-SYS-01] [NFR-A11Y-02] the not-found page fits the phone and has no axe
   expect(overflow).toBe(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await saveScreen(page, "phone-not-found", width(page));
+});
+
+test("[FR-SYS-01] [NFR-A11Y-02] a browser error's reference fits the phone and has no axe violation", async ({
+  page,
+}) => {
+  const stored = page.waitForResponse("**/api/client-error");
+  await page.goto("/dev/client-error");
+  const reference = (await stored).headers()["x-request-id"] ?? "";
+  await expect(page.getByRole("heading", { level: 1, name: errorPage.heading })).toBeVisible();
+  await page.evaluate(() => {
+    document.querySelectorAll("nextjs-portal").forEach((element) => {
+      element.remove();
+    });
+  });
+  await expect(page.locator("code")).toHaveText(reference);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await saveScreen(page, "phone-error-browser", width(page), { workPackage: "WP-7.3" });
 });
