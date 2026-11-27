@@ -324,6 +324,8 @@ describe("the course page", () => {
     render(await CoursePage({ params: params("python-basics") }));
     expect(courseAction()).toEqual([catalogCommon.action.begin, "/learn/python-basics/hello"]);
     expect(lessonStates()).toEqual(["", "", ""]);
+    // No row is the current item until the device has answered.
+    expect(document.querySelector("[aria-current]")).toBeNull();
     expect(screen.queryByText(/completed$/)).toBeNull();
     expect(screen.queryByText(/XP earned$/)).toBeNull();
   });
@@ -352,6 +354,14 @@ describe("the course page", () => {
       coursePage.lessonState.next,
       coursePage.lessonState.completed,
     ]);
+    // The next lesson is the current item, marked as DESIGN.md section 2 says.
+    const current = screen
+      .getAllByRole("listitem")
+      .filter((row) => row.getAttribute("aria-current") === "step");
+    expect(current.map((row) => row.textContent?.endsWith(coursePage.lessonState.next))).toEqual([
+      true,
+    ]);
+    expect(current[0]?.className).toContain("border-s-action");
     expect(screen.getByText(catalogCommon.progress(2, 3))).toBeTruthy();
     // The 10 XP and 20 XP lessons of 40 (FR-CRS-05).
     expect(screen.getByText(coursePage.xpEarned(30, 40))).toBeTruthy();
@@ -363,6 +373,7 @@ describe("the course page", () => {
     render(await CoursePage({ params: params("python-basics") }));
     expect(courseAction()).toEqual([catalogCommon.action.review, "/learn/python-basics/hello"]);
     expect(lessonStates()).toEqual(Array(3).fill(coursePage.lessonState.completed));
+    expect(document.querySelector("[aria-current]")).toBeNull();
     expect(screen.getByText(catalogCommon.progress(3, 3))).toBeTruthy();
     expect(screen.getByText(coursePage.xpEarned(40, 40))).toBeTruthy();
   });

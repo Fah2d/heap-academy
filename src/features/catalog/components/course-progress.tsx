@@ -107,6 +107,28 @@ export function LessonMark({ index }: { index: number }) {
   return <Status state={STATUS[state]} label={words.lessonState[state]} />;
 }
 
+/**
+ * One lesson row of the course page. The next lesson is the current item, and
+ * carries DESIGN.md's marker: a 2 px amber inline-start border, weight 600,
+ * and `aria-current`. A border, so it still shows in forced-colors mode.
+ */
+export function LessonRow({ index, children }: { index: number; children: ReactNode }) {
+  const { standing, known } = useCourse();
+  const current = known && standing.states[index] === "next";
+  return (
+    <li
+      aria-current={current ? "step" : undefined}
+      className={
+        current
+          ? "flex flex-wrap items-center gap-x-3 border-bs border-s-(length:--marker-width) border-border border-s-action py-1 ps-3 text-base font-semibold text-text last:pbe-0"
+          : "flex flex-wrap items-center gap-x-3 border-bs border-border py-1 text-base text-text last:pbe-0"
+      }
+    >
+      {children}
+    </li>
+  );
+}
+
 /** A course row's count and its one action, for the course list and the home page. */
 export function CourseRowProgress({
   course,
