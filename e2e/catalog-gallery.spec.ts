@@ -98,6 +98,11 @@ for (const { state, tags, check } of STATES) {
       // An id named twice is reported as "incomplete", not as a violation.
       expect(axe.incomplete.filter((result) => result.id === "duplicate-id-aria")).toEqual([]);
       if (width !== 320) {
+        // The home page's editor arrives after the page loads; the screen
+        // shows it as a learner sees it (WP-9.1 design review, m13).
+        if (state.startsWith("home")) {
+          await expect(page.locator("[data-home-editor] .cm-editor")).toBeVisible();
+        }
         await saveScreen(page, `catalog-${state}`, width, { workPackage: "WP-5.1" });
       }
     });

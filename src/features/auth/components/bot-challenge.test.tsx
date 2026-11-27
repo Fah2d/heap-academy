@@ -8,7 +8,9 @@ import { BotChallenge } from "./bot-challenge";
 // gutters, gets the compact one instead of a widget past the gutter.
 
 function withWidth(width: number) {
-  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(width);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+    DOMRect.fromRect({ width, height: 0 }),
+  );
 }
 
 function renderedSize() {
@@ -43,6 +45,26 @@ describe("[FR-AUTH-06] the bot challenge", () => {
       expect(renderWidget).toHaveBeenCalledWith(
         expect.any(HTMLElement),
         expect.objectContaining({ size: "compact" }),
+      );
+    });
+  });
+
+  it("is compact just under the least width, and fills the column at it", async () => {
+    withWidth(299.5);
+    const narrow = renderedSize();
+    await waitFor(() => {
+      expect(narrow).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({ size: "compact" }),
+      );
+    });
+    cleanup();
+    withWidth(300);
+    const wide = renderedSize();
+    await waitFor(() => {
+      expect(wide).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({ size: "flexible" }),
       );
     });
   });

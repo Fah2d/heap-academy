@@ -98,6 +98,16 @@ test("[FR-ADM-04] [FR-ADM-10] [NFR-SEC-07] [T-06] add a lesson, write it with a 
   await expect(page.getByText(lessonEditor.allSaved)).toBeVisible();
   await noAxeViolations(page);
   await saveScreen(page, "admin-lesson-editor", 1280, { workPackage: "WP-4.2" });
+  // CodeMirror sizes its line numbers once an editor is in view, so a
+  // whole-page capture draws the code editors' gutters collapsed. The Code
+  // section is also saved on its own, in view (WP-9.1 design review, m2).
+  const codeSection = page.getByRole("group", { name: lessonEditor.codeHeading, exact: true });
+  await codeSection.scrollIntoViewIfNeeded();
+  await expect(solution).toContainText('print(f"Hello, {name}!")');
+  await saveScreen(page, "admin-lesson-editor-code", 1280, {
+    workPackage: "WP-9.1",
+    element: codeSection,
+  });
 
   // A second tab saves first; this tab's save is refused with a prompt.
   const other = await browser.newContext({ storageState: await page.context().storageState() });

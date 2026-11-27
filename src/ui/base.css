@@ -38,6 +38,23 @@
     }
   }
 
+  /*
+   * Below 768 px the workspace's views fill the screen below the header
+   * (section 6.8), so the main landmark lays its one child out as a column.
+   */
+  @media (width < 48rem) {
+    body:has([data-workspace]) > main {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Room for the fixed action bar at the page's end, after the footer;
+       the workspace writes the bar's height on the body. */
+    body:has([data-workspace][data-phone]) {
+      padding-block-end: var(--action-bar-size);
+    }
+  }
+
   ::selection {
     background-color: var(--color-selection);
     color: var(--color-text);

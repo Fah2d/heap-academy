@@ -14,6 +14,12 @@ import { saveScreen } from "./screens";
 const WORK_PACKAGE = "WP-8.2";
 const WIDTHS = [375, 768, 1280];
 
+// The page is a development page inside the real layout, whose header does
+// not mark Sign in as current at /dev/sign-in. So the screens are of the main
+// region only; the real page's header is in WP-2.2's screens (WP-9.1 design
+// review, m3).
+const main = (page: Page) => page.getByRole("main");
+
 async function sendCode(page: Page, width: number, query: string) {
   await page.setViewportSize({ width, height: 900 });
   await page.goto(`/dev/sign-in?${query}`);
@@ -43,7 +49,10 @@ for (const width of WIDTHS) {
     await expect(page.getByRole("button", { name: signIn.sending })).toBeDisabled();
     await noSidewaysScroll(page);
     await noAxeViolations(page);
-    await saveScreen(page, "sign-in-sending", width, { workPackage: WORK_PACKAGE });
+    await saveScreen(page, "sign-in-sending", width, {
+      workPackage: WORK_PACKAGE,
+      element: main(page),
+    });
   });
 
   test(`[FR-AUTH-02] too many codes asked for says so at ${String(width)} px`, async ({ page }) => {
@@ -53,7 +62,10 @@ for (const width of WIDTHS) {
     await expect(step.getByRole("alert")).toContainText(signIn.sendRateLimited);
     await noSidewaysScroll(page);
     await noAxeViolations(page);
-    await saveScreen(page, "sign-in-too-many-codes", width, { workPackage: WORK_PACKAGE });
+    await saveScreen(page, "sign-in-too-many-codes", width, {
+      workPackage: WORK_PACKAGE,
+      element: main(page),
+    });
   });
 
   test(`[FR-AUTH-02] the code step at ${String(width)} px`, async ({ page }) => {
@@ -63,7 +75,10 @@ for (const width of WIDTHS) {
     await expect(step.getByText(signIn.codeSentTo(signInGallery.sampleEmail))).toBeVisible();
     await noSidewaysScroll(page);
     await noAxeViolations(page);
-    await saveScreen(page, "sign-in-code-step", width, { workPackage: WORK_PACKAGE });
+    await saveScreen(page, "sign-in-code-step", width, {
+      workPackage: WORK_PACKAGE,
+      element: main(page),
+    });
   });
 
   test(`[FR-AUTH-02] checking a code holds the button and says so at ${String(width)} px`, async ({
@@ -73,7 +88,10 @@ for (const width of WIDTHS) {
     const step = await enterCode(page);
     await expect(step.getByRole("button", { name: signIn.verifying })).toBeDisabled();
     await noAxeViolations(page);
-    await saveScreen(page, "sign-in-verifying", width, { workPackage: WORK_PACKAGE });
+    await saveScreen(page, "sign-in-verifying", width, {
+      workPackage: WORK_PACKAGE,
+      element: main(page),
+    });
   });
 
   test(`[FR-AUTH-02] a code not accepted marks the field and says why at ${String(width)} px`, async ({
@@ -85,7 +103,10 @@ for (const width of WIDTHS) {
     await expect(field).toHaveAttribute("aria-invalid", "true");
     await expect(step.getByRole("alert")).toContainText(signIn.codeRejected);
     await noAxeViolations(page);
-    await saveScreen(page, "sign-in-code-rejected", width, { workPackage: WORK_PACKAGE });
+    await saveScreen(page, "sign-in-code-rejected", width, {
+      workPackage: WORK_PACKAGE,
+      element: main(page),
+    });
   });
 
   test(`[FR-AUTH-02] too many tries says so at ${String(width)} px`, async ({ page }) => {
@@ -93,6 +114,9 @@ for (const width of WIDTHS) {
     const step = await enterCode(page);
     await expect(step.getByRole("alert")).toContainText(signIn.tooManyAttempts);
     await noAxeViolations(page);
-    await saveScreen(page, "sign-in-too-many-tries", width, { workPackage: WORK_PACKAGE });
+    await saveScreen(page, "sign-in-too-many-tries", width, {
+      workPackage: WORK_PACKAGE,
+      element: main(page),
+    });
   });
 }

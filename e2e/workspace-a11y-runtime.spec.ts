@@ -310,7 +310,14 @@ test("[NFR-A11Y-02] [FR-WSP-09] a test case that runs out of input says so", asy
 test("[NFR-A11Y-02] [FR-WSP-02] a revealed hint", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: words.showHint }).click();
-  await expect(page.getByRole("heading", { name: words.hintHeading(1, 1) })).toBeVisible();
-  await noAxeViolations(page);
+  // Crossing 768 px rebuilds the layout; the open hint stays open at every
+  // width (WP-9.1 design review, M2).
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 900 });
+    await settled(page);
+    await expect(page.getByRole("heading", { name: words.hintHeading(1, 1) })).toBeVisible();
+    await expect(page.getByRole("button", { name: words.showHint })).toHaveCount(0);
+    await noAxeViolations(page);
+  }
   await screens(page, "workspace-hint");
 });

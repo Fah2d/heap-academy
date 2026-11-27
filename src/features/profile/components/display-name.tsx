@@ -69,7 +69,8 @@ export function DisplayName({
   if (!editing) {
     return (
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-base break-words text-text-muted">{shown}</p>
+        {/* The learner's name is content, not metadata (WP-9.1 design review, m8). */}
+        <p className="text-lg font-medium break-words text-text">{shown}</p>
         <Button variant="secondary" onPress={open} autoFocus={closed}>
           {words.changeName}
         </Button>

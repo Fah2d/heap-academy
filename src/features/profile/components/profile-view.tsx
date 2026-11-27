@@ -36,8 +36,10 @@ export function ProfileView({
           <h1 className="text-xl font-semibold text-text">{words.heading}</h1>
           <DisplayName name={summary.displayName} updateProfile={updateProfile} />
         </div>
-        {/* DESIGN.md: XP and streak numerals at --text-2xl, tabular. */}
-        <dl className="flex flex-wrap gap-x-7 gap-y-4">
+        {/* DESIGN.md: XP and streak numerals at --text-2xl, tabular. Below
+            768 px two to a row whatever the numbers, so every state has one
+            layout (WP-9.1 design review, m8). */}
+        <dl className="grid grid-cols-2 gap-x-7 gap-y-4 md:flex md:flex-wrap">
           {numbers.map(([label, value]) => (
             <div key={label} className="flex flex-col gap-1">
               <dt className="text-sm text-text-muted">{label}</dt>

@@ -31,9 +31,10 @@
 
   /* The bot challenge's widget is 65 px tall, or 140 px when compact in a
      column under 300 px; its space is kept so nothing moves when it appears
-     (antislop R-40). */
-  --challenge-height: 4.0625rem;
-  --challenge-height-compact: 8.75rem;
+     (antislop R-40). Cloudflare draws it in CSS px, whatever the font size,
+     so these are in px too (--container-challenge in semantic.css). */
+  --challenge-height: 65px;
+  --challenge-height-compact: 140px;
 
   /* The QR code of the admin's authenticator setup: dark modules on a light
      square, which authenticator apps read best, at 200 px. */
@@ -45,6 +46,11 @@
 
   /* The current-item marker: 2 px, inline start in lists, block end in tabs and header links. */
   --marker-width: 2px;
+  /* A lesson row without the marker starts its content where a marked row
+     does (the marker and its 12 px), so the lesson numbers keep one column
+     (WP-9.1 design review, m11). Padding, not a transparent border, which
+     forced-colors mode would draw on every row. */
+  --marker-indent: calc(var(--marker-width) + var(--spacing-3));
 
   /* Hairline borders, the 1 px dividers and outlines. */
   --hairline: 1px;

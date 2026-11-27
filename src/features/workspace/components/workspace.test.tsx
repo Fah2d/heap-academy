@@ -275,6 +275,39 @@ describe("[FR-WSP-08] the batch field", () => {
   });
 });
 
+describe("[FR-WSP-22] hints across the 768 px step", () => {
+  // A tablet turned, or a window narrowed, rebuilds the layout; the hints the
+  // learner has opened stay open (WP-9.1 design review, M2).
+  it("keeps a revealed hint when the screen crosses 768 px, and does not move the focus", async () => {
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === NARROW_QUERY && narrow,
+      addEventListener: (_type: "change", listener: () => void) => listeners.add(listener),
+      removeEventListener: (_type: "change", listener: () => void) => listeners.delete(listener),
+    }));
+    render(
+      <Workspace
+        lesson={{ ...lesson, hints: ["Keep it in a variable."] }}
+        instructions={null}
+        nonce="nonce"
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: words.showHint }));
+    expect(screen.getByText("Keep it in a variable.")).toBeTruthy();
+    const run = button(words.run);
+    run.focus();
+    act(() => {
+      narrow = true;
+      listeners.forEach((listener) => {
+        listener();
+      });
+    });
+    expect(screen.getByText("Keep it in a variable.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: words.showHint })).toBeNull();
+    expect(document.activeElement?.closest("h3")).toBeNull();
+  });
+});
+
 describe("[FR-WSP-13] below 768 px", () => {
   const views = () => within(screen.getByRole("tablist", { name: words.views }));
   const tab = (name: string) => views().getByRole("tab", { name });

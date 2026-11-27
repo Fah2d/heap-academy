@@ -35,6 +35,8 @@ export const profile = {
   confirmProblem: "Type DELETE in capital letters.",
   deleting: "Deleting",
   deleted: "Your account is deleted.",
+  deletedTitle: "Account deleted",
+  deletedHome: "Go to the home page",
   deleteSignInAgain:
     "To delete your account, sign out, sign in again, and delete it within 5 minutes.",
   deleteFailed: "We could not delete your account. Try again.",

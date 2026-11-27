@@ -71,7 +71,20 @@ export async function saveScreen(
   const whole = clip === undefined && fullPage && !fixed;
   // A full-page capture keeps the scroll position, so a sticky bar, such as
   // the lesson editor's save bar, would be painted where the window was and
-  // leave its own place empty. The page is captured from its top.
-  if (whole) await page.evaluate(() => window.scrollTo(0, 0));
+  // leave its own place empty. The page is captured from its top, and the
+  // test then continues from where it was, as in the projects that save no
+  // screens.
+  const scrolled = whole
+    ? await page.evaluate(() => {
+        const at = { x: window.scrollX, y: window.scrollY };
+        window.scrollTo(0, 0);
+        return at;
+      })
+    : undefined;
   await page.screenshot({ path, ...(clip === undefined ? { fullPage: whole } : { clip }) });
+  if (scrolled !== undefined) {
+    await page.evaluate(({ x, y }) => {
+      window.scrollTo(x, y);
+    }, scrolled);
+  }
 }
