@@ -1,11 +1,12 @@
--- The read-only role of the nightly backup, as ADR-0030 pins it: it reads
--- every table and sequence of public, private and auth and bypasses row level
--- security; it writes nothing anywhere, has nothing in vault, runs no
--- function in public or private, belongs to no role, and the Data API cannot
--- switch to it (NFR-REL-05, T-24).
+-- The read-only role of the nightly backup, as ADR-0030 pins it after
+-- decision P: through pg_read_all_data it reads every table and sequence of
+-- public, private and auth and bypasses row level security; it writes
+-- nothing anywhere, cannot decrypt Vault, runs no function in public or
+-- private, belongs to pg_read_all_data and no other role, and the Data API
+-- cannot switch to it (NFR-REL-05, T-24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(24);
 
 select has_role('backup_reader', '[T-24] the backup_reader role exists');
 
@@ -165,21 +166,18 @@ select is(
   '[T-24] backup_reader cannot create objects in any schema'
 );
 
--- Vault: nothing at all, whether or not the extension is installed.
+-- Vault: pg_read_all_data reads vault.secrets as ciphertext (accepted in
+-- ADR-0030's amendment for decision P). Decrypting it, or writing a secret,
+-- takes a function in vault, and the role can run none of them. The same
+-- is checked by running as the role, at the end of this file.
 select is(
   (select coalesce(array_agg(name order by name), '{}')
-   from (select format('%I.%I', n.nspname, c.relname) as name
-   from pg_class as c join pg_namespace as n on n.oid = c.relnamespace
+   from (select p.oid::regprocedure::text as name
+   from pg_proc as p join pg_namespace as n on n.oid = p.pronamespace
    where n.nspname = 'vault'
-     and has_table_privilege('backup_reader', c.oid, 'select')) as found),
+     and has_function_privilege('backup_reader', p.oid, 'execute')) as found),
   '{}'::text[],
-  '[T-24] backup_reader can read no table in vault'
-);
-select is(
-  (select coalesce(bool_or(has_schema_privilege('backup_reader', n.oid, 'usage')), false)
-   from pg_namespace as n where n.nspname = 'vault'),
-  false,
-  '[T-24] backup_reader cannot use the vault schema'
+  '[T-24] backup_reader cannot execute any function in vault, so it cannot decrypt a secret'
 );
 
 -- Functions: none in public or private.
@@ -193,13 +191,23 @@ select is(
   '[T-24] backup_reader cannot execute any function in public or private'
 );
 
--- Membership: it belongs to no role, and no API role can become it.
+-- Membership: pg_read_all_data and nothing else, directly or through
+-- another role, and no API role can become it.
 select is(
   (select coalesce(array_agg(name order by name), '{}')
-   from (select m.roleid::regrole::text as name
-   from pg_auth_members as m where m.member = 'backup_reader'::regrole) as found),
-  '{}'::text[],
-  '[T-24] backup_reader is a member of no role (not postgres, authenticator or service_role)'
+   from (select r.rolname::text as name
+   from pg_roles as r
+   where r.rolname <> 'backup_reader'
+     and pg_has_role('backup_reader', r.oid, 'member')) as found),
+  array['pg_read_all_data'],
+  '[T-24] backup_reader belongs to pg_read_all_data and no other role (not postgres, authenticator or service_role)'
+);
+select is(
+  (select array_agg(format('inherit=%s admin=%s', m.inherit_option::text, m.admin_option::text))
+   from pg_auth_members as m
+   where m.member = 'backup_reader'::regrole and m.roleid = 'pg_read_all_data'::regrole),
+  array['inherit=true admin=false'],
+  '[NFR-REL-05] [T-24] backup_reader inherits pg_read_all_data, so pg_dump reads without SET ROLE, and cannot grant it on'
 );
 select is(
   (select coalesce(array_agg(name order by name), '{}')
@@ -209,6 +217,36 @@ select is(
   '{}'::text[],
   '[T-24] the Data API cannot switch to backup_reader'
 );
+
+-- The same, as the role itself. postgres holds backup_reader with the admin
+-- option but without SET, so this transaction gives itself SET; the rollback
+-- at the end takes it back. Every check above is unaffected: they ask about
+-- backup_reader's rights, not postgres's.
+grant backup_reader to postgres with set true, inherit false;
+set local role backup_reader;
+select lives_ok(
+  'select count(*) from auth.users, public.lesson_solutions, vault.secrets',
+  '[NFR-REL-05] as backup_reader, a read of auth, public and vault runs'
+);
+select throws_ok(
+  'select decrypted_secret from vault.decrypted_secrets',
+  '42501',
+  'permission denied for function _crypto_aead_det_decrypt',
+  '[T-24] as backup_reader, reading a decrypted Vault secret is refused'
+);
+select throws_ok(
+  'insert into public.admins default values',
+  '42501',
+  null,
+  '[T-24] as backup_reader, a write to public is refused'
+);
+select throws_ok(
+  'delete from auth.users',
+  '42501',
+  null,
+  '[T-24] as backup_reader, a write to auth is refused'
+);
+reset role;
 
 select * from finish();
 rollback;

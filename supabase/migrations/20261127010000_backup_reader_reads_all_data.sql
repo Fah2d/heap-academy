@@ -1,0 +1,24 @@
+-- Decision P of WP-7.3, option A, approved by the owner on 2026-11-27
+-- (ADR-0030 as amended; NFR-REL-05, T-24).
+--
+-- The grants of 20261124120000_backup_reader.sql cannot reach `auth`: the
+-- schema belongs to supabase_admin, and `postgres`, which runs the
+-- migrations, holds USAGE on it without the right to grant it, so pg_dump
+-- stopped with "permission denied for schema auth". The same holds for the
+-- auth service's sequences and for the tables it adds after the migrations
+-- run. pg_read_all_data gives SELECT on every table, view and sequence and
+-- USAGE on every schema, now and later, and nothing else: no write, no
+-- EXECUTE. `postgres` holds it with the admin option on the local stack (not
+-- verified on hosted Supabase; if it does not, this migration fails there and
+-- the deploy stops before anything else changes).
+--
+-- The role was created NOINHERIT, so the grant says INHERIT TRUE: without
+-- it, the role would have to SET ROLE before each read, which pg_dump does
+-- not do. No admin option, so it can pass the membership to no one.
+--
+-- What the role can now also do, accepted in the amendment: read every other
+-- schema, and read vault.secrets as ciphertext. It cannot decrypt it: the
+-- decrypt function grants EXECUTE to supabase_admin, postgres and
+-- service_role only. The database test pins that, and that the role writes
+-- nothing and belongs to pg_read_all_data alone.
+grant pg_read_all_data to backup_reader with inherit true;
