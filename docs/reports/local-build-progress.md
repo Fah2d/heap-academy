@@ -2,6 +2,25 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (evening), on `wp/8.2-review-fixes` from `main` at cf8d756: the WP-8.1 design findings and the canary
+
+- **Built:** every open finding in `reviews/WP-8.1/design-review-1.md`: B3, B4, M1, M2, M4 and minors 2 to 12. The table is in `pull-requests/WP-8.2.md`.
+- **The canary, fixed:**
+  - Its second `beforeAll` stopped after Playwright's default 30 s hook timeout, not the file's 180 s.
+  - The cached course list needs up to about 61 s.
+  - The hook now sets its own timeout. WP-8.1's note on this ("180 s waiting") was wrong, and `launch-readiness.md` has the evidence.
+- **Found on the way:**
+  - The not-found page lost its wordmark with the new `bar` slot. Fixed and tested.
+  - `workspace-a11y-runtime.spec.ts` "after a failed Check" also failed on `main`. Fixed; see the report.
+- **Verified:** `pnpm verify` exit 0, 165 files, 2941 tests. e2e with CI's projects plus every screen project, one worker, after `supabase db reset`: 437 passed, 1 skipped (the `test.fixme` on `main`), exit 0.
+- **For the owner:**
+  - **m9:** the information notice now has no icon, because `InformationFilled` is not in DESIGN.md's icon list. DESIGN.md 4.5 says "icon and sentence". Either keep it this way, or add `InformationFilled` to DESIGN.md section 8 and put it back.
+  - **B4:** section 6.1 says the page does not scroll from 768 px up. With the editor and output floors (10rem and 8rem), `main` scrolls when the window is too short to hold them. Either accept that, or let the editor shrink below its floor.
+  - **Copy, m7:** a finished course's action now says "Open the first lesson", not "Review the course". FR-CAT-02 calls that state "review". Confirm the words.
+  - **`profile-could-not-load`:** the screen is the shared error page, which is what a profile that cannot be read shows (section 8). It is not a profile-specific state.
+  - **CI gap, still open:** CI does not run `runtime-*`, `phone-*` or the Firefox and WebKit stack projects. The a11y test that failed on `main` is in `runtime-chromium`, which CI does not run. So is the new check that Retry fits on a phone.
+- **Push:** `wp/8.2-review-fixes`, once.
+
 ## Session of 2026-11-27 (afternoon), on `wp/8.1-readiness`: `main` at fe20151 merged in
 
 - `main` (WP-7.3 merged, #26) merged in (ee9506b). One conflict, this file: both sides kept, this branch's section first.
