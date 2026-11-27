@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { workspace as words } from "@/messages/workspace";
 import { Button } from "@/ui";
 
@@ -8,13 +8,27 @@ import { Button } from "@/ui";
  * The lesson's hints, one at a time and only on request (FR-WSP-22). A
  * lesson without hints shows no hint control. Each new hint takes the focus,
  * so a screen reader reads it at once.
+ *
+ * The workspace keeps the count, because crossing 768 px builds this part
+ * again (WP-9.1 design review, M2). Only a hint just asked for takes the
+ * focus; a rebuilt list leaves the focus where it was.
  */
-export function Hints({ hints }: { hints: readonly string[] }) {
-  const [shown, setShown] = useState(0);
+export function Hints({
+  hints,
+  shown,
+  onShow,
+}: {
+  hints: readonly string[];
+  shown: number;
+  onShow: () => void;
+}) {
   const latest = useRef<HTMLHeadingElement>(null);
+  const asked = useRef(false);
 
   useEffect(() => {
-    if (shown > 0) latest.current?.focus();
+    if (!asked.current) return;
+    asked.current = false;
+    latest.current?.focus();
   }, [shown]);
 
   if (hints.length === 0) return null;
@@ -40,7 +54,8 @@ export function Hints({ hints }: { hints: readonly string[] }) {
           <Button
             variant="secondary"
             onPress={() => {
-              setShown((current) => current + 1);
+              asked.current = true;
+              onShow();
             }}
           >
             {shown === 0 ? words.showHint : words.showNextHint}

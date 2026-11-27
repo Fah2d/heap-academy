@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { profile as words } from "@/messages/profile";
@@ -55,6 +55,17 @@ describe("[FR-PRF-03] [J-10] the delete account dialog", () => {
       actions.signOut.mock.invocationCallOrder[0] ?? 0,
     );
     expect(screen.getByRole("status").textContent).toBe(words.deleted);
+  });
+
+  // If ending the session stalls, the learner still has a way out, and the
+  // dialog no longer asks a question already answered (WP-9.1 design review, m9).
+  it("names the outcome and offers the home page once the account is deleted", async () => {
+    const { type } = await open({ signOut: () => new Promise(() => {}) });
+    await type("DELETE");
+    const dialog = await screen.findByRole("dialog", { name: words.deletedTitle });
+    expect(within(dialog).getByRole("link", { name: words.deletedHome }).getAttribute("href")).toBe(
+      "/",
+    );
   });
 
   it("shows that it is working", async () => {

@@ -16,6 +16,7 @@ import type { RunId } from "@/runtime/protocol";
 import { INITIAL_VIEW, type RuntimeView } from "../client/runtime-view";
 import { errorFacts } from "../client/workspace-view";
 import { ConsolePanel } from "./console-panel";
+import { useState } from "react";
 import { Hints } from "./hints";
 import { LearnerErrorView } from "./learner-error-view";
 import { TestsPanel } from "./tests-panel";
@@ -52,6 +53,20 @@ const consoleProps = {
   answered: () => false,
   setAnswered: () => undefined,
 };
+
+/** The workspace keeps the count; this holds it as the workspace does. */
+function CountedHints({ hints }: { hints: readonly string[] }) {
+  const [shown, setShown] = useState(0);
+  return (
+    <Hints
+      hints={hints}
+      shown={shown}
+      onShow={() => {
+        setShown((current) => current + 1);
+      }}
+    />
+  );
+}
 
 describe("[T-07] the console", () => {
   it("shows standard output and standard error as text, without control sequences", () => {
@@ -185,7 +200,7 @@ describe("[T-07] the error view and hints", () => {
   });
 
   it("shows a hint as text", async () => {
-    const { container } = render(<Hints hints={[MARKUP]} />);
+    const { container } = render(<CountedHints hints={[MARKUP]} />);
     await userEvent.click(screen.getByRole("button"));
     expect(screen.getByText(MARKUP)).toBeTruthy();
     expectInert(container);

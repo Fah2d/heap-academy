@@ -3,6 +3,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { workspace as words } from "@/messages/workspace";
+import { useState } from "react";
 import { Hints } from "./hints";
 import { LessonNav } from "./lesson-nav";
 import { PythonStatus } from "./python-status";
@@ -10,6 +11,20 @@ import { PythonStatus } from "./python-status";
 afterEach(() => {
   cleanup();
 });
+
+/** The workspace keeps the count; this holds it as the workspace does. */
+function CountedHints({ hints }: { hints: readonly string[] }) {
+  const [shown, setShown] = useState(0);
+  return (
+    <Hints
+      hints={hints}
+      shown={shown}
+      onShow={() => {
+        setShown((current) => current + 1);
+      }}
+    />
+  );
+}
 
 describe("[FR-WSP-17] Python's status", () => {
   it("shows real download progress while Python starts", () => {
@@ -51,16 +66,17 @@ describe("[FR-WSP-17] Python's status", () => {
 
 describe("[FR-WSP-22] hints", () => {
   it("shows no hint control for a lesson without hints", () => {
-    const { container } = render(<Hints hints={[]} />);
+    const { container } = render(<CountedHints hints={[]} />);
     expect(container.textContent).toBe("");
   });
 
   it("shows one hint at a time, on request, and moves focus to it", async () => {
-    render(<Hints hints={["First hint", "Second hint"]} />);
+    render(<CountedHints hints={["First hint", "Second hint"]} />);
     expect(screen.queryByText("First hint")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: words.showHint }));
     expect(screen.getByText("First hint")).toBeTruthy();
     expect(screen.queryByText("Second hint")).toBeNull();
+    expect(document.activeElement?.tagName).toBe("H3");
   });
 });
 

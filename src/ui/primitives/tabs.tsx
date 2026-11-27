@@ -44,7 +44,9 @@ export function Tabs({
   const views = kind === "views";
   return (
     <AriaTabs
-      className={fill ? "flex min-h-0 flex-1 flex-col" : "flex flex-col"}
+      className={
+        fill ? "flex min-h-0 flex-1 flex-col" : views ? "flex flex-1 flex-col" : "flex flex-col"
+      }
       {...(defaultSelectedKey !== undefined && { defaultSelectedKey })}
       {...(selectedKey !== undefined && { selectedKey })}
       {...(onSelectionChange !== undefined && { onSelectionChange })}
@@ -77,9 +79,9 @@ export function Tabs({
           shouldForceMount={views}
           className={
             views
-              ? "flex flex-col focus-visible:-outline-offset-2 data-inert:hidden"
+              ? "flex flex-1 flex-col focus-visible:-outline-offset-2 data-inert:hidden"
               : fill
-                ? "flex min-h-0 flex-1 flex-col overflow-auto pbs-3 focus-visible:-outline-offset-2"
+                ? "scroll-visible flex min-h-0 flex-1 flex-col overflow-auto pbs-3 focus-visible:-outline-offset-2"
                 : "pbs-4"
           }
         >

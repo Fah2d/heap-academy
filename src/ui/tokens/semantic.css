@@ -109,4 +109,9 @@
   /* Breakpoints: the workspace splits at 768 px; the dashboard needs 1024 px. */
   --breakpoint-md: 48rem;
   --breakpoint-lg: 64rem;
+
+  /* Container sizes. Cloudflare's flexible bot challenge is never narrower
+     than 300 CSS px, whatever the font size, so this one is in px; the JS
+     in bot-challenge.tsx uses the same number. */
+  --container-challenge: 300px;
 }

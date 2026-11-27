@@ -121,7 +121,7 @@ export function LessonRow({ index, children }: { index: number; children: ReactN
       className={
         current
           ? "flex flex-wrap items-center gap-x-3 border-bs border-s-(length:--marker-width) border-border border-s-action py-1 ps-3 text-base font-semibold text-text last:pbe-0"
-          : "flex flex-wrap items-center gap-x-3 border-bs border-border py-1 text-base text-text last:pbe-0"
+          : "flex flex-wrap items-center gap-x-3 border-bs border-border py-1 ps-(--marker-indent) text-base text-text last:pbe-0"
       }
     >
       {children}

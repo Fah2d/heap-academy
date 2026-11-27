@@ -139,6 +139,8 @@ export function Workspace({
   }, []);
   const [code, setCode] = useState(lesson.starterCode);
   const [restored, setRestored] = useState(false);
+  // How many hints are open; kept here, as the layout is rebuilt at 768 px.
+  const [hintsShown, setHintsShown] = useState(0);
   const [beforeReset, setBeforeReset] = useState<string | undefined>(undefined);
   const [batchInput, setBatchInput] = useState("");
   const [tab, setTab] = useState<OutputTab>("console");
@@ -337,9 +339,10 @@ export function Workspace({
   const phone = narrow === true && supported !== false;
 
   // Below 768 px the action bar sits on the on-screen keyboard, and the page
-  // keeps room for the bar at its end. Both are CSS variables written on the
-  // workspace's element as the visual viewport and the bar change, with no
-  // render.
+  // keeps room for the bar at its end. Both are CSS variables written as the
+  // visual viewport and the bar change, with no render. The bar's size is
+  // written on the body, which pads its end by it (base.css), so the room is
+  // kept after the site's footer and the bar never covers the footer's links.
   useEffect(() => {
     const element = root.current;
     const bar = actionBar.current;
@@ -358,7 +361,7 @@ export function Workspace({
       typeof ResizeObserver === "undefined"
         ? undefined
         : new ResizeObserver(() => {
-            element.style.setProperty(
+            document.body.style.setProperty(
               "--action-bar-size",
               `${Math.ceil(bar.getBoundingClientRect().height)}px`,
             );
@@ -369,7 +372,7 @@ export function Workspace({
       viewport?.removeEventListener("scroll", placeBar);
       observer?.disconnect();
       element.style.removeProperty("--keyboard-inset");
-      element.style.removeProperty("--action-bar-size");
+      document.body.style.removeProperty("--action-bar-size");
     };
   }, [phone]);
 
@@ -420,13 +423,15 @@ export function Workspace({
   // learner's page (docs/spec/03-experience.md section 4; src/app/@bar). The
   // admin's preview sits in the dashboard's frame, so it has its own row.
   const title = previewing ? (
-    <div className="flex flex-col gap-1 border-be border-border px-gutter py-3 md:col-span-2">
-      <div>
+    // The way back and the title share a row, as in the learner's bar, so the
+    // editor keeps the height at 720 px (WP-9.1 design review, m1).
+    <div className="flex flex-col gap-2 border-be border-border px-gutter py-3 md:col-span-2">
+      <div className="flex flex-wrap items-center gap-x-5">
         <Link href={preview.backHref} variant="standalone">
           {preview.backLabel}
         </Link>
+        <h1 className="text-lg font-semibold text-text">{lesson.title}</h1>
       </div>
-      <h1 className="text-xl font-semibold text-text">{lesson.title}</h1>
       <Notice kind="information" kindLabel={words.previewKind}>
         {words.previewBody}
       </Notice>
@@ -439,7 +444,13 @@ export function Workspace({
         {words.instructions}
       </h2>
       {instructions}
-      <Hints hints={lesson.hints} />
+      <Hints
+        hints={lesson.hints}
+        shown={hintsShown}
+        onShow={() => {
+          setHintsShown((current) => Math.min(current + 1, lesson.hints.length));
+        }}
+      />
     </>
   );
 
@@ -487,7 +498,7 @@ export function Workspace({
           </Button>
         </div>
       )}
-      <div className="grid min-h-(--workspace-editor-min) md:min-h-0 md:flex-1">
+      <div className="grid min-h-(--workspace-editor-min) flex-1 md:min-h-0">
         <CodeEditor
           labelledBy={editorLabel}
           value={code}
@@ -662,12 +673,14 @@ export function Workspace({
   // still names an element in the page.
   if (phone) {
     // Below 768 px (section 6.8): one view at a time, the bar fixed at the end.
+    // The views fill the screen below the header: the editor and the console
+    // take the height left, and previous and next sit above the bar.
     return (
       <div
         ref={root}
         data-workspace
         data-phone={phoneView}
-        className="flex flex-col pbe-(--action-bar-size)"
+        className="flex flex-1 flex-col"
         onKeyDownCapture={onKeyDownCapture}
       >
         <Fragment key="title">{title}</Fragment>
@@ -707,7 +720,7 @@ export function Workspace({
               content: (
                 <section
                   aria-labelledby={editorLabel}
-                  className="flex flex-col gap-3 px-gutter py-4"
+                  className="flex flex-1 flex-col gap-3 px-gutter py-4"
                 >
                   {editorPart}
                 </section>
@@ -717,7 +730,10 @@ export function Workspace({
               id: "output",
               title: words.viewOutput,
               content: (
-                <section aria-label={words.output} className="flex flex-col gap-3 px-gutter py-4">
+                <section
+                  aria-label={words.output}
+                  className="flex flex-1 flex-col gap-3 px-gutter py-4"
+                >
                   {outputPart}
                 </section>
               ),

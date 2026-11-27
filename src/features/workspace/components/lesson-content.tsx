@@ -104,13 +104,15 @@ function Blocks({ blocks, top }: { blocks: readonly DocumentBlock[]; top: 2 | 3 
         );
       case "heading": {
         // The tag follows the page's outline; the look follows the lesson's.
+        // A section heading after the first block opens a new part of the
+        // lesson, so it is set off as far as Hints is in the pane (32 px).
         const Tag = `h${String(block.level - 2 + top) as `${HeadingLevel}`}` as const;
         return (
           <Tag
             key={index}
             className={
               block.level === 2
-                ? "text-lg font-semibold text-text"
+                ? "text-lg font-semibold text-text not-first:mbs-4"
                 : "text-base font-semibold text-text"
             }
           >

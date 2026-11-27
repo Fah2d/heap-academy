@@ -194,7 +194,7 @@ export const workspace = {
   reset: "Reset code",
   resetTitle: "Reset to the starter code?",
   resetBody:
-    "Your code will be replaced with the lesson's starter code. You can undo this straight after.",
+    "Your code will be replaced with the lesson's starter code. The Undo button brings it back.",
   resetConfirm: "Reset code",
   cancel: "Cancel",
   resetDone: "Your code was reset to the starter code.",

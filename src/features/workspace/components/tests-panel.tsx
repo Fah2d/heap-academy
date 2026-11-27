@@ -114,9 +114,13 @@ export function TestsPanel({
           const result = byId.get(test.id);
           const status = result?.status ?? "not_run";
           const title = (
-            <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-              <Status state={STATE[status]} label={LABEL[status]} />
-              <span className="font-mono text-sm text-text">{test.name}</span>
+            // The name wraps in its own column beside the status, so every
+            // row starts its name at the same place (WP-9.1 design review, m4).
+            <span className="flex min-w-0 items-baseline gap-x-3">
+              <span className="shrink-0">
+                <Status state={STATE[status]} label={LABEL[status]} />
+              </span>
+              <span className="min-w-0 font-mono text-sm break-words text-text">{test.name}</span>
             </span>
           );
           return (
@@ -159,7 +163,7 @@ function Block({ label, text, empty }: { label: string; text: string; empty: str
           tabIndex={0}
           role="group"
           aria-label={label}
-          className="overflow-x-auto rounded-control bg-surface-editor p-2 font-mono text-code whitespace-pre text-text focus-visible:-outline-offset-2"
+          className="scroll-visible overflow-x-auto rounded-control bg-surface-editor p-2 font-mono text-code whitespace-pre text-text focus-visible:-outline-offset-2"
         >
           {text}
         </pre>

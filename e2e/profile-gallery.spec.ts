@@ -15,9 +15,13 @@ import { saveScreen } from "./screens";
 const WORK_PACKAGE = "WP-8.2";
 // 320 px is the narrowest width NFR-A11Y-05 names; the rest are the screenshot widths.
 const WIDTHS = [320, 375, 768, 1280];
-// A dialog is saved at the window's size: a full-page capture paints its
-// fixed backdrop as a band (e2e/screens.ts).
 const DIALOG_WIDTHS = [375, 1280];
+
+// The page is a development page inside the real layout, whose header shows
+// the visitor's own state (a guest, beside a Sign out button). So the screens
+// are of the main region and of the dialog only; the real header's states
+// have their own screens (WP-9.1 design review, m3).
+const main = (page: Page) => page.getByRole("main");
 
 async function noSidewaysScroll(page: Page) {
   const overflow = await page.evaluate(
@@ -41,7 +45,10 @@ for (const width of WIDTHS) {
     await noSidewaysScroll(page);
     await noAxeViolations(page);
     if (width !== 320)
-      await saveScreen(page, "profile-filled", width, { workPackage: WORK_PACKAGE });
+      await saveScreen(page, "profile-filled", width, {
+        workPackage: WORK_PACKAGE,
+        element: main(page),
+      });
   });
 
   test(`[FR-PRF-01] [NFR-A11Y-05] a new learner's profile at ${String(width)} px`, async ({
@@ -57,7 +64,10 @@ for (const width of WIDTHS) {
     await noSidewaysScroll(page);
     await noAxeViolations(page);
     if (width !== 320)
-      await saveScreen(page, "profile-empty", width, { workPackage: WORK_PACKAGE });
+      await saveScreen(page, "profile-empty", width, {
+        workPackage: WORK_PACKAGE,
+        element: main(page),
+      });
   });
 
   test(`[FR-PRF-02] [NFR-A11Y-05] a display name that cannot be saved says why at ${String(width)} px`, async ({
@@ -74,7 +84,10 @@ for (const width of WIDTHS) {
     await noSidewaysScroll(page);
     await noAxeViolations(page);
     if (width !== 320) {
-      await saveScreen(page, "profile-name-error", width, { workPackage: WORK_PACKAGE });
+      await saveScreen(page, "profile-name-error", width, {
+        workPackage: WORK_PACKAGE,
+        element: main(page),
+      });
     }
   });
 }
@@ -85,7 +98,9 @@ async function openDeletion(page: Page, width: number, deletion: string) {
   await page.getByRole("button", { name: profile.deleteAccount }).click();
   const dialog = page.getByRole("dialog", { name: profile.deleteTitle });
   await expect(dialog.getByText(profile.deleteWarning, { exact: true })).toBeVisible();
-  return dialog;
+  // Once the account is deleted the dialog's title names the outcome, so the
+  // states after it find the one dialog by its role alone.
+  return page.getByRole("dialog");
 }
 
 for (const width of DIALOG_WIDTHS) {
@@ -96,7 +111,7 @@ for (const width of DIALOG_WIDTHS) {
     await noAxeViolations(page);
     await saveScreen(page, "profile-delete-dialog", width, {
       workPackage: WORK_PACKAGE,
-      fullPage: false,
+      element: dialog,
     });
     await dialog.getByRole("textbox", { name: profile.confirmLabel }).fill("delete");
     await dialog.getByRole("button", { name: profile.deleteAccount }).click();
@@ -104,7 +119,7 @@ for (const width of DIALOG_WIDTHS) {
     await noAxeViolations(page);
     await saveScreen(page, "profile-delete-mistyped", width, {
       workPackage: WORK_PACKAGE,
-      fullPage: false,
+      element: dialog,
     });
   });
 
@@ -119,8 +134,12 @@ for (const width of DIALOG_WIDTHS) {
       await dialog.getByRole("button", { name: profile.deleteAccount }).click();
       // A failure is a notice, which names its kind before the sentence.
       await expect(dialog).toContainText(shows);
+      if (deletion === "succeeds") {
+        await expect(dialog).toHaveAccessibleName(profile.deletedTitle);
+        await expect(dialog.getByRole("link", { name: profile.deletedHome })).toBeVisible();
+      }
       await noAxeViolations(page);
-      await saveScreen(page, name, width, { workPackage: WORK_PACKAGE, fullPage: false });
+      await saveScreen(page, name, width, { workPackage: WORK_PACKAGE, element: dialog });
     });
   }
 }

@@ -52,7 +52,7 @@ export const gallery = {
   openDialog: "Reset code",
   dialogTitle: "Reset your code?",
   dialogBody:
-    "Your code goes back to the starter code for this lesson. You can undo this straight after.",
+    "Your code goes back to the starter code for this lesson. The Undo button brings it back.",
   dialogConfirm: "Reset code",
   dialogCancel: "Keep my code",
 
