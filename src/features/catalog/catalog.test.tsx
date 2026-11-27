@@ -379,15 +379,17 @@ describe("the course page", () => {
     expect(screen.getByText(coursePage.xpEarned(40, 40))).toBeTruthy();
   });
 
-  it("[FR-CRS-02] says each state in words, with its icon hidden from assistive technology", async () => {
+  it("[FR-CRS-02] says each state in words, with the icons of pass and not started hidden from assistive technology", async () => {
     state.course = { ok: true, value: COURSE };
     state.completed = new Set([id(201)]);
     const { container } = render(await CoursePage({ params: params("python-basics") }));
     for (const word of Object.values(coursePage.lessonState)) {
       expect(screen.getByText(word)).toBeTruthy();
     }
+    // Completed and Not started carry an icon; Next up is marked by its row
+    // (DESIGN.md sections 2 and 8).
     const icons = container.querySelectorAll("svg");
-    expect(icons.length).toBe(3);
+    expect(icons.length).toBe(2);
     for (const icon of icons) expect(icon.closest("[aria-hidden='true']")).not.toBeNull();
   });
 

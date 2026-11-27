@@ -16,6 +16,7 @@ export {
   type LinkProps,
   type LinkVariant,
 } from "./primitives/link";
+export { LiveRegion } from "./primitives/live-region";
 export { Notice, type NoticeKind, type NoticeProps } from "./primitives/notice";
 export { Progress, type ProgressProps } from "./primitives/progress";
 export { Status, type StatusProps, type StatusState } from "./primitives/status";

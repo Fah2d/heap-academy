@@ -149,7 +149,15 @@ describe("the catalog reads only through src/content", () => {
   const PROGRESS_READERS: Record<string, string[]> = {
     "src/features/catalog/components/course-progress.tsx": ["@/features/progress"],
   };
-  const allowed = { ...WORKSPACE_HOSTS, ...PROGRESS_READERS };
+  // The header's bar slot (src/app/@bar) frames every page, as the root
+  // layout does: its pages take the shell's header parts, and nothing else.
+  const HEADER_BARS: Record<string, string[]> = Object.fromEntries(
+    routes
+      .map((path) => relative(ROOT, path))
+      .filter((name) => name.startsWith("src/app/@bar/"))
+      .map((name) => [name, ["@/features/shell"]]),
+  );
+  const allowed = { ...WORKSPACE_HOSTS, ...PROGRESS_READERS, ...HEADER_BARS };
 
   it.each(files.map((path) => [relative(ROOT, path), path]))(
     "%s imports no database client, identity, request headers or other feature",

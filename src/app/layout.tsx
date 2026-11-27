@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { AccountControl, accountLessons, guestInvitation } from "@/features/auth";
 import { CoursesNavLink, SITE_ORIGIN } from "@/features/catalog";
 import { AccountLessonsProvider, GuestInvitationProvider } from "@/features/progress";
-import { fontVariables, SiteShell } from "@/features/shell";
+import { fontVariables, SiteBar, SiteShell } from "@/features/shell";
 import { CspNonceMeta } from "@/features/system";
 import { documentAttributes, LOCALE } from "@/messages/locale";
 import { shell } from "@/messages/shell";
@@ -30,7 +30,18 @@ export const viewport: Viewport = {
 // pages below it never read identity themselves. For the same reason it reads
 // a signed-in learner's completed lessons, so pages are rendered with their
 // progress (02-architecture.md section 10).
-export default async function RootLayout({ children }: { children: ReactNode }) {
+//
+// The header's start comes from the `bar` slot (src/app/@bar): the workspace
+// has its own compact bar there (docs/spec/03-experience.md section 4).
+// Next.js renders a not-found page without the slot, so the site's bar is
+// the fallback.
+export default async function RootLayout({
+  children,
+  bar,
+}: {
+  children: ReactNode;
+  bar: ReactNode;
+}) {
   await connection();
   const { lang, dir } = documentAttributes(LOCALE);
   const [invitation, lessonIds] = await Promise.all([guestInvitation(), accountLessons()]);
@@ -42,7 +53,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="flex flex-col">
         <AccountLessonsProvider lessonIds={lessonIds}>
           <GuestInvitationProvider invitation={invitation}>
-            <SiteShell navigation={<CoursesNavLink />} account={<AccountControl />}>
+            <SiteShell
+              bar={bar ?? <SiteBar navigation={<CoursesNavLink />} />}
+              account={<AccountControl />}
+            >
               {children}
             </SiteShell>
           </GuestInvitationProvider>

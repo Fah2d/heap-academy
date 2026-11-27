@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { test, type Page } from "@playwright/test";
+import { test, type Locator, type Page } from "@playwright/test";
 
 // Every state the axe checks pass through is also saved as a screenshot, so the
 // design review looks at what was measured (docs/spec/05-engineering-handbook.md
@@ -18,8 +18,6 @@ const SCREENSHOT_PROJECTS = new Set([
   "runtime-chromium",
 ]);
 
-// A state with a fixed overlay, such as an open dialog, is saved at the size
-// of the viewport: a full-page capture paints the overlay as a band across it.
 /** Whether a project saves the review screens; the others leave them as committed. */
 export function savesScreens(project: string): boolean {
   return SCREENSHOT_PROJECTS.has(project);
@@ -33,11 +31,17 @@ export async function saveScreen(
     fullPage = true,
     workPackage = DEFAULT_PACKAGE,
     clip,
+    element,
   }: {
     fullPage?: boolean;
     workPackage?: string;
     /** Only this part of the viewport, such as the area above an on-screen keyboard. */
     clip?: { x: number; y: number; width: number; height: number };
+    /**
+     * Only this element, such as one example of a gallery page that holds
+     * many: a whole-page capture of such a page is too tall to judge.
+     */
+    element?: Locator;
   } = {},
 ): Promise<void> {
   if (!savesScreens(test.info().project.name)) return;
@@ -48,8 +52,24 @@ export async function saveScreen(
       element.remove();
     });
   });
+  const path = join("docs", "reports", "screens", workPackage, `${name}-${width}.png`);
+  if (element !== undefined) {
+    await element.screenshot({ path });
+    return;
+  }
+  // A page with a fixed bar, such as the workspace's action bar on a phone,
+  // or an open dialog's backdrop, is saved at the window's size: a
+  // full-page capture paints the fixed element mid-page (WP-8.1 design
+  // review, m12).
+  const fixed = await page.evaluate(() =>
+    [...document.body.querySelectorAll("*")].some((node) => {
+      if (getComputedStyle(node).position !== "fixed") return false;
+      const box = node.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    }),
+  );
   await page.screenshot({
-    path: join("docs", "reports", "screens", workPackage, `${name}-${width}.png`),
-    ...(clip === undefined ? { fullPage } : { clip }),
+    path,
+    ...(clip === undefined ? { fullPage: fullPage && !fixed } : { clip }),
   });
 }

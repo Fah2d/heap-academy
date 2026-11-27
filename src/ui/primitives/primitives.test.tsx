@@ -469,6 +469,16 @@ describe("Notice", () => {
     );
   });
 
+  it("[DESIGN.md 8] shows information by its word, with no icon outside the icon list", () => {
+    const { container } = render(
+      <Notice kind="information" kindLabel="Preview">
+        Nothing is saved.
+      </Notice>,
+    );
+    expect(container.textContent).toBe("Preview: Nothing is saved.");
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
   it("[ADR-0014] is announced only when asked to", () => {
     const { rerender } = render(
       <Notice kind="error" kindLabel="Error">
@@ -519,10 +529,15 @@ describe("Status", () => {
     ["pass", "Passed"],
     ["fail", "Failed"],
     ["not-run", "Not run"],
-    ["next", "Next up"],
   ] as const)("[ADR-0014] shows the %s state with an icon and a word", (state, label) => {
     const { container } = render(<Status state={state} label={label} />);
     expect(container.textContent).toBe(label);
     expect(container.querySelector('[aria-hidden="true"] svg')).not.toBeNull();
+  });
+
+  it("[DESIGN.md 8] shows the next item with its word and no icon outside the icon list", () => {
+    const { container } = render(<Status state="next" label="Next up" />);
+    expect(container.textContent).toBe("Next up");
+    expect(container.querySelector("svg")).toBeNull();
   });
 });

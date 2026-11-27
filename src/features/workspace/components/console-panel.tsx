@@ -15,6 +15,8 @@ import { LearnerErrorView } from "./learner-error-view";
  * produced, standard error set apart by a label and a border, the input line
  * when the program asks, the batch field where the browser cannot pause a
  * program, the error of the last run, and the line that says output was cut.
+ * The error's plain words come before Python's own traceback in the output,
+ * so a beginner reads what happened first (WP-8.1 design review, M4).
  * Streaming text is not announced; the end of a run is, by the workspace.
  */
 const BATCH_KNOWN: ReadonlySet<RuntimeView["status"]> = new Set([
@@ -66,6 +68,10 @@ export function ConsolePanel({
   // input. Before it is ready, or when it failed to start, that is not known.
   const showBatch = BATCH_KNOWN.has(view.status) && !view.interactiveInput;
   const empty = shown.chunks.length === 0 && !awaitingInput && result === undefined;
+  // A run that ended on an error with nothing printed shows the error card
+  // alone: an empty box above it says nothing (WP-8.1 design review, m6).
+  const showBox =
+    error === undefined || shown.chunks.length > 0 || awaitingInput || result?.truncated === true;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -79,60 +85,62 @@ export function ConsolePanel({
           mono
         />
       )}
-      <div
-        tabIndex={0}
-        role="region"
-        aria-label={words.consoleLabel}
-        className="min-h-(--workspace-console-min) max-md:max-h-(--workspace-console-max) flex-1 overflow-auto rounded-panel border border-border bg-surface p-3 focus-visible:-outline-offset-2"
-      >
-        {empty ? (
-          <p className="text-base text-text-muted">{words.consoleEmpty}</p>
-        ) : (
-          <pre
-            data-testid="console-output"
-            className="font-mono text-code whitespace-pre-wrap break-words text-text"
-          >
-            {shown.chunks.map((chunk, index) =>
-              chunk.stream === "stderr" ? (
-                <span
-                  key={index}
-                  data-stream="stderr"
-                  className="block border-s-2 border-fail ps-2 text-fail"
-                >
-                  <span className="text-text-muted">{words.errorOutput}: </span>
-                  {chunk.text}
-                </span>
-              ) : (
-                <span
-                  key={index}
-                  data-stream={chunk.stream}
-                  className={cx(chunk.stream === "input" && "font-semibold")}
-                >
-                  {chunk.text}
-                </span>
-              ),
-            )}
-          </pre>
-        )}
-        {awaitingInput && (
-          <InputLine
-            prompt={shown.prompt}
-            sendInput={(line) => {
-              const sent = sendInput(line);
-              if (sent.ok) setAnswered(true);
-              return sent;
-            }}
-            endInput={endInput}
-            workspaceRef={workspaceRef}
-            afterAnswer={answered}
-          />
-        )}
-        {result?.truncated === true && (
-          <p className="mbs-2 text-base text-text-muted">{words.truncated(OUTPUT_LIMIT)}</p>
-        )}
-      </div>
       {error !== undefined && (
         <LearnerErrorView error={error} strategy={strategy} onGoToLine={onGoToLine} />
+      )}
+      {showBox && (
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={words.consoleLabel}
+          className="min-h-(--workspace-console-min) max-md:max-h-(--workspace-console-max) flex-1 overflow-auto rounded-panel border border-border bg-surface p-3 focus-visible:-outline-offset-2"
+        >
+          {empty ? (
+            <p className="text-base text-text-muted">{words.consoleEmpty}</p>
+          ) : (
+            <pre
+              data-testid="console-output"
+              className="font-mono text-code whitespace-pre-wrap break-words text-text"
+            >
+              {shown.chunks.map((chunk, index) =>
+                chunk.stream === "stderr" ? (
+                  <span
+                    key={index}
+                    data-stream="stderr"
+                    className="block border-s-2 border-fail ps-2 text-fail"
+                  >
+                    <span className="text-text-muted">{words.errorOutput}: </span>
+                    {chunk.text}
+                  </span>
+                ) : (
+                  <span
+                    key={index}
+                    data-stream={chunk.stream}
+                    className={cx(chunk.stream === "input" && "font-semibold")}
+                  >
+                    {chunk.text}
+                  </span>
+                ),
+              )}
+            </pre>
+          )}
+          {awaitingInput && (
+            <InputLine
+              prompt={shown.prompt}
+              sendInput={(line) => {
+                const sent = sendInput(line);
+                if (sent.ok) setAnswered(true);
+                return sent;
+              }}
+              endInput={endInput}
+              workspaceRef={workspaceRef}
+              afterAnswer={answered}
+            />
+          )}
+          {result?.truncated === true && (
+            <p className="mbs-2 text-base text-text-muted">{words.truncated(OUTPUT_LIMIT)}</p>
+          )}
+        </div>
       )}
     </div>
   );

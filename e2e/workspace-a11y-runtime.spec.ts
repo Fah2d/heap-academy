@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
-import { catalogCommon } from "../src/messages/catalog";
 import { workspaceGallery } from "../src/messages/gallery";
 import { lessonContent } from "../src/messages/lesson";
 import { shell } from "../src/messages/shell";
@@ -124,14 +123,14 @@ test("[NFR-A11Y-03] the keyboard reaches every control in reading order, each wi
   await ready(page);
   const stops = await walk(page);
   // docs/spec/03-experience.md section 6.1: header, instructions, editor,
-  // actions, output, footer. The actions sit in the page's main landmark.
+  // actions, output, footer. The header is the compact bar: back to the
+  // course, then the account control (section 4). The actions sit in the
+  // page's main landmark.
   expect(regions(stops)).toEqual([
     // The skip link comes first, before any landmark.
     "body",
     "header",
-    shell.mainNavigation,
     shell.accountNavigation,
-    "main",
     words.instructions,
     words.hints,
     words.work,
@@ -145,10 +144,8 @@ test("[NFR-A11Y-03] the keyboard reaches every control in reading order, each wi
   // the arrow keys move between them.
   const names = [
     shell.skipLink,
-    shell.productName,
-    catalogCommon.coursesLink,
-    account.signIn,
     words.backToCourse(workspaceGallery.courseTitle),
+    account.signIn,
     "name = input(",
     lessonContent.copyCode,
     words.showHint,
@@ -187,6 +184,22 @@ test("[NFR-A11Y-03] after a failed Check, the keyboard opens and closes each tes
   for (let index = 0; index < 2; index += 1) {
     await tab(page);
     const toggle = cases.nth(index);
+    // An open case's input, expected and actual output blocks scroll
+    // sideways, so each is a stop of its own (tests-panel.tsx); the keyboard
+    // passes each of them, with its ring, before the next case.
+    if (index > 0) {
+      const panel = page.locator(
+        `[id="${(await cases.nth(index - 1).getAttribute("aria-controls")) ?? ""}"]`,
+      );
+      const blocks = panel.locator('[tabindex="0"]');
+      const count = await blocks.count();
+      expect(count).toBeGreaterThan(0);
+      for (let block = 0; block < count; block += 1) {
+        await expect(blocks.nth(block)).toBeFocused();
+        expect((await focused(page)).ringed).toBe(true);
+        await tab(page);
+      }
+    }
     await expect(toggle).toBeFocused();
     expect((await focused(page)).ringed).toBe(true);
     const before = await toggle.getAttribute("aria-expanded");

@@ -71,7 +71,7 @@ function CodeBlock({ block }: { block: Extract<DocumentBlock, { kind: "code_bloc
       aria-label={words.codeBlock(block.python ? "Python" : block.language)}
       className="flex flex-col gap-2 rounded-panel border border-border bg-surface-editor p-3"
     >
-      <pre className="code-surface overflow-x-auto" tabIndex={0}>
+      <pre className="code-surface scroll-visible overflow-x-auto pbe-1" tabIndex={0}>
         <code>
           {block.runs.map((run, index) =>
             run.kind === undefined ? (
@@ -151,7 +151,7 @@ function Blocks({ blocks, top }: { blocks: readonly DocumentBlock[]; top: 2 | 3 
             key={index}
             role="region"
             aria-label={words.table}
-            className="overflow-x-auto"
+            className="scroll-visible overflow-x-auto"
             tabIndex={0}
           >
             <table className="border-collapse text-base">
