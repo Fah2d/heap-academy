@@ -36,7 +36,7 @@ const chapters: EditorChapter[] = [
     title: "Basics",
     summary: "Printing and names.",
     loadedAt: "2026-11-21T08:00:00.000001+00:00",
-    lessons: [{ id: LESSON, title: "Hello", status: "published" }],
+    lessons: [{ id: LESSON, title: "Hello", status: "published", completions: 4 }],
   },
   {
     id: TWO,

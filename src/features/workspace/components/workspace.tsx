@@ -37,9 +37,11 @@ import { courseBackPath } from "../paths";
 import { CodeEditor } from "./code-editor";
 import { ConsolePanel } from "./console-panel";
 import { Hints } from "./hints";
+import { inputLines } from "./input-lines";
 import { LessonNav } from "./lesson-nav";
 import { PythonStatus } from "./python-status";
 import { ResetCode } from "./reset-code";
+import { SymbolRow, type SymbolInsert } from "./symbol-row";
 import { TestsPanel } from "./tests-panel";
 
 export type WorkspaceLesson = {
@@ -72,12 +74,7 @@ const SAVE_DELAY_MS = 400;
 
 type OutputTab = "console" | "tests";
 
-/**
- * The batch field's answers, one per line. An empty field is no answers, and
- * the line break after the last answer does not add an empty one.
- */
-export const inputLines = (text: string) =>
-  text === "" ? [] : text.replace(/\n$/, "").split("\n");
+export { inputLines } from "./input-lines";
 
 /** Neither value below changes while the page is open. */
 const subscribeToNothing = () => () => undefined;
@@ -148,6 +145,15 @@ export function Workspace({
   const [tab, setTab] = useState<OutputTab>("console");
   const [refusal, setRefusal] = useState<TooLarge | undefined>(undefined);
   const [goToLine, setGoToLine] = useState<{ line: number; request: number } | undefined>();
+  const [insertion, setInsertion] = useState<
+    { text: string | { indent: true }; request: number } | undefined
+  >();
+  const insertSymbol = (symbol: SymbolInsert) => {
+    setInsertion((previous) => ({
+      text: symbol === "indent" ? { indent: true } : symbol,
+      request: (previous?.request ?? 0) + 1,
+    }));
+  };
 
   const store = useRef<CodeStore | undefined>(undefined);
   const edited = useRef(false);
@@ -489,12 +495,15 @@ export function Workspace({
           nonce={nonce}
           fill
           goToLine={goToLine}
+          insert={insertion}
         />
       </div>
     </>
   );
 
   // Below 768 px the bar has no icons and no keys, so it fits one row at 320 px.
+  // In the Code view the symbol row ends the bar, so it sits right on the
+  // keyboard (FR-WSP-21).
   const actions = (
     <div
       ref={actionBar}
@@ -555,6 +564,7 @@ export function Workspace({
           dispatch({ type: "RETRY" });
         }}
       />
+      {phone && phoneView === "code" && <SymbolRow onInsert={insertSymbol} />}
     </div>
   );
 

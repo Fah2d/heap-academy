@@ -1,5 +1,6 @@
 "use client";
 
+import { indentUnit } from "@codemirror/language";
 import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useEffect, useId, useRef } from "react";
@@ -45,6 +46,12 @@ export type CodeEditorProps = {
    * editor. A new `request` number repeats the move to the same line.
    */
   goToLine?: { line: number; request: number } | undefined;
+  /**
+   * Insert this at the cursor, in place of any selection, and focus the
+   * editor: a key of the phone's symbol row (FR-WSP-21). `indent` is one
+   * indent unit. A new `request` number inserts again.
+   */
+  insert?: { text: string | { indent: true }; request: number } | undefined;
 };
 
 export function CodeEditor({
@@ -56,6 +63,7 @@ export function CodeEditor({
   nonce,
   fill = false,
   goToLine,
+  insert,
 }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -123,6 +131,23 @@ export function CodeEditor({
     });
     editor.focus();
   }, [goToLine]);
+
+  // The request a newly built editor has already seen: crossing 768 px
+  // rebuilds the editor with the page's last request still set, and that
+  // symbol must not go in a second time.
+  const seenInsert = useRef(insert?.request);
+  useEffect(() => {
+    const editor = view.current;
+    if (editor === null || insert === undefined) return;
+    if (seenInsert.current !== undefined && insert.request <= seenInsert.current) return;
+    seenInsert.current = insert.request;
+    const text = typeof insert.text === "string" ? insert.text : editor.state.facet(indentUnit);
+    editor.dispatch(editor.state.replaceSelection(text), {
+      scrollIntoView: true,
+      userEvent: "input",
+    });
+    editor.focus();
+  }, [insert]);
 
   return (
     <div

@@ -2,11 +2,19 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
+import type { NearMiss } from "@/grader/compare";
 import type { TestResult } from "@/grader/grade";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
-import { workspace as words } from "@/messages/workspace";
+import {
+  goToLine,
+  learnerErrorSuggestion,
+  type NearMissWord,
+  pythonErrorExplanations,
+  workspace as words,
+} from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
 import { INITIAL_VIEW, type RuntimeView } from "../client/runtime-view";
+import { errorFacts } from "../client/workspace-view";
 import { ConsolePanel } from "./console-panel";
 import { Hints } from "./hints";
 import { LearnerErrorView } from "./learner-error-view";
@@ -76,6 +84,18 @@ describe("[T-07] the console", () => {
     expect(container.textContent).toContain(`ValueError: ${MARKUP}`);
     expect(screen.getByText(MARKUP, { selector: "label" })).toBeTruthy();
     expectInert(container);
+  });
+});
+
+describe("[FR-WSP-08] the answers box", () => {
+  it("appears only once Python has said it cannot pause for input", () => {
+    for (const status of ["idle", "loading", "failed"] as const) {
+      render(<ConsolePanel {...consoleProps} view={{ ...INITIAL_VIEW, status }} />);
+      expect(screen.queryByLabelText(words.batchLabel)).toBeNull();
+      cleanup();
+    }
+    render(<ConsolePanel {...consoleProps} view={{ ...INITIAL_VIEW, status: "ready" }} />);
+    expect(screen.getByLabelText(words.batchLabel)).toBeTruthy();
   });
 });
 
@@ -171,3 +191,132 @@ describe("[T-07] the error view and hints", () => {
     expectInert(container);
   });
 });
+
+describe("[FR-WSP-23] the error view explains a common Python error", () => {
+  it("puts one sentence on what the error means under Python's message", () => {
+    render(
+      <LearnerErrorView
+        error={{ kind: "runtime", message: "ZeroDivisionError: division by zero", line: 7 }}
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+    const message = screen.getByText("ZeroDivisionError: division by zero");
+    const explanation = screen.getByText(pythonErrorExplanations.ZeroDivisionError);
+    // Read in this order: Python's message, then what it means, then the line.
+    expect(message.nextElementSibling).toBe(explanation);
+    expect(
+      explanation.compareDocumentPosition(screen.getByRole("button", { name: goToLine(7) })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows the syntax suggestion, not an explanation, for a syntax error that is not about indentation", () => {
+    render(
+      <LearnerErrorView
+        error={{ kind: "syntax", message: "SyntaxError: invalid syntax", line: 3 }}
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+    expect(
+      screen.getByText(learnerErrorSuggestion("syntax", errorFacts(3), "interactive") ?? ""),
+    ).toBeTruthy();
+  });
+});
+
+describe("[FR-GRD-07] the tests panel names a near miss", () => {
+  const greets: TestCase = {
+    id: "greets" as TestCaseId,
+    name: "Greets Sara",
+    stdin: "",
+    afterCode: "",
+    expected: "Hello, Sara!",
+    match: "normalized",
+    hint: "",
+  };
+  const showFailure = (actual: string, overrides: Partial<{ truncated: boolean }> = {}) =>
+    render(
+      <TestsPanel
+        tests={[greets]}
+        results={[
+          {
+            testCaseId: greets.id,
+            status: "failed",
+            reason: "mismatch",
+            actual,
+            truncated: overrides.truncated ?? false,
+            harnessVersion: "7",
+          },
+        ]}
+        summary={summary}
+        checking={false}
+        checkEnded
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+
+  it.each([
+    ["hello, sara!", "letter_case"],
+    ["Hello,Sara!", "spaces"],
+    ["Hello Sara", "punctuation"],
+  ] as const)("after %j it says the only difference is %s", (actual, kind) => {
+    showFailure(actual);
+    expect(
+      screen.getByText(`${words.failure("mismatch", 5)} ${words.nearMiss(kind)}`),
+    ).toBeTruthy();
+  });
+
+  it("never wraps an output, so a wrap cannot hide a missing space", () => {
+    showFailure("Hello,Sara!");
+    const actual = screen.getByText("Hello,Sara!", { selector: "pre" });
+    expect(actual.className).toContain("whitespace-pre ");
+    expect(actual.className).not.toContain("whitespace-pre-wrap");
+    // It scrolls sideways, so a keyboard can reach it.
+    expect(actual.tabIndex).toBe(0);
+  });
+
+  it("names a missing last line", () => {
+    cleanup();
+    render(
+      <TestsPanel
+        tests={[{ ...greets, expected: "3\n2\n1\nLift off" }]}
+        results={[
+          {
+            testCaseId: greets.id,
+            status: "failed",
+            reason: "mismatch",
+            actual: "3\n2\n1\n",
+            truncated: false,
+            harnessVersion: "7",
+          },
+        ]}
+        summary={summary}
+        checking={false}
+        checkEnded
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+    expect(screen.getByText(new RegExp(words.nearMiss("missing_last_line")))).toBeTruthy();
+  });
+
+  it("says nothing more when the output is simply different", () => {
+    showFailure("Goodbye");
+    expect(screen.getByText(words.failure("mismatch", 5))).toBeTruthy();
+  });
+
+  it("says nothing more when the output was cut, which is its own reason", () => {
+    showFailure("hello, sara!", { truncated: true });
+    expect(screen.queryByText(new RegExp(words.nearMiss("letter_case")))).toBeNull();
+  });
+});
+
+// The page's words cover every kind the grader names, and no other.
+const nearMissKinds: [NearMiss] extends [NearMissWord]
+  ? [NearMissWord] extends [NearMiss]
+    ? true
+    : never
+  : never = true;
+void nearMissKinds;

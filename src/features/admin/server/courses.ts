@@ -70,10 +70,22 @@ const editorRow = z.object({
 const byPosition = (a: { position: number; id: string }, b: { position: number; id: string }) =>
   a.position - b.position || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-export function editorCourse(row: unknown): EditorCourseResult {
+/** What `public.lesson_completion_counts()` returns: lessons with no completion have no row. */
+const completionCounts = z.array(
+  z.object({ lesson_id: z.uuid(), completions: z.number().int().nonnegative() }),
+);
+
+/**
+ * The course as the editor shows it, each lesson with its completion count
+ * (FR-ADM-13). Counts that cannot be read fail the whole read, so the editor
+ * never shows a number the database did not give.
+ */
+export function editorCourse(row: unknown, counts: unknown): EditorCourseResult {
   if (row === null) return { ok: true, course: null };
   const parsed = editorRow.safeParse(row);
-  if (!parsed.success) return { ok: false };
+  const countRows = completionCounts.safeParse(counts);
+  if (!parsed.success || !countRows.success) return { ok: false };
+  const completed = new Map(countRows.data.map((count) => [count.lesson_id, count.completions]));
   const course = parsed.data;
   return {
     ok: true,
@@ -90,9 +102,12 @@ export function editorCourse(row: unknown): EditorCourseResult {
         title: chapter.title,
         summary: chapter.summary,
         loadedAt: chapter.updated_at,
-        lessons: [...chapter.lessons]
-          .sort(byPosition)
-          .map((lesson) => ({ id: lesson.id, title: lesson.title, status: lesson.status })),
+        lessons: [...chapter.lessons].sort(byPosition).map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title,
+          status: lesson.status,
+          completions: completed.get(lesson.id) ?? 0,
+        })),
       })),
     },
   };
@@ -100,13 +115,18 @@ export function editorCourse(row: unknown): EditorCourseResult {
 
 /** One course with its chapters and lessons in order, as the editor shows it. */
 export async function courseForEditor(db: SessionClient, id: string): Promise<EditorCourseResult> {
-  const { data, error } = await db
-    .from("courses")
-    .select(
-      "id, slug, title, summary, outcomes, status, updated_at, chapters(id, title, summary, position, updated_at, lessons(id, title, status, position))",
-    )
-    .eq("id", id)
-    .maybeSingle();
-  if (error !== null) return { ok: false };
-  return editorCourse(data);
+  const [course, counts] = await Promise.all([
+    db
+      .from("courses")
+      .select(
+        "id, slug, title, summary, outcomes, status, updated_at, chapters(id, title, summary, position, updated_at, lessons(id, title, status, position))",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    // Admin only inside the function (02-architecture.md, its table of
+    // functions), so the database decides who may read the counts.
+    db.rpc("lesson_completion_counts"),
+  ]);
+  if (course.error !== null || counts.error !== null) return { ok: false };
+  return editorCourse(course.data, counts.data);
 }

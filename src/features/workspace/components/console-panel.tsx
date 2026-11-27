@@ -17,6 +17,14 @@ import { LearnerErrorView } from "./learner-error-view";
  * program, the error of the last run, and the line that says output was cut.
  * Streaming text is not announced; the end of a run is, by the workspace.
  */
+const BATCH_KNOWN: ReadonlySet<RuntimeView["status"]> = new Set([
+  "ready",
+  "running",
+  "awaitingInput",
+  "checking",
+  "restarting",
+]);
+
 export function ConsolePanel({
   view,
   awaitingInput,
@@ -54,7 +62,9 @@ export function ConsolePanel({
   const shown = transcript(view.output, awaitingInput);
   const error = result === undefined ? undefined : runError(result.outcome);
   const strategy = view.interactiveInput ? "interactive" : "batch";
-  const showBatch = view.status !== "idle" && view.status !== "loading" && !view.interactiveInput;
+  // The answers box appears only once Python has said it cannot pause for
+  // input. Before it is ready, or when it failed to start, that is not known.
+  const showBatch = BATCH_KNOWN.has(view.status) && !view.interactiveInput;
   const empty = shown.chunks.length === 0 && !awaitingInput && result === undefined;
 
   return (

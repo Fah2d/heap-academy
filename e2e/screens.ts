@@ -32,7 +32,13 @@ export async function saveScreen(
   {
     fullPage = true,
     workPackage = DEFAULT_PACKAGE,
-  }: { fullPage?: boolean; workPackage?: string } = {},
+    clip,
+  }: {
+    fullPage?: boolean;
+    workPackage?: string;
+    /** Only this part of the viewport, such as the area above an on-screen keyboard. */
+    clip?: { x: number; y: number; width: number; height: number };
+  } = {},
 ): Promise<void> {
   if (!savesScreens(test.info().project.name)) return;
   // The development server's indicator and overlay are not part of the
@@ -44,6 +50,6 @@ export async function saveScreen(
   });
   await page.screenshot({
     path: join("docs", "reports", "screens", workPackage, `${name}-${width}.png`),
-    fullPage,
+    ...(clip === undefined ? { fullPage } : { clip }),
   });
 }

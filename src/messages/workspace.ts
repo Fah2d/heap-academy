@@ -80,6 +80,52 @@ export function learnerErrorSuggestion(
   }
 }
 
+/**
+ * One sentence on what a common Python error means, by the name of its type
+ * (FR-WSP-23; section 6.5). An error not listed here shows Python's message
+ * alone.
+ */
+export const pythonErrorExplanations = {
+  NameError:
+    "Python does not know this name: it was not given a value before this line, or it is spelled differently.",
+  UnboundLocalError: "A function used a name before giving it a value inside that function.",
+  TypeError: "An operation got a kind of value it cannot use, such as adding a number to text.",
+  ValueError: 'A function got the right kind of value but one it cannot use, such as int("hello").',
+  ZeroDivisionError: "A number was divided by zero, which has no answer.",
+  IndexError:
+    "The program asked for a position past the end of a list or text, and positions start at 0.",
+  KeyError: "The program asked a dictionary for a key it does not have.",
+  AttributeError:
+    "The name after the dot does not belong to this kind of value, so check its spelling.",
+  RecursionError: "A function kept calling itself and never stopped.",
+  ModuleNotFoundError: "Python cannot find a module with this name, so check its spelling.",
+  OverflowError: "A number grew too large for this operation.",
+  IndentationError: "The spaces at the start of this line do not match the lines around it.",
+  TabError: "This line mixes tabs and spaces at its start, so use spaces only.",
+} as const satisfies Record<string, string>;
+
+/**
+ * The symbol row above the phone's keyboard in the Code view (FR-WSP-21;
+ * section 6.8), in the order the section lists. `shown` is the key's face;
+ * `name` is what assistive technology reads.
+ */
+export const symbolRow = {
+  label: "Symbols",
+  keys: [
+    { insert: "indent", shown: "Tab", name: "Tab" },
+    { insert: ":", shown: ":", name: "Colon" },
+    { insert: "(", shown: "(", name: "Opening bracket" },
+    { insert: ")", shown: ")", name: "Closing bracket" },
+    { insert: "[", shown: "[", name: "Opening square bracket" },
+    { insert: "]", shown: "]", name: "Closing square bracket" },
+    { insert: '"', shown: '"', name: "Double quote" },
+    { insert: "'", shown: "'", name: "Single quote" },
+    { insert: "=", shown: "=", name: "Equals sign" },
+    { insert: "#", shown: "#", name: "Hash" },
+    { insert: "_", shown: "_", name: "Underscore" },
+  ],
+} as const;
+
 /** The button on an error's line, which moves the editor's cursor there. */
 export const goToLine = (line: number) => `Go to line ${line}`;
 
@@ -92,6 +138,9 @@ export type FailureReasonWord =
   | "time_limit"
   | "stopped"
   | "crashed";
+
+/** How a failed comparison almost matched (the grader's `NearMiss`, FR-GRD-07). */
+export type NearMissWord = "letter_case" | "spaces" | "punctuation" | "missing_last_line";
 
 const megabytes = (bytes: number) =>
   (bytes / 1_000_000).toLocaleString(LOCALE, {
@@ -227,6 +276,22 @@ export const workspace = {
         return "You stopped the check.";
       case "crashed":
         return "Python stopped unexpectedly during this test.";
+    }
+  },
+  /**
+   * After "Your output is different", how it almost matched (FR-GRD-07):
+   * the differences a beginner cannot see, named in words.
+   */
+  nearMiss: (kind: NearMissWord): string => {
+    switch (kind) {
+      case "letter_case":
+        return "The only difference is capital and small letters.";
+      case "spaces":
+        return "The only difference is spaces.";
+      case "punctuation":
+        return "The only difference is punctuation, such as commas, full stops or quotes.";
+      case "missing_last_line":
+        return "Everything matches except the last line, which your output does not have.";
     }
   },
   /** Follow-up code that names something the program did not define (section 2.2). */
