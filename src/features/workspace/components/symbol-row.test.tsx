@@ -97,3 +97,22 @@ describe("[FR-WSP-21] the editor inserts a symbol at the cursor", () => {
     expect(view().state.doc.toString().startsWith("::")).toBe(true);
   });
 });
+
+describe("[FR-WSP-21] a rebuilt editor", () => {
+  it("does not insert the last symbol again when the editor is built anew, as at 768 px", () => {
+    const props = {
+      labelledBy: "label",
+      value: "print",
+      onChange: vi.fn(),
+      nonce: "",
+      insert: { text: { indent: true as const }, request: 3 },
+    };
+    const first = render(<CodeEditor {...props} />);
+    first.unmount();
+    render(<CodeEditor {...props} />);
+    const content = document.querySelector(".cm-editor");
+    const view = content instanceof HTMLElement ? EditorView.findFromDOM(content) : null;
+    expect(view?.state.doc.toString()).toBe("print");
+    expect(props.onChange).not.toHaveBeenCalled();
+  });
+});

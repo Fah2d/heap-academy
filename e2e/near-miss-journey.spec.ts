@@ -32,37 +32,40 @@ async function write(page: Page, code: string, phone: boolean) {
 const CASES = [
   {
     kind: "letter_case",
-    width: 1280,
     code: 'name = input("What is your name? ")\nprint("hello, " + name + "!")\n',
   },
   {
     kind: "punctuation",
-    width: 768,
     code: 'name = input("What is your name? ")\nprint("Hello " + name)\n',
   },
   {
     kind: "spaces",
-    width: 375,
     code: 'name = input("What is your name? ")\nprint("Hello," + name + "!")\n',
   },
 ] as const;
 
-for (const { kind, width, code } of CASES) {
-  test(`[FR-GRD-07] at ${String(width)} px a check that differs only in ${kind} says so`, async ({
-    page,
-  }) => {
-    const phone = width < 768;
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto(LESSON);
-    await write(page, code, phone);
-    await expect(python(page)).toHaveAttribute("data-python", "ready", { timeout: READY_MS });
-    await button(page, words.check).click();
-    await expect(page.getByRole("heading", { name: words.summary(0, 2) })).toBeVisible();
-    // Both test cases miss the same way; the first failure is the open one.
-    await expect(
-      page.getByText(`${words.failure("mismatch", 5)} ${words.nearMiss(kind)}`).first(),
-    ).toBeVisible();
-    await noAxeViolations(page);
-    await saveScreen(page, `near-miss-${kind}`, width, { workPackage: WORK_PACKAGE });
-  });
+for (const width of [375, 768, 1280]) {
+  for (const { kind, code } of CASES) {
+    test(`[FR-GRD-07] at ${String(width)} px a check that differs only in ${kind} says so`, async ({
+      page,
+    }) => {
+      const phone = width < 768;
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(LESSON);
+      await write(page, code, phone);
+      await expect(python(page)).toHaveAttribute("data-python", "ready", { timeout: READY_MS });
+      await button(page, words.check).click();
+      await expect(page.getByRole("heading", { name: words.summary(0, 2) })).toBeVisible();
+      // Both test cases miss the same way; the first failure is the open one.
+      const sentence = page
+        .getByText(`${words.failure("mismatch", 5)} ${words.nearMiss(kind)}`)
+        .first();
+      await expect(sentence).toBeVisible();
+      // The tests pane scrolls inside itself; the screen shows the sentence.
+      await sentence.scrollIntoViewIfNeeded();
+      await expect(sentence).toBeInViewport();
+      await noAxeViolations(page);
+      await saveScreen(page, `near-miss-${kind}`, width, { workPackage: WORK_PACKAGE });
+    });
+  }
 }

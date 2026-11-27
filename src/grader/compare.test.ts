@@ -128,6 +128,16 @@ describe("nearMiss", () => {
   it("[FR-GRD-07] names a missing last line", () => {
     expect(nearMiss("3\n2\n1\n", "3\n2\n1\nLift off", "normalized")).toBe("missing_last_line");
     expect(nearMiss("a", "a\nb", "exact")).toBe("missing_last_line");
+    // As print writes it in exact mode: every line, the last included, ends with a line break.
+    expect(nearMiss("3\n2\n1\n", "3\n2\n1\nLift off\n", "exact")).toBe("missing_last_line");
+  });
+
+  it("[FR-GRD-07] does not call a wrong number a punctuation slip", () => {
+    expect(nearMiss("35", "3.5", "normalized")).toBeUndefined();
+    expect(nearMiss("5", "-5", "normalized")).toBeUndefined();
+    expect(nearMiss("Total 1000", "Total 1,000", "normalized")).toBeUndefined();
+    // Punctuation away from digits still counts.
+    expect(nearMiss("Total 3", "Total: 3", "normalized")).toBe("punctuation");
   });
 
   it("[FR-GRD-07] names nothing when the output matches", () => {
@@ -168,9 +178,11 @@ describe("nearMiss", () => {
         case "spaces":
           return a.replace(/[^\S\n]/gu, "") === e.replace(/[^\S\n]/gu, "");
         case "punctuation":
-          return a.replace(/\p{P}/gu, "") === e.replace(/\p{P}/gu, "");
-        case "missing_last_line":
+          return a.replace(/(?<!\d)\p{P}(?!\d)/gu, "") === e.replace(/(?<!\d)\p{P}(?!\d)/gu, "");
+        case "missing_last_line": {
+          // Normalized text never ends with a line break, so a and e are whole lines.
           return e.startsWith(`${a}\n`) && !e.slice(a.length + 1).includes("\n");
+        }
       }
     });
   });

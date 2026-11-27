@@ -12,7 +12,7 @@ import { runAnnouncement } from "../client/workspace-view";
 // The home page's live editor (FR-LND-01), with the runtime and the editor
 // replaced: the program is on screen before the editor's code arrives,
 // Python is not started until the visitor runs or edits, and a Run pressed
-// before then is kept until Python is starting. e2e/home-editor-runtime.spec.ts
+// before then is kept until Python is starting. e2e/home-editor-journey.spec.ts
 // runs the real program in the real worker.
 
 const runtime = vi.hoisted(() => ({
@@ -164,5 +164,29 @@ describe("the home page's live editor", () => {
     });
     const box = container.querySelector("[data-home-editor] > div:nth-child(2)");
     expect(box?.className).toContain("h-(--home-editor-size)");
+  });
+});
+
+describe("the home page's live editor when the editor's code cannot be fetched", () => {
+  it("[FR-LND-01] keeps the program and Run, says the editor did not load, and leaves the page", async () => {
+    vi.resetModules();
+    vi.doMock("./code-editor", () => {
+      throw new Error("chunk failed");
+    });
+    const { HomeEditor: FreshEditor } = await import("./home-editor");
+    // React reports the caught error on the console; the test reads the page.
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(<FreshEditor nonce="nonce" />);
+    expect(await screen.findByText(homeWords.editorFailed)).toBeTruthy();
+    expect(
+      screen.getByText(
+        (_, element) => element?.tagName === "PRE" && element.textContent === homeWords.program,
+      ),
+    ).toBeTruthy();
+    expect(runButton()).toBeTruthy();
+    await userEvent.click(runButton());
+    expect(runtime.enabled.at(-1)).toBe(true);
+    quiet.mockRestore();
+    vi.doUnmock("./code-editor");
   });
 });

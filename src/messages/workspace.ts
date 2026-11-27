@@ -82,8 +82,8 @@ export function learnerErrorSuggestion(
 
 /**
  * One sentence on what a common Python error means, by the name of its type
- * (FR-WSP-23; section 6.5). Reviewed by the owner like lesson text. An error
- * not listed here shows Python's message alone.
+ * (FR-WSP-23; section 6.5). An error not listed here shows Python's message
+ * alone.
  */
 export const pythonErrorExplanations = {
   NameError:
@@ -96,7 +96,7 @@ export const pythonErrorExplanations = {
     "The program asked for a position past the end of a list or text, and positions start at 0.",
   KeyError: "The program asked a dictionary for a key it does not have.",
   AttributeError:
-    "This kind of value has nothing with that name after the dot, so check the spelling and what the value is.",
+    "The name after the dot does not belong to this kind of value, so check its spelling.",
   RecursionError: "A function kept calling itself and never stopped.",
   ModuleNotFoundError: "Python cannot find a module with this name, so check its spelling.",
   OverflowError: "A number grew too large for this operation.",

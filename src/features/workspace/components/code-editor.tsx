@@ -132,9 +132,15 @@ export function CodeEditor({
     editor.focus();
   }, [goToLine]);
 
+  // The request a newly built editor has already seen: crossing 768 px
+  // rebuilds the editor with the page's last request still set, and that
+  // symbol must not go in a second time.
+  const seenInsert = useRef(insert?.request);
   useEffect(() => {
     const editor = view.current;
     if (editor === null || insert === undefined) return;
+    if (seenInsert.current !== undefined && insert.request <= seenInsert.current) return;
+    seenInsert.current = insert.request;
     const text = typeof insert.text === "string" ? insert.text : editor.state.facet(indentUnit);
     editor.dispatch(editor.state.replaceSelection(text), {
       scrollIntoView: true,

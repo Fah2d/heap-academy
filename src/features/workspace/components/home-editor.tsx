@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  Component,
   lazy,
+  type ReactNode,
   Suspense,
   useCallback,
   useEffect,
@@ -29,6 +31,26 @@ import { PythonStatus } from "./python-status";
 const CodeEditor = lazy(() =>
   import("./code-editor").then((module) => ({ default: module.CodeEditor })),
 );
+
+/**
+ * When the editor's code cannot be fetched (a dropped connection, a deploy
+ * between the page and its load event), the box keeps the program as plain
+ * text and Run still runs it; the rest of the home page stays.
+ */
+class EditorBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 const subscribeToNothing = () => () => undefined;
 let support: boolean | undefined;
@@ -146,14 +168,17 @@ export function HomeEditor({ nonce }: { nonce: string }) {
     );
   }
 
-  const fallback = (
+  // The program as plain text: until the editor arrives, and for good when it
+  // cannot. Only the lasting one takes focus, so the keyboard can scroll it.
+  const programText = (lasting: boolean) => (
     <div
-      data-home-program
-      className="code-surface h-full overflow-auto rounded-panel border border-border-control"
+      {...(lasting && { tabIndex: 0, role: "region", "aria-label": homeWords.programLabel })}
+      className="code-surface min-h-0 flex-1 overflow-auto rounded-panel border border-border-control focus-visible:-outline-offset-2"
     >
       <pre className="px-3 py-3 font-mono text-code text-text">{code}</pre>
     </div>
   );
+  const fallback = programText(false);
 
   return (
     <section
@@ -168,18 +193,27 @@ export function HomeEditor({ nonce }: { nonce: string }) {
         </h2>
         <p className="text-base text-text-muted">{homeWords.intro}</p>
       </div>
-      <div className="h-(--home-editor-size)">
+      <div className="flex h-(--home-editor-size) flex-col">
         {editorWanted ? (
-          <Suspense fallback={fallback}>
-            <CodeEditor
-              labelledBy={labelId}
-              value={code}
-              onChange={edit}
-              nonce={nonce}
-              fill
-              goToLine={goToLine}
-            />
-          </Suspense>
+          <EditorBoundary
+            fallback={
+              <div className="flex h-full flex-col gap-2">
+                {programText(true)}
+                <p className="text-sm text-text-muted">{homeWords.editorFailed}</p>
+              </div>
+            }
+          >
+            <Suspense fallback={fallback}>
+              <CodeEditor
+                labelledBy={labelId}
+                value={code}
+                onChange={edit}
+                nonce={nonce}
+                fill
+                goToLine={goToLine}
+              />
+            </Suspense>
+          </EditorBoundary>
         ) : (
           fallback
         )}

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { courseEditor } from "../src/messages/admin";
-import { removeAdmin, signInAsAdmin, sql } from "./admin-helpers";
+import { removeAdmin, signInAsAdmin, sql, sqlRows } from "./admin-helpers";
 import { noAxeViolations } from "./journeys";
 import { saveScreen } from "./screens";
 
@@ -12,7 +12,8 @@ import { saveScreen } from "./screens";
 
 const stamp = String(Date.now());
 const SLUG = `counts-${stamp}`;
-const TITLE = `Counts ${stamp}`;
+// One fixed title for the screen; the address is unique to this run.
+const TITLE = "Python basics";
 const LEARNERS = [1, 2, 3].map((n) => `counts-${stamp}-${String(n)}@example.test`);
 
 test.beforeAll(() => {
@@ -58,7 +59,8 @@ test("[FR-ADM-13] the course editor shows each lesson's completion count from th
   const address = `admin-counts-${stamp}@example.test`;
   await signInAsAdmin(page, request, address);
   try {
-    await page.getByRole("link", { name: TITLE }).click();
+    const course = sqlRows(`select id from public.courses where slug = '${SLUG}'`)[0]?.[0] ?? "";
+    await page.goto(`/admin/courses/${course}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(courseEditor.editTitle(TITLE));
     const rows = page
       .getByRole("list", { name: courseEditor.chapterLessonsLabel("First steps") })

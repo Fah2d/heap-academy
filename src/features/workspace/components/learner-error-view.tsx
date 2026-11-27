@@ -29,8 +29,11 @@ export function LearnerErrorView({
   headingLevel?: 3 | 5;
 }) {
   const facts = errorFacts(error.line);
-  // What a common Python error means takes the suggestion's place (FR-WSP-23).
-  const suggestion = errorExplanation(error) ?? learnerErrorSuggestion(error.kind, facts, strategy);
+  // What a common Python error means takes the suggestion's place, read
+  // right after Python's message (FR-WSP-23; section 6.5).
+  const explanation = errorExplanation(error);
+  const suggestion =
+    explanation === undefined ? learnerErrorSuggestion(error.kind, facts, strategy) : undefined;
   const Heading = headingLevel === 3 ? "h3" : "h5";
   return (
     <div
@@ -49,6 +52,7 @@ export function LearnerErrorView({
           {error.message}
         </pre>
       )}
+      {explanation !== undefined && <p className="text-base text-text">{explanation}</p>}
       {error.line !== undefined && (
         <div>
           <Button

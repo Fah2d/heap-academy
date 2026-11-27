@@ -68,7 +68,24 @@ for (const width of [320, 375]) {
       );
       expect(overflow).toBeLessThanOrEqual(0);
       await noAxeViolations(page);
+      // The screen shows the row from its first key.
+      await row(page).evaluate((element) => {
+        element.scrollLeft = 0;
+      });
       await saveScreen(page, "symbol-row", width, { workPackage: WORK_PACKAGE, fullPage: false });
+
+      // With an on-screen keyboard (about 300 px), the bar rides on it and
+      // the editor keeps room above. Set as the workspace sets it from the
+      // visual viewport, which an emulated phone has no keyboard to change.
+      await page.locator("[data-workspace]").evaluate((element) => {
+        (element as HTMLElement).style.setProperty("--keyboard-inset", "300px");
+      });
+      await expect(row(page)).toBeInViewport();
+      await expect(editor(page)).toBeInViewport();
+      await saveScreen(page, "symbol-row-keyboard", width, {
+        workPackage: WORK_PACKAGE,
+        fullPage: false,
+      });
     });
   });
 }

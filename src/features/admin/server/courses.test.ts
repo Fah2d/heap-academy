@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { editorCourse, summarizeCourses } from "./courses";
+import type { SessionClient } from "@/infrastructure/db/session-client";
+import { courseForEditor, editorCourse, summarizeCourses } from "./courses";
 
 vi.mock("server-only", () => ({}));
 
@@ -93,5 +94,34 @@ describe("editorCourse [FR-ADM-13]", () => {
 
   it("still says there is no such course", () => {
     expect(editorCourse(null, [])).toEqual({ ok: true, course: null });
+  });
+});
+
+describe("courseForEditor [FR-ADM-13]", () => {
+  /** A session whose course read and counts call answer as given. */
+  const session = (course: unknown, counts: { data: unknown; error: unknown }) =>
+    ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({ maybeSingle: () => Promise.resolve({ data: course, error: null }) }),
+        }),
+      }),
+      rpc: (name: string) => {
+        expect(name).toBe("lesson_completion_counts");
+        return Promise.resolve(counts);
+      },
+    }) as unknown as SessionClient;
+
+  it("fails the read when the database refuses the counts", async () => {
+    await expect(
+      courseForEditor(session(null, { data: null, error: { code: "42501" } }), id),
+    ).resolves.toEqual({ ok: false });
+  });
+
+  it("reads the course and the counts through the same session", async () => {
+    await expect(courseForEditor(session(null, { data: [], error: null }), id)).resolves.toEqual({
+      ok: true,
+      course: null,
+    });
   });
 });

@@ -502,7 +502,8 @@ export function Workspace({
   );
 
   // Below 768 px the bar has no icons and no keys, so it fits one row at 320 px.
-  // In the Code view the symbol row sits above it, on the keyboard (FR-WSP-21).
+  // In the Code view the symbol row ends the bar, so it sits right on the
+  // keyboard (FR-WSP-21).
   const actions = (
     <div
       ref={actionBar}
@@ -513,7 +514,6 @@ export function Workspace({
           : narrow === undefined && "max-md:hidden",
       )}
     >
-      {phone && phoneView === "code" && <SymbolRow onInsert={insertSymbol} />}
       <Button
         variant="secondary"
         {...(!phone && { icon: <Play size={16} /> })}
@@ -564,6 +564,7 @@ export function Workspace({
           dispatch({ type: "RETRY" });
         }}
       />
+      {phone && phoneView === "code" && <SymbolRow onInsert={insertSymbol} />}
     </div>
   );
 

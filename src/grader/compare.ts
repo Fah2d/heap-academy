@@ -42,7 +42,9 @@ export function matches(actual: string, expected: string, mode: MatchMode): bool
 export type NearMiss = "letter_case" | "spaces" | "punctuation" | "missing_last_line";
 
 const HORIZONTAL_SPACE = /[^\S\n]/gu;
-const PUNCTUATION = /\p{P}/gu;
+// Punctuation beside a digit is part of a number, such as the point in 3.5
+// or the sign in -5: "35" for "3.5" is a wrong answer, not a slip in commas.
+const PUNCTUATION = /(?<!\d)\p{P}(?!\d)/gu;
 
 /**
  * The one way `actual` almost matches `expected` under `mode`, or undefined
@@ -57,8 +59,11 @@ export function nearMiss(actual: string, expected: string, mode: MatchMode): Nea
   if (a.toLowerCase() === e.toLowerCase()) return "letter_case";
   if (a.replace(HORIZONTAL_SPACE, "") === e.replace(HORIZONTAL_SPACE, "")) return "spaces";
   if (a.replace(PUNCTUATION, "") === e.replace(PUNCTUATION, "")) return "punctuation";
-  const actualLines = a.split("\n");
-  const expectedLines = e.split("\n");
+  // In exact mode both texts usually end with print's line break; it ends
+  // the last line and is not a line of its own.
+  const bothEnd = a.endsWith("\n") && e.endsWith("\n");
+  const actualLines = (bothEnd ? a.slice(0, -1) : a).split("\n");
+  const expectedLines = (bothEnd ? e.slice(0, -1) : e).split("\n");
   const last = expectedLines.at(-1) ?? "";
   if (
     a !== "" &&

@@ -42,8 +42,12 @@ export const home = {
 
 /** The live editor on the home page (FR-LND-01). */
 export const homeEditor = {
-  heading: "Try it",
-  intro: "This is a real Python program. Change it, then press Run: it runs in your browser.",
+  heading: "A Python program you can change",
+  intro: "Change it, then press Run.",
+  /** The read-only program's name, when the editor could not be fetched. */
+  programLabel: "The program, read-only",
+  /** When the editor's code could not be fetched: the program stays, read-only. */
+  editorFailed: "The editor did not load, so this program cannot be changed. Run still runs it.",
   /** The program the editor opens with: short, with output a beginner can predict. */
   program:
     'name = "Sara"\nprint("Hello, " + name + "!")\nfor letter in name:\n    print(letter)\nprint("Done.")',
