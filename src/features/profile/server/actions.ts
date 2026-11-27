@@ -1,6 +1,7 @@
 "use server";
 
 import "server-only";
+import { SIGN_IN_PER_MINUTE } from "@/infrastructure/actions/action-counter";
 import { defineAction } from "@/infrastructure/actions/server-action";
 import {
   deleteAccount as deleteAccountUseCase,
@@ -31,6 +32,8 @@ export const deleteAccount = defineAction({
   access: "signed-in",
   input: deleteAccountInput,
   maxBytes: MAX_DELETE_BYTES,
+  // Lower than the default, as for sign-in (docs/spec/07-operations.md section 7).
+  perMinute: SIGN_IN_PER_MINUTE,
   run: async (_input, { caller, services, requestId }) => {
     const ports = deletionPorts(async () => (await services.db.auth.getClaims()).data?.claims);
     if (ports === null) return { ok: false as const, error: "unavailable" as const };

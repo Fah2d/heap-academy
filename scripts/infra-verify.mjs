@@ -8,6 +8,7 @@
 //
 // Usage:
 //   infra-verify.mjs --url <base URL> [--page <path>] [--release <sha>] [--repo OWNER/REPO]
+//                    [--auth <project ref>]
 //
 //   --url      the deployment to check, such as http://127.0.0.1:3100 or the
 //              production address. The deploy workflow's smoke step runs this.
@@ -24,6 +25,15 @@
 //              secrets, and the three environments (main only; the owner
 //              approves production). Needs Administration and Secrets read,
 //              so the owner runs it.
+//   --auth     also check the auth provider settings of the Supabase project
+//              with this reference (WP-7.1, T-11; docs/runbooks/
+//              infrastructure-setup.md section 10): redirect addresses, code
+//              length and lifetime, the email limit, the bot challenge, the
+//              email sender and templates, sign-up, and the second step. It
+//              reads the project's auth configuration through the Supabase
+//              Management API with SUPABASE_ACCESS_TOKEN from the environment
+//              (the owner's token, with auth configuration read), and prints
+//              no secret it holds.
 //
 // Exit codes: 0 every check passed, 1 a check failed, 2 usage error.
 
@@ -643,6 +653,181 @@ export function verifyRepository(repo, api = ghApi) {
   return checks;
 }
 
+/** The auth settings of docs/runbooks/infrastructure-setup.md section 10. */
+export const AUTH_SETTINGS = {
+  otpSeconds: 600,
+  otpLength: 6,
+  emailsPerHour: 20,
+  // The provider's defaults, which the runbook keeps (Supabase "Rate limits",
+  // read 2026-11-26): per address and 5 minutes, code checks 30, code and
+  // sign-in requests 30, token requests 150. Lower is stricter, so it passes.
+  verifiesPerWindow: 30,
+  signInsPerWindow: 30,
+  tokensPerWindow: 150,
+  smtpHost: "smtp.resend.com",
+  smtpPort: "465",
+  sender: "signin@heapacademy.dev",
+  subject: "Your Heap Academy sign-in code",
+};
+
+/**
+ * Reads a project's auth configuration from the Supabase Management API.
+ * @param {string} ref
+ * @param {string} token
+ * @returns {Promise<unknown>}  undefined when it cannot be read
+ */
+async function managementAuthConfig(ref, token) {
+  try {
+    const response = await fetch(
+      `https://api.supabase.com/v1/projects/${encodeURIComponent(ref)}/config/auth`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        redirect: "manual",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      },
+    );
+    if (!response.ok) {
+      process.stderr.write(`Supabase auth config of ${ref}: HTTP ${String(response.status)}\n`);
+      return undefined;
+    }
+    return await response.json();
+  } catch (error) {
+    process.stderr.write(
+      `Supabase auth config of ${ref}: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return undefined;
+  }
+}
+
+/**
+ * The redirect addresses: this site's /auth/callback, or the runbook's
+ * preview pattern for this project and one Vercel account
+ * (`https://heap-academy-*-<account>.vercel.app/auth/callback`), never a
+ * wildcard over all of vercel.app (docs/spec/07-operations.md section 1).
+ * @param {string} list  comma-separated, as the provider stores it
+ * @param {string} origin
+ * @returns {string[]}  the entries that break the rule
+ */
+export function redirectProblems(list, origin) {
+  const preview =
+    /^https:\/\/heap-academy-\*-[a-z0-9]+(?:-[a-z0-9]+)*\.vercel\.app\/auth\/callback$/;
+  return list
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "")
+    .filter((entry) => entry !== `${origin}/auth/callback` && !preview.test(entry));
+}
+
+/**
+ * The auth provider settings of T-11 and section 10 of the setup runbook.
+ * Details name values that are not secret; the SMTP password and the
+ * challenge secret are never read into a detail.
+ * @param {unknown} config  the Management API's answer, or undefined
+ * @param {string} origin  the site's origin, from --url
+ * @returns {Check[]}
+ */
+export function verifyAuth(config, origin) {
+  if (config === undefined) {
+    return [check("the auth configuration can be read", false, "could not be read")];
+  }
+  const value = record(config);
+  const shown = (/** @type {string} */ key) => {
+    const item = value[key];
+    return item === undefined || item === null ? "absent" : String(item);
+  };
+  const is = (
+    /** @type {string} */ key,
+    /** @type {unknown} */ expected,
+    /** @type {string} */ name,
+  ) => check(name, value[key] === expected, shown(key));
+  const atMost = (
+    /** @type {string} */ key,
+    /** @type {number} */ limit,
+    /** @type {string} */ name,
+  ) => {
+    const item = value[key];
+    return check(name, typeof item === "number" && item >= 1 && item <= limit, shown(key));
+  };
+  const list = typeof value["uri_allow_list"] === "string" ? value["uri_allow_list"] : "";
+  const entries = list
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "");
+  const wrong = redirectProblems(list, origin);
+  /** @type {Check[]} */
+  const checks = [
+    is("site_url", origin, "site URL is this site"),
+    check(
+      "redirect addresses: this site's callback, no wildcard over vercel.app",
+      entries.includes(`${origin}/auth/callback`) && wrong.length === 0,
+      wrong.length > 0
+        ? `not allowed: ${wrong.join(", ")}`
+        : entries.length === 0
+          ? "none"
+          : entries.join(", "),
+    ),
+    is("mailer_otp_exp", AUTH_SETTINGS.otpSeconds, "email code lifetime 600 s"),
+    is("mailer_otp_length", AUTH_SETTINGS.otpLength, "email code length 6"),
+    is("rate_limit_email_sent", AUTH_SETTINGS.emailsPerHour, "email sends per hour 20 (ADR-0029)"),
+    atMost(
+      "rate_limit_verify",
+      AUTH_SETTINGS.verifiesPerWindow,
+      "code checks at most 30 per 5 minutes",
+    ),
+    atMost(
+      "rate_limit_otp",
+      AUTH_SETTINGS.signInsPerWindow,
+      "code and sign-in requests at most 30 per 5 minutes",
+    ),
+    atMost(
+      "rate_limit_token_refresh",
+      AUTH_SETTINGS.tokensPerWindow,
+      "token requests at most 150 per 5 minutes",
+    ),
+    is("external_anonymous_users_enabled", false, "anonymous sign-ins off"),
+    is("security_captcha_enabled", true, "bot challenge on"),
+    is("security_captcha_provider", "turnstile", "bot challenge is Turnstile"),
+    is("external_email_enabled", true, "email sign-in on"),
+    is("disable_signup", false, "new users may sign up (T-11: one answer for every address)"),
+    is("mailer_autoconfirm", false, "confirm email on"),
+    is("smtp_host", AUTH_SETTINGS.smtpHost, "email sender host"),
+    is("smtp_port", AUTH_SETTINGS.smtpPort, "email sender port"),
+    is("smtp_admin_email", AUTH_SETTINGS.sender, "email sender address"),
+    is("external_google_enabled", true, "Google sign-in on"),
+    is("mfa_totp_enroll_enabled", true, "authenticator app enrollment on"),
+    is("mfa_totp_verify_enabled", true, "authenticator app verification on"),
+    is("mfa_phone_enroll_enabled", false, "phone second step off"),
+  ];
+  for (const [kind, label] of [
+    ["magic_link", "magic link"],
+    ["confirmation", "confirm signup"],
+  ]) {
+    const subject = value[`mailer_subjects_${kind}`];
+    const body = value[`mailer_templates_${kind}_content`];
+    checks.push(
+      check(
+        `${label} email subject`,
+        subject === AUTH_SETTINGS.subject,
+        shown(`mailer_subjects_${kind}`),
+      ),
+      check(
+        `${label} email shows the code and no link (FR-AUTH-02)`,
+        typeof body === "string" &&
+          body.includes("{{ .Token }}") &&
+          !body.includes("{{ .ConfirmationURL }}"),
+        typeof body !== "string"
+          ? "absent"
+          : body.includes("{{ .ConfirmationURL }}")
+            ? "has a link"
+            : body.includes("{{ .Token }}")
+              ? "code, no link"
+              : "no code",
+      ),
+    );
+  }
+  return checks;
+}
+
 /** @param {Check[]} checks */
 function print(checks) {
   for (const { name, status, detail } of checks) {
@@ -662,7 +847,7 @@ export async function main(argv) {
     const value = argv[index + 1];
     if (!flag?.startsWith("--") || value === undefined) {
       process.stderr.write(
-        "usage: infra-verify.mjs --url <base URL> [--page <path>] [--release <sha>] [--repo OWNER/REPO]\n",
+        "usage: infra-verify.mjs --url <base URL> [--page <path>] [--release <sha>] [--repo OWNER/REPO] [--auth <project ref>]\n",
       );
       return 2;
     }
@@ -692,6 +877,15 @@ export async function main(argv) {
     ];
   }
   if (options["repo"] !== undefined) checks.push(...verifyRepository(options["repo"]));
+  const ref = options["auth"];
+  if (ref !== undefined) {
+    const token = process.env["SUPABASE_ACCESS_TOKEN"];
+    if (token === undefined || token === "") {
+      process.stderr.write("infra-verify: --auth needs SUPABASE_ACCESS_TOKEN\n");
+      return 2;
+    }
+    checks.push(...verifyAuth(await managementAuthConfig(ref, token), new URL(url).origin));
+  }
   print(checks);
   const failed = checks.filter((item) => item.status === "fail").length;
   process.stdout.write(

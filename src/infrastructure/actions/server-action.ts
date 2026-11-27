@@ -1,6 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
 import { createActionFactory } from "@/infrastructure/actions/define-action";
+import { requestCounter } from "@/infrastructure/actions/request-counter";
 import {
   type SignInProvider,
   supabaseSignInProvider,
@@ -21,9 +22,10 @@ import {
 import { log } from "@/infrastructure/logging/logger";
 
 // The real context of every server action (docs/spec/02-architecture.md
-// section 9.1): this request's ID from proxy.ts, a session client for the
-// caller's own cookies, identity from verified claims, and the database's
-// answer to whether this session is an admin.
+// section 9.1): this request's ID from proxy.ts, the per-action counter for
+// this request's network address (T-14), a session client for the caller's
+// own cookies, identity from verified claims, and the database's answer to
+// whether this session is an admin.
 
 export type ActionServices = {
   /** The caller's own session: row level security decides every read and write. */
@@ -39,10 +41,14 @@ export type ActionServices = {
 
 export const defineAction = createActionFactory<ActionServices>({
   async context() {
-    const requestId = parseRequestId((await headers()).get(REQUEST_ID_HEADER)) ?? createRequestId();
+    const requestHeaders = await headers();
+    const requestId = parseRequestId(requestHeaders.get(REQUEST_ID_HEADER)) ?? createRequestId();
     const db = await createSessionClient("read-write");
     return {
       requestId,
+      // Through a client with no session: the signature is the counter's
+      // authority, so a stale session cookie cannot stop the count.
+      count: requestCounter(requestHeaders),
       identify: () => verifiedIdentity(db),
       async isAdmin() {
         // A failed check is a refusal. The database refuses an admin's

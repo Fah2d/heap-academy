@@ -32,6 +32,7 @@ describe("bundle secret check", () => {
       "SUPABASE_SECRET_KEY",
       "DELETION_NOTICE_FROM",
       "DELETION_NOTICE_TO",
+      "ACTION_COUNTER_KEY",
       "HEAP_RELEASE",
     ]);
     expect(serverVariableNames("# comment\nNEXT_PUBLIC_A=1\nB_SECRET=2\n")).toEqual(["B_SECRET"]);

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CountResult } from "@/infrastructure/actions/action-counter";
 import type { LogEntry } from "@/infrastructure/logging/logger";
 import {
   handleCspReport,
@@ -9,6 +10,18 @@ import {
 import { healthResponse } from "./health";
 
 vi.mock("server-only", () => ({}));
+// Every report is counted first (T-14); this counter allows each one unless a
+// test says otherwise.
+const counter = vi.hoisted(() => ({
+  count: vi.fn(async (_action: string, _perMinute: number): Promise<CountResult> => "allowed"),
+  headers: [] as Pick<Headers, "get">[],
+}));
+vi.mock("@/infrastructure/actions/request-counter", () => ({
+  requestCounter: (headers: Pick<Headers, "get">) => {
+    counter.headers.push(headers);
+    return counter.count;
+  },
+}));
 
 const ORIGIN = "https://heap.test";
 
@@ -130,6 +143,37 @@ describe("content security policy reports", () => {
     const response = await handleCspReport(post(huge, "application/csp-report"), log);
     expect(response.status).toBe(413);
     expect(entries).toEqual([]);
+  });
+
+  it("[T-14] counts each report for its request at 120 a minute, before reading the body", async () => {
+    counter.count.mockClear();
+    counter.headers.length = 0;
+    const request = post(legacy, "application/csp-report", { "x-real-ip": "203.0.113.7" });
+    expect((await handleCspReport(request, () => undefined)).status).toBe(204);
+    expect(counter.count.mock.calls).toEqual([["csp-report", 120]]);
+    expect(counter.headers[0]?.get("x-real-ip")).toBe("203.0.113.7");
+  });
+
+  it("[T-14] refuses a report over the limit with 429, unread and unlogged", async () => {
+    const { entries, log } = collect();
+    const request = post(legacy, "application/csp-report");
+    const response = await handleCspReport(request, log, async () => "refused");
+    expect(response.status).toBe(429);
+    expect(request.bodyUsed).toBe(false);
+    expect(entries).toEqual([]);
+  });
+
+  it("[T-14] answers 503 and logs an error when the counter does not answer", async () => {
+    const { entries, log } = collect();
+    const response = await handleCspReport(
+      post(legacy, "application/csp-report"),
+      log,
+      async () => "unavailable",
+    );
+    expect(response.status).toBe(503);
+    expect(entries).toEqual([
+      expect.objectContaining({ level: "error", outcome: "error:counter-unavailable" }),
+    ]);
   });
 
   it("[NFR-SEC-02] refuses another content type with 415", async () => {

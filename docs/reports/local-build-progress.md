@@ -14,6 +14,16 @@ Work done in sessions while the owner was away, and what is left for the owner t
 - `pnpm verify` exit 0, 153 files, 2737 tests. e2e as CI runs it: 222 passed, 1 skipped, exit 0. Not run: `pnpm test:db`.
 - Push: `wp/7.2-a11y-perf`, once.
 
+## Session of 2026-11-26 (evening), on `wp/7.1-security-canary`: `main` at 23cfb4b and `wp/7.1-rate-limits` merged in; WP-7.1 part 4
+
+Owner's order for phase 7: 7.1, 7.2, 7.3, 7.4 (with 7.4 part 2b), each with `main` merged first, e2e as CI runs it, `pnpm verify`, one push. Work in worktrees under `.claude/worktrees/` (git rerere on), so the main checkout's unstaged screenshots stayed as they were.
+
+- Merges: `origin/main` (2c4bf02): screenshots taken from `main`; the admin gallery, `Button` and chapter list from `main`, which had already fixed what 7.2 part 1 fixed; this file as the union of both copies. `origin/wp/7.1-rate-limits`: `.env.example`, the environment schema and the bundle test with both sides; mock contexts in four action tests given `count`; the migration renamed to sort after `main`'s newest.
+- Built: deletion at the lower limit (T-14); `infra:verify --auth`, the provider settings check (T-11); the whole-application security review (no blocker; 1 MAJOR fixed; 3 MINOR to the owner).
+- e2e as CI (`/tmp` script: `supabase db reset`, the stack's keys from `supabase status`, `CI=true`, `--project=chromium --project=stack --project=gallery`): first run 3 failures (the canary's 404 behind the cached list, twice; catalog's whole-list count race), fixed; then `218 passed`, `1 skipped`, exit 0. `pnpm test:db`: 426 pass. `pnpm verify`: exit 0, 2773 tests.
+- Flaky, not fixed here: `[NFR-PERF-06]` in `src/grader/node-runner/runner.test.ts` failed twice under load (963 ms against 500 ms; once in the review, once in the 7.3 merge's run), and passes alone. It is a wall-clock limit on a shared machine; reported to the owner.
+- Push: `wp/7.1-security-canary`, once.
+
 ## Session of 2026-11-26 (evening), on `wp/7.3-operations`: `main` at 23cfb4b merged in, part 6
 
 - `main` merged in (f33e346). Then part 6: the nightly encrypted backup, the checked restore, the verify script, the restore and deletion-request runbooks, the backup secrets' rotation, the drill records, and ADR-0030's text amended as proposed (`pull-requests/WP-7.3-part-6.md`, `reviews/WP-7.3/security-review-8.md`).

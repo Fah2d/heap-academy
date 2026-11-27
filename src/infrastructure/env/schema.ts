@@ -49,8 +49,25 @@ export const publicEnvironmentSchema = z.object({
 export { RELEASE_LOCAL };
 const release = z.string().regex(RELEASE_PATTERN, "must be a full commit SHA or local").optional();
 
+// The key the server signs each action counter call with (T-14). The same
+// value is the Vault secret `action_counter_key`; at least 32 characters.
+// The local value in .env.example is public, so a Vercel deployment refuses
+// it (VERCEL_ENV is set by Vercel when its system variables are exposed).
+const actionCounterKey = z.string().min(32, "must be at least 32 characters");
+export const LOCAL_ACTION_COUNTER_KEY = "local-only-action-counter-key-not-a-secret";
+
+function refuseLocalKeyOnVercel(key: string, source: Source): void {
+  const deployed = source["VERCEL_ENV"] === "preview" || source["VERCEL_ENV"] === "production";
+  if (deployed && key === LOCAL_ACTION_COUNTER_KEY) {
+    throw new EnvironmentError(
+      "Invalid environment. See .env.example.\n  ACTION_COUNTER_KEY: must not be the public local value on Vercel",
+    );
+  }
+}
+
 export const serverEnvironmentSchema = z.object({
   RESEND_API_KEY: required,
+  ACTION_COUNTER_KEY: actionCounterKey,
   HEAP_RELEASE: release,
   // Account deletion (FR-PRF-03). All three or none: with none, the profile
   // offers no deletion. The key bypasses row level security.
@@ -104,6 +121,7 @@ export function parseEnvironment(source: Source): {
         .join("\n")}`,
     );
   }
+  refuseLocalKeyOnVercel(all.ACTION_COUNTER_KEY, source);
   return {
     public: {
       NEXT_PUBLIC_SUPABASE_URL: all.NEXT_PUBLIC_SUPABASE_URL,
@@ -112,6 +130,7 @@ export function parseEnvironment(source: Source): {
     },
     server: {
       RESEND_API_KEY: all.RESEND_API_KEY,
+      ACTION_COUNTER_KEY: all.ACTION_COUNTER_KEY,
       HEAP_RELEASE: all.HEAP_RELEASE ?? RELEASE_LOCAL,
       SUPABASE_SECRET_KEY: all.SUPABASE_SECRET_KEY,
       DELETION_NOTICE_FROM: all.DELETION_NOTICE_FROM,
@@ -140,6 +159,19 @@ export function deletionEnvironment(source: Source): DeletionEnvironment | null 
     noticeFrom: DELETION_NOTICE_FROM,
     noticeTo: DELETION_NOTICE_TO,
   };
+}
+
+/**
+ * Parses only the action counter key, for the action wrapper, which needs no
+ * other server variable. The server has checked every variable at start.
+ */
+export function parseActionCounterKey(source: Source): string {
+  const key = parseWith(
+    z.object({ ACTION_COUNTER_KEY: actionCounterKey }),
+    source,
+  ).ACTION_COUNTER_KEY;
+  refuseLocalKeyOnVercel(key, source);
+  return key;
 }
 
 function parseWith<Schema extends z.ZodObject>(schema: Schema, source: Source): z.infer<Schema> {

@@ -71,7 +71,7 @@ test.describe("Python runtime", () => {
     await expect(output(page)).toContainText("NameError");
   });
 
-  test("[FR-RUN-02] [NFR-REL-03] stops while True: pass at the limit, and the next run works within 5 s", async ({
+  test("[FR-RUN-02] [NFR-REL-03] [T-02] stops while True: pass at the limit, and the next run works within 5 s", async ({
     page,
   }) => {
     await runProgram(page, "while True: pass");
@@ -94,7 +94,9 @@ test.describe("Python runtime", () => {
     await expect(outcome(page)).toHaveAttribute("data-outcome", "stopped");
   });
 
-  test("[FR-RUN-03] caps a print flood at 64,000 characters and says so", async ({ page }) => {
+  test("[FR-RUN-03] [T-02] caps a print flood at 64,000 characters and says so", async ({
+    page,
+  }) => {
     await runProgram(page, 'while True:\n    print("x" * 99)');
     await expect(outcome(page)).toHaveAttribute("data-outcome", "output_limit", {
       timeout: 15_000,
@@ -108,7 +110,7 @@ test.describe("Python runtime", () => {
     await expect(output(page)).toHaveText("after\n");
   });
 
-  test("[FR-RUN-06] [NFR-REL-03] recovers from a memory bomb without a reload", async ({
+  test("[FR-RUN-06] [NFR-REL-03] [T-02] recovers from a memory bomb without a reload", async ({
     page,
   }) => {
     await runProgram(page, 'data = []\nwhile True:\n    data.append(" " * 10_000_000)');

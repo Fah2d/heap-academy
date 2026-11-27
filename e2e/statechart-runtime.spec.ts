@@ -62,7 +62,7 @@ test("[FR-GRD-01] the example solution passes its check and the lesson region pa
   await expect(chart(page)).toHaveAttribute("data-chart-state", "ready");
 });
 
-test("[FR-RUN-02] [FR-WSP-07] a runaway loop is stopped at the limit and Python comes back", async ({
+test("[FR-RUN-02] [FR-WSP-07] [T-02] a runaway loop is stopped at the limit and Python comes back", async ({
   page,
 }) => {
   await ready(page);

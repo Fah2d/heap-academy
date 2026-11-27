@@ -193,6 +193,14 @@ Do this for each project, with that project's own values.
 
 Check: request a code for your own address on the staging project with **Authentication → Users → Send magic link**, and see a six-digit code from `signin@heapacademy.dev`, not a link.
 
+Check the settings of steps 1 to 8 from your machine, for each project, with a Supabase personal access token that can read auth configuration (**Account → Access Tokens**; delete it afterwards). It prints no secret:
+
+```sh
+SUPABASE_ACCESS_TOKEN=<token> pnpm infra:verify --url https://<domain> --auth <project ref>
+```
+
+For staging, `--url` is the staging site URL of step 1. Paste the output into the day 7 security report.
+
 ## 11. Make the repository public (only after the history scan)
 
 ADR-0029. The order matters: once public, anything in the history is public.

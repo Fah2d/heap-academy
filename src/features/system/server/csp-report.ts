@@ -1,5 +1,7 @@
 import "server-only";
 import { z } from "zod";
+import { DEFAULT_PER_MINUTE, type CountResult } from "@/infrastructure/actions/action-counter";
+import { requestCounter } from "@/infrastructure/actions/request-counter";
 import { parseRequestId, REQUEST_ID_HEADER } from "@/infrastructure/http/request-id";
 import { log as serverLog, type Logger } from "@/infrastructure/logging/logger";
 import { logRoute } from "@/infrastructure/logging/route";
@@ -11,7 +13,9 @@ import { readCapped } from "./read-capped";
 // (Chromium, WebKit). The body is untrusted: it is size-capped and parsed,
 // and it is reduced to codes before anything is logged. An address in a
 // report could hold personal data (.claude/rules/server.md), so none is
-// kept: only the directive and the kind of thing that was blocked.
+// kept: only the directive and the kind of thing that was blocked. Each
+// request is counted per network address before its body is read, like a
+// server action (T-14, docs/spec/07-operations.md section 7).
 
 /** At most 8 kB (docs/spec/07-operations.md section 7). */
 export const MAX_REPORT_BYTES = 8000;
@@ -159,10 +163,27 @@ export function parseCspReport(contentType: string, body: string, origin: string
   };
 }
 
+/** The name the endpoint is counted under. */
+export const CSP_REPORT_COUNTER = "csp-report";
+
 export async function handleCspReport(
   request: Request,
   log: Logger = serverLog,
+  count: (action: string, perMinute: number) => Promise<CountResult> = requestCounter(
+    request.headers,
+  ),
 ): Promise<Response> {
+  const counted = await count(CSP_REPORT_COUNTER, DEFAULT_PER_MINUTE);
+  if (counted === "refused") return new Response(null, { status: 429 });
+  if (counted === "unavailable") {
+    log({
+      level: "error",
+      requestId: parseRequestId(request.headers.get(REQUEST_ID_HEADER)) ?? "none",
+      route: logRoute("POST", new URL(request.url).pathname),
+      outcome: "error:counter-unavailable",
+    });
+    return new Response(null, { status: 503 });
+  }
   const contentType = (request.headers.get("content-type") ?? "").split(";")[0]?.trim() ?? "";
   if (contentType !== LEGACY_TYPE && contentType !== REPORTING_TYPE) {
     return new Response(null, { status: 415 });
