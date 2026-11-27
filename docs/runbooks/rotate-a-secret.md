@@ -199,7 +199,7 @@ Someone signed in to your GitHub, Vercel, Supabase, Resend, Google, or registrar
 
 ## 10. The backup role's password (`BACKUP_DB_PASSWORD`)
 
-The password of `backup_reader`, the read-only role the nightly backup connects as (ADR-0030, `restore.md` section 2). It reads every row of `public`, `private` and `auth`, past row level security, so it is a production secret. It changes nothing. Routine and exposure use the same order: the change is the removal.
+The password of `backup_reader`, the read-only role the nightly backup connects as (ADR-0030, `restore.md` section 2). Through `pg_read_all_data` it reads every row of every schema, past row level security, and `vault.secrets` as ciphertext it cannot decrypt, so it is a production secret. It changes nothing. Routine and exposure use the same order: the change is the removal.
 
 Where it lives: the GitHub environment `production-backup`, secret `BACKUP_DB_PASSWORD`, and your password manager entry `production backup_reader password`. The same environment holds `BACKUP_DB_HOST` and `BACKUP_DB_USER` as secrets only to keep them out of the public log; they change only when the project does.
 
