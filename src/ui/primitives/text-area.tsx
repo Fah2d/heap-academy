@@ -24,7 +24,7 @@ export type TextAreaProps = Omit<AriaTextFieldProps, "className" | "style" | "ch
 };
 
 const area =
-  "w-full rounded-control border border-border-control bg-bg px-3 py-2 text-base text-text transition-colors not-read-only:data-hovered:border-text-muted data-invalid:border-fail data-disabled:border-border data-disabled:bg-surface data-disabled:text-text-muted";
+  "w-full rounded-control border border-border-control bg-bg px-3 py-2 text-base text-text transition-colors not-read-only:data-hovered:border-text-muted data-invalid:border-fail data-invalid:data-hovered:border-fail data-disabled:border-border data-disabled:bg-surface data-disabled:text-text-muted";
 
 /** A text field of several lines, with the same states as `TextField` (DESIGN.md section 4.5). */
 export function TextArea({
