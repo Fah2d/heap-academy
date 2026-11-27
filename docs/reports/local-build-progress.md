@@ -2,6 +2,18 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (night), on `wp/9.1-visual-polish` from `wp/8.2-review-fixes`: visual polish and a whole-application design review
+
+- **Built:** a polish pass on every screen at 320, 375, 768 and 1280 px, then `design-reviewer` on the whole application. Every finding was fixed or answered. The tables are in `pull-requests/WP-9.1.md` and `reviews/WP-9.1/`. Merge `wp/8.2-review-fixes` first.
+- **Found on the way:** the site footer lay under the phone's fixed action bar, so its links were covered. That is also on `main`. Fixed.
+- **Verified:** see "How it was verified" in `pull-requests/WP-9.1.md`.
+- **For the owner:**
+  - **DESIGN.md 4.3:** the Check button's key hint uses `#362B11` on `#D4A017` (5.85:1, as measured by the reviewer). The pair passes AA but is not listed in 4.3. Add it, or ask for the hint in a listed pair.
+  - **Real phones, not verified:** how much editor shows above the on-screen keyboard on an iPhone and an Android phone, and whether their overlay scrollbars show that the output and test blocks scroll sideways.
+  - **Sign-in on a rotated phone:** the bot check picks its size once, when it appears. On a 320 px phone turned from landscape to portrait, the 300 px widget stays and runs 12 px into the gutter until the page reloads. Turned the other way, the compact widget stays, which fits.
+  - **Still open from WP-8.2:** m9 (the notice icon), B4 (the short-window scroll), the m7 copy, and the CI gap. All are listed in the entry below.
+- **Push:** `wp/9.1-visual-polish`, once.
+
 ## Session of 2026-11-27 (evening), on `wp/8.2-review-fixes` from `main` at cf8d756: the WP-8.1 design findings and the canary
 
 - **Built:** every open finding in `reviews/WP-8.1/design-review-1.md`: B3, B4, M1, M2, M4 and minors 2 to 12. The table is in `pull-requests/WP-8.2.md`.
