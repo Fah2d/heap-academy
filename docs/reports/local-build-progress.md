@@ -2,6 +2,13 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (afternoon), on `wp/7.5-polish`: `main` at fe20151 merged in
+
+- `main` (WP-7.3 merged, #26) merged in (aa778b4). One conflict, this file: both sides kept, this branch's section first.
+- `pnpm verify` exit 0, 165 files, 2923 tests. e2e as CI runs it (`supabase db reset` with `ACTION_COUNTER_KEY` exported; the stack's keys from `supabase status`; `CI=true`; `--project=chromium --project=stack --project=gallery`): 285 passed, 1 skipped, exit 0. `pnpm test:db` was not run.
+- The screenshots the e2e run rewrote were restored, not committed.
+- Push: `wp/7.5-polish`, once.
+
 ## Session of 2026-11-27 (early morning): WP-7.3 decision P, WP-7.5, WP-8.1
 
 The owner's order for this session: (1) decision P option A on `wp/7.3-operations`, (2) WP-7.5 on `wp/7.5-polish` from `main`, (3) the parts of WP-8.1 that need no owner action on `wp/8.1-readiness` from `main`. Never merge, never push to `main`.
