@@ -16,15 +16,19 @@ export const catalogCommon = {
   /** "0 of 1 lesson completed", "3 of 12 lessons completed" (FR-CAT-02). */
   progress: (completed: number, total: number) =>
     `${String(completed)} of ${lessons(total)} completed`,
-  /** The course's one action, by where the learner stands (FR-CAT-02). */
+  /**
+   * The course's one action, by where the learner stands (FR-CAT-02). Each
+   * names the lesson it opens, so on a course row it does not read as a
+   * second link to the course page, which the title already is.
+   */
   action: {
-    begin: "Begin the course",
-    continue: "Continue the course",
-    review: "Review the course",
+    begin: "Start the first lesson",
+    continue: "Go to your next lesson",
+    review: "Open the first lesson",
   },
   /**
    * Read after the action by a screen reader on the course list, where every
-   * row has one, so each link names its course: "Begin the course: Loops".
+   * row has one, so each link names its course: "Start the first lesson: Loops".
    */
   actionCourse: (title: string) => `: ${title}`,
 } as const;

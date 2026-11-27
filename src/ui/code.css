@@ -17,6 +17,34 @@
     background-color: var(--editor-selection);
   }
 
+  /*
+   * A box that scrolls sideways keeps its scrollbar drawn, so a long line
+   * shows that it goes on (WP-8.1 design review, m4). The thumb uses the
+   * control border, which measures 3.91 to 1 or more on these surfaces.
+   * Chromium and WebKit draw the styled bar always; Firefox has no such
+   * pseudo-element, so it gets its thin bar in the same colors.
+   */
+  .scroll-visible::-webkit-scrollbar {
+    block-size: var(--scrollbar-size);
+    inline-size: var(--scrollbar-size);
+  }
+
+  .scroll-visible::-webkit-scrollbar-track {
+    background-color: var(--color-surface);
+  }
+
+  .scroll-visible::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-control);
+    border-radius: var(--radius-control);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    .scroll-visible {
+      scrollbar-color: var(--color-border-control) var(--color-surface);
+      scrollbar-width: thin;
+    }
+  }
+
   /* An editor that fills its box scrolls inside it (the workspace, FR-WSP-01). */
   .code-fill .cm-editor {
     block-size: 100%;

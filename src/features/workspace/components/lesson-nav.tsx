@@ -21,7 +21,7 @@ export function LessonNav({
   return (
     <nav
       aria-label={words.lessons}
-      className="flex flex-wrap items-center justify-between gap-3 border-bs border-border px-gutter py-2"
+      className="flex flex-wrap items-center justify-between gap-x-3 border-bs border-border px-gutter"
     >
       {previous === null ? (
         <Disabled>{words.noPrevious}</Disabled>

@@ -16,7 +16,11 @@ test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async
   expect(response?.status()).toBe(404);
   await expect(page.getByRole("heading", { level: 1, name: notFound.heading })).toBeVisible();
   await expect(page.getByRole("link", { name: notFound.homeLink })).toHaveAttribute("href", "/");
-  await expect(page.getByRole("banner")).toBeVisible();
+  // Next.js renders this page without the layout's `bar` slot; the header
+  // still carries the wordmark and the site's pages (WP-8.2).
+  const banner = page.getByRole("banner");
+  await expect(banner.getByRole("link", { name: shell.productName })).toHaveAttribute("href", "/");
+  await expect(banner.getByRole("navigation", { name: shell.mainNavigation })).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByRole("contentinfo")).toBeVisible();
 });
@@ -24,7 +28,14 @@ test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async
 test("[WP-1.4] the development-only pages are absent from the production build", async ({
   request,
 }) => {
-  for (const path of ["/dev/primitives", "/dev/error", "/dev/runtime", "/dev/client-error"]) {
+  for (const path of [
+    "/dev/primitives",
+    "/dev/error",
+    "/dev/runtime",
+    "/dev/client-error",
+    "/dev/profile",
+    "/dev/sign-in",
+  ]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(404);
   }

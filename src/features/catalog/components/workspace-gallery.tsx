@@ -4,6 +4,8 @@ import { LessonContent, Workspace } from "@/features/workspace";
 import { EXAMPLE_LESSON } from "@/grader/example-lesson";
 import { requestNonce } from "@/infrastructure/http/nonce";
 import { workspaceGallery as words } from "@/messages/gallery";
+import { workspace } from "@/messages/workspace";
+import { coursePath } from "../paths";
 
 // A fixed ID for the example lesson, so its completion is kept across visits.
 const EXAMPLE_LESSON_ID = parseLessonId("00000000-0000-4000-8000-00000000e001");
@@ -35,4 +37,12 @@ export async function WorkspaceGallery() {
       instructions={<LessonContent document={renderMarkdown(EXAMPLE_LESSON.instructions)} />}
     />
   );
+}
+
+/** The gallery's compact bar, as the real workspace's (`lessonBar`). */
+export function workspaceGalleryBar(): { back: { href: string; label: string }; title: string } {
+  return {
+    back: { href: coursePath(words.courseSlug), label: workspace.backToCourse(words.courseTitle) },
+    title: EXAMPLE_LESSON.title,
+  };
 }

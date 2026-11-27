@@ -29,7 +29,7 @@ export const EXAMPLE_LESSON = {
   title: "Say hello by name",
   instructions:
     '## Ask, then answer\n\n`input()` waits for the person to type something, and gives you what they typed.\n\n```python\nname = input("What is your name? ")\nprint("Hello, " + name + "!")\n```\n\n## Your task\n\nAsk for a name. Then print a greeting that uses it.\n',
-  hints: ["`input()` gives you what the person typed. Keep it in a variable."],
+  hints: ["input() gives you what the person typed. Keep it in a variable."],
   starter: "# Ask for a name, then greet that person.\n",
   solution: 'name = input("What is your name? ")\nprint("Hello, " + name + "!")\n',
   wrongAnswer: {

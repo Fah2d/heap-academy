@@ -51,7 +51,8 @@ export const gallery = {
   dialogs: "Dialog",
   openDialog: "Reset code",
   dialogTitle: "Reset your code?",
-  dialogBody: "Your code goes back to the starter code for this lesson. You cannot undo this.",
+  dialogBody:
+    "Your code goes back to the starter code for this lesson. You can undo this straight after.",
   dialogConfirm: "Reset code",
   dialogCancel: "Keep my code",
 
@@ -255,4 +256,21 @@ export const catalogGallery = {
   lessonHello: "Say hello",
   lessonNames: "Keep a value in a name",
   lessonSums: "Add two numbers that someone typed",
+} as const;
+
+// The development-only profile page (/dev/profile, WP-8.2): the profile in
+// each of its states with sample numbers, so each can be checked and seen
+// without an account (docs/spec/03-experience.md section 8).
+export const profileGallery = {
+  title: "Profile states",
+  sampleName: "Sara",
+  sampleCourse: "Python basics",
+} as const;
+
+// The development-only sign-in page (/dev/sign-in, WP-8.2): the sign-in view
+// with answers that never reach the auth service, so the states that wait
+// on it can be checked and seen (docs/spec/03-experience.md section 8).
+export const signInGallery = {
+  title: "Sign-in states",
+  sampleEmail: "sara@example.test",
 } as const;

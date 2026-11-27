@@ -370,7 +370,15 @@ test("[FR-WSP-17] a failed load offers Retry", async ({ page }) => {
   await page.context().route("**/_runtime/pyodide/**", (route) => route.abort());
   await page.reload();
   await expect(python(page)).toHaveAttribute("data-python", "failed", { timeout: READY_MS });
-  await expect(page.getByRole("button", { name: words.retry })).toBeVisible();
+  const retry = page.getByRole("button", { name: words.retry });
+  await expect(retry).toBeVisible();
+  // On a phone the status sits in the fixed action bar, where a sideways-scroll
+  // check cannot see a clipped control, so Retry is checked whole (WP-8.2).
+  for (const width of [320, 375]) {
+    await resize(page, width, true);
+    await expect(retry).toBeInViewport({ ratio: 1 });
+  }
+  await resize(page, 1280, true);
   await noAxeViolations(page);
   await screens(page, "workspace-load-failed");
   await page.context().unroute("**/_runtime/pyodide/**");

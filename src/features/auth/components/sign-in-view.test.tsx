@@ -194,6 +194,51 @@ describe("sign-in view", () => {
     expect(screen.getByRole("textbox", { name: words.codeLabel })).toBeTruthy();
   });
 
+  it("[FR-AUTH-02] marks the code field invalid when the code is not accepted, until it changes", async () => {
+    view(
+      {},
+      actions({
+        verifyEmailCode: () => Promise.resolve({ ok: false as const, error: "code_rejected" }),
+      }),
+    );
+    await sendCodeTo("ada@example.test");
+    const field = await screen.findByRole("textbox", { name: words.codeLabel });
+    await userEvent.type(field, "123456");
+    await userEvent.click(screen.getByRole("button", { name: words.verify }));
+    await waitFor(() => {
+      expect(field.getAttribute("aria-invalid")).toBe("true");
+    });
+    const describedBy = (field.getAttribute("aria-describedby") ?? "").split(" ");
+    const described = describedBy.map((id) => document.getElementById(id)?.textContent ?? "");
+    expect(described.join(" ")).toContain(words.codeRejected);
+    await userEvent.type(field, "7");
+    expect(field.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("[FR-AUTH-02] says a refused code again when the same code is refused again", async () => {
+    view(
+      {},
+      actions({
+        verifyEmailCode: () => Promise.resolve({ ok: false as const, error: "code_rejected" }),
+      }),
+    );
+    await sendCodeTo("ada@example.test");
+    const field = await screen.findByRole("textbox", { name: words.codeLabel });
+    await userEvent.type(field, "123456");
+    await userEvent.click(screen.getByRole("button", { name: words.verify }));
+    const first = await screen.findByRole("alert");
+    await waitFor(() => {
+      expect(first.textContent).toBe(words.codeRejected);
+    });
+    await userEvent.click(screen.getByRole("button", { name: words.verify }));
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).not.toBe(first);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toBe(words.codeRejected);
+    });
+  });
+
   it("[FR-AUTH-02] holds the resend control for the provider's interval, with the time left shown", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });

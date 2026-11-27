@@ -77,7 +77,20 @@ test("[FR-ADM-02] every admin state shows, with no axe violation, at 1280 px", a
   await expect(page.getByRole("button", { name: secondStep.checking })).toBeDisabled();
 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await saveScreen(page, "admin-states", 1280, { workPackage: "WP-2.3" });
+  // This page holds every admin state, so each picture is of one example.
+  for (const [region, name] of [
+    [adminGallery.courseListEmpty, "admin-courses-empty"],
+    [adminGallery.courseListFailed, "admin-courses-failed"],
+    [adminGallery.courseListRows, "admin-courses-rows"],
+    [adminGallery.setupFailed, "admin-setup-failed"],
+    [adminGallery.codeLimited, "admin-code-limited"],
+    [adminGallery.codeChecking, "admin-code-checking"],
+  ] as const) {
+    await saveScreen(page, name, 1280, {
+      workPackage: "WP-2.3",
+      element: page.getByRole("region", { name: region }),
+    });
+  }
 });
 
 test("[FR-ADM-03] [FR-ADM-10] the course editor's refusals and empty states, at 1280 px", async ({
@@ -116,7 +129,14 @@ test("[FR-ADM-03] [FR-ADM-10] the course editor's refusals and empty states, at 
   await expect(rows.getByRole("alert")).toContainText(structure.failure.cannot_move);
 
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await saveScreen(page, "admin-course-states", 1280, { workPackage: "WP-4.1" });
+  for (const [region, name] of [
+    [refusing, "admin-course-editor-refusals"],
+    [empty, "admin-course-editor-empty"],
+    [created, "admin-new-course-form-invalid"],
+    [rows, "admin-courses-move-refused"],
+  ] as const) {
+    await saveScreen(page, name, 1280, { workPackage: "WP-4.1", element: region });
+  }
 });
 
 test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, question and failure states, at 1280 px", async ({
@@ -124,7 +144,13 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/dev/admin");
-  const shot = (name: string) => saveScreen(page, name, 1280, { workPackage: "WP-4.1" });
+  // This page holds every admin state: a question is saved at the window's
+  // size, as a dialog is seen, and any other state as its one example.
+  const shot = (name: string, element?: Locator) =>
+    saveScreen(page, name, 1280, {
+      workPackage: "WP-4.1",
+      ...(element === undefined ? { fullPage: false } : { element }),
+    });
 
   // A published course: its own moves, and each question before it acts.
   const published = page.getByRole("region", { name: adminGallery.editorPublished });
@@ -166,7 +192,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   await published.getByRole("button", { name: courseEditor.save }).click();
   await expect(published.getByRole("button", { name: courseEditor.saving })).toBeFocused();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await shot("admin-course-editor-pending");
+  await shot("admin-course-editor-pending", published);
 
   // Saves that succeed: the saved line, and focus on the new status.
   const saving = page.getByRole("region", { name: adminGallery.editorSaving });
@@ -177,7 +203,7 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   await expect(
     saving.getByText(courseEditor.statusNow(courseEditor.statusName.published)),
   ).toBeFocused();
-  await shot("admin-course-editor-saved");
+  await shot("admin-course-editor-saved", saving);
 
   const failed = page.getByRole("region", { name: adminGallery.editorFailed });
   await expect(failed.getByText(courseEditor.loadFailed)).toBeVisible();
@@ -191,7 +217,8 @@ test("[FR-ADM-03] [FR-ADM-09] [FR-ADM-10] the course editor's pending, saved, qu
   await expect(taken.getByLabel(courseEditor.slugLabel)).toBeFocused();
   await expect(taken.getByText(structure.failure.slug_taken)).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await shot("admin-course-failures");
+  await shot("admin-course-failures", failed);
+  await shot("admin-new-course-taken", taken);
 });
 
 test("[FR-ADM-12] [T-23] export and import: every state, with no axe violation, at 1280 px", async ({

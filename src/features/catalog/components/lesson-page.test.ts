@@ -11,7 +11,7 @@ vi.mock("@/content", () => ({
 vi.mock("@/infrastructure/http/nonce", () => ({ requestNonce: () => "nonce" }));
 vi.mock("next/server", () => ({ connection: () => Promise.resolve() }));
 
-const { loadLesson } = await import("./lesson-page");
+const { lessonBar, loadLesson } = await import("./lesson-page");
 
 const testCase = { id: "prints-hello", name: "Prints hello", expected: "hello" };
 const lesson = {
@@ -119,5 +119,37 @@ describe("[FR-WSP-02] loadLesson", () => {
   it("throws when the course's order does not hold the lesson", async () => {
     publishedLesson.mockResolvedValue({ ok: true, value: { ...lesson, slug: "elsewhere" } });
     await expect(loadLesson("python", "elsewhere")).rejects.toThrow("does not hold");
+  });
+});
+
+describe("[FR-WSP-08] lessonBar", () => {
+  const params = (lessonSlug: string) => Promise.resolve({ course: "python", lesson: lessonSlug });
+
+  it("gives the way back to the course and the lesson's title", async () => {
+    expect(await lessonBar(params("second"))).toEqual({
+      back: { href: "/courses/python", label: "Back to Python" },
+      title: "Second",
+    });
+  });
+
+  it("is null when no published lesson has the address, so the header shows the site's bar", async () => {
+    publishedLesson.mockResolvedValue({ ok: true, value: null });
+    expect(await lessonBar(params("none"))).toBeNull();
+  });
+
+  it("is null when the read fails, and leaves the error to the page", async () => {
+    publishedLesson.mockResolvedValue({ ok: false });
+    expect(await lessonBar(params("second"))).toBeNull();
+  });
+
+  // The bar's slot has no error boundary of its own: a throw there would
+  // replace the whole document with the global error page (WP-8.2 review).
+  it("is null, and does not throw, when the stored lesson is not one the workspace can show", async () => {
+    publishedLesson.mockResolvedValue({ ok: true, value: { ...lesson, tests: [{ id: 1 }] } });
+    expect(await lessonBar(params("second"))).toBeNull();
+    publishedLesson.mockResolvedValue({ ok: true, value: { ...lesson, id: "not-a-uuid" } });
+    expect(await lessonBar(params("second"))).toBeNull();
+    publishedLesson.mockResolvedValue({ ok: true, value: { ...lesson, slug: "elsewhere" } });
+    expect(await lessonBar(params("elsewhere"))).toBeNull();
   });
 });

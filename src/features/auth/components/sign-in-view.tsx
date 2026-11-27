@@ -10,7 +10,7 @@ import {
 } from "react";
 import Image from "next/image";
 import { signIn as words } from "@/messages/sign-in";
-import { Button, Notice, TextField } from "@/ui";
+import { Button, LiveRegion, Notice, TextField } from "@/ui";
 import type { ActionOutcome, StartGoogleState } from "../types";
 import { BotChallenge, type BotChallengeProps } from "./bot-challenge";
 
@@ -63,8 +63,6 @@ function sendFailureText(error: string): string {
 
 function verifyFailureText(error: string): string {
   switch (error) {
-    case "code_rejected":
-      return words.codeRejected;
     case "rate_limited":
       return words.tooManyAttempts;
     default:
@@ -105,6 +103,12 @@ export function SignInView({
   const [emailInvalid, setEmailInvalid] = useState(false);
   const [code, setCode] = useState("");
   const [codeInvalid, setCodeInvalid] = useState(false);
+  // The auth service refused the code: the field is marked invalid and says
+  // why, as DESIGN.md section 4.5 asks of an invalid field.
+  const [codeRejected, setCodeRejected] = useState(false);
+  // Each refusal renders a new alert, so the same code refused twice is
+  // announced twice.
+  const [rejections, setRejections] = useState(0);
   const [message, setMessage] = useState<Message | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [challengeReset, setChallengeReset] = useState(0);
@@ -141,6 +145,7 @@ export function SignInView({
       if (result.ok) {
         setCooldown(RESEND_SECONDS);
         setCode("");
+        setCodeRejected(false);
         setMessage(resend ? { kind: "success", text: words.resent } : null);
         setStep({ name: "code", email: address });
         return;
@@ -186,6 +191,12 @@ export function SignInView({
       }
       if (result.error === "invalid_input") {
         setCodeInvalid(true);
+        setMessage(null);
+        return;
+      }
+      if (result.error === "code_rejected") {
+        setCodeRejected(true);
+        setRejections((count) => count + 1);
         setMessage(null);
         return;
       }
@@ -269,13 +280,23 @@ export function SignInView({
             onChange={(value) => {
               setCode(value);
               setCodeInvalid(false);
+              setCodeRejected(false);
             }}
-            isInvalid={codeInvalid}
-            errorMessage={words.codeInvalid}
+            isInvalid={codeInvalid || codeRejected}
+            errorMessage={codeRejected ? words.codeRejected : words.codeInvalid}
             // The code step replaces the email form, so focus moves to the
             // field the learner needs next.
             autoFocus
           />
+          {/* The field shows the refusal; this says it once to a screen reader.
+              The wrapper takes it out of the form's flow, so it adds no gap. */}
+          {codeRejected && (
+            <div key={rejections} className="sr-only">
+              <LiveRegion role="alert">
+                <p>{words.codeRejected}</p>
+              </LiveRegion>
+            </div>
+          )}
           {notice}
           <Button type="submit" variant="primary" isDisabled={pending}>
             {pendingKind === "verify" ? words.verifying : words.verify}
@@ -304,6 +325,7 @@ export function SignInView({
               setStep({ name: "email" });
               setMessage(null);
               setCodeInvalid(false);
+              setCodeRejected(false);
               setFocusEmail(true);
             }}
           >

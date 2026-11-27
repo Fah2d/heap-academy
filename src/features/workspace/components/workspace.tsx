@@ -33,7 +33,6 @@ import { keyboardInset, narrowScreen, PHONE_VIEWS, type PhoneView } from "../cli
 import { createCodeStore, type CodeStore, savedCodeKey } from "../client/saved-code";
 import { type Program, useRuntime } from "../client/use-runtime";
 import { runAnnouncement, type TooLarge, tooLarge, transcript } from "../client/workspace-view";
-import { courseBackPath } from "../paths";
 import { CodeEditor } from "./code-editor";
 import { ConsolePanel } from "./console-panel";
 import { Hints } from "./hints";
@@ -417,21 +416,22 @@ export function Workspace({
     if (!event.repeat) press(action);
   };
 
-  const title = (
+  // The lesson's title and the way back are the header's compact bar on the
+  // learner's page (docs/spec/03-experience.md section 4; src/app/@bar). The
+  // admin's preview sits in the dashboard's frame, so it has its own row.
+  const title = previewing ? (
     <div className="flex flex-col gap-1 border-be border-border px-gutter py-3 md:col-span-2">
       <div>
-        <Link href={preview?.backHref ?? courseBackPath(lesson.course.slug)} variant="standalone">
-          {preview?.backLabel ?? words.backToCourse(lesson.course.title)}
+        <Link href={preview.backHref} variant="standalone">
+          {preview.backLabel}
         </Link>
       </div>
       <h1 className="text-xl font-semibold text-text">{lesson.title}</h1>
-      {previewing && (
-        <Notice kind="information" kindLabel={words.previewKind}>
-          {words.previewBody}
-        </Notice>
-      )}
+      <Notice kind="information" kindLabel={words.previewKind}>
+        {words.previewBody}
+      </Notice>
     </div>
-  );
+  ) : null;
 
   const lessonText = (
     <>
@@ -502,6 +502,8 @@ export function Workspace({
   );
 
   // Below 768 px the bar has no icons and no keys, so it fits one row at 320 px.
+  // From 768 px the keys show only from 1024 px, where the work column has the
+  // room, so Run, Check, Stop and Python's status share one row at 768 px.
   // In the Code view the symbol row ends the bar, so it sits right on the
   // keyboard (FR-WSP-21).
   const actions = (
@@ -525,7 +527,7 @@ export function Workspace({
       >
         {runLabel}
         {!phone && (
-          <kbd aria-hidden="true" className="font-mono text-xs text-text-muted">
+          <kbd aria-hidden="true" className="font-mono text-xs text-text-muted max-lg:hidden">
             {words.shortcut(apple, false)}
           </kbd>
         )}
@@ -542,7 +544,7 @@ export function Workspace({
       >
         {checkLabel}
         {!phone && (
-          <kbd aria-hidden="true" className="font-mono text-xs opacity-80">
+          <kbd aria-hidden="true" className="font-mono text-xs opacity-80 max-lg:hidden">
             {words.shortcut(apple, true)}
           </kbd>
         )}
@@ -739,7 +741,10 @@ export function Workspace({
     <div
       ref={root}
       data-workspace
-      className="flex flex-col md:grid md:h-full md:grid-cols-(--workspace-columns) md:grid-rows-(--workspace-rows)"
+      className={cx(
+        "flex flex-col md:grid md:h-full md:grid-cols-(--workspace-columns)",
+        previewing ? "md:grid-rows-(--workspace-rows-titled)" : "md:grid-rows-(--workspace-rows)",
+      )}
       onKeyDownCapture={onKeyDownCapture}
     >
       <Fragment key="title">{title}</Fragment>
@@ -751,10 +756,12 @@ export function Workspace({
         {lessonText}
       </section>
       {supported === false && (
+        // Below 768 px the regions stack, and the warning leads them, so a
+        // phone shows why there is no editor before the lesson's text.
         <section
           key="unsupported"
           aria-labelledby={editorLabel}
-          className="flex flex-col gap-3 px-gutter py-4 md:row-span-3"
+          className="flex flex-col gap-3 px-gutter py-4 max-md:order-first md:row-span-3"
         >
           <h2 id={editorLabel} className="sr-only">
             {words.work}

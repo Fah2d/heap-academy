@@ -30,8 +30,11 @@
       overflow: hidden;
     }
 
+    /* Where the window is too short for the panes' floors, the page
+       scrolls inside the frame instead of cutting the panes off. */
     body:has([data-workspace]) > main {
       min-block-size: 0;
+      overflow: auto;
     }
   }
 

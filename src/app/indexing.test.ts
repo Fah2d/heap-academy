@@ -110,6 +110,9 @@ function pageFiles(directory: string): Map<string, string> {
   const pages = new Map<string, string>();
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
+    // A slot such as `@bar` is not an address: its pages render inside the
+    // pages here, which carry the metadata, and it exports none of its own.
+    if (entry.isDirectory() && entry.name.startsWith("@")) continue;
     if (entry.isDirectory()) {
       for (const [route, file] of pageFiles(path)) pages.set(route, file);
     } else if (isPageFile(entry.name)) {

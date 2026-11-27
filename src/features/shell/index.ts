@@ -10,5 +10,5 @@ export { LegalPage } from "./components/legal-page";
 export { NotFoundView } from "./components/not-found-view";
 export { PrimitiveGallery } from "./components/primitive-gallery";
 export { SiteFooter } from "./components/site-footer";
-export { SiteShell } from "./components/site-shell";
+export { LessonBar, SiteBar, SiteShell } from "./components/site-shell";
 export { fontVariables } from "./fonts";

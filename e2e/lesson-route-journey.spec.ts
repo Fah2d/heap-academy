@@ -1,5 +1,8 @@
-import { devices, test } from "@playwright/test";
+import { devices, expect, test } from "@playwright/test";
 import { EXAMPLE_LESSON } from "../src/grader/example-lesson";
+import { catalogCommon } from "../src/messages/catalog";
+import { shell } from "../src/messages/shell";
+import { workspace } from "../src/messages/workspace";
 import {
   completeALesson,
   programThatAsksForInput,
@@ -98,3 +101,32 @@ for (const { name, phone, use } of sizes) {
     });
   });
 }
+
+// The workspace's compact bar holds the way back and the lesson's title
+// (docs/spec/03-experience.md section 4). A move to another page inside the
+// app brings back the site's bar, and Back brings back the lesson's (WP-8.2).
+test("[FR-WSP-08] the lesson's bar gives way to the site's bar on the next page, and back", async ({
+  page,
+}) => {
+  const banner = page.getByRole("banner");
+  const siteBar = async () => {
+    await expect(banner.getByRole("link", { name: shell.productName })).toBeVisible();
+    await expect(banner.getByRole("link", { name: catalogCommon.coursesLink })).toBeVisible();
+    await expect(banner.getByRole("heading")).toHaveCount(0);
+  };
+  const lessonBar = async () => {
+    await expect(banner.getByRole("heading", { level: 1 })).toHaveText(EXAMPLE_LESSON.title);
+    await expect(banner.getByRole("link", { name: shell.productName })).toHaveCount(0);
+  };
+
+  await page.goto(firstLesson.address);
+  await lessonBar();
+  await banner.getByRole("link", { name: workspace.backToCourse(course.title) }).click();
+  await expect(page).toHaveURL(new RegExp(`/courses/${course.slug}$`));
+  await siteBar();
+  await page.goBack();
+  await lessonBar();
+  await page.getByRole("contentinfo").getByRole("link", { name: shell.footer.privacy }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  await siteBar();
+});

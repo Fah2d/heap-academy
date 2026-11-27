@@ -18,7 +18,7 @@ import { PrimitiveGallery } from "./components/primitive-gallery";
 // fonts.ts runs only under the Next.js compiler, so the test imports the
 // modules directly rather than through index.ts.
 import { FOOTER_LINKS, SiteFooter } from "./components/site-footer";
-import { SiteShell } from "./components/site-shell";
+import { LessonBar, SiteBar, SiteShell } from "./components/site-shell";
 
 // The footer reads the current address to mark its current link.
 const navigation = vi.hoisted(() => ({ pathname: "/courses" }));
@@ -163,7 +163,7 @@ describe("error page", () => {
 describe("site shell", () => {
   it("[NFR-A11Y-03] puts the skip link first and points it at the main landmark", async () => {
     render(
-      <SiteShell navigation={null} account={<a href="/sign-in">Account</a>}>
+      <SiteShell bar={<SiteBar navigation={null} />} account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
@@ -176,7 +176,7 @@ describe("site shell", () => {
 
   it("[ADR-0031] shows the wordmark as live text linking home, and a banner landmark", () => {
     render(
-      <SiteShell navigation={null} account={<a href="/sign-in">Account</a>}>
+      <SiteShell bar={<SiteBar navigation={null} />} account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
@@ -186,7 +186,7 @@ describe("site shell", () => {
 
   it("[FR-AUTH-05] puts the account control in a labelled navigation landmark in the header", () => {
     render(
-      <SiteShell navigation={null} account={<a href="/sign-in">Account</a>}>
+      <SiteShell bar={<SiteBar navigation={null} />} account={<a href="/sign-in">Account</a>}>
         <p>Content</p>
       </SiteShell>,
     );
@@ -198,7 +198,7 @@ describe("site shell", () => {
   it("[FR-CAT-01] puts the site's own pages in a main navigation landmark after the wordmark", () => {
     render(
       <SiteShell
-        navigation={<a href="/courses">Courses</a>}
+        bar={<SiteBar navigation={<a href="/courses">Courses</a>} />}
         account={<a href="/sign-in">Account</a>}
       >
         <p>Content</p>
@@ -212,10 +212,36 @@ describe("site shell", () => {
   });
 });
 
+describe("lesson bar", () => {
+  it("[FR-WSP-01] is one compact bar in the banner: back to the course, the lesson's title as the h1, the account control", () => {
+    render(
+      <SiteShell
+        bar={
+          <LessonBar
+            back={{ href: "/courses/python", label: "Back to Python" }}
+            title="Say hello"
+          />
+        }
+        account={<a href="/sign-in">Account</a>}
+      >
+        <p>Content</p>
+      </SiteShell>,
+    );
+    const banner = screen.getByRole("banner");
+    const back = within(banner).getByRole("link", { name: "Back to Python" });
+    expect(back.getAttribute("href")).toBe("/courses/python");
+    expect(within(banner).getByRole("heading", { level: 1 }).textContent).toBe("Say hello");
+    expect(within(banner).getByRole("navigation", { name: shell.accountNavigation })).toBeTruthy();
+    // The wordmark row is replaced, not stacked above the bar.
+    expect(screen.queryByRole("link", { name: shell.productName })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: shell.mainNavigation })).toBeNull();
+  });
+});
+
 describe("site footer", () => {
   it("[FR-SYS-03] is the contentinfo landmark, after main, with the privacy and terms links", () => {
     render(
-      <SiteShell navigation={null} account={null}>
+      <SiteShell bar={<SiteBar navigation={null} />} account={null}>
         <p>Content</p>
       </SiteShell>,
     );

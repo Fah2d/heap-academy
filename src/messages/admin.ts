@@ -255,7 +255,8 @@ export const lessonEditor = {
   previewUpdating: "Updating the preview",
   previewFailed: "The preview could not be updated. It shows the last version that worked.",
   hintsLabel: "Hints",
-  hintsHint: "Up to five, each at most 300 characters. Learners reveal them one at a time.",
+  hintsHint:
+    "Up to five, each at most 300 characters. Learners see them as plain text, one at a time.",
   hintLabel: (n: number) => `Hint ${String(n)} (optional)`,
   codeHeading: "Code",
   starterLabel: "Starter",

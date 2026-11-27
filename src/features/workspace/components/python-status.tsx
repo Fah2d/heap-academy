@@ -29,7 +29,10 @@ export function PythonStatus({
         ? words.failed
         : "";
   return (
-    <div data-python={runtime.name} className="flex min-w-0 items-center gap-3">
+    <div
+      data-python={runtime.name}
+      className="flex min-w-0 items-center gap-3 md:whitespace-nowrap"
+    >
       <span role="status" className="sr-only">
         {said}
       </span>
