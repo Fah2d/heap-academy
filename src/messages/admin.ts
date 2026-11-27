@@ -2,6 +2,8 @@
 // FR-ADM-01, FR-ADM-02). Strangers never see any of them: every `/admin`
 // address answers them with the standard not-found page.
 
+import { LOCALE } from "./locale";
+
 export const adminArea = {
   narrowHeading: "The dashboard needs a wider window",
   narrowScreen:
@@ -85,6 +87,9 @@ export const structure = {
 } as const;
 
 export const courseEditor = {
+  /** A lesson's completion count in its row (FR-ADM-13). */
+  completions: (count: number) =>
+    count === 1 ? "1 completion" : `${count.toLocaleString(LOCALE)} completions`,
   newTitle: "New course",
   metaTitle: "Edit course",
   editTitle: (title: string) => `Course: ${title}`,

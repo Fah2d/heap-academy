@@ -229,8 +229,18 @@ const refusingCourse: EditorCourse = {
       summary: "",
       loadedAt: "2026-11-21T08:00:00.000000+00:00",
       lessons: [
-        { id: "5eed0000-0000-4000-8000-000000000201", title: m.sampleLesson, status: "draft" },
-        { id: "5eed0000-0000-4000-8000-000000000202", title: m.secondLesson, status: "draft" },
+        {
+          id: "5eed0000-0000-4000-8000-000000000201",
+          title: m.sampleLesson,
+          status: "draft",
+          completions: 0,
+        },
+        {
+          id: "5eed0000-0000-4000-8000-000000000202",
+          title: m.secondLesson,
+          status: "draft",
+          completions: 0,
+        },
       ],
     },
     {

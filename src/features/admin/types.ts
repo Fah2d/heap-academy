@@ -32,7 +32,13 @@ export type AdminCourse = {
 
 export type AdminCourses = { ok: true; courses: AdminCourse[] } | { ok: false };
 
-export type EditorLesson = { id: string; title: string; status: CourseStatus };
+export type EditorLesson = {
+  id: string;
+  title: string;
+  status: CourseStatus;
+  /** How many learners have completed it, from the database (FR-ADM-13). */
+  completions: number;
+};
 export type EditorChapter = {
   id: string;
   title: string;
