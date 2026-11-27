@@ -37,6 +37,7 @@ import { courseBackPath } from "../paths";
 import { CodeEditor } from "./code-editor";
 import { ConsolePanel } from "./console-panel";
 import { Hints } from "./hints";
+import { inputLines } from "./input-lines";
 import { LessonNav } from "./lesson-nav";
 import { PythonStatus } from "./python-status";
 import { ResetCode } from "./reset-code";
@@ -72,12 +73,7 @@ const SAVE_DELAY_MS = 400;
 
 type OutputTab = "console" | "tests";
 
-/**
- * The batch field's answers, one per line. An empty field is no answers, and
- * the line break after the last answer does not add an empty one.
- */
-export const inputLines = (text: string) =>
-  text === "" ? [] : text.replace(/\n$/, "").split("\n");
+export { inputLines } from "./input-lines";
 
 /** Neither value below changes while the page is open. */
 const subscribeToNothing = () => () => undefined;

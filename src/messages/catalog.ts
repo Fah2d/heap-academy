@@ -40,6 +40,15 @@ export const home = {
   how: "Each lesson starts with a short explanation. Then you write a small Python program in the editor and press Run to see what it prints. When it looks right, press Check. Every test case shows what goes in, what should come out, and what your program printed. You do not need to install anything: your code runs in your browser.",
 } as const;
 
+/** The live editor on the home page (FR-LND-01). */
+export const homeEditor = {
+  heading: "Try it",
+  intro: "This is a real Python program. Change it, then press Run: it runs in your browser.",
+  /** The program the editor opens with: short, with output a beginner can predict. */
+  program:
+    'name = "Sara"\nprint("Hello, " + name + "!")\nfor letter in name:\n    print(letter)\nprint("Done.")',
+} as const;
+
 export const courseList = {
   title: "Courses",
   description: "Every Python course on Heap Academy, with the number of lessons in each.",

@@ -72,6 +72,9 @@
   --action-bar-size: 0px;
   /* A code editor that does not fill its box, as in the admin's lesson editor. */
   --code-editor-min: 10rem;
+  /* The home page's editor: one height before and after the editor loads,
+     so nothing below it moves (NFR-PERF-01, CLS). */
+  --home-editor-size: 11rem;
   /* The loading bar beside Python's status. */
   --python-progress-width: 12rem;
 }

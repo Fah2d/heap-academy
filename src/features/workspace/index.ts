@@ -3,6 +3,8 @@
 export { LessonContent } from "./components/lesson-content";
 export { CodeEditor, type CodeEditorProps } from "./components/code-editor";
 export { RuntimeConsole } from "./components/runtime-console";
+// Client-safe: it fetches the editor itself, after the page loads.
+export { HomeEditor } from "./components/home-editor";
 // Client-safe only: the admin's client components import this file.
 export { Workspace, type WorkspaceLesson, type WorkspacePreview } from "./components/workspace";
 export { learnPath } from "./paths";

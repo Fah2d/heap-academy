@@ -39,6 +39,7 @@ vi.mock("@/content", () => ({
 }));
 
 vi.mock("@/features/progress", () => ({ useDeviceCompletions: () => state.completed }));
+vi.mock("@/infrastructure/http/nonce", () => ({ requestNonce: () => Promise.resolve("nonce") }));
 
 const { HomePage } = await import("./components/home-page");
 const { CourseListPage } = await import("./components/course-list-page");

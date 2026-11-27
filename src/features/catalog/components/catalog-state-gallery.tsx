@@ -67,7 +67,13 @@ const COURSE: PublishedCourse = {
 };
 
 const STATES: { state: string; label: string; view: () => ReactNode }[] = [
-  { state: "home-empty", label: m.homeEmpty, view: () => <HomeView courses={[]} /> },
+  {
+    state: "home-empty",
+    label: m.homeEmpty,
+    // The editor takes the nonce from the document's own scripts, which
+    // Next.js always marks, so this page passes no request nonce.
+    view: () => <HomeView courses={[]} nonce="" />,
+  },
   { state: "list-empty", label: m.listEmpty, view: () => <CourseListView courses={[]} /> },
   { state: "list-rows", label: m.listRows, view: () => <CourseListView courses={ROWS} /> },
   { state: "course", label: m.courseNoOutcomes, view: () => <CourseView course={COURSE} /> },
