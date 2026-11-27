@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { homeEditor } from "../src/messages/catalog";
-import { learnerErrorHeading, workspace as words } from "../src/messages/workspace";
+import {
+  learnerErrorHeading,
+  pythonErrorExplanations,
+  workspace as words,
+} from "../src/messages/workspace";
 import { noAxeViolations } from "./journeys";
 import { saveScreen } from "./screens";
 
@@ -80,7 +84,7 @@ test("[FR-LND-01] [FR-WSP-17] Run starts Python, keeps the press, and prints the
   await saveScreen(page, "home-editor-ran", 1280, { workPackage: WORK_PACKAGE });
 });
 
-test("[FR-LND-01] an edited program runs, and its error is shown the way a lesson shows it", async ({
+test("[FR-LND-01] [FR-WSP-23] an edited program runs, and its error is shown the way a lesson shows it", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 900 });
@@ -96,6 +100,8 @@ test("[FR-LND-01] an edited program runs, and its error is shown the way a lesso
       name: learnerErrorHeading("runtime", { line: 2, timeLimitSeconds: 0, outputLimit: 0 }),
     }),
   ).toBeVisible();
+  // FR-WSP-23: one sentence on what the error means, under Python's message.
+  await expect(section(page).getByText(pythonErrorExplanations.ZeroDivisionError)).toBeVisible();
   await noAxeViolations(page);
   await saveScreen(page, "home-editor-error", 375, { workPackage: WORK_PACKAGE });
 });

@@ -80,6 +80,30 @@ export function learnerErrorSuggestion(
   }
 }
 
+/**
+ * One sentence on what a common Python error means, by the name of its type
+ * (FR-WSP-23; section 6.5). Reviewed by the owner like lesson text. An error
+ * not listed here shows Python's message alone.
+ */
+export const pythonErrorExplanations = {
+  NameError:
+    "Python does not know this name: it was not given a value before this line, or it is spelled differently.",
+  UnboundLocalError: "A function used a name before giving it a value inside that function.",
+  TypeError: "An operation got a kind of value it cannot use, such as adding a number to text.",
+  ValueError: 'A function got the right kind of value but one it cannot use, such as int("hello").',
+  ZeroDivisionError: "A number was divided by zero, which has no answer.",
+  IndexError:
+    "The program asked for a position past the end of a list or text, and positions start at 0.",
+  KeyError: "The program asked a dictionary for a key it does not have.",
+  AttributeError:
+    "This kind of value has nothing with that name after the dot, so check the spelling and what the value is.",
+  RecursionError: "A function kept calling itself and never stopped.",
+  ModuleNotFoundError: "Python cannot find a module with this name, so check its spelling.",
+  OverflowError: "A number grew too large for this operation.",
+  IndentationError: "The spaces at the start of this line do not match the lines around it.",
+  TabError: "This line mixes tabs and spaces at its start, so use spaces only.",
+} as const satisfies Record<string, string>;
+
 /** The button on an error's line, which moves the editor's cursor there. */
 export const goToLine = (line: number) => `Go to line ${line}`;
 

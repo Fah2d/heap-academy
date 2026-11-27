@@ -4,9 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import type { TestResult } from "@/grader/grade";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
-import { workspace as words } from "@/messages/workspace";
+import {
+  learnerErrorSuggestion,
+  pythonErrorExplanations,
+  workspace as words,
+} from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
 import { INITIAL_VIEW, type RuntimeView } from "../client/runtime-view";
+import { errorFacts } from "../client/workspace-view";
 import { ConsolePanel } from "./console-panel";
 import { Hints } from "./hints";
 import { LearnerErrorView } from "./learner-error-view";
@@ -169,5 +174,32 @@ describe("[T-07] the error view and hints", () => {
     await userEvent.click(screen.getByRole("button"));
     expect(screen.getByText(MARKUP)).toBeTruthy();
     expectInert(container);
+  });
+});
+
+describe("[FR-WSP-23] the error view explains a common Python error", () => {
+  it("puts one sentence on what the error means under Python's message", () => {
+    render(
+      <LearnerErrorView
+        error={{ kind: "runtime", message: "ZeroDivisionError: division by zero", line: 7 }}
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+    expect(screen.getByText("ZeroDivisionError: division by zero")).toBeTruthy();
+    expect(screen.getByText(pythonErrorExplanations.ZeroDivisionError)).toBeTruthy();
+  });
+
+  it("shows the syntax suggestion, not an explanation, for a syntax error that is not about indentation", () => {
+    render(
+      <LearnerErrorView
+        error={{ kind: "syntax", message: "SyntaxError: invalid syntax", line: 3 }}
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+    expect(
+      screen.getByText(learnerErrorSuggestion("syntax", errorFacts(3), "interactive") ?? ""),
+    ).toBeTruthy();
   });
 });
