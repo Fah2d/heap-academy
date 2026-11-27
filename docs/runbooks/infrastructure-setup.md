@@ -35,6 +35,7 @@ The Free plan allows two active projects (E-11, E-24). Both are needed: previews
    - **Project URL** and the **publishable key** (`sb_publishable_...`) from **Project Settings → API Keys**. Neither is secret; both go to the browser.
    - The **Session pooler** connection string from the project's **Connect** dialog (it is IPv4; the direct connection on Free is IPv6 only, E-24). Put the project's password into it, and add `?sslmode=require` at the end: `scripts/apply-migrations.sh` refuses a connection without TLS. The whole string is **secret**: `production database URL` and `staging database URL`.
 5. [ ] Account deletion (WP-6.3) needs a secret key (`sb_secret_...`). In the **production** project only, **Project Settings → API Keys → Create secret key**, saved as **secret** `production secret key`. It bypasses row level security: it goes into Vercel Production and nowhere else.
+6. [ ] In each project, **Project Settings → API Keys**: deactivate the legacy `anon` and `service_role` keys. The app uses only the publishable key, and Supabase keeps the legacy keys valid until you deactivate them; a `service_role` key skips row level security (`rotate-a-secret.md` section 4).
 
 Not yet: the auth settings (Google, the email sender, redirect addresses). They come in step 10 once the pieces they point at exist.
 
@@ -93,7 +94,7 @@ A Hobby project cannot connect to a repository owned by a GitHub organization (E
 6. [ ] Automatic production deploys are turned off by `vercel.json` in the repository (`git.deploymentEnabled.main: false`), so a merge to `main` only goes live through the deploy workflow. Check after the first merge: no deployment appears under **Deployments** from the merge commit itself, only the one the workflow makes.
 7. [ ] **Account Settings → Tokens → Create**: name `heap-academy-deploy`, scope your Hobby account, expiration 90 days (put a renewal reminder in your calendar). **Secret** `Vercel token`.
 8. [ ] On your own machine, in the repository: `pnpm dlx vercel@65.16.0 link`, choose the project, then read `.vercel/project.json`. Note `orgId` and `projectId`. Neither is secret. `.vercel/` is ignored by Git.
-9. [ ] **Settings → Notifications** (or account **Settings → Notifications**): turn on usage notifications (NFR-COST-02).
+9. [ ] **Settings → Notifications** (or account **Settings → Notifications**): check that usage notifications are on (NFR-COST-02). Vercel turns them on for every plan and does not let Hobby change them (E-27).
 10. [ ] Whether a Hobby project can share one protected preview by link: Vercel's documentation says Shareable Links are on all plans, and a Hobby account can create one in total. WP-3.4 needs it. Try it once on any preview (**Share** on the deployment page) and record what you saw in the pull request of WP-1.3.
 
 ## 6. Point the domain at Vercel
@@ -115,7 +116,7 @@ No credential is a repository-level secret (ADR-0029, ADR-0030). Each lives in e
    - **Required reviewers**: yourself. Tick **Prevent self-review** off (you are the only reviewer). See the note under "Choices" in the WP-1.3 pull request: every production deploy waits for your approval, not only those with a migration.
    - **Environment secrets**: `SUPABASE_DB_URL` = `production database URL`; `VERCEL_TOKEN` = `Vercel token`.
    - **Environment variables** (not secrets): `VERCEL_ORG_ID` = `orgId`; `VERCEL_PROJECT_ID` = `projectId`; `PRODUCTION_URL` = `https://<domain>`.
-3. [ ] **New environment** `production-backup`. Deployment branches: `main` only. Leave it empty; WP-7.3 fills it (ADR-0030).
+3. [ ] **New environment** `production-backup`. Deployment branches: `main` only. Its variables and secrets are added by `restore.md` section 2 step 7, once the backup key and the role's password exist (ADR-0030).
 4. [ ] Repository **Settings → Secrets and variables → Actions → Repository secrets** stays empty.
 5. [ ] Last, once steps 1 to 4 of this section and sections 1 to 6 are done: set DEPLOY_ENABLED=true. **Settings → Secrets and variables → Actions → Variables → New repository variable**, name `DEPLOY_ENABLED`, value `true`. It is a variable, not a secret. Until it exists, the deploy workflow skips both of its jobs on every push to `main`.
 
@@ -131,6 +132,10 @@ Where every secret lives, in one table:
 | Google client secret (one client for both projects for now) | Supabase production and staging, Google provider (step 10) | Vercel, GitHub |
 | Turnstile secret key | Supabase production and staging, Attack Protection (step 10) | Vercel, GitHub |
 | Vercel token | GitHub `production` environment | Anywhere else |
+| Backup role's password (`BACKUP_DB_PASSWORD`) | GitHub `production-backup` environment; your password manager | Any other environment, any file |
+| Backup connection host and user (`BACKUP_DB_HOST`, `BACKUP_DB_USER`) | GitHub `production-backup` environment, as secrets so the log hides them | Variables, any log |
+| Heartbeat ping address (`BACKUP_HEARTBEAT_URL`) | GitHub `production-backup` environment | Any file, any log |
+| Backup private key (age identity) | Offline: a USB stick and a paper copy (`restore.md` section 1) | Any machine with Claude Code, CI, a synced password manager, any file in the repository |
 | GitHub fine-grained token (step 8) | The implementer's `gh` login on your machine | Any file, any environment |
 
 ## 8. A fine-grained token for the implementer

@@ -53,6 +53,7 @@ Read this first.
 | E-24 | Supabase Free plan, backups, multi-factor authentication, connections | Source |
 | E-25 | GitHub Actions on a public repository | Source |
 | E-26 | Free email sender tiers | Source |
+| E-27 | Free-tier figures and controls the operations runbooks rely on | Source |
 
 ## 3. Details
 
@@ -274,6 +275,7 @@ Checked 2026-11-15. Terms last updated 2026-10-19; Hobby plan page last updated 
 - Included per month: 100 GB fast data transfer, 10 GB fast origin transfer, 1,000,000 function invocations, 4 active CPU-hours, 360 GB-hours of provisioned memory.
 - "In most cases, if you exceed your usage limits on the Hobby plan, you will have to wait until 30 days have passed before you can use the feature again." There are no billing cycles on Hobby.
 - "WAF Rate Limiting is available on all plans." A Hobby project has one rate-limit rule within three custom firewall rules, keyed by address or JA4 digest, fixed window from 10 seconds to 10 minutes, with 1,000,000 allowed requests included. This corrects the first bullet of E-22, which said rate limiting was a Pro feature.
+- Checked again on 2026-11-24 (rate limiting page `last_updated: 2026-08-28`, usage and pricing page `last_updated: 2026-06-16`, both from the page metadata). The Hobby column of the rate limiting page's limits table says "Included requests: 1,000,000 Allowed requests." Neither page states the period of that amount or what happens on Hobby when it is used up, and neither defines "Allowed". "By default, a rate limit rule counts every request that matches its request conditions." "WAF deny, challenge, or rate-limit mitigated traffic does not incur CDN Requests or Fast Data Transfer (FDT)."
 - Deploy from GitHub Actions: `vercel build`, then `vercel deploy --prebuilt`, with `--prod` for production. CLI uploads are limited to 100 MB of source on Hobby. A Hobby project cannot connect to a repository owned by a GitHub organization.
 
 Sources: [terms](https://vercel.com/legal/terms), [Hobby plan](https://vercel.com/docs/plans/hobby), [limits](https://vercel.com/docs/limits), [rate limiting](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting), [Vercel for GitHub](https://vercel.com/docs/deployments/git/vercel-for-github).
@@ -312,6 +314,23 @@ Checked 2026-11-15. No page showed a date.
 - Brevo's pricing page did not render its content when fetched. Not compared.
 
 Sources: [Resend pricing](https://resend.com/pricing), [MailerSend pricing](https://www.mailersend.com/pricing).
+
+### E-27 Free-tier figures and controls for the operations runbooks
+
+Checked 2026-11-24 while writing `docs/runbooks/rotate-a-secret.md` and `docs/runbooks/usage-spike-or-free-tier-limit.md` (WP-7.3). Added on 2026-11-24, approved by the owner (WP-7.3 decision D). Each runbook lists the exact pages it read.
+
+- Vercel Hobby, per month, beyond E-23: 1,000,000 CDN requests. Fast origin transfer (10 GB) and provisioned memory (360 GB-hours) are in E-23; every page response counts toward fast origin transfer, because pages render per request (ADR-0028).
+- Vercel firewall on Hobby: 3 custom rules and 10 IP blocks per project. Traffic the firewall denies, challenges, or rate-limits does not count toward usage.
+- Vercel renamed Attack Challenge Mode to **Attack Mode**. It is free on every plan, can be turned on for 1, 6, or 24 hours, and turns itself off at the end. Visitors pass a Security Checkpoint once an hour; known crawlers are let through; services Vercel does not recognise may be blocked.
+- Vercel usage notifications are on for every plan and cannot be customised on Hobby. The thresholds at which they are sent were not found.
+- Vercel Web Analytics on Hobby: 50,000 events a month across every project of the account, then collection pauses. Speed Insights on Hobby: 10,000 events over a rolling 30 days, then collection pauses for at least 14 days. The site is unaffected in both cases.
+- Supabase Free: the project disk is 2 GB, and at 95 % the database becomes read-only. Past the plan's quotas, Supabase restricts the project after a warning, up to answering 402 to every API request. How long a paused Free project stays restorable was not found.
+- Supabase's legacy `anon` and `service_role` keys stay valid until they are disabled on the project's API keys page.
+- Resend Free: 100 emails a UTC day (`daily_quota_exceeded`, reset at 00:00 UTC) and 3,000 a month (`monthly_quota_exceeded`). Emails over the quota are refused, not queued. Whether Resend sends usage warnings was not found.
+- Google OAuth clients can hold two client secrets, and both work until one is disabled.
+- GitHub re-runs a workflow run only up to 30 days after it started. What GitHub does on Free at 500 MB of artifacts (E-25) was not found.
+
+Sources: [Vercel Hobby plan](https://vercel.com/docs/plans/hobby), [manage and optimize usage](https://vercel.com/docs/pricing/manage-and-optimize-usage), [notifications](https://vercel.com/docs/notifications), [Attack Mode](https://vercel.com/docs/vercel-firewall/attack-mode), [WAF usage and pricing](https://vercel.com/docs/vercel-firewall/vercel-waf/usage-and-pricing), [Web Analytics limits](https://vercel.com/docs/analytics/limits-and-pricing), [Speed Insights limits](https://vercel.com/docs/speed-insights/limits-and-pricing), [Supabase database size](https://supabase.com/docs/guides/platform/database-size), [Supabase billing FAQ](https://supabase.com/docs/guides/platform/billing-faq), [Supabase API keys](https://supabase.com/docs/guides/api/api-keys), [Resend quotas and limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits), [Google OAuth clients](https://support.google.com/cloud/answer/15549257), [GitHub re-running workflows](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/re-running-workflows-and-jobs).
 
 ## 4. Reference snippets
 

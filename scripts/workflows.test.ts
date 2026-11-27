@@ -42,7 +42,7 @@ function step(text: string, name: string): string {
 
 describe("workflows", () => {
   it("[T-13] exist", () => {
-    expect(files.sort()).toEqual(["ci.yml", "deploy.yml"]);
+    expect(files.sort()).toEqual(["backup.yml", "ci.yml", "deploy.yml"]);
   });
 
   it.each(files)("[T-13] %s pins every action to a full commit with its version", (name) => {
@@ -137,12 +137,63 @@ describe("workflows", () => {
     }
   });
 
-  it.each(files)(
+  it.each(files.filter((name) => name !== "backup.yml"))(
     "[T-18] %s never names the backup environment, which only the backup uses",
     (name) => {
       expect(read(name)).not.toContain("production-backup");
     },
   );
+
+  it("[T-18] [T-24] the backup runs on a schedule only, on main, in its own environment", () => {
+    const text = read("backup.yml");
+    const on = text.slice(text.indexOf("\non:\n"), text.indexOf("\npermissions:"));
+    expect(on).toMatch(/^ {2}schedule:$/m);
+    expect(on).not.toMatch(/^ {2}(?:push|pull_request|workflow_dispatch|workflow_call):/m);
+    expect(jobs(text)).toEqual(["backup"]);
+    const backup = job(text, "backup");
+    expect(backup).toContain("if: github.ref == 'refs/heads/main'");
+    expect(backup).toContain("environment: production-backup");
+    expect(backup).toMatch(
+      /permissions:\n {6}contents: read\n {6}id-token: write\n {6}attestations: write\n {4}steps:/,
+    );
+  });
+
+  it("[T-24] the backup checks the key, uploads only the ciphertext for 7 days, attests it, then pings", () => {
+    const text = read("backup.yml");
+    const order = [
+      "name: Check the recipient key",
+      "name: Dump and encrypt",
+      "name: Upload the ciphertext",
+      "name: Attest the ciphertext",
+      "name: Ping the heartbeat monitor",
+    ].map((name) => text.indexOf(name));
+    expect(order.every((index) => index > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    const upload = step(text, "Upload the ciphertext");
+    expect(upload).toContain("path: ${{ runner.temp }}/backup/backup.age\n");
+    expect(upload).toContain("retention-days: 7");
+    expect(text.match(/actions\/upload-artifact@/g)).toHaveLength(1);
+    expect(step(text, "Attest the ciphertext")).toContain(
+      "subject-path: ${{ runner.temp }}/backup/backup.age",
+    );
+    expect(text).not.toMatch(/actions\/cache@|cache:/);
+    expect(text).not.toMatch(/set -x|--verbose/);
+  });
+
+  it("[T-12] [T-24] the backup's connection parts and heartbeat address are secrets, given only to the steps that use them", () => {
+    const text = read("backup.yml");
+    const secrets = [...text.matchAll(/secrets\.([A-Z_]+)/g)].map((match) => match[1]);
+    expect(secrets).toEqual([
+      "BACKUP_DB_HOST",
+      "BACKUP_DB_USER",
+      "BACKUP_DB_PASSWORD",
+      "BACKUP_HEARTBEAT_URL",
+    ]);
+    // A variable's value is printed in the step's log header; a secret's is not.
+    expect(text).not.toMatch(/vars\.BACKUP_DB_/);
+    expect(step(text, "Dump and encrypt")).toContain("secrets.BACKUP_DB_PASSWORD");
+    expect(step(text, "Ping the heartbeat monitor")).toContain("secrets.BACKUP_HEARTBEAT_URL");
+  });
 
   it("[T-13] the pull request checks read their rules from the base commit", () => {
     const text = read("ci.yml");
