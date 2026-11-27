@@ -104,6 +104,28 @@ export const pythonErrorExplanations = {
   TabError: "This line mixes tabs and spaces at its start, so use spaces only.",
 } as const satisfies Record<string, string>;
 
+/**
+ * The symbol row above the phone's keyboard in the Code view (FR-WSP-21;
+ * section 6.8), in the order the section lists. `shown` is the key's face;
+ * `name` is what assistive technology reads.
+ */
+export const symbolRow = {
+  label: "Symbols",
+  keys: [
+    { insert: "indent", shown: "Tab", name: "Tab" },
+    { insert: ":", shown: ":", name: "Colon" },
+    { insert: "(", shown: "(", name: "Opening bracket" },
+    { insert: ")", shown: ")", name: "Closing bracket" },
+    { insert: "[", shown: "[", name: "Opening square bracket" },
+    { insert: "]", shown: "]", name: "Closing square bracket" },
+    { insert: '"', shown: '"', name: "Double quote" },
+    { insert: "'", shown: "'", name: "Single quote" },
+    { insert: "=", shown: "=", name: "Equals sign" },
+    { insert: "#", shown: "#", name: "Hash" },
+    { insert: "_", shown: "_", name: "Underscore" },
+  ],
+} as const;
+
 /** The button on an error's line, which moves the editor's cursor there. */
 export const goToLine = (line: number) => `Go to line ${line}`;
 

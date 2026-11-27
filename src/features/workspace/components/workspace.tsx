@@ -41,6 +41,7 @@ import { inputLines } from "./input-lines";
 import { LessonNav } from "./lesson-nav";
 import { PythonStatus } from "./python-status";
 import { ResetCode } from "./reset-code";
+import { SymbolRow, type SymbolInsert } from "./symbol-row";
 import { TestsPanel } from "./tests-panel";
 
 export type WorkspaceLesson = {
@@ -144,6 +145,15 @@ export function Workspace({
   const [tab, setTab] = useState<OutputTab>("console");
   const [refusal, setRefusal] = useState<TooLarge | undefined>(undefined);
   const [goToLine, setGoToLine] = useState<{ line: number; request: number } | undefined>();
+  const [insertion, setInsertion] = useState<
+    { text: string | { indent: true }; request: number } | undefined
+  >();
+  const insertSymbol = (symbol: SymbolInsert) => {
+    setInsertion((previous) => ({
+      text: symbol === "indent" ? { indent: true } : symbol,
+      request: (previous?.request ?? 0) + 1,
+    }));
+  };
 
   const store = useRef<CodeStore | undefined>(undefined);
   const edited = useRef(false);
@@ -485,12 +495,14 @@ export function Workspace({
           nonce={nonce}
           fill
           goToLine={goToLine}
+          insert={insertion}
         />
       </div>
     </>
   );
 
   // Below 768 px the bar has no icons and no keys, so it fits one row at 320 px.
+  // In the Code view the symbol row sits above it, on the keyboard (FR-WSP-21).
   const actions = (
     <div
       ref={actionBar}
@@ -501,6 +513,7 @@ export function Workspace({
           : narrow === undefined && "max-md:hidden",
       )}
     >
+      {phone && phoneView === "code" && <SymbolRow onInsert={insertSymbol} />}
       <Button
         variant="secondary"
         {...(!phone && { icon: <Play size={16} /> })}

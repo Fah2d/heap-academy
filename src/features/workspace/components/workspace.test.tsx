@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LessonId } from "@/domain/ids";
 import { EXAMPLE_LESSON } from "@/grader/example-lesson";
-import { goToLine, workspace as words } from "@/messages/workspace";
+import { goToLine, symbolRow, workspace as words } from "@/messages/workspace";
 import type { RunId } from "@/runtime/protocol";
 import { SOURCE_LIMIT } from "@/runtime/protocol";
 import type { WorkspaceEvent, WorkspaceState } from "@/runtime/workspace-chart";
@@ -102,24 +102,31 @@ vi.mock("../client/saved-code", () => ({
     };
   },
 }));
+// The last symbol the workspace asked the editor to insert (FR-WSP-21).
+const inserted = vi.hoisted(() => ({ last: undefined as unknown }));
 vi.mock("./code-editor", () => ({
   CodeEditor: ({
     value,
     onChange,
     labelledBy,
+    insert,
   }: {
     value: string;
     onChange: (next: string) => void;
     labelledBy: string;
-  }) => (
-    <textarea
-      aria-labelledby={labelledBy}
-      value={value}
-      onChange={(event) => {
-        onChange(event.target.value);
-      }}
-    />
-  ),
+    insert?: unknown;
+  }) => {
+    inserted.last = insert;
+    return (
+      <textarea
+        aria-labelledby={labelledBy}
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+        }}
+      />
+    );
+  },
 }));
 
 const { Workspace } = await import("./workspace");
@@ -271,6 +278,25 @@ describe("[FR-WSP-08] the batch field", () => {
 describe("[FR-WSP-13] below 768 px", () => {
   const views = () => within(screen.getByRole("tablist", { name: words.views }));
   const tab = (name: string) => views().getByRole("tab", { name });
+
+  it("[FR-WSP-21] shows the symbol row in the Code view only, and its keys reach the editor", async () => {
+    narrow = true;
+    show();
+    expect(screen.queryByRole("group", { name: symbolRow.label })).toBeNull();
+    await userEvent.click(tab(words.viewCode));
+    const row = screen.getByRole("group", { name: symbolRow.label });
+    await userEvent.click(within(row).getByRole("button", { name: "Colon" }));
+    expect(inserted.last).toEqual({ text: ":", request: 1 });
+    await userEvent.click(within(row).getByRole("button", { name: "Tab" }));
+    expect(inserted.last).toEqual({ text: { indent: true }, request: 2 });
+    await userEvent.click(tab(words.viewOutput));
+    expect(screen.queryByRole("group", { name: symbolRow.label })).toBeNull();
+  });
+
+  it("[FR-WSP-21] shows no symbol row at 768 px and wider", () => {
+    show();
+    expect(screen.queryByRole("group", { name: symbolRow.label })).toBeNull();
+  });
   // A view that is not selected stays in the page, hidden and inert.
   const shown = (element: Element) => element.closest("[inert]") === null;
   const lessonAction = () => screen.getByRole("button", { name: words.toCode, hidden: true });
