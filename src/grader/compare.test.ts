@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { forAll, type Generator, textFrom, tuple } from "../../scripts/testing/property.ts";
-import { matches, normalize } from "./compare.ts";
+import { matches, nearMiss, normalize } from "./compare.ts";
 
 // Characters that matter to the rules: line endings, the whitespace each kind
 // of trim sees, letters in both cases, punctuation, and a character outside
@@ -102,5 +102,76 @@ describe("matches", () => {
         "normalized",
       ),
     ).toBe(false);
+  });
+});
+
+describe("nearMiss", () => {
+  it("[FR-GRD-07] names a difference only in letter case", () => {
+    expect(nearMiss("hello, sara!\n", "Hello, Sara!", "normalized")).toBe("letter_case");
+    expect(nearMiss("HELLO", "Hello", "exact")).toBe("letter_case");
+  });
+
+  it("[FR-GRD-07] names a difference only in spaces, inside a line or at its start", () => {
+    expect(nearMiss("Hello,Sara!", "Hello, Sara!", "normalized")).toBe("spaces");
+    expect(nearMiss("  total: 3", "total: 3", "normalized")).toBe("spaces");
+    expect(nearMiss("a  b\nc", "a b\nc", "normalized")).toBe("spaces");
+    // Exact compares every character, so a trailing space is a near miss there.
+    expect(nearMiss("Hello ", "Hello", "exact")).toBe("spaces");
+  });
+
+  it("[FR-GRD-07] names a difference only in punctuation", () => {
+    expect(nearMiss("Hello Sara", "Hello, Sara!", "normalized")).toBe("punctuation");
+    expect(nearMiss('It is "done"', "It is 'done'", "normalized")).toBe("punctuation");
+    expect(nearMiss("Total. 3", "Total: 3", "normalized")).toBe("punctuation");
+  });
+
+  it("[FR-GRD-07] names a missing last line", () => {
+    expect(nearMiss("3\n2\n1\n", "3\n2\n1\nLift off", "normalized")).toBe("missing_last_line");
+    expect(nearMiss("a", "a\nb", "exact")).toBe("missing_last_line");
+  });
+
+  it("[FR-GRD-07] names nothing when the output matches", () => {
+    expect(nearMiss("Hello  \n\n", "Hello", "normalized")).toBeUndefined();
+    forAll(anyText, (text) => nearMiss(text, text, "normalized") === undefined);
+    forAll(anyText, (text) => nearMiss(text, text, "exact") === undefined);
+  });
+
+  it("[FR-GRD-07] names nothing when the output differs in more than one way, or in words", () => {
+    expect(nearMiss("hello sara", "Hello, Sara!", "normalized")).toBeUndefined();
+    expect(nearMiss("Goodbye", "Hello", "normalized")).toBeUndefined();
+    expect(nearMiss("3\n2\n", "3\n2\n1\nLift off", "normalized")).toBeUndefined();
+    expect(nearMiss("2\n1", "3\n2\n1", "normalized")).toBeUndefined();
+  });
+
+  it("[FR-GRD-07] does not call no output at all a missing last line", () => {
+    expect(nearMiss("", "Hello", "normalized")).toBeUndefined();
+  });
+
+  it("[FR-GRD-07] does not call a missing line break at the end a missing line", () => {
+    expect(nearMiss("Hello", "Hello\n", "exact")).toBeUndefined();
+  });
+
+  it("[FR-GRD-07] names nothing in contains mode, where other output is allowed", () => {
+    expect(nearMiss("HELLO", "Hello", "contains")).toBeUndefined();
+  });
+
+  it("[FR-GRD-07] a named difference is the only one: removing it makes the texts equal", () => {
+    forAll(tuple(anyText, anyText), ([actual, expected]) => {
+      const kind = nearMiss(actual, expected, "normalized");
+      const a = normalize(actual);
+      const e = normalize(expected);
+      switch (kind) {
+        case undefined:
+          return true;
+        case "letter_case":
+          return a.toLowerCase() === e.toLowerCase();
+        case "spaces":
+          return a.replace(/[^\S\n]/gu, "") === e.replace(/[^\S\n]/gu, "");
+        case "punctuation":
+          return a.replace(/\p{P}/gu, "") === e.replace(/\p{P}/gu, "");
+        case "missing_last_line":
+          return e.startsWith(`${a}\n`) && !e.slice(a.length + 1).includes("\n");
+      }
+    });
   });
 });

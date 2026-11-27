@@ -2,10 +2,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
+import type { NearMiss } from "@/grader/compare";
 import type { TestResult } from "@/grader/grade";
 import type { TestCase, TestCaseId } from "@/grader/test-case";
 import {
   learnerErrorSuggestion,
+  type NearMissWord,
   pythonErrorExplanations,
   workspace as words,
 } from "@/messages/workspace";
@@ -203,3 +205,90 @@ describe("[FR-WSP-23] the error view explains a common Python error", () => {
     ).toBeTruthy();
   });
 });
+
+describe("[FR-GRD-07] the tests panel names a near miss", () => {
+  const greets: TestCase = {
+    id: "greets" as TestCaseId,
+    name: "Greets Sara",
+    stdin: "",
+    afterCode: "",
+    expected: "Hello, Sara!",
+    match: "normalized",
+    hint: "",
+  };
+  const showFailure = (actual: string, overrides: Partial<{ truncated: boolean }> = {}) =>
+    render(
+      <TestsPanel
+        tests={[greets]}
+        results={[
+          {
+            testCaseId: greets.id,
+            status: "failed",
+            reason: "mismatch",
+            actual,
+            truncated: overrides.truncated ?? false,
+            harnessVersion: "7",
+          },
+        ]}
+        summary={summary}
+        checking={false}
+        checkEnded
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+
+  it.each([
+    ["hello, sara!", "letter_case"],
+    ["Hello,Sara!", "spaces"],
+    ["Hello Sara", "punctuation"],
+  ] as const)("after %j it says the only difference is %s", (actual, kind) => {
+    showFailure(actual);
+    expect(
+      screen.getByText(`${words.failure("mismatch", 5)} ${words.nearMiss(kind)}`),
+    ).toBeTruthy();
+  });
+
+  it("names a missing last line", () => {
+    cleanup();
+    render(
+      <TestsPanel
+        tests={[{ ...greets, expected: "3\n2\n1\nLift off" }]}
+        results={[
+          {
+            testCaseId: greets.id,
+            status: "failed",
+            reason: "mismatch",
+            actual: "3\n2\n1\n",
+            truncated: false,
+            harnessVersion: "7",
+          },
+        ]}
+        summary={summary}
+        checking={false}
+        checkEnded
+        strategy="interactive"
+        onGoToLine={ignore}
+      />,
+    );
+    expect(screen.getByText(new RegExp(words.nearMiss("missing_last_line")))).toBeTruthy();
+  });
+
+  it("says nothing more when the output is simply different", () => {
+    showFailure("Goodbye");
+    expect(screen.getByText(words.failure("mismatch", 5))).toBeTruthy();
+  });
+
+  it("says nothing more when the output was cut, which is its own reason", () => {
+    showFailure("hello, sara!", { truncated: true });
+    expect(screen.queryByText(new RegExp(words.nearMiss("letter_case")))).toBeNull();
+  });
+});
+
+// The page's words cover every kind the grader names, and no other.
+const nearMissKinds: [NearMiss] extends [NearMissWord]
+  ? [NearMissWord] extends [NearMiss]
+    ? true
+    : never
+  : never = true;
+void nearMissKinds;

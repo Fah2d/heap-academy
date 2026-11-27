@@ -34,3 +34,39 @@ export function matches(actual: string, expected: string, mode: MatchMode): bool
     }
   }
 }
+
+/**
+ * How a failed comparison almost matched (FR-GRD-07; docs/spec/04-content-system.md
+ * section 2.3), so the learner is told a difference they cannot see.
+ */
+export type NearMiss = "letter_case" | "spaces" | "punctuation" | "missing_last_line";
+
+const HORIZONTAL_SPACE = /[^\S\n]/gu;
+const PUNCTUATION = /\p{P}/gu;
+
+/**
+ * The one way `actual` almost matches `expected` under `mode`, or undefined
+ * when it matches, differs in more than one way, or the mode is `contains`,
+ * where the output may hold anything around the expected text. The texts are
+ * compared as the mode compares them: normalized, or exactly.
+ */
+export function nearMiss(actual: string, expected: string, mode: MatchMode): NearMiss | undefined {
+  if (mode === "contains" || matches(actual, expected, mode)) return undefined;
+  const a = mode === "normalized" ? normalize(actual) : actual;
+  const e = mode === "normalized" ? normalize(expected) : expected;
+  if (a.toLowerCase() === e.toLowerCase()) return "letter_case";
+  if (a.replace(HORIZONTAL_SPACE, "") === e.replace(HORIZONTAL_SPACE, "")) return "spaces";
+  if (a.replace(PUNCTUATION, "") === e.replace(PUNCTUATION, "")) return "punctuation";
+  const actualLines = a.split("\n");
+  const expectedLines = e.split("\n");
+  const last = expectedLines.at(-1) ?? "";
+  if (
+    a !== "" &&
+    last.trim() !== "" &&
+    expectedLines.length === actualLines.length + 1 &&
+    actualLines.every((line, index) => line === expectedLines[index])
+  ) {
+    return "missing_last_line";
+  }
+  return undefined;
+}

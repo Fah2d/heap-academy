@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef } from "react";
+import { nearMiss } from "@/grader/compare";
 import type { CheckSummary, TestResult } from "@/grader/grade";
 import type { TestCase } from "@/grader/test-case";
 import { workspace as words } from "@/messages/workspace";
@@ -27,7 +28,8 @@ const LABEL: Record<TestResult["status"], string> = {
  * the first Check it lists what will be checked, each "Not run". After a
  * Check its summary is focused, and announced by the workspace's live region;
  * each test case is a disclosure, and the first failure is open. Expected and
- * actual output are shown as text (T-07).
+ * actual output are shown as text (T-07); when they almost match, the one
+ * difference is named in words (FR-GRD-07).
  */
 export function TestsPanel({
   tests,
@@ -171,6 +173,11 @@ function TestDetails({
   onGoToLine: (line: number) => void;
 }) {
   const failed = result.status === "failed";
+  // Only a plain mismatch: an error or a cut output is the reason itself.
+  const almost =
+    failed && result.reason === "mismatch" && !result.truncated
+      ? nearMiss(result.actual, test.expected, test.match)
+      : undefined;
   return (
     <div className="flex flex-col gap-3 text-sm">
       {failed && (
@@ -179,6 +186,7 @@ function TestDetails({
           {result.error?.missingName !== undefined && (
             <> {words.needsName(consoleText(result.error.missingName))}</>
           )}
+          {almost !== undefined && <> {words.nearMiss(almost)}</>}
         </p>
       )}
       <Block label={words.input} text={test.stdin} empty={words.noInput} />

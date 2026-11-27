@@ -117,6 +117,9 @@ export type FailureReasonWord =
   | "stopped"
   | "crashed";
 
+/** How a failed comparison almost matched (the grader's `NearMiss`, FR-GRD-07). */
+export type NearMissWord = "letter_case" | "spaces" | "punctuation" | "missing_last_line";
+
 const megabytes = (bytes: number) =>
   (bytes / 1_000_000).toLocaleString(LOCALE, {
     minimumFractionDigits: 1,
@@ -251,6 +254,22 @@ export const workspace = {
         return "You stopped the check.";
       case "crashed":
         return "Python stopped unexpectedly during this test.";
+    }
+  },
+  /**
+   * After "Your output is different", how it almost matched (FR-GRD-07):
+   * the differences a beginner cannot see, named in words.
+   */
+  nearMiss: (kind: NearMissWord): string => {
+    switch (kind) {
+      case "letter_case":
+        return "The only difference is capital and small letters.";
+      case "spaces":
+        return "The only difference is spaces.";
+      case "punctuation":
+        return "The only difference is punctuation, such as commas, full stops or quotes.";
+      case "missing_last_line":
+        return "Everything matches except the last line, which your output does not have.";
     }
   },
   /** Follow-up code that names something the program did not define (section 2.2). */
