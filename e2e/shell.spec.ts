@@ -24,7 +24,7 @@ test("[FR-SYS-01] an unknown address answers 404 with the not-found page", async
 test("[WP-1.4] the development-only pages are absent from the production build", async ({
   request,
 }) => {
-  for (const path of ["/dev/primitives", "/dev/error", "/dev/runtime"]) {
+  for (const path of ["/dev/primitives", "/dev/error", "/dev/runtime", "/dev/client-error"]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(404);
   }

@@ -5,6 +5,7 @@ import { requestCounter } from "@/infrastructure/actions/request-counter";
 import { parseRequestId, REQUEST_ID_HEADER } from "@/infrastructure/http/request-id";
 import { log as serverLog, type Logger } from "@/infrastructure/logging/logger";
 import { logRoute } from "@/infrastructure/logging/route";
+import { readCapped } from "./read-capped";
 
 // POST /api/csp-report (docs/spec/06-security-privacy.md section 5.2). Browsers
 // send content security policy violations here in one of two formats: the
@@ -160,27 +161,6 @@ export function parseCspReport(contentType: string, body: string, origin: string
         violation(report.effectiveDirective, report.blockedURL, report.disposition, origin),
       ),
   };
-}
-
-/** Reads at most `limit` bytes of the body; undefined when it is longer. */
-async function readCapped(request: Request, limit: number): Promise<string | undefined> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > limit) return undefined;
-  if (request.body === null) return "";
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      return undefined;
-    }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
 /** The name the endpoint is counted under. */

@@ -2,6 +2,21 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27 (later), on `wp/7.3-operations`: decision P
+
+- The owner approved decision P, option A. Migration `20261127010000_backup_reader_reads_all_data.sql` grants `pg_read_all_data` to `backup_reader` with inherit, without the admin option. `06_backup_reader` now pins no write, no Vault decryption, and membership in `pg_read_all_data` only (24 tests, four of them as the role). ADR-0030 amended; T-24, `restore.md` and `rotate-a-secret.md` match.
+- `pnpm verify` exit 0, 2853 tests. `pnpm test:db` after a clean reset: 450 tests, PASS. Three mutations each failed the file. The dump as `backup_reader`: exit 0, 7,625 bytes.
+- Not verified: that `postgres` on hosted Supabase holds `pg_read_all_data` with the admin option.
+- Push: `wp/7.3-operations`, once.
+
+## Session of 2026-11-27, on `wp/7.3-operations`: `main` at 5dcc577 merged in
+
+- `main` merged in (d74d10b). Conflicts: `.env.example` (both sides kept), `csp-report.ts` (`main`'s counter name, with this branch's `read-capped.ts` import), and this file (union).
+- The `db` job's tests 6 to 8 of `06_backup_reader` still fail, and not from a missing grant on a 6.x table: every table of `public` and `private` is readable by `backup_reader` (0 missing on the local stack). All misses are in `auth`. `auth`'s ACL holds `postgres=U/supabase_admin`, with no grant option, and the 11 tables the auth service added give `postgres` no grant option either. This is decision P of `pull-requests/WP-7.3-part-6.md`, still the owner's; nothing was changed for it.
+- `pnpm verify` exit 0, 2853 tests. e2e as CI runs it (`supabase db reset` with `ACTION_COUNTER_KEY` exported, so Vault holds `action_counter_key`; the stack's keys from `supabase status`; `CI=true`; `--project=chromium --project=stack --project=gallery`): 248 passed, 1 skipped, exit 0. `pnpm test:db` after a clean reset: 446 tests, FAIL on tests 6 to 8 of `06_backup_reader` only.
+- `main`'s CI: the newest run (5dcc577) passed every job. Its earlier `unit` failures were the FR-RUN-04 timer test, fixed on `main` by a71998e; its earlier `e2e` failure was Docker Hub's `toomanyrequests` at stack start. `ci.yml` runs no Firefox or WebKit project. No `wp/fix-main-ci` branch was made.
+- Push: `wp/7.3-operations`, once.
+
 ## Session of 2026-11-26 (night), on `wp/7.4-journeys`: `main` at 23cfb4b, `wp/7.2-a11y-perf` at 376fba2 and `wp/7.4-journeys-part-2b` merged in
 
 - Fixed the two CI flakes, the admin gallery's fill before hydration and FR-RUN-04's 0 ms timer. Also fixed the page-weight and chapter-list races found on the way. Added `stack-firefox` and `stack-webkit` (`pull-requests/WP-7.4-part-3.md`).
@@ -23,6 +38,712 @@ Owner's order for phase 7: 7.1, 7.2, 7.3, 7.4 (with 7.4 part 2b), each with `mai
 - e2e as CI (`/tmp` script: `supabase db reset`, the stack's keys from `supabase status`, `CI=true`, `--project=chromium --project=stack --project=gallery`): first run 3 failures (the canary's 404 behind the cached list, twice; catalog's whole-list count race), fixed; then `218 passed`, `1 skipped`, exit 0. `pnpm test:db`: 426 pass. `pnpm verify`: exit 0, 2773 tests.
 - Flaky, not fixed here: `[NFR-PERF-06]` in `src/grader/node-runner/runner.test.ts` failed twice under load (963 ms against 500 ms; once in the review, once in the 7.3 merge's run), and passes alone. It is a wall-clock limit on a shared machine; reported to the owner.
 - Push: `wp/7.1-security-canary`, once.
+
+## Session of 2026-11-26 (evening), on `wp/7.3-operations`: `main` at 23cfb4b merged in, part 6
+
+- `main` merged in (f33e346). Then part 6: the nightly encrypted backup, the checked restore, the verify script, the restore and deletion-request runbooks, the backup secrets' rotation, the drill records, and ADR-0030's text amended as proposed (`pull-requests/WP-7.3-part-6.md`, `reviews/WP-7.3/security-review-8.md`).
+- **Decision P is needed**: `backup_reader` cannot use `auth` (`postgres` lacks the grant option), so `pnpm test:db` fails tests 6 to 8 of `06_backup_reader` and the backup cannot run. Recommended: `pg_read_all_data`, with the ADR amended.
+- `pnpm verify` exit 0, 160 files, 2810 tests. e2e as CI runs it: 169 passed, 1 skipped, exit 0. `pnpm test:db`: 407 tests, FAIL on tests 6 to 8 only.
+- Push: `wp/7.3-operations`, once.
+
+## Session of 2026-11-24 (from about 22:50), in `night-c`, on `wp/7.3-operations`
+
+- `git fetch` at 22:50: `origin/main` moved to 428c437 (pull request #14, `wp/db-types`: `src/infrastructure/db/database.types.ts`). Merged into `wp/7.3-operations` with no conflict.
+- `pnpm verify` after the merge: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`. pnpm warned that it could not lock the install directory; `git status` is clean, so nothing was installed or changed.
+- WP-7.3 has nothing else this run can do: decision C needs the two analytics packages installed (owner), decision E is the owner's patch (`docs/reports/pull-requests/WP-7.3-deploy-dispatch.patch`), and the backup workflow waits for the CI `db` job to prove the `backup_reader` role. `gh` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so that CI result could not be read.
+- Task 2 is still blocked: the generated database types are not a work package, so the plan's dependencies in `docs/spec/08-delivery-plan.md` are unchanged. WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches. No branch was started.
+- Pushed, because the branch now carries a new `main`.
+- Checked again at 22:52: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since this branch's 22:51 push. Task 1 has nothing new and task 2 is still blocked for the reasons above. No code changed. Committed, not pushed: nothing new for the owner's chat, so not worth a Vercel build. The run stops here.
+- Checked again at 22:54: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since this branch's 22:51 push. `gh pr list` still fails with the same TLS error, so the CI `db` job could not be read. Task 1 has nothing new and task 2 is still blocked. No code changed. Committed, not pushed. The run stops here.
+- Checked again at 22:55: `origin/main` still 428c437 and already in `wp/7.3-operations`. Other agents' branches moved (`wp/2.2-sign-in` 5eab223, `wp/3.1-python-worker` f013090, `wp/3.3-grader` 68a69d2, `wp/3.4-statechart` 96b8015); none touched. `gh` still fails with the TLS error, but `curl` to `api.github.com` works. It shows that **there is no WP-7.3 pull request**: the open ones are #9 (3.1, draft), #11 (6.3, draft) and #13 (2.2, ready); #12 and #14 are merged. `ci.yml` runs only on `pull_request` and on pushes to `main`, so the CI `db` job has never run on this branch. The only check on 955daff is `Vercel Preview Comments` (success). The `backup_reader` migration and its 18 pgTAP tests stay unproved until the pull request is opened. Task 2 still blocked: WP-2.2 (#13) and WP-3.1 (#9) are not merged. No code changed. Pushed once, so the owner's chat reads this finding.
+- Checked again at 22:57: `origin/main` still 428c437 and already in `wp/7.3-operations`. Only other agents' branches moved (`wp/2.3-admin-gate` bdb9469, `wp/4.1-courses-chapters` b10e6d6; not touched). Open pull requests are still #9, #11 and #13, so there is still no WP-7.3 pull request and the CI `db` job has not run. Task 1 has nothing new and task 2 is still blocked (WP-2.2 #13 and WP-3.1 #9 not merged). No code changed. Committed, not pushed: nothing new for the owner's chat.
+- Checked again at 22:59: `origin/main` still 428c437 and already in `wp/7.3-operations`. Only other agents' branches moved (`wp/4.3-validate-publish` ef5abd5, `wp/4.2-lesson-editor` 4417719; not touched). Open pull requests are still #9, #11 and #13: no WP-7.3 pull request, so the CI `db` job has not run. Task 1 has nothing new and task 2 is still blocked (WP-2.2 #13 and WP-3.1 #9 not merged). No code changed. Committed, not pushed: nothing new for the owner's chat.
+- Checked again at 23:00: `origin/main` still 428c437 and already in `wp/7.3-operations`. Only another agent's `origin/wp/5.1-catalog` moved (19f14af; not touched). Open pull requests are still #9, #11 and #13 (read with `curl`; `gh` still fails with the TLS error): no WP-7.3 pull request, so the CI `db` job has not run. Task 1 has nothing new and task 2 is still blocked (WP-2.2 #13 and WP-3.1 #9 not merged). No code changed. Committed, not pushed: nothing new for the owner's chat.
+- Checked again at 23:02: `origin/main` still 428c437 and already in `wp/7.3-operations`; no remote branch moved since 23:00. Open pull requests are still #9, #11 and #13 (read with `curl`): no WP-7.3 pull request yet, so the CI `db` job has not run. Task 1 has nothing new and task 2 is still blocked (WP-2.2 #13 and WP-3.1 #9 not merged). No code changed.
+- Pushed at 23:02, once, so the owner's chat can read the 22:55 finding (no WP-7.3 pull request exists, and CI runs only on pull requests). Same default as 19:54: a blocked run pushes its held notes once.
+- The run stops here.
+
+### Owner: run this
+
+1. Open the WP-7.3 pull request (label `spec-change`, body from `docs/reports/pull-requests/WP-7.3-part-{1,2,3,4,5}.md`). CI runs only on pull requests, so this is what starts the `db` job. Then read that job. If it passes, the next run can build the backup workflow.
+2. Decision C: `pnpm add @vercel/analytics @vercel/speed-insights`.
+3. Apply the Deploy patch (decision E), as in the 15:08 section below.
+
+## Session of 2026-11-24 (from about 19:40), in `night-c`, on `wp/7.3-operations`
+
+- `git fetch` at 19:40: `origin/main` is still 7875ee2 and already in `wp/7.3-operations`. Task 1 has nothing new. The only branch that moved is another agent's `origin/wp/5.1-catalog` (now f2ab9b3), which this run does not touch.
+- Task 2 is still blocked: the dependencies in `docs/spec/08-delivery-plan.md` are unchanged, and WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches. No branch was started.
+- Committed locally, not pushed: this note adds nothing the pushed 19:39 note does not already say, so it is not worth a Vercel build. The next push of this branch carries it.
+- Checked again at about 19:42, 19:44, 19:45, 19:47, 19:48, 19:49 and 19:51: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 19:39 except other agents' new `origin/wp/5.2-workspace-laptop` (ada3275, 19:44; not touched). The lint fix the owner asked for (WP-5.1 decision #5) is already on `origin/wp/fix-lint-template-import`. Still blocked, no code changed; committed, not pushed. At 19:49 the analytics packages of decision C (approved as option (a)) are still not in `package.json`, so the part that mounts them cannot start; installing them is the owner's step.
+- Checked again at about 19:52: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 19:44. Owner action 6 is now done on another agent's `origin/wp/5.1-catalog` (f2ab9b3): `src/messages/system.ts` line 13 reads "We could not prepare this page. Try again.", so owner action 2 of the 19:24 section below is no longer due. Still blocked; committed, not pushed.
+- Checked again at 19:54: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 19:44. The plan's dependencies are unchanged: only WP-2.2 and WP-3.1 depend on nothing beyond `origin/main`, and both have other agents' branches. Still blocked, no code changed.
+- Pushed at 19:54 so the owner's chat can read the notes held since 19:39 (one Vercel build). Default decision: a run that stops blocked pushes its notes once, instead of holding them across runs.
+- Checked again at 19:56: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 19:54. Still blocked, no code changed. Committed, not pushed: the note adds nothing the pushed 19:54 note does not say, so it is not worth a Vercel build.
+- Checked again at 19:58: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no remote branch moved since this branch's 19:54 push. The plan's dependencies are unchanged, so task 2 is still blocked (WP-2.2 and WP-3.1 have other agents' branches). No code changed. Committed, not pushed: nothing new for the owner's chat, so not worth a Vercel build.
+- Checked again at 19:59: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no remote branch moved since this branch's 19:54 push. The dependencies in `docs/spec/08-delivery-plan.md` re-read and unchanged, so task 2 is still blocked (WP-2.2 and WP-3.1 have other agents' branches). No code changed. Committed, not pushed: nothing new for the owner's chat, so not worth a Vercel build.
+- Checked again at 20:01: `origin/main` still 7875ee2 and already in `wp/7.3-operations`. Only another agent's `origin/wp/5.2-workspace-laptop` moved (1dabb12, 20:00; not touched). Since `origin/main` did not move, the plan's dependencies did not change either, so task 2 is still blocked (WP-2.2 and WP-3.1 have other agents' branches). No code changed. Committed, not pushed: nothing new for the owner's chat, so not worth a Vercel build.
+- Checked again at 20:03: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no remote branch moved since 20:01. Task 1 has nothing new and task 2 is still blocked (WP-2.2 and WP-3.1 have other agents' branches). No code changed. Committed, not pushed: nothing new for the owner's chat.
+- Checked again at 20:04: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no remote branch moved since 20:01. Task 1 has nothing new and task 2 is still blocked (WP-2.2 and WP-3.1 have other agents' branches). No code changed. Committed, not pushed: nothing new for the owner's chat.
+- Checked again at 20:06: `origin/main` still 7875ee2 and already in `wp/7.3-operations`. New since 20:04: other agents' `origin/wp/db-types` (d35a0b1, 20:04) and `origin/wp/spec-change-shell-nav-errors` (fa74af4, 17:24); neither is a work package of the plan, and neither was touched. Task 1 has nothing new and task 2 is still blocked (WP-2.2 and WP-3.1 have other agents' branches). No code changed. Committed, not pushed: nothing new for the owner's chat.
+- The run stops here.
+
+## Session of 2026-11-24 (from about 19:39), in `night-c`, on `wp/7.3-operations`
+
+- `origin/main` is still 7875ee2 and already in `wp/7.3-operations` (`git merge-base --is-ancestor`). Task 1 has nothing new.
+- Task 2 is still blocked for the same reason as the section below: WP-2.2 and WP-3.1, the only packages that depend only on `origin/main`, already have other agents' branches (`origin/wp/3.1-python-worker` moved at 19:33; `origin/wp/2.2-sign-in` is at 9717efb). No branch was started.
+- `gh pr list` still fails with the same TLS error (`x509: OSStatus -26276`).
+- Pushed `wp/7.3-operations` this time (fast-forward, only this file changed since 3634019), so the owner's chat can read the notes of the 15:24 to 19:39 runs. Default decision: one Vercel build is worth making these notes visible; the earlier runs held them back. Nothing else is due on this branch, so the next push waits for new work.
+- The run stops here, as the instructions say for a blocked task.
+
+## Session of 2026-11-24 (from about 19:24), in `night-c`, on `wp/7.3-operations`
+
+New owner decisions of 2026-11-24 for WP-5.1: owner action 5 (fix the backtick `import()` lint bypass as its own small branch from `origin/main`) and owner action 6 (the error page wording). `origin/main` is still 7875ee2.
+
+### Task 1: nothing new on `wp/7.3-operations`
+
+It already contains `origin/main` (checked with `git merge-base --is-ancestor`). Still not pushed: the notes in the sections below and this one, to save a Vercel build.
+
+### Owner action 5: built here, then found already pushed by another agent; not pushed
+
+- This run built the fix on a branch from `origin/main` (four commits, three `security-reviewer` rounds, each APPROVE; `pnpm verify` exit 0, 28 files, 735 tests). At push time (about 19:38), `origin/wp/fix-lint-template-import` already existed: another agent pushed it at 19:33 (01c8227, 9f15550), with its own description and two security reviews.
+- That branch is the one to keep. It refuses every computed `import()` and `require()` source except in `src/runtime/worker/python-worker.ts`, which is stricter than this run's version, and it matches bce0f08, which is already on `wp/3.3-grader`, 3.4, 4.3 and 5.2. Pushing this run's version would have made a second pull request for the same fix, and it would conflict with those branches.
+- This run's version is kept only locally, as `wp/fix-lint-template-import-night-c-local` in `night-c`. Nothing from it was pushed.
+- Two things from this run's three security reviews may help the other branch's review. Neither is a gap outside the worker file, because that branch refuses every computed source there:
+  - In the worker file, which is allowed to compute an import, `import(flag ? "@/infrastructure/db/privileged" : "@/ui")` and `import("@/infrastructure/db/privileged" as string)` would pass. TypeScript's `as`, `satisfies`, `!` and `<T>` disappear at build time, so the bundler sees a fixed string.
+  - In the worker file, a source that joins to a whole fixed string, such as `"@/infrastructure/db/" + "privileged"`, also passes; the other branch's test refuses it only in a feature.
+
+### Owner action 6: not done here
+
+The error page string ("Something failed on our side while we prepared this page. Try again." in `src/messages/system.ts`, from WP-1.4) is shown on `wp/5.1-catalog`'s failure screens, so the new wording ("We could not prepare this page. Try again.") belongs on that branch, with its screens retaken. That is another agent's branch, so this run did not edit it.
+
+### Task 2: still blocked
+
+Same as the sections below: every package that depends only on `origin/main` (WP-2.2, WP-3.1) already has another agent's branch. No branch was started.
+
+### Owner: run this
+
+1. Open or update the pull request for `origin/wp/fix-lint-template-import` (the other agent's branch). If you want the two worker-file forms above refused, tell that branch's agent.
+2. Apply owner action 6 on `wp/5.1-catalog`.
+
+## Session of 2026-11-24 (from about 15:24), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` is still 7875ee2 and already in `wp/7.3-operations`. No branch was merged since the run before.
+
+### Task 1 done: decision N marked approved
+
+- The owner's instruction of 2026-11-24 approves every recommended default in every pull request description. This run read it after part 5 wrote decision N (the 500,000 rate-limit trigger), so N is now approved.
+- ADR-0029's part 5 note and the usage runbook now say "approved by the owner on 2026-11-24" instead of "awaiting the owner's approval". `WP-7.3-part-5.md` says the same in its owner actions and its decision N.
+- `npm_config_verify_deps_before_run=false pnpm verify`: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`. pnpm printed `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` for its pre-run install; nothing was installed.
+- WP-7.3 has nothing left that this run can do: decision C needs two packages installed, decision E is the owner's patch, and the backup workflow waits for the CI `db` job to prove the `backup_reader` role.
+
+### Task 2: still blocked
+
+Same as the run before. `origin/main` has WP-1.1 to 1.4, WP-2.1, WP-6.1 part 1 and WP-6.2 part 1. The only packages that depend on nothing else are WP-2.2 (`origin/wp/2.2-sign-in`, 9717efb at 15:17) and WP-3.1 (`origin/wp/3.1-python-worker`, pull request #9), and both already have another agent's branch. Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or all of WP-6.1. No branch was started.
+
+- Checked again at about 17:50, 17:52, 17:53, 17:55, 17:56, 17:58, 17:59, 18:01, 18:02, 18:04, 18:05, 18:07, 18:09, 18:10, 18:12, 18:13, 18:15, 18:17, 18:18, 19:17, 19:19, 19:21, 19:22 and 19:23: `origin/main` still 7875ee2 and already in `wp/7.3-operations`; no branch moved since 15:26 except other agents' `origin/wp/5.1-catalog` (now 7a57d81, not merged, not touched); `gh pr list` still fails with the same TLS error; the dependencies in `docs/spec/08-delivery-plan.md` re-read and unchanged (WP-7.1, 7.2, 7.4, 7.5 and 8.1 are passes over the finished site, so they wait for the packages before them). Still blocked, no code changed. The 18:10, 18:12, 18:13, 18:15, 18:17, 18:18, 19:17, 19:19, 19:21, 19:22 and 19:23 runs stopped here, as the instructions say for a blocked task; they did not loop. Committed but not pushed, to save a Vercel build; the next push of this branch carries it.
+
+### Owner: run this
+
+1. The three owner actions of the 15:08 section below are still due: apply the Deploy patch, decide how to install the analytics packages (decision C), and open or update the WP-7.3 pull request with the `spec-change` label and `WP-7.3-part-{1,2,3,4,5}.md` as its body.
+2. Merge WP-2.2 or WP-3.1, and the next run can start a package.
+
+## Session of 2026-11-24 (from about 15:20), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` is still 7875ee2 and already in `wp/7.3-operations`. No other branch was merged since the run before.
+
+### Task 1 done: WP-7.3 part 5 (the rate-limit trigger)
+
+- The one item of "What is left for WP-7.3" that needed nobody else: ADR-0029 had no trigger for the 1,000,000 allowed requests of the firewall's rate-limit rule (E-23), which NFR-COST-02 asks for. Added at 500,000 (decision N, awaiting the owner's approval), with the usage runbook row.
+- Reading Vercel's pages again found that neither states the period of that amount or what happens when it runs out; `07-operations.md` section 7 said "a month". E-23 and section 7 now say so.
+- `npm_config_verify_deps_before_run=false pnpm verify`: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`.
+- Description: `docs/reports/pull-requests/WP-7.3-part-5.md`. Documents only; no reviewer asked.
+
+### Task 2: still blocked
+
+Same as the run before: every package that depends only on `origin/main` (WP-2.2, WP-3.1) already has another agent's branch, and every other one depends on a package not in `main` (checked with `git merge-base --is-ancestor` at about 15:20). No branch was started.
+
+### Owner: run this
+
+1. Decide N in `WP-7.3-part-5.md`.
+2. The three owner actions of the 15:08 section below are still due; the pull request body now also takes `WP-7.3-part-5.md`.
+
+## Session of 2026-11-24 (from about 15:08, after the owner's decisions of 2026-11-24), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` is still 7875ee2 and already in `wp/7.3-operations`. The owner approved every recommended default (see the task list); for WP-7.3 that is decisions A to H.
+
+### Task 1 done: WP-7.3 part 4 (the approved decisions)
+
+- An earlier run had committed part 4's code and spec text (c3a42ac, 0efc4f3, 024c6d3) but not its description or reviews. This run reviewed and finished it.
+- Decision A (the browser sends its bundle's release), B and D (spec text, marked approved by the owner on 2026-11-24), and E as a patch for the owner: `docs/reports/pull-requests/WP-7.3-deploy-dispatch.patch`. Description: `docs/reports/pull-requests/WP-7.3-part-4.md`; parts 1 to 3 now say which decisions the owner approved.
+- `code-reviewer` round 5: CHANGES REQUIRED, two majors: `HEAP_RELEASE` stayed a server variable against decision A (a), and the pull request command lacked the `spec-change` label. `security-reviewer` round 7: APPROVE, three minors. All fixed or listed, not reviewed again. Reports: `docs/reports/reviews/WP-7.3/code-review-5.md` and `security-review-7.md`.
+- The rename to `NEXT_PUBLIC_HEAP_RELEASE` is in the owner's patch, not on the branch, because `deploy.yml` sets the variable and must change in the same commit (decision I). The patch also skips a Deploy run from any branch but `main`.
+- `npm_config_verify_deps_before_run=false pnpm verify` on the branch: exit 0, `Test Files  34 passed (34)`, `Tests  746 passed (746)`. With the patch applied: exit 0, 34 files, 747 tests. pnpm's pre-run install failed on the store lock each time; nothing was installed (`pnpm-lock.yaml` unchanged).
+- Not run: the end-to-end suite, `pnpm test:db`, and `next build` on the patched tree.
+- Decision C (analytics) still waits: the two packages are not installed, and these runs may not install packages.
+
+### Task 2: still blocked
+
+`origin/main` has WP-1.1 to 1.4, WP-2.1, WP-6.1 part 1 and WP-6.2 part 1. The packages that depend only on those are WP-2.2 (`origin/wp/2.2-sign-in`) and WP-3.1 (`origin/wp/3.1-python-worker`, pull request #9), and both already have another agent's branch. Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or all of WP-6.1, none in `main` (checked with `git merge-base --is-ancestor`). No branch was started.
+
+### Owner: run this
+
+1. Read the patch, then on `wp/7.3-operations`: `git apply docs/reports/pull-requests/WP-7.3-deploy-dispatch.patch && pnpm verify`, then commit and push it yourself. It adds the manual Deploy run and finishes decision A.
+2. Decision C: `pnpm add @vercel/analytics @vercel/speed-insights`, and turn on Analytics and Speed Insights in Vercel.
+3. Open or update the WP-7.3 pull request with the `spec-change` label (commands at the end of owner actions in `WP-7.3-part-4.md`).
+
+## Session of 2026-11-24 (from about 13:57, after WP-2.1 merged), in `night-c`, on `wp/7.3-operations`
+
+`origin/main` moved to 7875ee2: WP-2.1 (pull request #12) is merged. That unblocked task 1 again.
+
+### Task 1 done: wp/7.3-operations up to date with main, and part 3 built
+
+- Merge commit 7e3cd88: `origin/main` (7875ee2) into `wp/7.3-operations`. One conflict, this file: kept every section of both copies; the new `night-b` section from `main` (from about 13:40) is placed above the other `night-b` sections, and the 2026-11-23 23:25 `night-b` section takes `main`'s newer, shortened copy. `pnpm verify`: exit 0, 32 files, 739 tests.
+- WP-7.3 part 3: the `backup_reader` role of ADR-0030 (`supabase/migrations/20261124120000_backup_reader.sql`) and 18 pgTAP tests that pin it (`supabase/tests/database/06_backup_reader.test.sql`). ADR-0030 says the role must be proved before the backup workflow is built, so the workflow is not in this part.
+- **Not run: `pnpm test:db`** (no Docker, no `psql` here). The migration and the tests have not run anywhere yet; the CI `db` job is their first run.
+- Two `security-reviewer` rounds: round 5 CHANGES REQUIRED (2 majors, 4 minors, fixed), round 6 APPROVE. One line added after round 6 (the `maintain` check) is unreviewed. Reports: `docs/reports/reviews/WP-7.3/security-review-5.md` and `-6.md`.
+- `pnpm verify` after part 3: exit 0, 32 files, 739 tests.
+- Description: `docs/reports/pull-requests/WP-7.3-part-3.md`, with default decisions F (role created without login), G (new `auth` tables need a new grant, caught by the test) and H (`maintain` checked from Postgres 17 only).
+- The task took about 11 minutes (13:57 to 14:08), so this run goes on to task 2 after the push.
+
+### Task 2 blocked: no package to start without duplicating another agent
+
+With WP-2.1 in `main` (7875ee2), two packages depend only on `main`, and both already have a branch another agent is working on:
+
+- WP-2.2 (depends on WP-1.4; needs WP-2.1's `profiles` trigger, now in `main`): `origin/wp/2.2-sign-in` at 79c8dc7, last commit 13:44 today, 1 commit behind `main`. `night-b` keeps it current in its stack.
+- WP-3.1 (depends on WP-1.3): `origin/wp/3.1-python-worker` at 01a141a, last commit 14:04 today, up to date with `main`; draft pull request #9.
+
+Every other package depends on WP-2.2, 2.3, 3.x, 4.x, 5.x or 6.1, none of which is in `main` (checked with `git rev-list` and `git merge-base`). WP-7.3's backup workflow waits for the CI `db` job to prove the `backup_reader` role. No branch was started. This note is committed on `wp/7.3-operations` but not pushed, to save a Vercel build; the next push of this branch carries it.
+
+### Owner: run this
+
+1. Open or update the WP-7.3 pull request with all three parts (command at the end of `WP-7.3-part-3.md`), so the CI `db` job runs the new migration and tests.
+2. If the `db` job fails at `supabase start` on `create role ... bypassrls` or on the `auth` grants, the role cannot be made as ADR-0030 says; decide before the backup is built.
+3. Do not turn on login for `backup_reader` yet.
+
+## Session of 2026-11-24 (run after the owner noted pull request #10 in `main`), in `night-c`, on `wp/7.3-operations`
+
+Task 1 done as far as it can go: `wp/7.3-operations` now contains `origin/main` at 81fdc39. Task 2 is still blocked.
+
+- Merged `origin/main` (81fdc39, pull request #10) into `wp/7.3-operations`. The only conflict was this file (both sides added it). Resolved by keeping every section from both sides: the header, then this branch's `night-c` and `night-b` sections, then the sections from `main`. The 21 sections both copies already shared appear once (checked with `diff`: identical). Sections are grouped by source, so they are not in strict time order across agents.
+- `pnpm verify` on the merged tree: exit 0, `Test Files  31 passed (31)`, `Tests  731 passed (731)`. pnpm printed a warning that its pre-run install failed (no package install is allowed here); the run itself passed.
+- WP-7.3 itself cannot go further: every remaining part in "What is left for later parts of WP-7.3" of `docs/reports/pull-requests/WP-7.3-part-2.md` still needs decision C, WP-2.1 in `main`, or the owner.
+- Task 2: `main` has WP-1.1 to 1.4, WP-6.1 part 1, WP-6.2 part 1 and the smoke fix. Every package that depends only on those already has an open pull request (WP-2.1 #12, WP-3.1 #9, WP-6.3 #11). Every other package in `docs/spec/08-delivery-plan.md` depends on WP-2.1, 2.2, 2.3, 3.1, 4.x or 5.x, none of which is in `main` (checked with `git merge-base --is-ancestor`). WP-7.1 and WP-7.2 review the whole application, so they wait too. No new branch was started.
+
+- Checked again in four later runs on 2026-11-24 (the last at about 13:55, with no branch moved since the run before; the one before it, after `origin/wp/4.3-validate-publish` moved to 608ff07 and `origin/wp/5.1-catalog` to abf86db, neither merged; an earlier one also re-read the Day 6 to Day 8 dependencies in `docs/spec/08-delivery-plan.md`; WP-7.4, 7.5 and 8.x need the full journey suite or every earlier package): `origin/main` still 81fdc39 and already in `wp/7.3-operations`; WP-2.1, 2.2, 3.1 and 6.3 still not in `origin/main`; `gh pr list` still fails with the same TLS error. Still blocked, no code changed. This note was committed but not pushed, to save a Vercel build for a change with no new work.
+
+### Owner: run this
+
+- Merge WP-2.1 (#12) or WP-3.1 (#9), or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+- `wp/7.3-operations` no longer conflicts with `main`. `wp/6.3-legal-pages-footer` still will, in this file only.
+
+## Session of 2026-11-24 (run after `main` moved to 81fdc39), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` moved from 0efe863 to 81fdc39 (pull request #10, `wp/fix-smoke-and-runtime`). That change touches the CSP end-to-end test, `scripts/infra-verify.mjs`, build ignores and reports. It merges no WP-2.x, 3.x, 4.x or 5.x package, so it unblocks nothing in Days 6 and 7.
+- Checked with `git merge-base --is-ancestor`: `wp/2.1-schema-policies`, `wp/2.2-sign-in`, `wp/4.3-validate-publish`, `wp/3.1-python-worker`, `wp/6.3-legal-pages-footer` and `wp/7.3-operations` are all still not in `origin/main`.
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- Checked again in three later runs on 2026-11-24, the last at about 13:47: `origin/main` still 81fdc39, and `docs/spec` and `docs/adr` are unchanged since 0efe863. Only other agents' branches moved (`origin/wp/2.1-schema-policies` 9077917 to 57903a0; `origin/wp/2.2-sign-in` 6318e45 to 79c8dc7; `origin/wp/3.1-python-worker` to 5db3d1a; `origin/wp/3.3-grader` to dd6ebeb; `origin/wp/3.4-statechart` to 915c1c3; not merged, not touched). `git merge-base --is-ancestor` confirms WP-2.1, 2.2, 2.3, 3.1, 4.3 and 5.1 are not in `origin/main`. Still blocked, no code changed.
+- `main` now carries its own copy of this file (811 added lines from other agents' sessions). The copies on `wp/6.3-legal-pages-footer` and `wp/7.3-operations` will conflict with it in this file only. Not merged here: the owner decides how to combine the reports.
+
+### Owner: run this
+
+- Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+- Before merging `wp/6.3-legal-pages-footer` or `wp/7.3-operations`, expect a conflict in `docs/reports/local-build-progress.md` only.
+
+## Session of 2026-11-24 (run after "next run after the 03:25 chain"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved since the last run (it is at abf73dc; another agent's branch, not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the "later run" sections below still holds.
+- Checked again in 207 later runs on 2026-11-24, the last one at about 13:40 with `origin/wp/5.1-catalog` at 84d757c, `origin/wp/3.1-python-worker` at 76f6fd3, `origin/wp/3.4-statechart` at 1987e99 and `origin/wp/3.3-grader` at d7633c7. Every time: `origin/main` still 0efe863; only other agents' branches moved (`wp/5.1-catalog`, `wp/3.1-python-worker`, `wp/3.3-grader`, `wp/3.4-statechart`, and `wp/fix-smoke-and-runtime` at 27ce416; not merged, not touched); `gh pr list` failed with the same TLS error. Still blocked, no code changed. The one-line notes from those runs were folded into this line so the file stays readable.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (next run after the 03:25 chain), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (5294748 to abf73dc, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The "What is left for later parts of WP-7.3" section of `docs/reports/pull-requests/WP-7.3-part-2.md` was read again: every remaining part still needs decision C, WP-2.1, or the owner.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "run after "run after 03:25""""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. No branch moved this time (`origin/wp/5.1-catalog` is still 5294748; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the "later run" sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "run after 03:25"""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (6b94762 to 5294748, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the "later run" sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after 03:25""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (c9f695d to 6b94762, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the "later run" sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after 03:25"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (a926373 to c9f695d, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the "later run" section below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after 03:25), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (0bcf9a1 to a926373, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the "later run" section below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "run after "one more run after the previous blocked run""""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (25a3101 to 0bcf9a1, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "one more run after the previous blocked run"""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (04848a7 to 25a3101, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "one more run after the previous blocked run""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (ad4431f to 04848a7, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "one more run after the previous blocked run"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (d928068 to ad4431f, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The "What is left for later parts of WP-7.3" section of `docs/reports/pull-requests/WP-7.3-part-2.md` was read again: every remaining part needs decision C, WP-2.1, or the owner. The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (one more run after the previous blocked run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `origin/wp/5.1-catalog` is at d928068 (another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (another run after the previous blocked run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (0ae96ae to d928068, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after the previous blocked run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (23ed9e6 to 0ae96ae, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "run after "a later run""""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (3478f31 to 23ed9e6, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "a later run"""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (6051c1e to 3478f31, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "a later run""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (13beeed to 6051c1e, another agent's branch; not touched).
+- `gh pr list` still fails here (`tls: failed to verify certificate: x509: OSStatus -26276`), so decision C could not be checked in pull request comments.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "a later run"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `origin/wp/5.1-catalog` is now 13beeed (another agent's branch; not touched).
+- `gh pr list` failed here (`tls: failed to verify certificate: x509: OSStatus -26276`), so pull request comments could not be checked for decision C.
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (a later run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (c8bc28c to 52d190f, another agent's branch; not touched).
+- Nothing in `main` changed, so the dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (one run after the last), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (4afbb30 to c8bc28c, another agent's branch; not touched).
+- The dependency lines in `docs/spec/08-delivery-plan.md` were checked again. The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after "run after next run after that"""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (8b3ebc1 to 4afbb30, another agent's branch; not touched).
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after "run after next run after that""), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. No remote branch moved since the run below.
+- Days 6 and 7 of `docs/spec/08-delivery-plan.md` and the "left for later parts" section of `docs/reports/pull-requests/WP-7.3-part-2.md` were read again. The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "run after next run after that"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (5488020 to 8b3ebc1, another agent's branch; not touched).
+- The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "next run after that"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (04dc02b to 5488020, another agent's branch; not touched).
+- Days 6 and 7 of `docs/spec/08-delivery-plan.md` were read again. The dependency list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (next run after that), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (cd1cbae to 04dc02b, another agent's branch; not touched).
+- Days 6 and 7 of `docs/spec/08-delivery-plan.md` were read again. WP-6.3 part 2 needs WP-2.1 and WP-2.2; WP-6.4 needs WP-4.3; the rest of WP-7.3 needs decision C or WP-2.1 (the `backup_reader` role) and the owner's `age` public key; WP-7.1, 7.2 and 7.4 check the whole application; WP-7.5 needs the four Day 7 packages merged.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after "the run after one run later"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (1d00004 to cd1cbae, another agent's branch; not touched).
+- The dependency lines in `docs/spec/08-delivery-plan.md` were checked again. The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (the run after "one run later"), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (9a06b10 to 1d00004, another agent's branch; not touched).
+- The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (one run later), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (ed46532 to 9a06b10, another agent's branch; not touched).
+- The dependency lines in `docs/spec/08-delivery-plan.md` were checked again. The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (run after that), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (cc5b327 to ed46532, another agent's branch; not touched). `wp/2.1-schema-policies` (9077917), `wp/2.2-sign-in` (6318e45), `wp/2.3-admin-gate` (07391a2) and `wp/4.3-validate-publish` (5a0d975) are not in `main`.
+- The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (next run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `wp/2.1-schema-policies` (9077917), `wp/2.2-sign-in` (6318e45), `wp/4.3-validate-publish` (5a0d975) and `wp/5.1-catalog` (cc5b327) are not in `main`.
+- Dependencies in `docs/spec/08-delivery-plan.md` were checked again: WP-6.3 part 2 needs WP-2.1 and WP-2.2, WP-6.4 needs WP-4.3, WP-7.x needs WP-2.x to 5.x or decision C. The list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (one more run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (41cc266 to cc5b327, another agent's branch; not touched).
+- WP-6.3, 6.4 and 7.1 to 7.5 in `docs/spec/08-delivery-plan.md` were read again. The logger's allowlist tests already exist in `main` (`src/infrastructure/logging/logger.test.ts`), so that WP-7.3 item needs no new part. The rest of the list in the sections below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (a further run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Still blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (38566c1 to 41cc266, another agent's branch; not touched).
+- Days 6 and 7 of `docs/spec/08-delivery-plan.md` were checked again. WP-6.3 part 1 and WP-7.3 parts 1 and 2 are done. Everything left needs WP-2.1, WP-2.2, WP-4.3 or the rest of WP-2.x to 5.x, or the owner's decision C on analytics.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (another run), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Blocked for the same reason as the two runs below: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. Only `origin/wp/5.1-catalog` moved (another agent's branch; not touched).
+- WP-7.3 in `docs/spec/08-delivery-plan.md` was read again. Its parts that need nothing unmerged (client error report, two runbooks) are done; analytics waits on decision C; backups, restore and the deletion runbook wait on WP-2.1 (and WP-6.3 part 2). WP-6.3 part 2 waits on WP-2.1 and WP-2.2. WP-7.1, 7.2, 7.4 and 7.5 wait on WP-2.x to 5.x.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (from 00:55), in `night-c`, on `wp/7.3-operations`
+
+Same task list. Blocked for the same reason as the run below: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `wp/7.3-operations` matched its remote (b5e3a8d) before this note.
+- The plan was read again (`docs/spec/08-delivery-plan.md`, Days 6 and 7). Every package left needs an unmerged WP-2.x, 3.x, 4.x or 5.x, or the owner's decision C on analytics. The list in the section below still holds.
+
+### Owner: run this
+
+- Nothing new. Merge WP-2.1, WP-2.2 or WP-4.3, or decide C in `docs/reports/pull-requests/WP-7.3-part-2.md`, and the next run can start a package.
+
+## Session of 2026-11-24 (later run), in `night-c`, on `wp/7.3-operations`
+
+Same task list as the sessions below. Blocked: no new work package can start. No code was changed.
+
+- `git fetch`: `origin/main` is still 0efe863. `wp/2.1-schema-policies`, `wp/2.2-sign-in` and `wp/4.3-validate-publish` are not in `main`.
+- Already done on their branches: WP-6.3 part 1, WP-7.3 parts 1 and 2. `wp/7.3-operations` matches its remote (89250fa).
+- What is left, and what each needs:
+  - WP-6.3 part 2 (profile, display name, account deletion): WP-2.1 and WP-2.2.
+  - WP-6.4: WP-4.3.
+  - WP-7.1, 7.2, 7.4: they check the whole application, so they need WP-2.x to 5.x.
+  - WP-7.3 analytics: the owner's decision C in `docs/reports/pull-requests/WP-7.3-part-2.md` (installing packages is not allowed in these runs).
+  - WP-7.3 backup workflow, restore drill script, restore and deletion-request runbooks: WP-2.1 (and WP-6.3 part 2 for deletion).
+  - WP-7.5: the four Day 7 packages merged. Day 8: everything before it.
+- Not done on purpose: a fifth review round of the WP-7.3 round 4 fixes (e4638f2). That is not a new package; the owner can ask for it.
+
+### Owner: run this
+
+- The steps in the two sessions below are still due. A new package can start here only after WP-2.1, WP-2.2 or WP-4.3 merges, or after decision C.
+
+## Session of 2026-11-24 (from 00:25), in `night-c`, on `wp/7.3-operations`
+
+Same task list as the sessions below. WP-6.3 part 1 and WP-7.3 part 1 were already done, so this run did WP-7.3 part 2 on the same branch. `origin/main` is still 0efe863.
+
+### WP-7.3 part 2 done: two runbooks, `wp/7.3-operations`
+
+- Scope: `docs/runbooks/rotate-a-secret.md` and `docs/runbooks/usage-spike-or-free-tier-limit.md`, plus two small corrections in `deploy-and-rollback.md` (where an expired Vercel token fails) and `infrastructure-setup.md` (deactivate Supabase's legacy keys; account deletion is WP-6.3). Every vendor step was checked against current vendor documentation; each runbook lists its sources and what was not confirmed.
+- Analytics **not built**: Vercel's documented HTML snippet needs a per-build script path that only its npm packages know, and installing packages is not allowed in these runs. Decision C in the description.
+- Commits: 1590d7b (runbooks), abe78e3, 2ce4040, e4638f2 (review fixes), then the description and this file.
+- `pnpm verify` exit 0 after each round (31 files, 722 tests). One unexplained exit 1 in a reviewer's run on 2ce4040; four other runs there and three `pnpm test` runs on e4638f2 passed.
+- Reviews in `docs/reports/reviews/WP-7.3/` (rounds 2 to 4 of `code-review-*` and `security-review-*`): every round CHANGES REQUIRED, every finding fixed; the round 4 fixes (e4638f2) were not reviewed again. No design review: no interface change.
+- Push: succeeded, `9638f9a..5a85da1`. This line is pushed after it.
+- Description: `docs/reports/pull-requests/WP-7.3-part-2.md`, with decisions C (analytics packages), D (spec drift for one `spec-change`: Attack Mode name, missing triggers, `RUNTIME_ASSET_BASE_URL`, a new evidence entry) and E (`workflow_dispatch` for `deploy.yml`), and the `gh` commands to open the pull request with both parts.
+
+### Owner: run this
+
+1. **Now**: deactivate the legacy `anon` and `service_role` keys in both Supabase projects (`rotate-a-secret.md` section 4 steps 1 to 3).
+2. Decide C, D and E in `docs/reports/pull-requests/WP-7.3-part-2.md`.
+3. The part 1 steps below are still due; then open the pull request with the command at the end of the part 2 description.
+
+### Next
+
+- WP-7.3 analytics after decision C. The backup workflow, restore and deletion request runbooks, and the backup secrets' rotation sections after WP-2.1 (and WP-6.3 part 2) merge.
+- No other Day 6 or Day 7 package depends only on `main` (see the 23:40 session's "Next"). The next run should check `origin/main` first; if nothing has merged, there is no new package to start under this task list.
+
+## Session of 2026-11-24 (from 00:05), in `night-c`, on `wp/7.3-operations`
+
+Same task list as the session below. This file is the copy from `origin/wp/6.3-legal-pages-footer` (00:02) with this section added. Other agents' branches (`wp/3.1-python-worker`, `wp/3.3-grader`, `wp/5.1-catalog`) hold newer copies with their own sections; nothing of theirs is copied here.
+
+`night-c` was on `wp/6.3-legal-pages-footer` (32ca827, same as its remote). `origin/main` is still 0efe863.
+
+### WP-7.3 part 1 done: the client error report, `wp/7.3-operations`
+
+- Chosen because WP-6.3 part 2 needs WP-2.1 and WP-2.2, and of the Day 7 packages only WP-7.3 has work that needs nothing unmerged (see "Next" in the session below). The branch was created from `origin/main` with its upstream removed, so a bare `git push` cannot target `main`.
+- Scope: `POST /api/client-error`, the reporter port and its adapter, the error page's reference for a browser error, a development page for that state, and tests. Not in this part: analytics, backups, runbooks.
+- Commits: 7845ed8 (endpoint, reporter, error page, tests), 67a2dab (review round 1 fixes), then the reports, description and this file.
+- `pnpm verify` on the tree of 67a2dab: exit 0, 31 files, 722 tests. `next build` exit 0 (no `/dev` route); `check-bundle` (with `HEAP_RELEASE` set to a SHA) and `check-static` exit 0. curl against `next start -p 3733`: 204 with `x-request-id`, 400, 415, 413, 405, and the log line holds no address or query.
+- Not run: every e2e test (Chromium cannot launch here, as before). No screenshots, no axe.
+- Reviews in `docs/reports/reviews/WP-7.3/`: code CHANGES REQUIRED (blocker: the release comes from the server, not the browser as the spec says; owner decision A), security APPROVE with 5 minors, design CHANGES REQUIRED (no screens). Every other major is fixed; the fixes were not reviewed again.
+- Description: `docs/reports/pull-requests/WP-7.3-part-1.md`, with its `gh pr create` command and owner decisions A (release) and B (the `spec-change` text for the reference).
+- Servers the sandbox could not stop: `next start -p 3733` (this session) and `-p 3217` (the security reviewer).
+
+### Owner: run this
+
+1. Outside the sandbox: `pnpm test:e2e --project=chromium e2e/client-error.spec.ts e2e/shell.spec.ts`, then the `gallery` and `phone` projects; commit `docs/reports/screens/WP-7.3/`; ask `design-reviewer` again with the screens.
+2. Decide A and B in the description.
+3. `lsof -ti tcp:3217,3733 | xargs kill`.
+4. Open the draft pull request with the command at the end of the description.
+
+### Next
+
+- WP-7.3 part 2 on `main` alone: the runbooks for rotating a secret and for a usage spike or free-tier limit; analytics, which needs either the host's package (not installed; installing is not allowed in these runs) or its script under the nonce policy, so the next run checks the current documentation and may stop at a decision.
+- WP-7.3 backups and restore after WP-2.1 merges. WP-6.3 part 2 after WP-2.1 and WP-2.2.
+
+## Session of 2026-11-23 (from 23:40), in `night-c`, on `wp/6.3-legal-pages-footer`
+
+Task list: build new work packages that depend only on `origin/main` (0efe863: WP-1.1 to 1.4, 6.1 part 1, 6.2 part 1), in plan order from WP-6.3, then any WP-7.x whose dependencies are all in `main`; one part per run. This file is kept whole; this section is added to the newest copy (from `origin/wp/5.1-catalog` at 23:58).
+
+`night-c` was on the local branch `wp/4.2-lesson-editor` (be24f80, already contained in `origin/wp/4.2-lesson-editor`). The worktree now has `wp/6.3-legal-pages-footer` checked out, so `wp/4.2-lesson-editor` is free to check out in `night-a`. Nothing was lost.
+
+### WP-6.3 part 1 done: the privacy and terms pages and the footer, `wp/6.3-legal-pages-footer`
+
+- Scope: `/privacy`, `/terms` and the footer (`contentinfo`, on every page, the current link marked). The profile, display name and account deletion need WP-2.1 and WP-2.2, so they are part 2, after those merge.
+- Commits: c7fcaf7 (pages, footer, tests), 9872009 (round 1 fixes), 660ffdc (round 2 fixes), then the reports and description.
+- `pnpm verify` on 660ffdc: exit 0, 28 files, 718 tests. `next build` exit 0; `check-static` and `check-bundle` exit 0; the served HTML checked with curl.
+- Not run: every e2e test. The sandbox stops Chromium at launch (`mach_port_rendezvous_mac.cc:159 ... Permission denied (1100)`), so there are no screenshots and no axe result. `next dev` also fails here (`TurbopackInternalError: unable to start FSEvent stream`). Port 3100 is held by a server this session did not start, so the build was served on 3631 (stopped).
+- Reviews in `docs/reports/reviews/WP-6.3/`: code 1, design 1 and code 2 all CHANGES REQUIRED; each blocker is the missing browser run; every other finding is fixed or listed as an owner action. The round 2 fixes were not reviewed again.
+- The legal text was checked against Supabase's and Vercel's current documentation; it lists four things the spec's data inventory leaves out, and the description proposes the `spec-change`.
+- Description: `docs/reports/pull-requests/WP-6.3-part-1.md`, with its `gh pr create` command. Eight owner actions, among them approving the text and deciding when it goes live.
+- The first `git push` answered `! [remote rejected] wp/6.3-legal-pages-footer -> wp/6.3-legal-pages-footer (failed)`; the same push a moment later succeeded.
+
+### Owner: run this
+
+1. Outside the sandbox: `pnpm test:e2e --project=chromium e2e/legal.spec.ts e2e/shell.spec.ts`, then the `gallery` and `phone` projects; commit `docs/reports/screens/WP-6.3/`; then ask `design-reviewer` with the screens.
+2. Read and approve the privacy and terms text, and the owner actions 2 to 8 in the description.
+3. Open the draft pull request with the command at the end of the description.
+
+### Next
+
+- WP-7.x: no Day 7 package depends only on `main`. WP-7.1, 7.2 and 7.4 check the whole application, which needs WP-2.x to 5.x. WP-7.3's backup workflow needs the database (WP-2.1). Its `/api/client-error` route, client reporter and logger allowlist tests could be a part 1 on `main` alone; the next run decides after reading WP-7.3 in full.
+- WP-6.3 part 2 after WP-2.1 and WP-2.2 merge.
 
 ## Session of 2026-11-26 (late afternoon), on `wp/6.4-export-import`: `wp/6.3-stack-legal` at b6fa870 merged in
 

@@ -22,7 +22,7 @@ The owner wants the project to cost nothing except the domain. The original plan
 - **Email**: Resend free, connected to Supabase as the custom sender.
 - **Rate limits**: the one WAF rate-limit rule a Hobby project allows covers every path, including `/runtime/*`, by network address. Per-action limits on `POST` come from the Postgres counters of `07-operations.md` section 7. The counter table denies by default and is written only by a `security definer` function in `private`, keyed on the platform's client address.
 - **Preview deployments**: Vercel's Git Fork Protection is on. Previews require Vercel Authentication (standard deployment protection). Staging is seeded with no admin row and no credential that exists in the repository.
-- **Deliberate exhaustion**: an attacker can use up a free-tier limit on purpose (T-25). The responses are the rate-limit rule, Vercel's Attack Challenge Mode in the usage-spike runbook, browser access to the database limited to what the app calls, and a project-wide email cap of 20 an hour. The owner accepts what remains.
+- **Deliberate exhaustion**: an attacker can use up a free-tier limit on purpose (T-25). The responses are the rate-limit rule, Vercel's Attack Mode (formerly Attack Challenge Mode) in the usage-spike runbook, browser access to the database limited to what the app calls, and a project-wide email cap of 20 an hour. The owner accepts what remains.
 - **Usage alerts** replace spend alerts. Every vendor's usage page is checked in the morning review, and each vendor's usage notification is turned on where it exists.
 
 ## Triggers to move off a free tier
@@ -30,9 +30,14 @@ The owner wants the project to cost nothing except the domain. The original plan
 | When | Do |
 |---|---|
 | Anything is sold or advertised through the site, or Vercel says the project is commercial | Move to Vercel Pro |
-| Any Vercel Hobby monthly figure passes 50 percent: 100 GB fast data transfer, 1,000,000 function invocations, 4 active CPU-hours | Move to Vercel Pro, or point `RUNTIME_ASSET_BASE_URL` at a host with no egress fees when transfer is the cause |
-| The production project ever pauses, the database passes 400 MB, or egress passes 50 percent of 5 GB | Move production to Supabase Pro |
-| Email sends pass 80 of the 100 a day | Move to a paid email plan before the next campaign |
+| Any Vercel Hobby monthly figure passes 50 percent: 100 GB fast data transfer, 10 GB fast origin transfer, 1,000,000 function invocations, 4 active CPU-hours, 360 GB-hours of provisioned memory, 1,000,000 CDN requests, 1,000,000 allowed requests of the firewall's rate-limit rule | Move to Vercel Pro, or, when transfer is the cause, point `RUNTIME_ASSET_BASE_URL` at a host with no egress fees, with a `security-reviewer` review because the page and worker script policies follow it |
+| The production project ever pauses, the database passes 400 MB, egress passes 50 percent of 5 GB, or monthly active users pass 40,000 | Move production to Supabase Pro |
+| Email sends pass 80 of the 100 a day, or 1,500 of the 3,000 a month | Move to a paid email plan before the next campaign |
+| GitHub Actions artifact storage passes 250 MB of the 500 MB | Shorten the backup retention or revisit ADR-0030 |
+
+Amended on 2026-11-24 (approved by the owner on 2026-11-24, WP-7.3 decision D): the Vercel row names every Hobby figure, the Supabase row adds the monthly active users trigger of `07-operations.md` section 9.2, and the Resend month and GitHub artifact storage rows are new, each at half the free amount. Vercel's figures are in E-23 and E-27. The runtime clause adds the security review: a runtime on another origin changes the script policies and T-13's "served by us". The deliberate exhaustion line uses Vercel's current name, Attack Mode.
+
+Amended on 2026-11-24 (WP-7.3 part 5, decision N, approved by the owner on 2026-11-24): the Vercel row adds the 1,000,000 allowed requests of the one rate-limit rule of a Hobby project, at half like the other figures. Vercel states neither the period of that amount nor what happens when it is used up (E-23, checked again on 2026-11-24); the trigger reads it as a month, like the other Hobby figures.
 
 ## Consequences
 
@@ -56,7 +61,7 @@ The owner wants the project to cost nothing except the domain. The original plan
 
 ## Evidence
 
-E-11, E-13, E-14, E-23, E-24, E-25, E-26 in `docs/spec/09-evidence.md`.
+E-11, E-13, E-14, E-23, E-24, E-25, E-26, E-27 in `docs/spec/09-evidence.md`.
 
 ## Revisit when
 

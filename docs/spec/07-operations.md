@@ -82,11 +82,11 @@ flowchart LR
 
 ### 4.1 Logs
 
-Structured JSON on the server: request ID, action or route, outcome code, duration. No email, name, or learner code (NFR-PRIV-03). A server error is logged with its digest next to the request ID, and the error page shows the digest so a learner can quote it (NFR-OBS-01). A browser error shows no reference until `/api/client-error` exists.
+Structured JSON on the server: request ID, action or route, outcome code, duration. No email, name, or learner code (NFR-PRIV-03). A server error is logged with its digest next to the request ID, and the error page shows the digest so a learner can quote it (NFR-OBS-01). A browser error shows the request ID of its report to `/api/client-error` once the report is stored, and no reference if the report fails (approved by the owner on 2026-11-24, WP-7.3 decision B).
 
 ### 4.2 Errors
 
-Server errors are logged with the request ID and the release version. Client errors are sent to `/api/client-error` with the release version, the route, and a short error code: runtime failed to load, worker crashed, an unexpected exception. No message text from learner code is sent.
+Server errors are logged with the request ID and the release version. Client errors are sent to `/api/client-error` with the release version, the route, and a short error code: runtime failed to load, worker crashed, an unexpected exception. No message text from learner code is sent. The release is the browser bundle's, inlined at build as `NEXT_PUBLIC_HEAP_RELEASE`; the log line carries it as `clientRelease` next to the server's own `release`, so a tab still on an older bundle after a deploy is logged under the code it runs (approved by the owner on 2026-11-24, WP-7.3 decisions A and B).
 
 ### 4.3 Analytics
 
@@ -120,7 +120,7 @@ Starting values. Every write is also bounded by a database key or a size check, 
 | Each server action and report endpoint | 120 per minute per network address, lower for sign-in and deletion | Postgres counters in the action wrapper |
 | Report endpoints | Body at most 8 kB | Handler |
 
-A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests a month included (E-23). One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule on every path, and a small counter table in Postgres used by the action wrapper for per-action limits. The counter table follows T-14 in `06-security-privacy.md`. The action wrapper sends the client address with an HMAC made from a server-only secret; the counter function checks it against the same secret in Supabase Vault, so a direct call through the Data API with the public key cannot choose a key or write a row.
+A Hobby project has one rate-limit rule, which counts by network address in a fixed window, with 1,000,000 allowed requests included (E-23). Vercel does not state the period of that amount or what happens when it is used up; ADR-0029's trigger reads it as a month, like the other Hobby figures. One rule cannot carry every limit, so WP-7.1 builds both: the firewall rule on every path, and a small counter table in Postgres used by the action wrapper for per-action limits. The counter table follows T-14 in `06-security-privacy.md`. The action wrapper sends the client address with an HMAC made from a server-only secret; the counter function checks it against the same secret in Supabase Vault, so a direct call through the Data API with the public key cannot choose a key or write a row.
 
 Provider settings to configure in WP-2.2: Resend free as the custom email sender (the built-in one is limited to 2 emails per hour, E-11; Resend free allows 100 a day, E-26), the custom-sender hourly limit set to 20 (default 30, E-24) so one burst cannot use the whole day, sign-in rate limits, the bot challenge, code lifetime, and the email template that shows a code.
 

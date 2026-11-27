@@ -1,10 +1,11 @@
-import { RELEASE_LOCAL } from "@/infrastructure/env/schema";
+import { isRelease, RELEASE_LOCAL } from "@/domain/release";
 import { parseRequestId, type RequestId } from "@/infrastructure/http/request-id";
 import type { LogRoute } from "@/infrastructure/logging/route";
 
 // Structured JSON on the server, with an allowlist of fields
 // (.claude/rules/server.md, docs/spec/07-operations.md section 4.1): the
-// request ID, the route, an outcome code, the duration, and the release. No
+// request ID, the route, an outcome code, the duration, the release, and, on
+// a browser's error report, the release of the browser's bundle. No
 // field takes free text, so no email, name, learner code, or token can reach
 // a log line (NFR-PRIV-03, T-16).
 //
@@ -22,6 +23,8 @@ export type LogEntry = {
   /** A short code for what happened: `request`, `csp-violation:script-src-elem:inline`. */
   outcome: string;
   durationMs?: number;
+  /** The release of the browser bundle that sent an error report: a full commit SHA or `local`. */
+  clientRelease?: string;
 };
 
 export type Logger = (entry: LogEntry) => void;
@@ -45,7 +48,10 @@ function line(entry: LogEntry, time: string, release: string): Record<string, un
     outcome:
       typeof entry.outcome === "string" && OUTCOME.test(entry.outcome) ? entry.outcome : REJECTED,
   };
-  const { durationMs } = entry;
+  const { durationMs, clientRelease } = entry;
+  if (clientRelease !== undefined) {
+    fields["clientRelease"] = isRelease(clientRelease) ? clientRelease : REJECTED;
+  }
   if (typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0) {
     fields["durationMs"] = Math.round(durationMs);
   }
