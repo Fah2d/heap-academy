@@ -2,6 +2,14 @@
 
 Work done in sessions while the owner was away, and what is left for the owner to run. Newest first. The newest copy of this file is on the branch named in its first section.
 
+## Session of 2026-11-27, on `wp/7.3-operations`: `main` at 5dcc577 merged in
+
+- `main` merged in (d74d10b). Conflicts: `.env.example` (both sides kept), `csp-report.ts` (`main`'s counter name, with this branch's `read-capped.ts` import), and this file (union).
+- The `db` job's tests 6 to 8 of `06_backup_reader` still fail, and not from a missing grant on a 6.x table: every table of `public` and `private` is readable by `backup_reader` (0 missing on the local stack). All misses are in `auth`. `auth`'s ACL holds `postgres=U/supabase_admin`, with no grant option, and the 11 tables the auth service added give `postgres` no grant option either. This is decision P of `pull-requests/WP-7.3-part-6.md`, still the owner's; nothing was changed for it.
+- `pnpm verify` exit 0, 2853 tests. e2e as CI runs it (`supabase db reset` with `ACTION_COUNTER_KEY` exported, so Vault holds `action_counter_key`; the stack's keys from `supabase status`; `CI=true`; `--project=chromium --project=stack --project=gallery`): 248 passed, 1 skipped, exit 0. `pnpm test:db` after a clean reset: 446 tests, FAIL on tests 6 to 8 of `06_backup_reader` only.
+- `main`'s CI: the newest run (5dcc577) passed every job. Its earlier `unit` failures were the FR-RUN-04 timer test, fixed on `main` by a71998e; its earlier `e2e` failure was Docker Hub's `toomanyrequests` at stack start. `ci.yml` runs no Firefox or WebKit project. No `wp/fix-main-ci` branch was made.
+- Push: `wp/7.3-operations`, once.
+
 ## Session of 2026-11-26 (night), on `wp/7.4-journeys`: `main` at 23cfb4b, `wp/7.2-a11y-perf` at 376fba2 and `wp/7.4-journeys-part-2b` merged in
 
 - Fixed the two CI flakes, the admin gallery's fill before hydration and FR-RUN-04's 0 ms timer. Also fixed the page-weight and chapter-list races found on the way. Added `stack-firefox` and `stack-webkit` (`pull-requests/WP-7.4-part-3.md`).
